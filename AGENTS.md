@@ -38,7 +38,7 @@ Hackathon deadline: Cal Hacks submission Sun Oct 25 2026, 09:00 PDT. Tinker budg
   @ 54b2181), tau 0.65 (val-fitted). Alternatives: r2 @ 2e3e7bf, base `mlx-community/Qwen3.5-4B-4bit`.
   Quote router numbers on `evals/route_v1_clean.jsonl` (103 cases without near-duplicates in training data).
   Competitor benchmarks (HobbyLM sealed, DeskMind Bench) run ONLY with it2 or a later router whose overlap check is 0
-  for that set (it2: HobbyLM r4 clean; DeskMind diag 1 affected task -> report with and without it). Never run r1/r2
+  for that set (it2: HobbyLM r4 and DeskMind Bench 0 real overlaps after the CJK-aware gate). Never run r1/r2
   (main-final data: 12-15 near-duplicates per HobbyLM sealed round) on sealed sets.
 - Planner: base 4B-4bit, greedy, `prompts/planner_fewshot.md` (rules 16-18 + examples), DSL history, line-start op
   constraint, done-alone. 35B-A3B via `--planner-model` or `ESCALATE=1`. Offline planner bench: `evals/planner_offline.py`
