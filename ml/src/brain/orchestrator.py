@@ -725,9 +725,8 @@ class Orchestrator:
             ]
             for action in actions:
                 await self._calculator_act(action)
+            # This constant is code-authored read-back, not a model script.
             code = self._calculator_readback_script()
-            if self.script_needs_confirm("jxa", code):
-                raise RuntimeError("calculator read-back requires confirmation")
             result = await self._calculator_act(
                 {"op": "script", "lang": "jxa", "code": code},
                 return_result=True)
@@ -1073,8 +1072,7 @@ function run() {
         "com.apple.numbers", "numbers", "music", "calendar", "system events"}
     _SCRIPT_APPS_LIMITED = {"finder", "safari"}
     _READ_VERBS = re.compile(
-        r"\b(get|count|exists|reveal|open|windows|byName|uiElements|"
-        r"role|description|value)\b", re.IGNORECASE)
+        r"\b(get|count|exists|reveal|open)\b", re.IGNORECASE)
     _NUMBERS_OK = re.compile(
         r"set value|set background color|sort|make new table", re.IGNORECASE)
 

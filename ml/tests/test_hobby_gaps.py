@@ -63,6 +63,11 @@ def test_calculator_path_types_expression_and_reads_display(tmp_path):
         ]
         assert [a["combo"] for a in acts if a["op"] == "keys"][1:] == [
             "1", "1", "shift+=", "4", "="]
+        readbacks = [a for a in acts if a["op"] == "script"]
+        assert len(readbacks) == 1
+        assert readbacks[0]["lang"] == "jxa"
+        assert "function run()" in readbacks[0]["code"]
+        assert not server.confirms
         assert tracer.last["decisions"][-1]["calc_target"] == "calculator"
         assert tracer.last["calc_readback"] == "15"
         assert tracer.last["release_to_first_action_ms"] is not None
@@ -195,6 +200,17 @@ def test_calculator_script_is_valid_javascript_and_number_is_fixed():
         assert result.returncode == 0, result.stderr
     assert Orchestrator._calculator_number(1e14) == "100000000000000"
     assert Orchestrator._calculator_number(1 / 3) == "0.333333333333"
+
+
+def test_jxa_script_confirmation_matches_origin_main_examples(tmp_path):
+    orch, _, _ = _orchestrator(tmp_path)
+    assignment = (
+        'var x = Application("System Events").processes.byName("Calculator")'
+        '.windows[0]; x.value = "1";'
+    )
+    assert orch.script_needs_confirm("jxa", assignment) is True
+    assert orch.script_needs_confirm(
+        "jxa", Orchestrator._calculator_readback_script()) is True
 
 
 def _skill_engine(label, args=None):
