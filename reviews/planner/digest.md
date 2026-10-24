@@ -1,4 +1,8 @@
-# planner lane — pass 25 (main 7147694, wip 5764a0d = main in this lane, new cloud/grounder-wire afb12a6)
+# planner lane — pass 26 (main 04c3930, wip aec8fbf = main in this lane)
+
+Pass 26: no new findings. grounder-wire (#19) and pitch-3 (#18) are merged. The prompt now lists click "<description>" below skills, keyboard shortcuts and pressing elements, and rules 16-18 are in planner_fewshot.md. planner-26 is now on main. Calculator is at L977.
+
+## Pass 25 notes
 
 Pass 25: 1 new P2 (planner-26). main: holdout-2 (12 scenarios) was correctly written after holdout-1 was used to derive rules 16-18, so treat holdout-1 as tuning data from now on, and the bench now passes few_shot=None. grounder-wire: the `click "<target>"` DSL goes through a fresh screenshot and the grounder, with a confirm for dangerous labels and screenshots deleted afterwards; the DSL parse and serialize round-trip is consistent.
 
