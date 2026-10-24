@@ -1,12 +1,12 @@
 {
-  "pass": 22,
-  "ts": "2026-10-24T10:55:00Z",
+  "pass": 23,
+  "ts": "2026-10-24T11:10:00Z",
   "branches": {
-    "main": "26ff05b",
-    "wip/local": "2c79363",
+    "main": "d502b78",
+    "wip/local": "c7c04ce",
     "cloud/bench": "f584cb2",
-    "cloud/data-pipeline": "eae3b7e",
-    "cloud/decisions": "91a62c2",
+    "cloud/data-pipeline": "19737e1",
+    "cloud/decisions": "6d395df",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
     "cloud/finance-3": "31be399",
@@ -19,9 +19,9 @@
     "cloud/grounding": "3441ee8",
     "cloud/brain-2": "741465c",
     "cloud/brain-3": "14a3f52",
-    "cloud/hobby-gaps": "861b991",
+    "cloud/hobby-gaps": "156556e",
     "cloud/brain-4": "dfb66a3",
     "cloud/brain-5": "b752261"
   },
-  "notes": "pass22: hobby-gaps 861b991 merges main and moves Muselet timer grading to the timers RPC with timers_cancel teardown (bench-20 Muselet side fixed; HobbyLM side still ungradable). bench-21 unchanged. main 26ff05b: brain-5 merge, argfix, route parity reference for catalog v2 (training/artifacts); no bench/evals diff. decisions 91a62c2: reasoning-teacher gate + paraphrase in gen; decontam stage still runs on records_labeled (build.py:521), i.e. after paraphrase; fine. data-pipeline eae3b7e: plan doc only. wip/local: no lane diff. No new findings."
+  "notes": "pass23: main d502b78 merges hobby-gaps (PR #16) so bench-16/20/21 are now on main, all still open; plan() labels HobbyLM calc rows calculator_open_cleared (bench-21). New probe_session screen-lock skip is another per-run skip (bench-16). bench/tests main: 143 passed, 3 skipped, 1 failed (mlx import, env). data-pipeline 19737e1: evalcheck gate vs route_v1/live_t1 + main-final overlap report; main 8b9cd30 route_v1_clean \u2014 bench-18 partly addressed, external HobbyLM/DeskMind still unchecked. decisions 6d395df: spec amendment + mini-check tests, decontam unchanged. wip/local: no lane diff vs main. No new findings."
 }
