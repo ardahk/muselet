@@ -138,7 +138,6 @@ def test_parse_datetime_relative(text, iso):
     ("mute", "unmute, I'm on a call", False), ("mute", "audio on", False),
     ("wifi", "turn wifi off", False), ("wifi", "turn the wifi on", True),
     ("wifi", "turn the wifi off and back on", True),
-    ("wifi", "turn wifi on, it's off", True),
     ("bluetooth", "disable bluetooth", False),
     ("dark_mode", "switch to light mode", False),
     ("dark_mode", "dark mode on", True),
@@ -146,6 +145,12 @@ def test_parse_datetime_relative(text, iso):
 def test_bool_on_by_skill(orch, skill, text, want):
     assert orch._coerce_args(skill, {"on": not want}, utterance=text) == \
         {"on": want}
+
+
+def test_bool_on_conflicting_network_phrases_keep_model_value(orch):
+    assert orch._coerce_args(
+        "wifi", {"on": False}, utterance="turn wifi on, it's off") == {
+            "on": False}
 
 
 def test_bool_on_no_cue_keeps_model_value(orch):
@@ -341,6 +346,11 @@ def test_failure_copy(err, frag):
     assert s.endswith(("?", ".")) and not s.endswith(".?")
 
 
+def test_not_frontmost_failure_copy():
+    assert replies.fail_text("open_app", {}, "not_frontmost") == \
+        "Opened it, but it didn't come to the front"
+
+
 def test_skill_success_says_specific_reply(orch):
     run(orch.execute_actions([{"op": "skill", "name": "set_volume",
                                "args": {"level": 30}}]))
@@ -369,7 +379,7 @@ def test_confirm_summaries_never_none_or_dotq(orch):
         assert "None" not in s and ".?" not in s and len(s.split()) <= 12
     s = run(orch._confirm_summary({"op": "skill", "name": "move_to_trash",
                                    "args": {"path": "/Users/a/b/c/report.pdf"}}))
-    assert "report.pdf" in s and "/Users" not in s
+    assert s == "Move /Users/a/b/c/report.pdf to Trash?"
 
 
 def test_exception_shows_confused_bubble(orch):

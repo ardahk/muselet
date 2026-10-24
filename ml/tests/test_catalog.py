@@ -65,3 +65,17 @@ def test_datetime(cat):
     assert out["start"] == "2026-10-24T10:00:00"
     with pytest.raises(CatalogError):
         cat.validate_args("create_event", {"title": "x", "start": "whenever"})
+
+
+@pytest.mark.parametrize("value,want", [
+    ("600", 600), (600, 600), (600.5, 600),
+    ("10 minutes", 600), ("5", 5),
+])
+def test_duration_coercion(cat, value, want):
+    assert cat.validate_args("start_timer", {"duration": value}) == {
+        "duration": want}
+
+
+def test_duration_rejects_bool(cat):
+    with pytest.raises(CatalogError):
+        cat.validate_args("start_timer", {"duration": True})
