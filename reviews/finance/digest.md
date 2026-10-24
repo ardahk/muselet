@@ -1,4 +1,4 @@
-# finance digest (pass 13, 2026-10-24T09:10Z; finance-3 + advisor-3 now on main bb494af, 291 tests pass, truth reconciles)
+# finance digest (pass 14, 2026-10-24T09:25Z; all open findings re-verified on main 2920225)
 Open P0/P1: none.
 
 Open P2: finance-23 (advisor doc-by-path; now degrades to 'skipped Numbers'), finance-25 (4 s Numbers table poll on cold open), finance-24 (merchant prefix over-match), finance-15 (single filers / 401k-HSA-checking as taxable), finance-17 (numbers written as words pass the phrasing filter).
