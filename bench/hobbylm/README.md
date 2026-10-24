@@ -24,14 +24,14 @@ model/runtime artifacts, and the macOS fixture setup. Older upstream event and
 independent grader, so those rows are conservatively marked as not verified.
 
 The Muselet path requires macOS, Accessibility/Screen Recording permissions,
-and `hands` on `PATH`. It starts and tears down a benchmark-instrumented local
-Brain server by default. `--external-brain` connects to an already-running
-server, but cannot report first-action latency. The default first-action timer
-uses `time.monotonic()` from just before the `hands serve` process is launched
-to the benchmark hook immediately before the first `act`/`skill` RPC dispatch;
-this includes client startup. Completion latency is the first observed final
-state satisfying the task grader. The grader checks the final OS state and does
-not treat the Brain's outcome as proof of success.
+and a `hands` binary. It starts a benchmark Brain server by default and routes
+HandsKit through the shared live-harness WebSocket proxy; `--external-brain`
+uses an already-running server. First-action latency is measured on the wire
+from the utterance frame to the first `act`/`skill` RPC, so it excludes client
+startup and uses no BrainServer monkeypatch. The shared core polls and
+evaluates the final-state grader, requires the reported outcome as well, and
+records false-done and verified-completion latency. HobbyLM-native execution
+continues to use the pinned upstream runner and scorer.
 
 Event trials require `--allow-calendar` and the macOS default Calendar must be
 the dedicated `Hobby Test` calendar. Event grading snapshots the test calendar

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -101,6 +102,58 @@ def _cell(ids: list[str]) -> str:
     return f"{len(ids)}: {', '.join(ids)}" if ids else "—"
 
 
+def _pending_risks(datasets, catalog):
+    r4 = datasets["r4"]
+    by_id = {ident: (kind, text) for ident, kind, text, _ in r4}
+    catalog_skills = {item["name"] for item in catalog["skills"]}
+    none_candidates = {
+        "N01": "web_search",
+        "N02": "send_message",
+        "N03": "open_url",
+        "N04": "MULTI_STEP",
+        "N07": "play_music",
+        "N08": "finance_review",
+        "N09": "open_app",
+        "N10": "start_timer",
+        "N11": "find_file",
+        "N13": "web_search",
+        "N14": "web_search",
+        "N16": "web_search",
+    }
+    none = []
+    for ident, candidate in none_candidates.items():
+        if ident not in by_id or by_id[ident][0] != "none":
+            continue
+        if candidate == "MULTI_STEP" or candidate in catalog_skills:
+            none.append(f"{ident} (`{candidate}`)")
+
+    timezone = [
+        ident for ident, kind, text, _ in r4
+        if kind == "event"
+        and re.search(r"\b(?:IST|GMT|UTC|PST|PDT|EST|EDT|CST|CDT|MST|MDT|CET|CEST|SGT)\b", text, re.I)
+    ]
+    mixed_words = re.compile(r"\b(?:kal|parso|aaj|abhi|kripya|karo|karna|hai|hain|mera|meri|mujhe|bhai)\b", re.I)
+    hinglish = [
+        ident for ident, _, text, _ in r4 if mixed_words.search(text)
+    ]
+    relative = [
+        ident for ident, kind, text, _ in r4
+        if kind == "timer" and re.search(r"\b(?:remind me|ping me)\b.*\b(?:in|after)\b", text, re.I)
+    ]
+    agenda = [
+        ident for ident, kind, _, _ in r4
+        if ident.startswith("A03") and kind == "app"
+    ]
+    risks = [
+        ("None-set requests may hit an acting catalog route (HobbyLM grades any action as failure)", none),
+        ("Timezone-qualified event times may be parsed or normalized differently", timezone),
+        ("Relative reminder wording may route as a timer or reminder", relative),
+        ("A03-style requests may route to `todays_agenda`/`ANSWER` instead of leaving Calendar frontmost", agenda),
+        ("Hinglish/code-mixed requests may route differently", hinglish),
+    ]
+    return sorted(risks, key=lambda item: (-len(item[1]), item[0]))
+
+
 def build(upstream: Path, catalog_path: Path) -> str:
     datasets = _datasets(upstream)
     catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
@@ -128,6 +181,20 @@ def build(upstream: Path, catalog_path: Path) -> str:
             f"| {rank} | {gap} | {_cell(sets['r4'])} | {old} | "
             f"{_cell(sets['calc'])} | {_cell(sets['settings'])} | {'; '.join(GAP_EVIDENCE[gap])} |"
         )
+    pending = _pending_risks(datasets, catalog)
+    lines.extend([
+        "",
+        "## Risks pending live evidence",
+        "",
+        "These are hypotheses, not confirmed gaps. They remain unverified until the Muselet live replay runs.",
+        "Ranked by the number of matching r4 tasks; `none` IDs include the likely catalog skill or route.",
+        "",
+        "| Rank | Unverified risk | r4 count (IDs / likely route) |",
+        "|---:|---|---|",
+    ])
+    for rank, (risk, ids) in enumerate(pending, 1):
+        details = "; ".join(ids) if ids else "—"
+        lines.append(f"| {rank} | {risk} | {len(ids)}: {details} |")
     lines.extend([
         "",
         "## Audited but not ranked",
@@ -144,7 +211,7 @@ def build(upstream: Path, catalog_path: Path) -> str:
         "routing failure is claimed from the unused v0 regex router.",
         "- Relative volume, mute paraphrases, agenda lookup, and unknown-intent false positives are not "
         "ranked from the unused v0 regex router; these require live model evaluation.",
-        "- Timezone-qualified date parsing and Hinglish remain unranked without a reproducible runtime result.",
+        "- Timezone-qualified date parsing and Hinglish are listed only as unverified live-evidence risks above.",
         "- Catalog v2 also lists `bluetooth`, `lock_screen`, and `empty_trash` without HandsKit cases. "
         "`finance_review` and `advisor_prep` have brain-side modules, but `Orchestrator._skill` does not "
         "dispatch by the catalog `executor` field and HandsKit has no matching cases. These names do not "
