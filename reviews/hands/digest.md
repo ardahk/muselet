@@ -1,12 +1,14 @@
-# hands — digest (pass 6: main c2d2988, wip/local 8874962, cloud/brain-2 9f41c11; no new app/ changes since pass 5)
+# hands — digest (pass 7: main d8ad966, wip/local 85ec0df, cloud/brain-2 741465c, cloud/grounding 3441ee8)
 
-Resolved in pass 5: hands-2, hands-3, hands-7, hands-11 (main e78f143). Earlier: hands-1, 4, 5, 6, 8, 9.
+Resolved: hands-1, 2, 3, 4, 5, 6, 7, 8, 9, 11.
 
 ## Open P0/P1 (ranked)
-1. hands-13 P1 Act never reports truncated, so brain-2 diff reuse drops capped elements — app/Sources/HandsKit/Act.swift (consumer: cloud/brain-2 ml/src/brain/orchestrator.py)
+1. hands-14 P1 App ignores confirm_cancel, so a stale confirm swallows the next commands — app/Sources/MuseletApp/Brain/BrainConnection.swift
 2. hands-12 P1 appears fallback matches menu-bar titles and other windows: false pass — app/Sources/HandsKit/Expect.swift
 
 ## Highest-leverage next moves
-- hands-13: set `truncated` on act results (sticky across expect polls, like sawFull) before brain-2 merges. Otherwise the planner loses elements in large windows.
-- hands-12: exclude the menu bar and pre-existing windows from the searchLabel fallback, use word-boundary matching, and run it once at the deadline rather than on every poll.
-- hands-10 (P2): read cursor_lead_ms (documented in Act.swift:232, never read); the flight still blocks each act for 120-220 ms.
+- hands-14: handle `confirm_cancel` (clear pendingConfirm, hide the bubble) and pass `ui.ms` to the latency chip. Both are new contract frames from main d8ad966 that the app drops.
+- hands-12: exclude the menu bar and pre-existing windows from the searchLabel fallback, use word-boundary matching, and run it once at the deadline.
+- hands-13 (P2): set `truncated` on act results (sticky across polls) so brain-2's diff reuse is safe in every case.
+- hands-15 (P2): record web AX as enabled only if setAttr succeeded, so Chrome isn't left AX-blind after a fast open+observe.
+- hands-10 (P2): honour cursor_lead_ms; the ghost-cursor flight still blocks each act for 120-220 ms.
