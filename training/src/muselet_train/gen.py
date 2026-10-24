@@ -102,6 +102,37 @@ def build(run: str, fraction: float, seed: int = 0, skip: tuple[str, ...] = ()) 
     return reqs
 
 
+V2_SKILLS = ("bluetooth", "lock_screen", "empty_trash", "finance_review", "advisor_prep")
+V2_G2_CALLS = 2  # per (category, new skill)
+
+
+def build_v2(run: str, seed: int = 0) -> list[dict]:
+    """Catalog v2 additions: G1 for the 5 new skills, plus G2 near-misses aimed at each of them."""
+    rng = random.Random(seed)
+    reqs: list[dict] = []
+    for opt in skills():
+        if opt.name not in V2_SKILLS:
+            continue
+        for j in range(math.ceil(G1_TARGET / G1_N)):
+            style = STYLES[j % len(STYLES)]
+            reqs.append({"id": f"g1-{opt.name}-{j}", "kind": "g1", "label": opt.name,
+                         "style": style, "prompt": g1_prompt(opt, style)})
+    for cat in CATEGORIES:
+        for name in V2_SKILLS:
+            for j in range(V2_G2_CALLS):
+                style = f"{STYLES[j % len(STYLES)]}; near-misses should resemble the {name} skill"
+                reqs.append({"id": f"g2-{cat}-{name}-{j}", "kind": "g2", "label": cat, "style": style,
+                             "prompt": g2_prompt(cat, style)})
+    for r in reqs:
+        oa = rng.random() < 0.3
+        r["provider"], r["model"] = ("openai", GEN_OPENAI) if oa else ("anthropic", GEN_ANTHROPIC)
+    d = DATA / run
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "requests.jsonl").write_text("".join(json.dumps(r) + "\n" for r in reqs))
+    print(f"{len(reqs)} requests -> {d}/requests.jsonl")
+    return reqs
+
+
 def _quota_pick(j: int, calls: int) -> str:
     """Deterministic largest-remainder allocation of MULTI_STEP focus domains over calls."""
     alloc: list[str] = []
@@ -316,7 +347,7 @@ def parse(run: str) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["build", "submit", "poll", "collect", "sync"])
+    ap.add_argument("cmd", choices=["build", "build_v2", "submit", "poll", "collect", "sync"])
     ap.add_argument("--run", required=True)
     ap.add_argument("--fraction", type=float, default=1.0)
     ap.add_argument("--wait", action="store_true")
@@ -324,6 +355,8 @@ def main() -> None:
     a = ap.parse_args()
     if a.cmd == "build":
         build(a.run, a.fraction, skip=tuple(a.skip))
+    elif a.cmd == "build_v2":
+        build_v2(a.run)
     elif a.cmd == "sync":
         sync(a.run)
     elif a.cmd == "submit":
