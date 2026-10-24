@@ -3,7 +3,7 @@
 #   tools/add_reviewer.sh <lane-id> <lane-brief.md> [acu-cap]
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
-lane=$1; brief=$2; acu=${3:-60}
+lane=$1; brief=$2; acu=${3:-150}
 mkdir -p runs
 [ -f runs/reviewers.json ] || echo "[]" > runs/reviewers.json
 if python3 -c 'import json,sys; sys.exit(0 if any(r["lane"]==sys.argv[1] for r in json.load(open("runs/reviewers.json"))) else 1)' "$lane"; then
