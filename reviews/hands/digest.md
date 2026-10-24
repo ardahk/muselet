@@ -1,14 +1,10 @@
-# hands — digest (pass 7: main d8ad966, wip/local 85ec0df, cloud/brain-2 741465c, cloud/grounding 3441ee8)
+# hands — digest (pass 8: main 4a74659, wip/local 85c73ed)
 
-Resolved: hands-1, 2, 3, 4, 5, 6, 7, 8, 9, 11.
+Resolved: hands-1 to hands-9 and hands-11 to hands-14. hands-15 superseded by activation-time web AX prewarm.
 
 ## Open P0/P1 (ranked)
-1. hands-14 P1 App ignores confirm_cancel, so a stale confirm swallows the next commands — app/Sources/MuseletApp/Brain/BrainConnection.swift
-2. hands-12 P1 appears fallback matches menu-bar titles and other windows: false pass — app/Sources/HandsKit/Expect.swift
+None.
 
 ## Highest-leverage next moves
-- hands-14: handle `confirm_cancel` (clear pendingConfirm, hide the bubble) and pass `ui.ms` to the latency chip. Both are new contract frames from main d8ad966 that the app drops.
-- hands-12: exclude the menu bar and pre-existing windows from the searchLabel fallback, use word-boundary matching, and run it once at the deadline.
-- hands-13 (P2): set `truncated` on act results (sticky across polls) so brain-2's diff reuse is safe in every case.
-- hands-15 (P2): record web AX as enabled only if setAttr succeeded, so Chrome isn't left AX-blind after a fast open+observe.
-- hands-10 (P2): honour cursor_lead_ms; the ghost-cursor flight still blocks each act for 120-220 ms.
+- hands-10 (P2): in Act.swift:259-261, cap the act lead with `min(lead, cursor_lead_ms/1000)` as RPC.swift already does for skills. This saves up to 100 ms per act on long flights (planner batches of 5 actions: up to 0.5 s).
+- Residual from hands-12 (not filed): `appears` still uses substring matching and counts other already-open windows of the target app. Watch for false passes in the live T1/T2 suite.
