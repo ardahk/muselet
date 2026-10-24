@@ -25,16 +25,24 @@ ROOT = HERE.parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from bench.harness.core import report_math as shared_report_math, run_case
+from bench.harness.core import (
+    HARNESS_POLL_INTERVAL_S,
+    report_math as shared_report_math,
+    run_case,
+)
 from bench.harness.runtime import HandsRuntime
+from bench.hobbylm.vendor import verify_provenance
 
 DEFAULT_HOME = Path("/home/ubuntu/ext/hobbylm")
+VENDORED_UPSTREAM = HERE / "upstream"
 
 
 def load_tasks(home: Path, round_name: str):
+    verify_provenance(VENDORED_UPSTREAM)
     filename = "hobbymac-sealed-test.tsv" if round_name == "r1" else f"hobbymac-sealed-test-{round_name}.tsv"
     rows = []
-    for line in (home / "data/frozen" / filename).read_text().splitlines():
+    frozen = VENDORED_UPSTREAM / "data/frozen"
+    for line in (frozen / filename).read_text(encoding="utf-8").splitlines():
         if line.strip():
             ident, kind, text, expected = line.split("\t", 3)
             rows.append({"id": ident, "kind": kind, "text": text, "expected": expected.strip()})
@@ -50,8 +58,12 @@ def plan(system: str, round_name: str, tasks: list[dict], repeats: int, port: in
 
 
 def report_math(records: list[dict], repeats: int) -> dict:
+    eligible = [
+        record for record in records
+        if record.get("status") != "skipped" and not record.get("ungradable")
+    ]
     by_kind = defaultdict(list)
-    for record in records:
+    for record in eligible:
         by_kind[record["kind"]].append(record)
     def pct(values, q):
         if not values:
@@ -69,9 +81,48 @@ def report_math(records: list[dict], repeats: int) -> dict:
     def pass_k(rows, field):
         per_id = defaultdict(list)
         for row in rows:
-            per_id[row["id"]].append(field(row))
-        return sum(len(values) == repeats and all(values) for values in per_id.values()) / max(1, len(per_id))
+            if row.get("status") != "skipped" and not row.get("ungradable"):
+                per_id[row["id"]].append(field(row))
+        eligible = [
+            values for values in per_id.values()
+            if len(values) == repeats
+        ]
+        return sum(all(values) for values in eligible) / max(1, len(eligible))
 
+    def latency_kinds(field):
+        return sorted({
+            row["kind"] for row in records
+            if row.get(field) is not None and row.get("status") != "skipped"
+            and not row.get("ungradable")
+        })
+
+    verified = [
+        row["verified_latency_s"] for row in records
+        if row.get("kind") != "none" and row.get("verified_latency_s") is not None
+        and not row.get("ungradable")
+    ]
+    latency_by_kind = {}
+    for kind in sorted({
+        row["kind"] for row in records
+        if row.get("status") != "skipped" and not row.get("ungradable")
+    }):
+        rows = [
+            row for row in records
+            if row.get("kind") == kind and row.get("status") != "skipped"
+            and not row.get("ungradable")
+        ]
+        first_values = [row["first_action_latency_s"] for row in rows
+                        if row.get("first_action_latency_s") is not None]
+        verified_values = [row["verified_latency_s"] for row in rows
+                           if kind != "none" and row.get("verified_latency_s") is not None]
+        latency_by_kind[kind] = {
+            "first_action_p50": pct(first_values, .5),
+            "first_action_p95": pct(first_values, .95),
+            "verified_p50": pct(verified_values, .5),
+            "verified_p95": pct(verified_values, .95),
+            "first_action_n": len(first_values),
+            "verified_n": len(verified_values),
+        }
     by_kind_metrics = {}
     for kind, rows in sorted(by_kind.items()):
         by_kind_metrics[kind] = {
@@ -82,12 +133,14 @@ def report_math(records: list[dict], repeats: int) -> dict:
             "completed_k": pass_k(rows, completed),
             "false_done": sum(bool(row.get("false_done")) for row in rows),
         }
-    pass_final_state_k = pass_k(records, final_pass)
-    completed_k = pass_k(records, completed)
-    completed_rate = sum(completed(row) for row in records) / max(1, len(records))
-    final_state_rate = sum(final_pass(row) for row in records) / max(1, len(records))
+    pass_final_state_k = pass_k(eligible, final_pass)
+    completed_k = pass_k(eligible, completed)
+    completed_rate = sum(completed(row) for row in eligible) / max(1, len(eligible))
+    final_state_rate = sum(final_pass(row) for row in eligible) / max(1, len(eligible))
     return {
-        "n": len(records),
+        "n": len(eligible),
+        "skipped": sum(row.get("status") == "skipped" for row in records),
+        "ungradable": sum(bool(row.get("ungradable")) for row in records),
         "pass_final_state_rate": final_state_rate,
         "completed_rate": completed_rate,
         "pass_final_state_by_kind": {kind: values["pass_final_state_rate"] for kind, values in by_kind_metrics.items()},
@@ -101,12 +154,23 @@ def report_math(records: list[dict], repeats: int) -> dict:
         "pass_rate": completed_rate,
         "final_state_only_rate": final_state_rate,
         "pass_k_by_kind": {kind: values["completed_k"] for kind, values in by_kind_metrics.items()},
-        "utterance_latency_s": {"p50": pct([r["utterance_latency_s"] for r in records if r.get("utterance_latency_s") is not None], .5),
-                                "p95": pct([r["utterance_latency_s"] for r in records if r.get("utterance_latency_s") is not None], .95)},
-        "first_action_latency_s": {"p50": pct([r["first_action_latency_s"] for r in records if r.get("first_action_latency_s") is not None], .5),
-                                   "p95": pct([r["first_action_latency_s"] for r in records if r.get("first_action_latency_s") is not None], .95)},
-        "completion_latency_s": {"p50": pct([r["completion_latency_s"] for r in records if r.get("completion_latency_s") is not None], .5),
-                                 "p95": pct([r["completion_latency_s"] for r in records if r.get("completion_latency_s") is not None], .95)},
+        "utterance_latency_s": {"p50": pct([r["utterance_latency_s"] for r in records if r.get("utterance_latency_s") is not None and not r.get("ungradable")], .5),
+                                "p95": pct([r["utterance_latency_s"] for r in records if r.get("utterance_latency_s") is not None and not r.get("ungradable")], .95)},
+        "first_action_latency_s": {"p50": pct([r["first_action_latency_s"] for r in records if r.get("first_action_latency_s") is not None and not r.get("ungradable")], .5),
+                                   "p95": pct([r["first_action_latency_s"] for r in records if r.get("first_action_latency_s") is not None and not r.get("ungradable")], .95)},
+        "completion_latency_s": {"p50": pct([r["completion_latency_s"] for r in records if r.get("completion_latency_s") is not None and r.get("kind") != "none" and not r.get("ungradable")], .5),
+                                 "p95": pct([r["completion_latency_s"] for r in records if r.get("completion_latency_s") is not None and r.get("kind") != "none" and not r.get("ungradable")], .95)},
+        "verified_latency_s": {"p50": pct(verified, .5), "p95": pct(verified, .95)},
+        "latency_kinds": {
+            "utterance": latency_kinds("utterance_latency_s"),
+            "first_action": latency_kinds("first_action_latency_s"),
+            "verified": sorted({
+                row["kind"] for row in records
+                if row.get("kind") != "none" and row.get("verified_latency_s") is not None
+            }),
+        },
+        "latency_by_kind": latency_by_kind,
+        "ungradable": sum(bool(row.get("ungradable")) for row in records),
     }
 
 
@@ -162,7 +226,9 @@ let parser = ISO8601DateFormatter()
 guard let start = parser.date(from: env["MUSELET_EVENT_START"] ?? ""),
       let end = parser.date(from: env["MUSELET_EVENT_END"] ?? "") else { exit(3) }
 let title = env["MUSELET_EVENT_CALENDAR"] ?? ""
-let calendars = store.calendars(for: .event).filter { $0.title == title }
+let calendars = store.calendars(for: .event).filter {
+    $0.title == title && $0.source.sourceType == .local
+}
 let predicate = store.predicateForEvents(withStart: start, end: end, calendars: calendars)
 let events = store.events(matching: predicate).map { event -> [String: Any] in
     let formatter = ISO8601DateFormatter()
@@ -197,10 +263,12 @@ print(String(data: data, encoding: .utf8)!)
 
 
 def _calendar_events(helper, start: datetime, end: datetime) -> list[dict]:
+    from bench.hobbylm.calendar_safety import BENCH_CALENDAR
+
     reader = getattr(helper, "calendar_events", None)
     if callable(reader):
-        return reader("Hobby Test", start, end)
-    return _read_calendar_events("Hobby Test", start, end)
+        return reader(BENCH_CALENDAR, start, end)
+    return _read_calendar_events(BENCH_CALENDAR, start, end)
 
 
 def _event_key(event: dict) -> tuple:
@@ -236,7 +304,9 @@ if semaphore.wait(timeout: .now() + 30) == .timedOut || !access.get() { exit(2) 
 let data = Data((ProcessInfo.processInfo.environment["MUSELET_EVENT_IDS"] ?? "[]").utf8)
 let identifiers = (try JSONSerialization.jsonObject(with: data)) as? [String] ?? []
 for identifier in identifiers {
-    if let event = store.event(withIdentifier: identifier) {
+    if let event = store.event(withIdentifier: identifier),
+       event.calendar.title == "Muselet Bench",
+       event.calendar.source.sourceType == .local {
         try? store.remove(event, span: .thisEvent, commit: false)
     }
 }
@@ -269,6 +339,8 @@ def _capture_final_state(helper, record, start):
     current = helper.snapshot()
     if record["kind"] == "calc":
         current["display"] = helper.display() if helper.running("Calculator") else None
+    if record["kind"] == "folder" and helper.finder_windows() > start["finder_windows"]:
+        current["finder_path"] = helper.finder_path()
     if record["kind"] in ("screenshot", "none"):
         current["screenshot_files"] = _image_files(Path(start["screenshot_location"]))
     if record["kind"] in ("event", "none"):
@@ -379,6 +451,47 @@ def _final_state(helper, record, start, trace, first_action=None):
     return _grade_final_state(helper, record, start, current, trace, first_action)
 
 
+def _worker_snapshot_grade(helper, record, start, current, *, first_action=False, safety_blocked=False):
+    kind = record["kind"]
+    required_start, required_current = {
+        "calc": ((), ("display",)),
+        "device": (("bright", "vol"), ("bright", "vol")),
+        "dark": ((), ("dark",)),
+        "app": ((), ("front",)),
+        "folder": (("finder_windows",), ("finder_path",)),
+        "timer": ((), ("timers",)),
+        "screenshot": (("screenshot_files",), ("screenshot_files",)),
+        "event": (("calendar_events",), ("calendar_events",)),
+        "none": (
+            ("bright", "vol", "dark", "front", "finder_windows", "running",
+             "screenshot_files", "calendar_events"),
+            ("bright", "vol", "dark", "front", "finder_windows", "running",
+             "screenshot_files", "calendar_events"),
+        ),
+    }.get(kind, ((), ()))
+    missing = sorted(
+        {field for field in required_start if field not in start}
+        | {field for field in required_current if field not in current}
+    )
+    if missing:
+        return {
+            "passed": False,
+            "ungradable": True,
+            "missing_snapshots": missing,
+            "observed": current,
+        }
+    passed, observed = _grade_final_state(
+        helper, record, start, current, trace={"rpc": []},
+        first_action={"executed": first_action},
+    )
+    return {
+        "passed": bool(passed and not safety_blocked),
+        "ungradable": False,
+        "safety_blocked": safety_blocked,
+        "observed": observed,
+    }
+
+
 def _restore(helper, before, trace, current=None):
     helper.sh(str(helper.WORK / "brightness"), "set", str(before["bright"]))
     helper.osa(f'set volume output volume {before["vol"][0]}')
@@ -412,25 +525,7 @@ def _restore(helper, before, trace, current=None):
             for event in _new_events(before["calendar_events"], after)
         ]
         ids = [identifier for identifier in ids if identifier]
-        if callable(getattr(helper, "delete_calendar_events", None)):
-            helper.delete_calendar_events(ids)
-        else:
-            _eventkit_delete_events(ids)
-
-
-def _require_test_calendar():
-    script = (
-        "import EventKit; "
-        "print(EKEventStore().defaultCalendarForNewEvents?.title ?? \"\")"
-    )
-    try:
-        result = subprocess.run(
-            ["swift", "-e", script], check=True, capture_output=True, text=True, timeout=30
-        )
-    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
-        raise RuntimeError("cannot verify Calendar's default; refusing event trial") from exc
-    if result.stdout.strip() != "Hobby Test":
-        raise RuntimeError("set Calendar's default calendar to 'Hobby Test' before event trials")
+        _eventkit_delete_events(ids)
 
 
 def _hobby_state_script(args, kind, before=None):
@@ -559,7 +654,7 @@ def _hobby_predicates(helper, args, task):
     return grade, restore
 
 
-async def _run_muselet_cases(args, tasks, run_root, helper):
+async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=False):
     from bench.harness.proxy import BenchProxy
 
     run_root.mkdir(parents=True, exist_ok=True)
@@ -569,8 +664,17 @@ async def _run_muselet_cases(args, tasks, run_root, helper):
         for repeat in range(1, args.repeats + 1):
             for task in tasks:
                 run_id = f"{task['id']}-r{repeat}"
+                if task["kind"] == "event" and not event_allowed:
+                    rec = {
+                        "id": task["id"], "kind": task["kind"], "repeat": repeat,
+                        "status": "skipped", "strict_pass": False,
+                        "skip_reason": "bench calendar not local default",
+                    }
+                    records.append(rec)
+                    print(json.dumps(rec, ensure_ascii=False), flush=True)
+                    continue
                 await proxy.wait_disconnected()
-                await proxy.begin_case(run_id, None)
+                await proxy.begin_case(run_id, False)
                 runtime = _HobbyRuntime(
                     proxy, args.hands_bin, run_root / "hands-logs", run_id,
                     helper=helper, task=task, replay_args=args, cwd=ROOT,
@@ -654,12 +758,19 @@ async def _run_muselet_cases(args, tasks, run_root, helper):
 def _muselet_run(args, tasks, run_root):
     if sys.platform != "darwin":
         raise RuntimeError("Muselet replay requires macOS desktop access and Accessibility permission")
-    if any(task["kind"] == "event" for task in tasks) and not args.allow_calendar:
-        raise RuntimeError("event trials require --allow-calendar and Calendar's default calendar set to 'Hobby Test'")
+    from bench.hobbylm.calendar_safety import (
+        BENCH_CALENDAR, is_local_default, probe_bench_calendar,
+        setup_bench_calendar,
+    )
+
+    event_allowed = False
+    if any(task["kind"] == "event" for task in tasks):
+        if args.setup_bench_calendar:
+            setup_bench_calendar()
+        event_allowed = is_local_default(probe_bench_calendar())
     sys.path.insert(0, str(args.hobby_home / "hobby"))
     import hobbymac_run as helper
-    if any(task["kind"] == "event" for task in tasks):
-        _require_test_calendar()
+    helper.TEST_CAL = BENCH_CALENDAR
 
     run_root.mkdir(parents=True, exist_ok=True)
     brain_log = (run_root / "brain.log").open("w", encoding="utf-8")
@@ -693,7 +804,9 @@ def _muselet_run(args, tasks, run_root):
             brain_log.close()
             raise RuntimeError(f"benchmark brain did not listen on port {args.port}")
     try:
-        return asyncio.run(_run_muselet_cases(args, tasks, run_root, helper))
+        return asyncio.run(
+            _run_muselet_cases(args, tasks, run_root, helper, event_allowed=event_allowed)
+        )
     finally:
         if brain is not None and brain.poll() is None:
             brain.terminate()
@@ -705,9 +818,232 @@ def _muselet_run(args, tasks, run_root):
         brain_log.close()
 
 
+def _load_parent_hobby_helper(home: Path):
+    import importlib
+
+    from bench.hobbylm.calendar_safety import BENCH_CALENDAR
+
+    os.environ["HOBBY_HOME"] = str(home)
+    sys.path.insert(0, str(home / "hobby"))
+    sys.path.insert(0, str(HERE / "upstream" / "hobby"))
+    helper = importlib.import_module("hobbymac_run")
+    helper.ROOT = home
+    helper.WORK = home / "data"
+    helper.TEST_CAL = BENCH_CALENDAR
+    return helper
+
+
+async def _worker_event(stdout):
+    while True:
+        line = await stdout.readline()
+        if not line:
+            return None
+        try:
+            event = json.loads(line)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        if isinstance(event, dict) and "ev" in event:
+            return event
+
+
+async def _run_hobby_worker_case(proc, helper, task, repeat):
+    record = {
+        "id": task["id"], "kind": task["kind"], "expected": task["expected"],
+        "text": task["text"],
+    }
+    proc.stdin.write((json.dumps(task, ensure_ascii=False) + "\n").encode())
+    await proc.stdin.drain()
+    events = []
+    start_state = None
+    final_state = None
+    t0_receipt = None
+    action_receipt = None
+    verified_latency = None
+    safety_blocked = False
+    stop_poll = asyncio.Event()
+
+    async def poll_state():
+        nonlocal verified_latency
+        while not stop_poll.is_set():
+            try:
+                await asyncio.wait_for(stop_poll.wait(), HARNESS_POLL_INTERVAL_S)
+                continue
+            except asyncio.TimeoutError:
+                pass
+            if t0_receipt is None or start_state is None:
+                continue
+            try:
+                current = await asyncio.to_thread(
+                    _capture_final_state, helper, record, start_state
+                )
+                grade = _worker_snapshot_grade(
+                    helper, record, start_state, current,
+                    first_action=action_receipt is not None,
+                    safety_blocked=safety_blocked,
+                )
+                if (
+                    verified_latency is None and task["kind"] != "none"
+                    and grade["passed"] and not grade["ungradable"]
+                ):
+                    verified_latency = max(0.0, time.monotonic() - t0_receipt)
+            except Exception:
+                continue
+
+    poll_task = asyncio.create_task(poll_state())
+    upstream_row = None
+    final_grade = None
+    while True:
+        event = await _worker_event(proc.stdout)
+        if event is None:
+            stop_poll.set()
+            await poll_task
+            raise RuntimeError("HobbyLM worker exited before completing the case")
+        events.append(event)
+        now = time.monotonic()
+        if event["ev"] == "setup_done":
+            start_state = await asyncio.to_thread(_start_state, helper, record)
+            proc.stdin.write(b'{"ack":true}\n')
+            await proc.stdin.drain()
+        elif event["ev"] == "t0" and t0_receipt is None:
+            t0_receipt = now
+        elif event["ev"] == "first_action" and action_receipt is None:
+            action_receipt = now
+        elif event["ev"] == "safety_blocked":
+            safety_blocked = True
+        elif event["ev"] == "pre_teardown":
+            stop_poll.set()
+            await poll_task
+            if start_state is not None:
+                try:
+                    final_state = await asyncio.to_thread(
+                        _capture_final_state, helper, record, start_state
+                    )
+                    final_grade = _worker_snapshot_grade(
+                        helper, record, start_state, final_state,
+                        first_action=action_receipt is not None,
+                        safety_blocked=safety_blocked,
+                    )
+                except Exception as exc:
+                    final_grade = {
+                        "passed": False, "ungradable": True,
+                        "missing_snapshots": [f"snapshot failure: {exc}"],
+                    }
+            else:
+                final_grade = {
+                    "passed": False, "ungradable": True,
+                    "missing_snapshots": ["parent setup snapshot"],
+                }
+            proc.stdin.write(b'{"ack":true}\n')
+            await proc.stdin.drain()
+        elif event["ev"] == "done":
+            upstream_row = event.get("row")
+            break
+
+    if not stop_poll.is_set():
+        stop_poll.set()
+        await poll_task
+    if final_grade is None:
+        final_grade = {
+            "passed": False, "ungradable": True,
+            "missing_snapshots": ["worker omitted pre-teardown snapshot"],
+        }
+    if upstream_row and upstream_row.get("safety_blocked"):
+        safety_blocked = True
+        final_grade["passed"] = False
+        final_grade["safety_blocked"] = True
+    strict_pass = bool(final_grade["passed"] and not final_grade["ungradable"])
+    finished = time.monotonic()
+    return {
+        "id": task["id"], "kind": task["kind"], "repeat": repeat,
+        "status": "ungradable" if final_grade["ungradable"] else "completed",
+        "strict_pass": strict_pass, "pass": strict_pass,
+        "pass_final_state": strict_pass, "final_state_only": strict_pass,
+        "completed": strict_pass, "false_done": bool(
+            upstream_row and upstream_row.get("said_done") and not strict_pass
+        ),
+        "upstream_completed": bool(upstream_row and upstream_row.get("completed")),
+        "upstream_correct_outcome": bool(upstream_row and upstream_row.get("correct_outcome")),
+        "reported_success": bool(upstream_row and upstream_row.get("said_done")),
+        "safety_blocked": safety_blocked,
+        "safety_blocks": [item for item in events if item["ev"] == "safety_blocked"],
+        "confirm_reply": False, "confirm_asked": sum(item["ev"] == "confirm_asked" for item in events),
+        "t0_parent_monotonic": t0_receipt,
+        "first_action_parent_monotonic": action_receipt,
+        "utterance_latency_s": max(0.0, finished - t0_receipt) if t0_receipt is not None else None,
+        "first_action_latency_s": (
+            max(0.0, action_receipt - t0_receipt)
+            if action_receipt is not None and t0_receipt is not None else None
+        ),
+        "verified_latency_s": None if task["kind"] == "none" else verified_latency,
+        "completion_latency_s": None if task["kind"] == "none" else verified_latency,
+        "ungradable": bool(final_grade["ungradable"]),
+        "missing_snapshots": final_grade.get("missing_snapshots", []),
+        "strict_observations": final_grade.get("observed"),
+        "start_state": start_state, "final_state": final_state,
+        "worker_events": events, "upstream_row": upstream_row,
+        "agent_reported_utterance_latency_s": (
+            upstream_row.get("seconds_total") if upstream_row else None
+        ),
+    }
+
+
+async def _run_hobby_worker(args, tasks, run_root, helper, *, event_allowed):
+    run_root.mkdir(parents=True, exist_ok=True)
+    runner = args.hobby_home / ".venv/bin/python"
+    worker = HERE / "hobby_worker.py"
+    env = {**os.environ, "HOBBY_HOME": str(args.hobby_home)}
+    proc = await asyncio.create_subprocess_exec(
+        str(runner), str(worker), "--hobby-home", str(args.hobby_home),
+        "--model", args.model, "--round", args.round, "--runtime", "mlx",
+        cwd=args.hobby_home, env=env,
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stderr_task = asyncio.create_task(proc.stderr.read())
+    records = []
+    try:
+        for repeat in range(1, args.repeats + 1):
+            for task in tasks:
+                if task["kind"] == "event" and not event_allowed:
+                    record = {
+                        "id": task["id"], "kind": task["kind"], "repeat": repeat,
+                        "status": "skipped", "strict_pass": False, "ungradable": False,
+                        "skip_reason": "bench calendar not local default",
+                    }
+                else:
+                    record = await _run_hobby_worker_case(proc, helper, task, repeat)
+                records.append(record)
+                print(json.dumps(record, ensure_ascii=False, default=str), flush=True)
+    finally:
+        if proc.stdin:
+            proc.stdin.close()
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=10)
+        except asyncio.TimeoutError:
+            proc.terminate()
+            await proc.wait()
+    stderr = await stderr_task
+    (run_root / "worker.stderr.log").write_bytes(stderr)
+    payload = {
+        "system": "hobbylm", "round": args.round, "model": args.model,
+        "worker": str(worker), "results": records,
+        "summary": report_math(records, args.repeats),
+    }
+    (run_root / "results.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, default=str) + "\n",
+        encoding="utf-8",
+    )
+    print(json.dumps(payload["summary"], ensure_ascii=False, indent=2))
+    print(run_root)
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--system", choices=("muselet", "hobbylm"), required=True)
+    parser.add_argument(
+        "--system", choices=("muselet", "hobbylm", "hobbylm-published"), required=True
+    )
     parser.add_argument("--round", choices=("r1", "r2", "r3", "r4"), default="r4")
     parser.add_argument("--ids", default="")
     parser.add_argument("--repeats", type=int, default=1)
@@ -719,8 +1055,8 @@ def main(argv=None):
     parser.add_argument("--model", choices=("trained", "untrained"), default="trained")
     parser.add_argument("--external-brain", action="store_true",
                         help="Use an already-running Brain server; wire timing remains available through the proxy.")
-    parser.add_argument("--allow-calendar", action="store_true",
-                        help="Permit event trials only when Calendar's default calendar is the test calendar.")
+    parser.add_argument("--setup-bench-calendar", action="store_true",
+                        help="Create Muselet Bench only in an existing local Calendar source.")
     parser.add_argument("--timeout", type=float, default=120.0)
     args = parser.parse_args(argv)
     tasks = load_tasks(args.hobby_home, args.round)
@@ -747,87 +1083,31 @@ def main(argv=None):
         except RuntimeError as exc:
             parser.error(str(exc))
 
+    if args.system == "hobbylm-published":
+        parser.error(
+            "hobbylm-published is reference-only; run the pinned upstream runner "
+            "outside this guarded replay harness"
+        )
+    if sys.platform != "darwin":
+        parser.error("HobbyLM replay requires macOS desktop access")
+    from bench.hobbylm.calendar_safety import (
+        BENCH_CALENDAR, is_local_default, probe_bench_calendar,
+        setup_bench_calendar,
+    )
+
+    event_allowed = False
+    if any(task["kind"] == "event" for task in tasks):
+        if args.setup_bench_calendar:
+            setup_bench_calendar()
+        event_allowed = is_local_default(probe_bench_calendar())
+    helper = _load_parent_hobby_helper(args.hobby_home)
     run_root = Path("runs/bench/hobbylm/hobbylm") / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    run_root.mkdir(parents=True)
-    runner = args.hobby_home / ".venv/bin/python"
-    command = [str(runner), "hobby/hobbymac_run.py", "--model", args.model,
-               "--round", args.round, "--adapter", args.round, "--runtime", "mlx"]
-    if args.ids:
-        command.extend(["--ids", args.ids])
-    upstream_runs, result_paths, score_outputs, run_outputs = [], [], [], []
-    for _ in range(args.repeats):
-        started_at = time.time()
-        completed = subprocess.run(command, cwd=args.hobby_home, check=True, text=True, capture_output=True)
-        run_candidates = sorted(
-            (args.hobby_home / "data/runs").glob("hobbymac-*/results.json"),
-            key=lambda path: path.stat().st_mtime,
+    try:
+        return asyncio.run(
+            _run_hobby_worker(args, tasks, run_root, helper, event_allowed=event_allowed)
         )
-        result_path = next((path for path in reversed(run_candidates) if path.stat().st_mtime >= started_at), None)
-        if result_path is None:
-            raise RuntimeError(f"hobbymac_run.py did not produce results.json; stdout: {completed.stdout}")
-        score_run = subprocess.run(
-            [str(runner), "hobby/hobbymac_score.py", str(result_path)],
-            cwd=args.hobby_home, check=True, text=True, capture_output=True,
-        )
-        result_paths.append(result_path)
-        upstream_runs.append(json.loads(result_path.read_text(encoding="utf-8")))
-        score_outputs.append(score_run.stdout)
-        run_outputs.append(completed.stdout)
-    sys.path.insert(0, str(args.hobby_home / "hobby"))
-    import hobbymac_run as helper
-    records = []
-    upstream_rows = [
-        (repeat, row)
-        for repeat, upstream in enumerate(upstream_runs, 1)
-        for row in upstream["results"]
-    ]
-    for repeat, row in upstream_rows:
-        kind, expected, final, start = row["kind"], row["expected"], row["final"], row["start"]
-        start_state, current = dict(start), dict(final)
-        start_state.setdefault("screenshot_files", [])
-        current["screenshot_files"] = current.get("screenshot_files", current.get("screenshots", []))
-        grader_record = {
-            "id": row["id"], "kind": kind, "expected": expected, "text": row.get("request", "")
-        }
-        final_only, _ = _grade_final_state(
-            helper, grader_record, start_state, current,
-            first_action={"executed": bool(row.get("executed"))},
-        )
-        missing_state = []
-        if kind == "event" and not ("calendar_events" in start_state and "calendar_events" in current):
-            missing_state.append("before/after Calendar snapshots")
-        if kind == "none":
-            missing_state.extend(
-                key for key in ("finder_windows", "running", "screenshot_files", "calendar_events")
-                if key not in start_state or key not in current
-            )
-        records.append({
-            "id": row["id"], "kind": kind, "repeat": repeat,
-            "pass": bool(row["completed"]), "completed": bool(row["completed"]),
-            "strict_completed": bool(row["completed"]),
-            "pass_final_state": bool(final_only), "final_state_only": bool(final_only),
-            "reported_success": bool(row.get("said_done")),
-            "false_done": bool(row.get("said_done") and not final_only),
-            "utterance_latency_s": row["seconds_total"],
-            "first_action_latency_s": row["steps"][0]["seconds"] if row["steps"] else None,
-            "completion_latency_s": row["seconds_total"] if row["correct_outcome"] else None,
-            "final_state_regrade": bool(final_only),
-            "grader_note": (
-                "upstream results omit " + ", ".join(sorted(set(missing_state)))
-                if missing_state else None
-            ),
-        })
-    payload = {
-        "system": "hobbylm", "round": args.round, "upstream_results": [str(path) for path in result_paths],
-        "results": records, "strict_vs_final_state": records,
-        "summary": report_math(records, args.repeats),
-        "published_score_output": score_outputs,
-        "upstream_stdout": run_outputs,
-    }
-    (run_root / "results.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
-    print(json.dumps(payload["summary"], indent=2))
-    print(run_root)
-    return 0
+    except (OSError, RuntimeError) as exc:
+        parser.error(str(exc))
 
 
 if __name__ == "__main__":

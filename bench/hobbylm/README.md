@@ -13,15 +13,15 @@ python3 bench/hobbylm/replay.py \
   --system muselet --round r4 --ids C01,C02 --repeats 2
 ```
 
-The HobbyLM path invokes the pinned upstream `hobbymac_run.py` and
-`hobbymac_score.py`; it preserves the upstream `completed` value and stores the
-upstream run paths and scorer output beside `pass_final_state`, which is
-recomputed with the same grader used for Muselet. The `completed` metric is
-final-state success plus the system's reported success; `false_done` is a
-reported success with a final-state failure. HobbyLM requires its own `.venv`,
-model/runtime artifacts, and the macOS fixture setup. Older upstream event and
-`none` rows do not include the complete before/after snapshots needed by the
-independent grader, so those rows are conservatively marked as not verified.
+The HobbyLM path runs the unchanged upstream `trial()` from a parent-clocked
+worker, while the parent captures setup and pre-teardown state, polls with the
+shared 500 ms interval, and applies the strict grader. Parent receipt timestamps
+are authoritative; upstream latencies are stored only as
+`agent_reported_*`. Upstream completion is informational and cannot override a
+strict failure. Missing required snapshots are marked `ungradable` and excluded
+from pass-rate denominators. The worker uses the pinned vendored harness and
+the external HobbyLM `.venv`/model runtime. `hobbylm-published` is reference
+only and intentionally cannot execute through this guarded harness.
 
 The Muselet path requires macOS, Accessibility/Screen Recording permissions,
 and a `hands` binary. It starts a benchmark Brain server by default and routes
@@ -33,8 +33,11 @@ evaluates the final-state grader, requires the reported outcome as well, and
 records false-done and verified-completion latency. HobbyLM-native execution
 continues to use the pinned upstream runner and scorer.
 
-Event trials require `--allow-calendar` and the macOS default Calendar must be
-the dedicated `Hobby Test` calendar. Event grading snapshots the test calendar
+Event trials run only when EventKit proves `Muselet Bench` is in a local source
+and is the default for new events. Otherwise they are recorded as skipped with
+`bench calendar not local default`. `--setup-bench-calendar` creates the named
+calendar only in an existing local source and refuses iCloud/Exchange fallback.
+Event grading snapshots the test calendar
 with EventKit from one day before to 400 days after the trial, then diffs by
 event identifier; teardown removes only events added in that diff. Expected
 event starts use HobbyLM's `plan_event` in `Asia/Kolkata`. Because HobbyLM test
@@ -47,9 +50,11 @@ teardown; it does not trust RPC-returned paths. A `none` task passes only when
 no `act`/`skill` RPC was dispatched and the relevant device, app, Finder,
 screenshot, and Calendar state is unchanged.
 
-The current HandsKit `start_timer` skill is not implemented, so timer tasks are
-reported as unverifiable failures instead of being counted from a success
-message.
+The proxy guard is enabled by default. It blocks message/email sending,
+catalog skills requiring confirmation, invite-related scripts, and event
+arguments containing attendees or email addresses. HobbyLM native
+Mail/Messages/send/invite helpers raise and record `safety_blocked`; confirmation
+replies are always `false`.
 
 Run artifacts are written under `runs/bench/hobbylm/`. Do not use a personal
 Calendar or run these desktop trials while another user is operating the Mac.
