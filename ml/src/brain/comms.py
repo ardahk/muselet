@@ -62,7 +62,10 @@ _REQUEST_LEAD = re.compile(
 _NOUN = re.compile(
     r"(?:i\s+message|imessage|text|message|sms|note)"
     r"(?:\s+message)?", re.IGNORECASE)
-_VERB = r"(?:send|shoot|drop|write)"
+_MESSAGE_NOUN = re.compile(
+    r"(?:i\s+message|imessage|text|message|sms)(?:\s+message)?",
+    re.IGNORECASE)
+_VERB = r"(?:send|shoot|drop)"
 _ART = r"(?:a|an|the)"
 _QUICK = r"(?:quick|short|little|new|brief)"
 _BODY_START = {
@@ -184,6 +187,9 @@ def _parse_message_text(text: str) -> dict | None:
                    flags=re.IGNORECASE).strip()
     if not value:
         return None
+    if re.match(r"^note\s+(?:that\b|to\s+(?:myself|self)\b)",
+                 value, re.IGNORECASE):
+        return None
 
     noun = _NOUN.pattern
     verb = rf"{_VERB}\s+"
@@ -220,7 +226,7 @@ def _parse_message_text(text: str) -> dict | None:
         return _message_parts(to, body)
 
     match = re.match(
-        rf"^{_VERB}\s+(.+?)\s+{article}({_NOUN.pattern})"
+        rf"^{_VERB}\s+(.+?)\s+{article}({_MESSAGE_NOUN.pattern})"
         rf"(?:\s+(?:saying|that says|which says|that reads|to say|and say|"
         rf"that|:)\s*(.+))?$", value, re.IGNORECASE)
     if match:

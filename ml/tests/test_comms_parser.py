@@ -19,7 +19,8 @@ from brain.comms import is_messaging, parse_message
      {"to": "Maya", "body": "hi"}),
     ("drop an imessage to Sam that reads call me",
      {"to": "Sam", "body": "call me"}),
-    ("write the sms to Pat: hello!", {"to": "Pat", "body": "hello!"}),
+    ("send the sms to Pat: hello!", {"to": "Pat", "body": "hello!"}),
+    ("send a note to arda saying hi", {"to": "arda", "body": "hi"}),
     ("send a note to my friend saying uh hello.",
      {"to": None, "body": "hello"}),
     ("send me a little text to him", {"to": None, "body": None}),
@@ -42,7 +43,7 @@ from brain.comms import is_messaging, parse_message
     ("send Arda a text saying hi", {"to": "Arda", "body": "hi"}),
     ("shoot mom a message", {"to": "mom", "body": None}),
     ("drop Arda the text that says thanks", {"to": "Arda", "body": "thanks"}),
-    ("send Mom a note to say hello", {"to": "Mom", "body": "hello"}),
+    ("send Mom a note to say hello", None),
     ("tell Mom I love you", {"to": "Mom", "body": "I love you"}),
     ("tell Mom that I love you", {"to": "Mom", "body": "I love you"}),
     ("tell my friend we are running late",
@@ -102,6 +103,10 @@ from brain.comms import is_messaging, parse_message
     ("what's the weather", None),
     ("set a timer for 5 minutes", None),
     ("draft an email to arda", None),
+    ("write a note to self buy milk", None),
+    ("note that the meeting is at 5", None),
+    ("note to self buy milk", None),
+    ("write a message to arda", None),
 ])
 def test_parse_message(text, expected):
     assert parse_message(text) == expected
