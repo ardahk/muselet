@@ -12,8 +12,15 @@ Code: branch `cloud/data-pipeline` in github.com/ardahk/muselet, PR into `main`.
 
 Secrets (env only, never printed or committed): TINKER_API_KEY, HF_TOKEN (write), OPENAI_API_KEY, ANTHROPIC_API_KEY.
 
-Budget guards: any single Tinker run estimated > $15 during pilots, or > $350 total Tinker spend for
-Phase 1, requires lead approval first. Report estimated tokens and $ before every non-pilot run.
+HARD BUDGET: $150 total Tinker spend for the whole project (training + teacher sampling + storage).
+Phase 1 cap: $60. Any pilot run > $8, or any action that would push cumulative spend past the phase cap,
+requires lead approval first. Check actual spend with the `tinker billing` CLI after every run and report
+it. Report estimated tokens and $ before every non-pilot run.
+API teachers (separate budgets): generation = `claude-haiku-5-5` via Message Batches (use `gpt-5.4-nano`
+via the OpenAI Batch API for ~30% of generation calls for cross-family diversity); adjudication =
+`claude-sonnet-5-5` via Message Batches. Verify the exact model ids on the official model pages first.
+DEADLINE: the Phase 1 model must be exported and uploaded by Sat Oct 24, 12:00 PDT (hackathon submission
+is Oct 25 09:00 PDT). Prefer smaller data over missing the deadline.
 Prices (per 1M tokens, Oct 2026): Qwen3.5-4B train $0.73, prefill $0.33; Qwen3.5-9B train $1.46;
 Qwen3.6-35B-A3B train $1.17, prefill $0.45; Qwen3.5-397B-A17B prefill $1.65; cached prefill = 20% of prefill.
 
@@ -115,7 +122,7 @@ Rules:
 ```
 Styles (rotate): terse imperative; polite full sentence; rambling with filler words and a false start;
 question form; indirect need with no explicit command; slang or abbreviations; very short (2-4 words);
-numbers spelled out in words. n = 40 per call. Target 2,500 kept items per skill.
+numbers spelled out in words. n = 40 per call. Target 800 kept items per skill.
 
 Prompt G2 — special options (one call per option per style; exact text):
 ```
@@ -134,17 +141,23 @@ Rules: spoken style, 2 to 30 words, varied phrasing and topics. Make about half 
 Categories:
 - MULTI_STEP — needs several actions or apps, or UI interaction that no single skill covers. Examples:
   "open safari, search flights to tokyo and sort by price"; "in premiere add a cross dissolve between the
-  first two clips"; "rename the screenshots on my desktop by date"; "reply to sam's last email saying thanks".
-  Target 20,000.
+  first two clips"; "rename the screenshots on my desktop by date"; "reply to sam's last email saying thanks";
+  "categorize my october transactions in the budget spreadsheet"; "add up the receipts in my downloads into
+  the expense sheet"; "make a chart of monthly spending in numbers"; "flag duplicate charges in my bank
+  statement"; "fill in the total column with a sum formula". At least 30% of MULTI_STEP items must be
+  spreadsheet/finance tasks (Google Sheets, Numbers, Excel), 15% Premiere Pro, 20% browser.
+  Target 6,000.
 - ASK — maps to a skill but a required argument is missing or the referent is unclear and cannot be
   inferred from context. Examples: "set a timer"; "text him"; "open that file"; "move it to the folder".
-  Target 12,000. Each item's `nearest_skill` must be the skill it would map to.
+  Target 4,000. Each item's `nearest_skill` must be the skill it would map to.
 - REFUSE — harmful, deceptive, privacy-violating, or impossible for a local Mac assistant. Examples:
   "read my partner's messages without them knowing"; "wipe this mac without asking me"; "make my laptop
-  fly". Normal web tasks when online are NOT refusals. Target 6,000.
+  fly"; "move money out of my mom's bank account". Normal web tasks when online are NOT refusals.
+  Target 2,000.
 - ANSWER — a question that needs a spoken answer, not an action: math, unit conversion, how-to questions
-  about macOS or Premiere Pro, definitions. Examples: "what's 15 percent of 80"; "how do I add a
-  transition in premiere"; "what does command shift 4 do". Target 12,000.
+  about macOS, Premiere Pro or spreadsheets, definitions. Examples: "what's 15 percent of 80"; "how do I
+  add a transition in premiere"; "what does command shift 4 do"; "what's the formula for compound
+  interest". Target 4,000.
 
 Prompt G3 — context-dependent pairs (exact text):
 ```
@@ -154,9 +167,9 @@ Special options: MULTI_STEP, ASK, REFUSE, ANSWER.
 Return JSON: {"items": [{"text": "...", "a": {"app": "...", "selection": "yes|no", "label": "..."}, "b": {"app": "...", "selection": "yes|no", "label": "..."}}]}
 Examples: "cut this" (Premiere Pro, selection no -> premiere_command; TextEdit, selection yes -> MULTI_STEP); "play" (Music -> media_control; Premiere Pro -> premiere_command).
 ```
-Target 5,000 pairs (= 10,000 examples).
+Target 1,500 pairs (= 3,000 examples).
 
-Follow-up/last_action examples: for 10% of skill items, also create a follow-up variant with a relative
+Follow-up/last_action examples: for 5% of skill items, also create a follow-up variant with a relative
 request ("a bit more", "undo that", "again") and a matching `last_action` (e.g. `set_volume level=30`),
 labeled by rule: "a bit more/louder" after set_volume -> change_volume; "again" -> same skill.
 
@@ -173,7 +186,9 @@ common homophones (to/two/too, for/four, write/right); one false start ("open th
 ### 1.4 Soft labels
 Teacher distribution: render each item with the route renderer for `Qwen/Qwen3.5-397B-A17B` (its own
 cookbook renderer, same system/user text, same ids) and call `sample_decision` on Tinker; reuse the cached
-system prefix (cached prefill discount). Target distribution:
+system prefix (cached prefill discount). Pilot it on 500 items first and check the billed cost with
+`tinker billing`; if the extrapolated cost for all items exceeds $15, use `Qwen/Qwen3.6-35B-A3B` as the
+teacher instead. Target distribution:
 `target = normalize(0.6 * onehot(intended_label) + 0.4 * teacher_probs)`.
 If `argmax(teacher) != intended` and `teacher max prob >= 0.7`, send to adjudication (prompt A1). Report
 the adjudication rate per label; if > 15% for any label, STOP and report (generation prompt problem).
@@ -205,12 +220,14 @@ huggingface.co/Hobbylm/hobbylm-1B-computer-use). Split 97/3 train/val stratified
 near-duplicates into the same split. Report per-label counts.
 
 ### 1.6 Training (Tinker)
-- Base `Qwen/Qwen3.5-4B`, LoRA rank 64, Adam, batch 128, 2 epochs, eval every 50 steps, save every 200.
+- Base `Qwen/Qwen3.5-4B`, LoRA rank 32, Adam, batch 128, 2 epochs, eval every 50 steps, save every 200.
+  Expected size: ~45K route items x ~520 tokens + ~25K args items x ~150 tokens -> ~55M tokens for 2 epochs
+  (~$40). Keep catalog descriptions as written (they are short) to keep the static prefix small.
 - Route datums: `decision_dist_datums` with the route renderer, loss `cross_entropy` (the datum's (T,K)
   target_tokens/weights carry the soft targets). ARGS datums: standard supervised datums (last assistant
   message only). Mix 60% route / 40% args per batch. Pilot must verify that mixed datum shapes work in one
   `forward_backward` call; if not, alternate batches (route, args, route, ...).
-- Pilot: 5,000 items, LR sweep {1e-4, 2e-4, 4e-4}, 1 epoch each. Pick by val route accuracy, then ECE.
+- Pilot: 4,000 items, LR sweep {2e-4, 4e-4}, 1 epoch each. Pick by val route accuracy, then ECE.
 - Metrics each eval: route top-1 accuracy, macro-F1, ECE (15 bins), Brier, per-label accuracy, ARGS exact
   match. Write `training/reports/phase1_<run>.md`.
 
@@ -223,8 +240,9 @@ and `-mlx-8bit`. Upload `parity.jsonl`: 300 val items with the Tinker final-chec
 mean |Δp| <= 0.05.
 
 ### 1.8 Execution order and reporting (Phase 0 + Phase 1)
-1. Phase 0 recon reports (all datasets). Push to the branch; post a summary.
-2. Route renderer + id alphabet + `route_render_samples.jsonl`. Post the id list.
+1. Route renderer + id alphabet + `route_render_samples.jsonl`. Post the id list. (Phase 0 recon is LOW
+   priority: do it only while waiting on batch jobs or approvals.)
+2. (moved) Phase 0 recon reports, when time allows.
 3. Generation: run G1/G2/G3 on a 2% sample first (all labels), post 30 random items per label with their
    labels and args, then WAIT for lead approval before full generation.
 4. Full generation + noise + soft labels + adjudication + dedup/splits. Post per-label counts and the

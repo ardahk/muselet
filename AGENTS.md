@@ -8,6 +8,11 @@ All inference is local (Apple Silicon only). Internet is used only when a task i
 
 Hardware target: MacBook Pro M5 Pro, 64 GB, macOS 27. Optimize for MLX / ANE / Metal only.
 
+Product decisions: voice input only (push-to-talk, Right Option). No text-to-speech: the mascot replies
+with short text (<= 12 words) in a speech bubble. Demo covers macOS system tasks, browser (Chrome/Safari),
+spreadsheet finance (Numbers / Google Sheets), Premiere Pro, plus 1-2 "wow" moments.
+Hackathon deadline: Cal Hacks submission Sun Oct 25 2026, 09:00 PDT. Tinker budget: $150 hard cap.
+
 ## Repo layout
 - `app/`    Swift package: menu-bar app (voice, mascot, ghost cursor overlay) + `HandsKit` (AX observe/act, native skills, screenshots)
 - `ml/`     Python (uv, 3.12): `brain` (orchestrator, model runtime, router, planner, grounder), data, training, evals
@@ -23,7 +28,7 @@ brain: System 1 decision model (one forward pass -> option probabilities)
          confident -> act  |  unsure / multi-step -> System 2 planner (action batches + expect checks)
        grounder (screenshot -> coords) only when the AX tree is blind
 app/HandsKit executes: native skill -> AX action -> keys -> pixel click; verifies via AX state
-overlay: mascot + ghost cursor flies to the element frame before acting; TTS reply (Kokoro on ANE)
+overlay: mascot + ghost cursor flies to the element frame before acting; reply as text in the mascot bubble
 ```
 Model lineup is decided by the M0 speed lab (`runs/speedlab/results.jsonl`). Candidates:
 System 1 = Qwen3.5-4B decision LoRA (Tinker) vs local 0.8B/0.6B; System 2 = Qwen3.6-35B-A3B vs Qwen3.5-9B/4B;
@@ -56,7 +61,7 @@ App -> brain:
 Brain -> app:
 - `{"t":"rpc","id":"r1","method":"<observe|act|skill|screenshot|verify|apps>","params":{...}}`
 - `{"t":"ui","mascot":"idle|listening|thinking|acting|success|confused|sleeping","bubble":"optional text"}`
-- `{"t":"say","text":"..."}`
+- `{"t":"say","text":"..."}` (shown in the mascot's speech bubble; no audio)
 - `{"t":"confirm","id":"c1","summary":"Send the message to Mom?"}`
 
 RPC methods (HandsKit):

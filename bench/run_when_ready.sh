@@ -18,7 +18,8 @@ snaps = glob.glob(os.path.join(d, "snapshots", "*"))
 if not snaps:
     sys.exit(1)
 snap = snaps[0]
-if glob.glob(os.path.join(d, "blobs", "*.incomplete")):
+import time
+if any(time.time() - os.path.getmtime(p) < 120 for p in glob.glob(os.path.join(d, "blobs", "*.incomplete"))):
     sys.exit(1)
 idx = os.path.join(snap, "model.safetensors.index.json")
 if os.path.exists(idx):
