@@ -525,3 +525,183 @@ def test_summary_rows_from_report(txns, budget):
     assert rows["Weekend charges"] == 32 and "Needs review" not in rows
     assert rows["Net"] == D("732.74") and rows["Over budget"] == "Dining, Shopping"
     assert rows["Receipts matched"] == 6 and rows["Receipts amount mismatch"] == 1 and rows["Receipts no match"] == 1
+
+
+# --- receipt OCR text -> fields --------------------------------------------------------------------------
+
+def test_parse_receipt_text_same_line_total():
+    text = ("TRADER JOE'S\n1885 University Ave, Berkeley, CA 94703\n10/26/2026  18:42\n-----------\n"
+            "MANDARIN CHICKEN 7.65\nBANANAS 8.81\n-----------\nSUBTOTAL 16.46\nTAX 0.00\nTOTAL 16.46\n"
+            "VISA **** 4417\nTHANK YOU!\n")
+    assert fin.parse_receipt_text(text) == {"merchant": "TRADER JOE'S", "date": "2026-10-26", "total": D("16.46")}
+
+
+def test_parse_receipt_text_columns_and_ocr_noise():
+    # Vision often returns the label column, then the amount column; O/0 and l/1 confusions.
+    text = ("CHIPOTLE\n2311 Telegraph Ave, Berkeley, CA 94704\n1O/18/2O26 10:09\nBURRITO BOWL\nSPARKLING WATER\n"
+            "SUBTOTAL\nTAX 10.25%\nTOTAL\n8.04\n5.54\n13.58\n1.39\nl4.97\nVISA **** 4417\n")
+    assert fin.parse_receipt_text(text) == {"merchant": "CHIPOTLE", "date": "2026-10-18", "total": D("14.97")}
+
+
+def test_parse_receipt_text_greeting_comma_decimal_text_date():
+    text = "WELCOME TO\nSafeway Store #1444\nOct 3, 2026\nEGGS 4.99\nTOTAL $ 15,65\nCASH 20.00\nCHANGE 4.35\n"
+    assert fin.parse_receipt_text(text) == {"merchant": "Safeway Store #1444", "date": "2026-10-03",
+                                            "total": D("15.65")}
+
+
+def test_parse_receipt_text_uses_frames_for_the_total_row():
+    lines = [{"text": "SUBTOTAL", "frame": [50, 300, 120, 20]}, {"text": "TOTAL", "frame": [50, 340, 90, 30]},
+             {"text": "YOU SAVED", "frame": [50, 380, 120, 20]}, {"text": "9.00", "frame": [480, 301, 60, 20]},
+             {"text": "9.90", "frame": [470, 342, 70, 30]}, {"text": "12.00", "frame": [470, 381, 70, 20]}]
+    text = "SWEETGREEN\n10/05/2026\n" + "\n".join(ln["text"] for ln in lines)
+    assert fin.parse_receipt_text(text)["total"] == D("12.00")  # text alone: largest amount
+    assert fin.parse_receipt_text(text, lines)["total"] == D("9.90")  # frames: the amount on the TOTAL row
+
+
+def test_parse_receipt_text_empty():
+    assert fin.parse_receipt_text("") == {"merchant": None, "date": None, "total": None}
+
+
+def ocr_like(e: dict, columns: bool) -> str:
+    """OCR-shaped text for a receipt truth entry (what Apple Vision returns for the rendered PNG)."""
+    d = dt.date.fromisoformat(e["date"])
+    head = f"{e['merchant']}\n1600 Shattuck Ave, Berkeley, CA 94709\n{d:%m/%d/%Y}  12:41\n{'-' * 30}\n"
+    total = f"{D(str(e['total'])):.2f}"
+    if columns:
+        return head + f"ITEM ONE\nSUBTOTAL\nTAX\nTOTAL\n{total}\n{total}\n0.00\n{total}\nVISA **** 4417\nTHANK YOU!\n"
+    return head + f"ITEM ONE {total}\nSUBTOTAL {total}\nTAX 0.00\nTOTAL {total}\nVISA **** 4417\nTHANK YOU!\n"
+
+
+@pytest.mark.parametrize("columns", [False, True])
+def test_parsed_receipts_reconcile_to_truth(txns, columns):
+    parsed = [{"id": k, **fin.parse_receipt_text(ocr_like(v, columns))} for k, v in RC_TRUTH.items()]
+    assert [(p["merchant"], p["date"], p["total"]) for p in parsed] == [
+        (v["merchant"], v["date"], cents(v["total"])) for v in RC_TRUTH.values()]
+    assert json.loads(json.dumps(fin.jsonable(fin.reconcile_receipts(parsed, txns)))) == RC_TRUTH
+
+
+# --- Numbers scripts for the brain tool (golden) ----------------------------------------------------------
+
+def test_list_documents_golden():
+    assert ns.list_documents() == '''set out to {}
+tell application id "com.apple.Numbers"
+	repeat with d in documents
+		set AppleScript's text item delimiters to "|"
+		set sheetNames to (name of every sheet of d) as text
+		set end of out to (name of d) & tab & sheetNames
+	end repeat
+end tell
+set AppleScript's text item delimiters to linefeed
+set res to out as text
+set AppleScript's text item delimiters to ""
+return res
+'''
+
+
+def test_read_tables_golden():
+    s = ns.read_tables([ns.table_ref(document="bank_statement_oct2026"),
+                        ns.table_ref(sheet="Budget", document='Alex "budget"')])
+    assert s == '''on cellText(v, f)
+	if v is missing value then return ""
+	if class of v is date then
+		set m to (month of v) as integer
+		set d to day of v
+		return ((year of v) as text) & "-" & (text -2 thru -1 of ("0" & m)) & "-" & (text -2 thru -1 of ("0" & d))
+	end if
+	if f is missing value then return (v as text)
+	return f as text
+end cellText
+
+on tableTSV(vals, fvals, nc)
+	set out to {}
+	set rowVals to {}
+	repeat with i from 1 to count of vals
+		set end of rowVals to my cellText(item i of vals, item i of fvals)
+		if (count of rowVals) = nc then
+			set AppleScript's text item delimiters to tab
+			set end of out to rowVals as text
+			set rowVals to {}
+		end if
+	end repeat
+	set AppleScript's text item delimiters to linefeed
+	set s to out as text
+	set AppleScript's text item delimiters to ""
+	return s
+end tableTSV
+
+set results to {}
+tell application id "com.apple.Numbers"
+	tell table 1 of sheet 1 of document "bank_statement_oct2026"
+		set nr to row count
+		set nc to column count
+		set rng to range ("A1:" & (name of cell nc of row nr))
+		set vals to value of every cell of rng
+		set fvals to formatted value of every cell of rng
+	end tell
+	set end of results to my tableTSV(vals, fvals, nc)
+	tell table 1 of sheet "Budget" of document "Alex \\"budget\\""
+		set nr to row count
+		set nc to column count
+		set rng to range ("A1:" & (name of cell nc of row nr))
+		set vals to value of every cell of rng
+		set fvals to formatted value of every cell of rng
+	end tell
+	set end of results to my tableTSV(vals, fvals, nc)
+end tell
+set AppleScript's text item delimiters to (character id 30)
+set res to results as text
+set AppleScript's text item delimiters to ""
+return res
+'''
+
+
+def test_multi_category_color_budget_golden():
+    s = ns.multi([
+        (ns.table_ref(document="stmt"), ns.category_body(5, ["Dining", "Needs review"])
+         + ns.color_body(ns.highlight_colors([(1, 2)], [], resolved=[]))),
+        (ns.table_ref(sheet="Budget", document="budget"),
+         ns.budget_body({"Rent": D("1625.00")}, {"Rent": D("25.00")}, notes={"Rent": "Needs review"})),
+    ])
+    assert s == '''tell application id "com.apple.Numbers"
+	tell table 1 of sheet 1 of document "stmt"
+		if column count < 5 then set column count to 5
+		set value of cell 1 of column "E" to "Category"
+		set vals to {"Dining", "Needs review"}
+		repeat with i from 1 to count of vals
+			set value of cell (i + 1) of column "E" to item i of vals
+		end repeat
+		repeat with r in {2, 3}
+			set background color of row (contents of r) to {65535, 49087, 49087}
+		end repeat
+	end tell
+	tell table 1 of sheet "Budget" of document "budget"
+		set names to {"Rent"}
+		set acts to {1625.00}
+		set rems to {25.00}
+		set notes to {"Needs review"}
+		set value of cell 1 of column "E" to "Note"
+		set cats to value of cells of column "A"
+		set written to 0
+		repeat with r from 1 to count of cats
+			set c to item r of cats
+			if c is not missing value then
+				repeat with k from 1 to count of names
+					if (c as text) is (item k of names) then
+						set value of cell r of column "C" to item k of acts
+						set value of cell r of column "D" to item k of rems
+						set value of cell r of column "E" to item k of notes
+						set written to written + 1
+					end if
+				end repeat
+			end if
+		end repeat
+		return written
+	end tell
+end tell
+'''
+    assert [ns.col_letter(n) for n in (1, 5, 26, 27, 52)] == ["A", "E", "Z", "AA", "AZ"]
+
+
+def test_refunded_duplicate_highlighted_as_resolved():
+    colors = ns.highlight_colors([(18, 19), (66, 67)], [85], resolved=[66, 67, 105])
+    assert colors == {18: ns.RED, 19: ns.RED, 66: ns.RESOLVED, 67: ns.RESOLVED, 105: ns.RESOLVED, 85: ns.ORANGE}

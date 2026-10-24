@@ -147,7 +147,7 @@ _MONTHS = {m: i for i, m in enumerate(["JAN", "FEB", "MAR", "APR", "MAY", "JUN",
 # OCR confusions inside numbers: O->0, l/I/|->1, S->5 (only applied to number-like tokens).
 _DIGITISH = str.maketrans({"O": "0", "o": "0", "D": "0", "l": "1", "I": "1", "|": "1", "S": "5", "B": "8"})
 _MONEY = re.compile(r"(?<![\w.])[$S]?\s?(-?[0-9OolI|]{1,5}(?:,[0-9]{3})*\s?[.,]\s?[0-9Oo]{2})(?![\w.%])")
-_NUM_DATE = re.compile(r"(?<!\d)([0-9OolI]{1,2})\s?[/.-]\s?([0-9OolI]{1,2})\s?[/.-]\s?((?:20)?[0-9OolI]{2})(?!\d)")
+_NUM_DATE = re.compile(r"(?<!\d)([0-9OolI]{1,2})\s?[/.-]\s?([0-9OolI]{1,2})\s?[/.-]\s?((?:2[0Oo])?[0-9OolI]{2})(?!\d)")
 _ISO_DATE = re.compile(r"(?<!\d)(20\d\d)-(\d\d)-(\d\d)(?!\d)")
 _TEXT_DATE = re.compile(r"\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\.?\s+(\d{1,2}),?\s+(20\d\d)\b", re.IGNORECASE)
 _TOTAL = re.compile(r"\bT\s?[O0]\s?T\s?A\s?L\b", re.IGNORECASE)
