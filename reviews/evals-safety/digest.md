@@ -1,4 +1,4 @@
-# evals-safety digest, pass 20 (2026-10-24T09:48:00Z): main 758a017
+# evals-safety digest, pass 21 (2026-10-24T10:03:11Z): main 758a017 unchanged; reviewed wip/local 630d661, cloud/decisions c08a96d, cloud/brain-5 003d1bb, nothing material
 
 ## Open P0/P1 (ranked)
 No open P0.
@@ -9,7 +9,7 @@ No open P0.
 5. evals-safety-26 P1 (cloud/data-pipeline): main-final's training rows have no decontam record (training/src/muselet_train/datums_export.py)
 
 Resolved this pass: -29 (hobby-gaps ef95140: calc before the router only in Calculator context). Open P2: -8, -12, -20, -21, -22, -24, -28.
-Checked, nothing material: the brain-4 escalate planner (opt-in, same done gate); the pitch-2 claims re-verify (-2 resolved, -11 partial: both correct).
+Pass 21 checked, nothing material: brain-5 pathfind (a single resolved path for move_to_trash still goes through confirm, which now shows the full path); decisions decontam (fails closed if the JevBench/Typed-Decisions references are missing); wip keystroke typing for Calculator. Earlier: the brain-4 escalate planner (opt-in, same done gate); the pitch-2 claims re-verify (-2 resolved, -11 partial: both correct).
 
 ## Highest-leverage next moves
 - Scope the doc guard to the case's own apps, and print skipped alongside passed/executed (-25).
