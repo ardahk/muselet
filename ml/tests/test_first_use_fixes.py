@@ -380,7 +380,7 @@ def test_planner_loop_passes_login_page_hint(tmp_path):
             "text": "app: Chrome | window: Sign in | Password",
             "ax_ms": 1})
         orch = Orchestrator(server, Catalog.load(), Tracer(tmp_path / "t"))
-        planner = _StreamingFakePlanner([['done "ok"', 'expect title~"Sign in"']])
+        planner = _StreamingFakePlanner([['done "ok"']])
         orch.planner = planner
         outcome = await orch._planner_loop("continue", {"decisions": []})
         return outcome, planner

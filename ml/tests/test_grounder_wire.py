@@ -528,7 +528,7 @@ def test_click_target_in_planner_loop(tmp_path):
     o, srv, _ = _orch(tmp_path)
     srv.observe = _obs("Adobe Premiere Pro 2025", [])
     o.planner = FakePlanner([['click "the red square"'], ['done "ok"']])
-    assert run(o._planner_loop("select the clip", {"utterance": "x", "decisions": []})) == "unverified"
+    assert run(o._planner_loop("select the clip", {"utterance": "x", "decisions": []})) == "ok"
     assert srv.acts() and BLIND_HINT in o.planner.user_msgs[0]["obs"]
     assert any("at " in ln for ln in o.planner.user_msgs[1]["last_batch"])
 

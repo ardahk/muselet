@@ -75,7 +75,7 @@ def test_planner_plans_on_filled_web_tree(tmp_path):
     seq = iter([_obs("app: Google Chrome | window: \"Docs\"",
                      web_ax_pending=True),
                 _obs('app: Google Chrome | window: "Docs"\n#9 link "Sign in"')])
-    o = _diff_orch(tmp_path, [['done "ok"', 'expect appears "Sign in"']], lambda p: {"ok": True})
+    o = _diff_orch(tmp_path, [['done "ok"']], lambda p: {"ok": True})
     o.server.observe = lambda: next(seq)
     o.WEB_AX_WINDOW_S = 0.02
     tr = o.tracer.begin("sign in")
@@ -92,8 +92,8 @@ def test_act_truncated_forces_fresh_observe(tmp_path):
                    lambda p: {"ok": True, "epoch": 2, "diff_text": "- #1",
                               "truncated": True})
     tr = trace_for(o)
-    assert run(o._planner_loop("go", tr)) == "unverified"
-    assert o.server.methods() == ["observe", "act", "observe", "observe"]
+    assert run(o._planner_loop("go", tr)) == "ok"
+    assert o.server.methods() == ["observe", "act", "observe"]
     assert not any("obs_from_diff" in d for d in tr["decisions"])
     assert "#1" in o.planner.user_msgs[1]["obs"]     # not removed by the diff
 

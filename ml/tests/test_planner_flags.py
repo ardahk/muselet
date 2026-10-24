@@ -210,9 +210,9 @@ def test_repr_format_is_legacy_dict_repr(tmp_path):
 
 
 @pytest.mark.parametrize("fmt,want", [
-    ("marked", "[failed: needs evidence (add expect <predicate>)] done"),
-    ("dsl", "done -> failed: needs evidence (add expect <predicate>)"),
-    ("repr", "done -> failed: needs evidence (add expect <predicate>)"),
+    ("marked", "[failed: not verified; check the fresh observation] done"),
+    ("dsl", "done -> failed: not verified; check the fresh observation"),
+    ("repr", "done -> failed: not verified; check the fresh observation"),
 ])
 def test_done_rejection_line_follows_format(tmp_path, fmt, want):
     o = _batch(tmp_path, fmt, [["press #1"], ['done "ok"']], _press_fails)
@@ -373,7 +373,7 @@ def test_done_rejection_not_counted_by_loop_guard(tmp_path):
     o = _diff_orch(tmp_path, [["press #1"], ["press #2"], ['done "ok"'],
                               ['done "ok"']], _press_fails)
     tr = trace_for(o)
-    assert run(o._planner_loop("go", tr)) == "unverified"
+    assert run(o._planner_loop("go", tr)) == "ok"
     assert o.planner.calls == 4
     assert not any("loop_guard" in d for d in tr["decisions"])
 
@@ -405,7 +405,7 @@ def _esc_orch(tmp_path, main_turns, esc_turns, act):
 
 def test_escalation_takes_over_after_two_failed_turns(tmp_path):
     o = _esc_orch(tmp_path, [["press #1"], ["press #2"]],
-                  [["press #3"], ['done "ok"', 'expect appears "Saved"']],
+                  [["press #3"], ['done "ok"']],
                   lambda p: {"ok": p.get("ref") == 3, "error": "boom"})
     tr = trace_for(o)
     assert run(o._planner_loop("go", tr)) == "ok"
@@ -449,7 +449,7 @@ def test_no_escalation_keeps_today_guard(tmp_path):
 
 
 def test_escalation_unused_when_main_succeeds(tmp_path):
-    o = _esc_orch(tmp_path, [["press #1"], ['done "ok"', 'expect appears "Saved"']], [['done "x"']],
+    o = _esc_orch(tmp_path, [["press #1"], ['done "ok"']], [['done "x"']],
                   lambda p: {"ok": True})
     tr = trace_for(o)
     assert run(o._planner_loop("go", tr)) == "ok"

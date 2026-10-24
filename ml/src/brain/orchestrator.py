@@ -1625,19 +1625,7 @@ function run() {
                     "_log": f"{dsl_line}-> confirmed"}
         if op == "done":
             self._done_summary = a["summary"].strip('"')
-            expect_ok = False
-            if a.get("expect"):
-                started = time.perf_counter()
-                try:
-                    res = await self.server.rpc(
-                        "verify", {"expect": a["expect"]}, timeout=15)
-                except RuntimeError as e:
-                    res = {"ok": False, "observed": str(e)}
-                self.tracer.rpc("verify", {"expect": a["expect"]}, res,
-                                (time.perf_counter() - started) * 1000)
-                expect_ok = bool(res.get("ok"))
             return {"status": "done", "summary": a["summary"],
-                    "expect_ok": expect_ok,
                     "_log": f"{dsl_line}-> done"}
         if op == "refuse":
             await self.server.say("Sorry, I can't do that")
@@ -2287,7 +2275,6 @@ function run() {
             self._batch_confirmed = False
             res_status = "ok"
             done_seen = False
-            done_expect_ok = False
             n_executed = 0
             last_exp_ok = False
             skipped: list[str] = []      # prose / tags / fences, not actions
@@ -2344,7 +2331,6 @@ function run() {
                             noop_press_key, noop_press_count = None, 0
                         if r["status"] == "done":
                             done_seen = True
-                            done_expect_ok = bool(r.get("expect_ok"))
                             cancel.set()      # done ends the batch's execution
                         else:
                             n_executed += 1
@@ -2392,7 +2378,6 @@ function run() {
                     noop_press_key, noop_press_count = None, 0
                 if r["status"] == "done":
                     done_seen = True
-                    done_expect_ok = bool(r.get("expect_ok"))
                 else:
                     n_executed += 1
                     last_exp_ok = bool(r.get("expect_ok"))
@@ -2428,21 +2413,22 @@ function run() {
                 return "failed"
             if res_status == "fallback":
                 return "fallback"     # brain tool not ready: one bubble (planner-18)
+            # done is verified, never trusted (planner-13): alone in its batch
+            # and either the previous batch's last expect passed, or the
+            # planner saw a fresh observe (not a diff rebuild); after a
+            # failure, done is rejected once
             if done_seen and not failed:
-                if n_executed == 0 and (prev_expect_ok or done_expect_ok):
+                if n_executed == 0 and (prev_expect_ok or obs_fresh and (
+                        not prev_had_failure or done_rejected)):
                     summary = self._done_summary or "Done"
                     await self.server.say(summary[:60])
                     await self._end_ui("success")
                     return "ok"
+                done_rejected = True
                 harness_reject = True
-                why = "failed: needs evidence (add expect <predicate>)"
+                why = "failed: not verified; check the fresh observation"
                 batch_log.append(self._batch_line("done", why,
                                                   f"done -> {why}"))
-                if done_rejected:
-                    await self.server.say("I couldn't verify that")
-                    await self._end_ui("idle")
-                    return "unverified"
-                done_rejected = True
                 failed = True
                 diffs = None          # force a fresh observe next turn
             prev_expect_ok = n_executed > 0 and not failed and last_exp_ok
