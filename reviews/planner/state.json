@@ -1,8 +1,8 @@
 {
- "pass": 38,
+ "pass": 39,
  "reviewed": {
-  "main": "7065dd3",
-  "wip/local": "e29ea7c",
+  "main": "026aff0",
+  "wip/local": "98d1401",
   "cloud/fixtures-docs": "4bf2291",
   "cloud/data-pipeline": "f8b721a",
   "cloud/finance": "529e9ff",
@@ -33,6 +33,8 @@
   "cloud/report-2": "3c25e78",
   "cloud/data-planner": "ee8ae33",
   "cloud/data-route": "42835ce",
-  "cloud/bench-fix": "4bcf0db"
+  "cloud/bench-fix": "4bcf0db",
+  "cloud/brain-8": "4546d09",
+  "cloud/planner-demos": "84798ec"
  }
 }

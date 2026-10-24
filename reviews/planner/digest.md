@@ -1,4 +1,8 @@
-# planner lane — pass 38 (main 7065dd3, wip e29ea7c)
+# planner lane — pass 39 (main 026aff0, wip 98d1401, new brain-8 4546d09, planner-demos 84798ec)
+
+Pass 39: no new findings. planner-29 is now on main (the v2 bench merged without a few-shot overlap check). brain-8 adds a permission-prompt gate: it never answers system permission dialogs, asks the user instead and resumes afterwards. It also adds absolute folder paths and web question answers. I found no issues in a static review. planner-demos uses Anthropic and OpenAI teachers; it doesn't import the planner_v2 or holdout scenarios, so I found no eval leakage. main's HandsKit comms RPCs and the relative-path refusal look fine. Open findings: planner-28, planner-24, planner-6, planner-29 (P1); planner-26, planner-27, planner-25 (P2).
+
+## Pass 38 notes
 
 Pass 38: no new findings. main merged comms (reviewed in passes 35-36) and app-ui. wip adds HandsKit Contacts.swift and MessagesCompose.swift: the body is set through AX rather than keystrokes, and send re-checks the frontmost window and draft before posting one Return. No issues. Open findings on main are unchanged: planner-28 compose_text L70 (wip's own comment confirms that Return sends in Messages), planner-24 L1111, planner-26 L293, planner-27 L1763, planner-25 planner.py L339, planner-6. planner-29 is still on data-planner.
 
