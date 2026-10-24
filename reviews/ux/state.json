@@ -1,9 +1,9 @@
 {
-  "pass": 24,
-  "ts": "2026-10-24T11:45:00Z",
+  "pass": 25,
+  "ts": "2026-10-24T11:55:00Z",
   "last_reviewed": {
-    "main": "7147694",
-    "wip/local": "5764a0d",
+    "main": "04c3930",
+    "wip/local": "aec8fbf",
     "cloud/data-pipeline": "9b36081",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -25,5 +25,5 @@
     "cloud/grounder-wire": "afb12a6",
     "cloud/pitch-3": "e203181"
   },
-  "notes": "pass 24: main 7147694 (planner bench, generic_decide thread) has no lane edits; wip matches main. grounder-wire adds ux-19 and ux-20. pitch-3 and data-pipeline have no lane edits."
+  "notes": "pass 25: main 04c3930 merged grounder-wire (#19) and pitch-3 (#18) plus planner-prompt rules; ux-19 and ux-20 are now on main. wip matches main. All 8 open P2s are on main."
 }
