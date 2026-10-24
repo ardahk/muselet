@@ -1,11 +1,11 @@
 {
-  "pass": 8,
-  "ts": "2026-10-24T07:55:00Z",
+  "pass": 9,
+  "ts": "2026-10-24T08:00:00Z",
   "branches": {
-    "main": "d8ad966",
-    "wip/local": "85ec0df",
-    "cloud/bench": "911a384",
-    "cloud/data-pipeline": "b8c0604",
+    "main": "4a74659",
+    "wip/local": "85c73ed",
+    "cloud/bench": "c3ca0b3",
+    "cloud/data-pipeline": "9c526b1",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
     "cloud/fixtures-docs": "4bf2291",
@@ -15,5 +15,5 @@
     "cloud/grounding": "3441ee8",
     "cloud/brain-2": "741465c"
   },
-  "notes": "pass8 (PULSE 07:23:21Z): bench-8 resolved (b8c0604), bench-13 resolved (3441ee8, 123 grounder tests pass). main/wip/brain-2/finance-2 lane changes = evals/external merge (identical to cloud/bench) + live_t1 (utterance key, covered). advisor-2/pitch: no lane files."
+  "notes": "pass9 (PULSE 07:38:34Z): bench-4/5/7 resolved on cloud/bench@c3ca0b3 (bench/tests 50 passed, 2 skipped). main merged grounding (grounder.py identical to cloud/grounding@3441ee8). data-pipeline 9c526b1 no lane changes. bench-11/12/14/15 unchanged."
 }
