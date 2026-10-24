@@ -1,14 +1,13 @@
-# planner lane — pass 14 (main bb494af = brain-3 + finance-3 + advisor-3 merged; wip c85a000)
+# planner lane — pass 15 (full re-verify against main 2920225)
 
-Resolved: planner-21. web_ax_pending handling is on main via brain-3. 227 non-MLX tests pass on main.
-New: evals/planner_offline.py (28 scenarios, bb5a80b) reviewed. The few-shot examples don't overlap any scenario goal, so there is no leakage. The grader doesn't match the runtime (planner-22).
+I re-checked every finding against main. Planner-2, -3, -4, -5, -7, -8, -9, -10, -11, -12, -13, -14, -15, -16, -17, -18 and -21 are fixed on main and confirmed by code or a passing test. planner-22 was fixed in 2920225. planner-1 and -19 were superseded. No finding is resolved only on a branch.
+Tests: test_planner_loop now runs on Linux with an import stub (see tests/test_planner20_done_reject_streak.py). Results: 77 passed and the 1 planner-20 repro failed.
+New merges reviewed: the planner bench grading now matches runtime (good); planner_fewshot.md moved to prompts/ and is only used via --system-extra; decision_chunking/generic_decide belong to the router lane.
 
 ## Open P1 (ranked)
-1. planner-20 P1 — The harness's own `done` rejection counts toward the 3-failed-turns guard, so a recovered task can end in "I'm stuck" — now on main, ml/src/brain/orchestrator.py L1087-1096
-2. planner-22 P1 — The offline planner benchmark scores lines the runtime would accept (prose, missing `skill` prefix) as invalid, which skews the knob comparisons — evals/planner_offline.py
-3. planner-6 P1 — Premiere runs via keyboard shortcuts only; the 8766 UXP bridge isn't connected, so results can't be verified — app/Sources/HandsKit/Skills.swift
+1. planner-20 P1 — The harness's own `done` rejection counts toward the 3-failed-turns guard ("I'm stuck") — ml/src/brain/orchestrator.py L1087-1096 (repro: tests/test_planner20_done_reject_streak.py)
+2. planner-6 P1 — Premiere runs via keyboard shortcuts only; the 8766 UXP bridge isn't connected, so results can't be verified — app/Sources/HandsKit/Skills.swift L256-261, 756
 
 ## Highest-leverage next moves
-- orchestrator.py: skip fail_streak += 1 on the done-rejection turn (one flag).
-- planner_offline.py: apply dsl.action_line before BatchCutter and grade, so the benchmark mirrors the runtime before any knob or model is picked.
-- Premiere: add an expect to each premiere_command, or connect the bridge for add_marker and export_sequence.
+- orchestrator.py: skip fail_streak += 1 on the done-rejection turn. Copy the repro test into ml/tests as a regression test.
+- Premiere: add an expect to each premiere_command (`appears "Export"`, marker count), or connect the bridge for add_marker and export_sequence.
