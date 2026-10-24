@@ -10,6 +10,10 @@ The server implements `POST /v1/systemone` and `GET /v1/models`. The optional ML
 `--backend mlx --model-path <local-model-directory>` on a Mac with the matching `brain.decision` and
 `brain.vendor.tinker_decisions` files available. Backend inference is serialized across HTTP worker threads.
 
+The cloud sampler backend uses the shared Qwen renderer and is selected with
+`--backend tinker --model-path <base-model-or-tinker-uri>`. Install its optional SDK with
+`uv sync --project ml --extra tinker`; the project's existing `tinker-cookbook` pin is reused.
+
 The schemas in `examples/` and the stdlib parser in `schema.py` mirror DeskMind Brain's ordered choice criteria,
 ordinal score levels, request identity, normalization and confidence formulas. The additional `probabilities` member
 on `noul` answers is intentional: JevBench consumes `noul`, while Typed Decisions consumes that distribution.

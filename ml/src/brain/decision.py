@@ -6,7 +6,6 @@ rendered byte-identically to the Tinker training side (training/SPEC.md 1.2).
 import copy
 import re
 import socket
-import string
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -17,10 +16,10 @@ import mlx_lm
 import numpy as np
 from tinker_cookbook import model_info, renderers, tokenizer_utils
 
+from .choice_renderer import AlphaChoiceRenderer
 from .vendor.tinker_decisions import (
     Decision,
     DecisionRenderer,
-    PrefixedChoiceRenderer,
 )
 from .durations import parse_duration
 
@@ -184,26 +183,6 @@ def split_model(model):
     if lm_head is None:
         lm_head = inner.embed_tokens.as_linear   # tied weights
     return inner, lm_head
-
-
-class AlphaChoiceRenderer(PrefixedChoiceRenderer):
-    """choice#<ID> where ID alphabet is A..Z, 0..9, a..z — filtered to ids
-    that tokenize as exactly one token after the prefix (SPEC 1.2)."""
-    IDS = list(string.ascii_uppercase + string.digits + string.ascii_lowercase)
-
-    def __init__(self, renderer):
-        # PrefixedChoiceRenderer.__init__ validates '?' is one token after prefix.
-        super().__init__(renderer, prefix="choice#", placeholder="?")
-        n = len(self.prefix_tokens)
-        keep = []
-        for c in self.IDS:
-            toks = self.tokenizer.encode(self.prefix + c, add_special_tokens=False)
-            if toks[:n] == self.prefix_tokens and len(toks) == n + 1:
-                keep.append(c)
-        if len(keep) < 40:
-            raise RuntimeError(f"only {len(keep)} usable choice ids, need >= 40")
-        self.usable_ids = keep
-        self.IDS = keep            # render_choices zips labels with self.IDS
 
 
 class RouteDecisionRenderer(DecisionRenderer):

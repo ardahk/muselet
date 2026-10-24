@@ -6,7 +6,7 @@ import copy
 import json
 from typing import Any
 
-from brain.decision import AlphaChoiceRenderer, split_model
+from brain.choice_renderer import AlphaChoiceRenderer
 from brain.decision_chunking import chunk_options, combine_chunked
 from brain.vendor.tinker_decisions import Decision, DecisionRenderer
 
