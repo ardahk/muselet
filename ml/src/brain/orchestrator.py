@@ -403,6 +403,7 @@ class Orchestrator:
         self._ms_kind = None
         self._last_epoch = None
         self._last_obs = None
+        self._permission_action_state = None
         self._obs_seen: tuple[float, dict] | None = None
         self._last_url = None
         self._ctx = {"app": "none", "focused": "none", "selection": False,
@@ -1581,7 +1582,33 @@ function run() {
         legacy = "script -> " if a["op"] == "script" else _repr_line(a) + "-> "
         act = _log_act(a)
         try:
-            r = await self._exec_action(a)
+            r = None
+            permission_obs = self._last_obs
+            pending = self._permission_action_state
+            if pending:
+                source, before, result = pending
+                if self._last_obs is source:
+                    post = self._permission_post_obs(before, result)
+                    if a["op"] in _ACT_OPS or (
+                            a["op"] == "skill" and a.get("name") in _GATED_SKILLS):
+                        self._permission_action_state = None
+                        if post is None:
+                            post = await self._observe_once()
+                        if not post:
+                            r = {"status": "failed",
+                                 "error": "post-action observation unavailable"}
+                        elif await self._permission_gate(
+                                post, self._current_goal or self._utterance or "",
+                                reroute=False):
+                            r = {"status": "awaiting_user",
+                                 "_log": legacy + "permission_prompt_gate"}
+                    permission_obs = post
+            if r is None:
+                r = await self._exec_action(a)
+            if r.get("status") == "ok" and a["op"] not in (
+                    "confirm", "ask", "done", "refuse"):
+                self._permission_action_state = (
+                    self._last_obs, permission_obs, r.get("res") or {})
         finally:
             if a["op"] != "confirm":
                 self._batch_confirmed = False
@@ -1590,6 +1617,30 @@ function run() {
             else str(r.get("status", "?"))
         r["_log"] = self._batch_line(act, res, log)
         return r
+
+    @staticmethod
+    def _permission_post_obs(before: dict | None, result: dict) -> dict | None:
+        observed = result.get("observed")
+        if isinstance(observed, dict) and observed.get("app"):
+            return observed
+        if isinstance(observed, str) and observed.startswith("app:"):
+            text = observed
+        elif before and isinstance(result.get("diff_text"), str) and not (
+                result.get("full") or result.get("truncated") or
+                before.get("truncated")):
+            text = obsdiff.apply_diff(before.get("text") or "", result["diff_text"])
+        elif result.get("app") and isinstance(result.get("elements"), list):
+            return result
+        else:
+            return None
+        post = dict(before or {}, text=text, elements=obsdiff.elements(text))
+        app = re.search(r"^app:\s*([^|\n]+)", text)
+        window = re.search(r'\bwindow:\s*"([^"]*)"', text)
+        if app:
+            post["app"] = app.group(1).strip()
+        if window:
+            post["window"] = window.group(1)
+        return post
 
     async def _exec_action(self, a: dict) -> dict:
         """Execute one DSL action. Returns
