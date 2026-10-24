@@ -1,9 +1,9 @@
 {
-  "pass": 35,
-  "ts": "2026-10-24T19:10:00Z",
+  "pass": 36,
+  "ts": "2026-10-24T19:25:00Z",
   "last_reviewed": {
-    "main": "e56582b",
-    "wip/local": "73f7044",
+    "main": "fb2cfd0",
+    "wip/local": "9ed6bc8",
     "cloud/data-pipeline": "f8b721a",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -36,5 +36,5 @@
     "cloud/data-planner": "ee8ae33",
     "cloud/data-route": "42835ce"
   },
-  "notes": "pass 35: ux-21 resolved on app-ui; 0 P1 open."
+  "notes": "pass 36: main fb2cfd0 (bench-fix merge + live-suite cases) has no lane changes; wip = main."
 }
