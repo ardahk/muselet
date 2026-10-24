@@ -551,7 +551,8 @@ class Orchestrator:
                     self._answer_history.append(text)
                     outcome = await self._planner_loop(
                         goal, trace, answer=text)
-            elif (msg := comms.parse_message(text)) is not None:
+            elif (msg := comms.parse_message(text)) is not None and \
+                    msg.get("channel") in (None, "messages"):
                 trace["decisions"].append({"message_redirect": msg})
                 outcome = await comms.start(self, msg, text)
             elif (calc_result := calc.result(text)) is not None and \
