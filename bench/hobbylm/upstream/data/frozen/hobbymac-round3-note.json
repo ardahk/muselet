@@ -1,0 +1,13 @@
+{
+  "written": "2026-10-21, after the round-3 test arrived, before round-3 training",
+  "round3_test": "work/macos-agent/frozen/hobbymac-sealed-test-r3.tsv (107 Grok lines: the round-2 structure + 12 calendar events)",
+  "pass_bar": "frozen bar (calc clean >= 90% and >= regex+20; each other skill incl. event >= 85%; none >= 80%) AND the owner 75% bar, both reported",
+  "event_scoring": "exactly one EVENT executed, created in the \"Hobby Test\" calendar (no invite, no real Contacts), read back by the checker, fields match after the same deterministic resolution (title >= 50% of expected words, same date+time+zone, same person/email), then DONE",
+  "disclosure": "E01 is verbatim the example given in the Grok prompt (and the demo line); event results are reported with and without E01",
+  "training_changes_vs_round2": [
+    "calendar EVENT action and 1,200 event examples",
+    "near-miss refusals 60% -> 30% of refusals, refusals 1,100 -> 800",
+    "more hour+minute timer forms, \"two dozen\"-style and \"hundred\" number words",
+    "system prompt V2 (adds EVENT); round-1/2 adapters keep V1"
+  ]
+}

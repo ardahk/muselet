@@ -1,0 +1,107 @@
+C01	calc	57 plus 36?	93
+C02	calc	812 minus 379	433
+C03	calc	19 times 8	152
+C04	calc	252 divided by 14	18
+C05	calc	3400 + 1675 kitna	5075
+C06	calc	6.25 x 8	50
+C07	calc	wat is 999 - 456	543
+C08	calc	knock 35 off 140	105
+C09	calc	how much smaller is 48 than 91	43
+C10	calc	take away 275 from 600	325
+C11	calc	how many 12s are in 180	15
+C12	calc	what's 44 short of 200	156
+C13	calc	how much more is 520 than 455	65
+C14	calc	deduct 63 from 250	187
+C15	calc	share 360 into 8 equal bits, one bit is?	45
+C16	calc	fifty six plus thirty nine	95
+C17	calc	three dozen times four	144
+C18	calc	one twenty minus forty five	75
+C19	calc	eighteen times eleven	198
+C20	calc	two hundred divided by eight	25
+C21	calc	seventy seven plus sixty six	143
+C22	calc	nine hundred minus three twenty	580
+C23	calc	paid 960 for 8 notebooks, one notebook price	120
+C24	calc	cab fare 1450 shared by 5 people, each pays?	290
+C25	calc	gave 1000 for a bill of 784, change?	216
+C26	calc	25 kids get 6 chocolates each, how many chocolates total	150
+C27	calc	i earn 850 a day, 6 days work, total earning	5100
+C28	calc	flight is 6500 and baggage 1200 extra, total	7700
+C29	calc	3 litres milk at 56 per litre	168
+C30	calc	tank holds 45 litres, used 28, how much left	17
+D01	device	way too much light from the laptop, lower it	BRIGHTNESS_DOWN
+D02	device	brightness kam karo	BRIGHTNESS_DOWN
+D03	device	screen is blinding me in bed	BRIGHTNESS_DOWN
+D04	device	turn brightness all the way up	BRIGHTNESS_UP
+D05	device	display looks so faded, more light pls	BRIGHTNESS_UP
+D06	device	cant see anything on screen on this terrace	BRIGHTNESS_UP
+D07	device	volume thoda kam	VOLUME_DOWN
+D08	device	this song is screaming, softer	VOLUME_DOWN
+D09	device	decrese the sound	VOLUME_DOWN
+D10	device	speakers are so quiet, raise it	VOLUME_UP
+D11	device	audio is barely there, more volume	VOLUME_UP
+D12	device	turn it up, i love this part	VOLUME_UP
+D13	device	silence the mac, interview starting	MUTE
+D14	device	shut the audio off fully	MUTE
+D15	device	no noise pls, in a temple	MUTE
+K01	dark	night mode for the whole mac	DARK_MODE ON
+K02	dark	my eyes are tired, make it all dark	DARK_MODE ON
+K03	dark	put dark theme on	DARK_MODE ON
+K04	dark	remove dark mode	DARK_MODE OFF
+K05	dark	too gloomy, go back to light	DARK_MODE OFF
+K06	dark	change to white background again	DARK_MODE OFF
+A01	app	need to note down this grocery list	OPEN Notes
+A02	app	launch notes	OPEN Notes
+A03	app	whats happening on my schedule this week	OPEN Calendar
+A04	app	launch calendar app	OPEN Calendar
+A05	app	i need to dig through my files, open finder	OPEN Finder
+A06	app	finder kholo	OPEN Finder
+A07	app	put on my music app	OPEN Music
+A08	app	open music, lets play something	OPEN Music
+A09	app	check my reminders list	OPEN Reminders
+A10	app	open the reminders app, forgot what i had to do	OPEN Reminders
+F01	folder	the invoice i downloaded this morning, show that folder	FOLDER Downloads
+F02	folder	go to downloads	FOLDER Downloads
+F03	folder	open the desktop folder, i saved something there	FOLDER Desktop
+F04	folder	show desktop files	FOLDER Desktop
+F05	folder	open documents folder, need my passport scan	FOLDER Documents
+F06	folder	documents kholo	FOLDER Documents
+T01	timer	35 min timer	TIMER 35
+T02	timer	remind me in three hours	TIMER 180
+T03	timer	timer for one hour 45 mins	TIMER 105
+T04	timer	set timer six minutes for tea	TIMER 6
+T05	timer	ping me in fifty minutes	TIMER 50
+T06	timer	timer of 4 hours	TIMER 240
+T07	timer	remind me after ten minutes to check the oven	TIMER 10
+T08	timer	set a 2 hr timer	TIMER 120
+S01	screenshot	capture this screen	SCREENSHOT
+S02	screenshot	screenshot le lo	SCREENSHOT
+S03	screenshot	take a screengrab	SCREENSHOT
+S04	screenshot	click a screenshot of what im seeing	SCREENSHOT
+N01	none	is it going to be hot in delhi this weekend	UNKNOWN
+N02	none	email my boss im sick today	UNKNOWN
+N03	none	go to flipkart.com	UNKNOWN
+N04	none	multiply 12 by 5 and then add 30	UNKNOWN
+N05	none	good morning, how are you	UNKNOWN
+N06	none	whats the brightest planet	UNKNOWN
+N07	none	turn up the bass on spotify	UNKNOWN
+N08	none	work out my gst return	UNKNOWN
+N09	none	open a new tab in chrome	UNKNOWN
+N10	none	wake me up at 7 tomorrow	UNKNOWN
+N11	none	delete all files in downloads	UNKNOWN
+N12	none	what is a decibel	UNKNOWN
+N13	none	square root of 169	UNKNOWN
+N14	none	order pizza from dominos	UNKNOWN
+N15	none	why is my screen flickering	UNKNOWN
+N16	none	recommend a good movie	UNKNOWN
+E01	event	book a call at 3PM UTC tuesday with Naval	EVENT Call with Naval | tuesday | 15:00 UTC | Naval
+E02	event	lock in a chat w/ Riya fri 5pm	EVENT Chat with Riya | fri | 17:00 | Riya
+E03	event	design review with Priya tomorrow 11am	EVENT Design review with Priya | tomorrow | 11:00 | Priya
+E04	event	lunch with Arjun next friday 1:30 pm IST	EVENT Lunch with Arjun | next friday | 13:30 IST | Arjun
+E05	event	schedule sync with ananya@example.com on 28 oct at 4pm	EVENT Sync with ananya@example.com | 28 oct | 16:00 | ananya@example.com
+E06	event	set up interview with tom.baker@example.com monday 9am PST	EVENT Interview with tom.baker@example.com | monday | 09:00 PST | tom.baker@example.com
+E07	event	demo for kiran.r@example.com today 6:15pm	EVENT Demo for kiran.r@example.com | today | 18:15 | kiran.r@example.com
+E08	event	add meeting w/ lena@example.com 3 nov 10 am CET	EVENT Meeting with lena@example.com | 3 nov | 10:00 CET | lena@example.com
+E09	event	dentist appointment thursday 4pm	EVENT Dentist appointment | thursday | 16:00 | none
+E10	event	put gym session tomorrow 7 am	EVENT Gym session | tomorrow | 07:00 | none
+E11	event	add team standup today at 9:30	EVENT Team standup | today | 09:30 | none
+E12	event	block 2pm SGT on 5 nov for tax filing	EVENT Tax filing | 5 nov | 14:00 SGT | none
