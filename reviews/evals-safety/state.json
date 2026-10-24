@@ -1,9 +1,9 @@
 {
-  "pass": 46,
-  "ts": "2026-10-24T22:00:44Z",
+  "pass": 47,
+  "ts": "2026-10-24T22:08:32Z",
   "last_reviewed": {
-    "main": "3772f7c",
-    "wip/local": "8fcf55f",
+    "main": "2a2c2a9",
+    "wip/local": "4f963a7",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -48,8 +48,10 @@
     "cloud/mascot-animal-handoff": "3aa6bd0",
     "cloud/planner-demos-handoff": "e5e9903",
     "cloud/planner-retrieval-handoff": "f728b79",
-    "cloud/w9-safety": "d5fe82b"
+    "cloud/w9-safety": "50a3b25",
+    "cloud/memory-eval": "c05944e",
+    "cloud/memory": "4b519b1"
   },
   "next_id": 44,
-  "note": "pass 46: wip/local, data-decisions and the handoff-note branches reviewed."
+  "note": "pass 47: main/wip have no lane changes; w9-safety fixes -37/-38 (unmerged); memory-eval adds memory_followups to all 3 decontam gates, labels valid."
 }

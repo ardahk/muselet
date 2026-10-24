@@ -1,9 +1,9 @@
-# evals-safety digest — pass 46 (main@3772f7c, wip/local@8fcf55f)
+# evals-safety digest — pass 47 (main@3772f7c, wip/local@8fcf55f)
 
 Open: P0 1, P1 10, P2 9.
 
 ## Open P0/P1 (ranked)
-1. **-37 (P0):** script policy lets System Events shut down / restart / log out and Finder empty / eject run with no confirm. A read verb anywhere, even in a comment, exempts the script. (`ml/src/brain/orchestrator.py`)
+1. **-37 (P0):** script policy lets System Events shut down / restart / log out and Finder empty / eject run with no confirm. A read verb anywhere, even in a comment, exempts the script. (`ml/src/brain/orchestrator.py`). Fix is on cloud/w9-safety 50a3b25; merge it.
 2. **-41 (P1):** the brain WS on :8765 has no Origin or token check, so any web page can send utterances and confirm_reply yes. (`ml/src/brain/server.py`)
 3. **-38 (P1):** `tell app "X"` is not parsed; one Numbers tell block masks other targets. (`orchestrator.py`)
 4. **-39 (P1):** the finance rules miss BERKELEY BOWL. Groceries comes out 203.61 vs the key's 298.70 without the model. (`ml/src/brain/finance/categorize.py`)
