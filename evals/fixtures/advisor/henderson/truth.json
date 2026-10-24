@@ -1,0 +1,251 @@
+{
+  "household": "Henderson",
+  "as_of": "2026-10-23",
+  "meeting": {
+    "summary": "Henderson annual review",
+    "start": "2026-10-26T10:00",
+    "end": "2026-10-26T11:00"
+  },
+  "totals": {
+    "household": "1739656.00",
+    "invested": "1503176.00",
+    "by_account": {
+      "Joint taxable brokerage": "859182.00",
+      "Mark Traditional IRA": "589535.00",
+      "Elena Roth IRA": "54459.00",
+      "Savings": "236480.00"
+    }
+  },
+  "allocation": {
+    "invested_total": "1503176.00",
+    "band_pp": "5.00",
+    "classes": [
+      {
+        "asset_class": "US equity",
+        "value": "714056.00",
+        "current_pct": "47.50",
+        "target_pct": "40.00",
+        "drift_pp": "7.50",
+        "out_of_band": true
+      },
+      {
+        "asset_class": "Intl equity",
+        "value": "306160.00",
+        "current_pct": "20.37",
+        "target_pct": "20.00",
+        "drift_pp": "0.37",
+        "out_of_band": false
+      },
+      {
+        "asset_class": "Bonds",
+        "value": "407960.00",
+        "current_pct": "27.14",
+        "target_pct": "35.00",
+        "drift_pp": "-7.86",
+        "out_of_band": true
+      },
+      {
+        "asset_class": "Cash",
+        "value": "75000.00",
+        "current_pct": "4.99",
+        "target_pct": "5.00",
+        "drift_pp": "-0.01",
+        "out_of_band": false
+      }
+    ],
+    "groups": [
+      {
+        "group": "Equity",
+        "classes": [
+          "US equity",
+          "Intl equity"
+        ],
+        "value": "1020216.00",
+        "current_pct": "67.87",
+        "target_pct": "60.00",
+        "drift_pp": "7.87",
+        "out_of_band": true
+      }
+    ],
+    "rebalance_needed": true
+  },
+  "rebalance": {
+    "rule": "full rebalance to target when any class is outside the band; IRAs first",
+    "trades": [
+      {
+        "account": "Mark Traditional IRA",
+        "side": "sell",
+        "ticker": "VTI",
+        "asset_class": "US equity",
+        "amount": "112785.60"
+      },
+      {
+        "account": "Mark Traditional IRA",
+        "side": "sell",
+        "ticker": "VXUS",
+        "asset_class": "Intl equity",
+        "amount": "5524.80"
+      },
+      {
+        "account": "Mark Traditional IRA",
+        "side": "buy",
+        "ticker": "AGG",
+        "asset_class": "Bonds",
+        "amount": "118151.60",
+        "instead_of": "BND"
+      }
+    ],
+    "post_trade_pct": {
+      "US equity": "40.00",
+      "Intl equity": "20.00",
+      "Bonds": "35.00",
+      "Cash": "5.00"
+    },
+    "realized_gain": "0.00",
+    "total_bought": "118151.60",
+    "total_sold": "118310.40"
+  },
+  "tlh": {
+    "min_loss": "1000.00",
+    "wash_days": 30,
+    "lots": [
+      {
+        "lot": {
+          "row": 12,
+          "account": "Joint taxable brokerage",
+          "ticker": "BND",
+          "lot_date": "2021-08-02",
+          "shares": "1500"
+        },
+        "cost_basis": "131100.00",
+        "market_value": "109275.00",
+        "loss": "21825.00",
+        "term": "long",
+        "status": "ok",
+        "replacement": "AGG"
+      },
+      {
+        "lot": {
+          "row": 4,
+          "account": "Joint taxable brokerage",
+          "ticker": "VNQ",
+          "lot_date": "2022-01-03",
+          "shares": "400"
+        },
+        "cost_basis": "43560.00",
+        "market_value": "34560.00",
+        "loss": "9000.00",
+        "term": "long",
+        "status": "ok",
+        "replacement": "SCHH"
+      },
+      {
+        "lot": {
+          "row": 10,
+          "account": "Joint taxable brokerage",
+          "ticker": "VXUS",
+          "lot_date": "2026-02-09",
+          "shares": "700"
+        },
+        "cost_basis": "53480.00",
+        "market_value": "49840.00",
+        "loss": "3640.00",
+        "term": "short",
+        "status": "wash_sale_blocked",
+        "replacement": "IXUS",
+        "blocking_buys": [
+          {
+            "date": "2026-10-11",
+            "account": "Mark Traditional IRA",
+            "ticker": "VXUS",
+            "shares": "100"
+          }
+        ],
+        "earliest_clean_sale": "2026-11-11"
+      }
+    ],
+    "harvestable_loss_total": "30825.00"
+  },
+  "cash": {
+    "savings": "236480.00",
+    "months": 6,
+    "monthly_expenses": "8000.00",
+    "emergency_reserve": "48000.00",
+    "lake_house_reserve": "120000.00",
+    "excess": "68480.00"
+  },
+  "roth": {
+    "year": 2026,
+    "filing_status": "married_filing_jointly",
+    "bracket_rate": "22%",
+    "bracket_top": "211400.00",
+    "taxable_income": "150000.00",
+    "room": "61400.00",
+    "source": "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf"
+  },
+  "donation": {
+    "n": 2,
+    "candidates": [
+      {
+        "lot": {
+          "row": 5,
+          "account": "Joint taxable brokerage",
+          "ticker": "AAPL",
+          "lot_date": "2012-09-17",
+          "shares": "120"
+        },
+        "cost_basis": "2952.00",
+        "market_value": "30276.00",
+        "unrealized_gain": "27324.00",
+        "gain_pct": "925.61"
+      },
+      {
+        "lot": {
+          "row": 6,
+          "account": "Joint taxable brokerage",
+          "ticker": "MSFT",
+          "lot_date": "2015-11-02",
+          "shares": "60"
+        },
+        "cost_basis": "3228.00",
+        "market_value": "29376.00",
+        "unrealized_gain": "26148.00",
+        "gain_pct": "810.04"
+      }
+    ],
+    "market_value_total": "59652.00",
+    "gain_avoided_total": "53472.00"
+  },
+  "opportunities": [
+    {
+      "key": "rebalance",
+      "title": "Rebalance back to target",
+      "impact_usd": "118151.60",
+      "impact_kind": "dollars moved"
+    },
+    {
+      "key": "cash_excess",
+      "title": "Invest excess savings",
+      "impact_usd": "68480.00",
+      "impact_kind": "idle cash"
+    },
+    {
+      "key": "roth_conversion",
+      "title": "Roth conversion window",
+      "impact_usd": "61400.00",
+      "impact_kind": "convertible at 22% or less"
+    },
+    {
+      "key": "donate_appreciated",
+      "title": "Gift appreciated stock to a donor-advised fund",
+      "impact_usd": "53472.00",
+      "impact_kind": "capital gains avoided"
+    },
+    {
+      "key": "tax_loss_harvest",
+      "title": "Tax-loss harvesting",
+      "impact_usd": "30825.00",
+      "impact_kind": "losses harvestable now"
+    }
+  ]
+}
