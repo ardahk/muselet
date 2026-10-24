@@ -23,7 +23,8 @@ Hackathon deadline: Cal Hacks submission Sun Oct 25 2026, 09:00 PDT. Tinker budg
   and autosave wrote it to disk): live UI cases run only through a runner that enforces each case's `precondition`
   mechanically, never by hand; a failed precondition means SKIP. Agents never type into, edit, save or close
   documents/windows they did not create in the same case, and never interact with apps that have user documents
-  open unless the case created them.
+  open unless the case created them. Live UI runs require an unlocked screen (`hands probe session` ->
+  `screen_locked:false`); results gathered while locked are invalid (the lock screen is frontmost, AX is blind).
 - Reviewed PRs that pass tests may be merged by the lead without asking.
 - Tinker: iterate beyond the $60 phase budget when results fall short (diagnose why, research, retry), but stay
   within the $150 hard cap.
@@ -104,8 +105,17 @@ RPC methods (HandsKit):
   while the element persists; `rpc_result` always carries `result` when the handler produced one, even if `ok` is false.
   (fused act-and-observe; the app animates the ghost cursor to the target frame first, `cursor_lead_ms` default 120)
 - `skill {name, args}` -> `{ok, result?, error?, ms}`. `type_text`/`type` fail with `error: "no_text_target"` and an
-  `observed` hint when nothing focused accepts text (never "type into nothing"); shell scripts fail on non-zero exit
-  (`exit_code`, `stdout`, `stderr`, `timed_out`).
+  `observed` hint when nothing focused accepts text (never "type into nothing"); Calculator accepts typed keystrokes
+  (`target: "keystroke_app"`); shell scripts fail on non-zero exit (`exit_code`, `stdout`, `stderr`, `timed_out`).
+  Launch skills verify the result: `open_app` -> `{app, frontmost, launched}`; `open_url`/`web_search` ->
+  `{browser, frontmost, window_title, title_changed}`; `open_folder`/`open_file` -> `{app, frontmost, window_title,
+  title_matches}`; failure `not_frontmost` (failures may carry `result`). `open_folder {view: list|icons|columns|gallery}`;
+  `set_brightness {delta}` (alternative to `level`, returns `{level, previous, delta}`).
+  `type`/`keys`/`click`/`type_text` fail with `screen_locked` while the lock screen is up.
+- `act {op:"keys", combo: brightness_up|brightness_down|volume_up|volume_down|mute|play_pause|next_track|previous_track}`
+  posts media keys and reads the level back (`media_key, level_before, level, changed`, `muted`).
+- `timers {}` -> `{timers:[{id, label, total_s, left_s, minutes, fires_at}]}`; `timers_cancel {id?}` -> `{cancelled, timers}`
+  (`unknown_timer: <id>`). CLI: `hands probe timers`, `hands probe session` (screen_locked, display asleep, frontmost).
 - `screenshot {window:true, max_pixels:1000000, region?}` -> `{path, width, height, origin:[x,y], scale}` (own windows excluded)
 - `verify {expect}` -> `{ok, observed}`
 - `ocr {path? | region?:[x,y,w,h]}` -> `{text, lines:[{text, frame}], ms}` (Apple Vision, accurate, en-US; region = screen points)
