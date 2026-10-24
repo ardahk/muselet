@@ -1,4 +1,8 @@
-# planner lane — pass 24 (main d502b78 unchanged; wip 0db1681 only touches generic_decide.py, which is the router lane; data-pipeline 0c1ca3d didn't touch this lane)
+# planner lane — pass 25 (main 7147694, wip 5764a0d = main in this lane, new cloud/grounder-wire afb12a6)
+
+Pass 25: 1 new P2 (planner-26). main: holdout-2 (12 scenarios) was correctly written after holdout-1 was used to derive rules 16-18, so treat holdout-1 as tuning data from now on, and the bench now passes few_shot=None. grounder-wire: the `click "<target>"` DSL goes through a fresh screenshot and the grounder, with a confirm for dangerous labels and screenshots deleted afterwards; the DSL parse and serialize round-trip is consistent.
+
+## Pass 24 notes
 
 Pass 24: no new findings, and the open findings are unchanged.
 
