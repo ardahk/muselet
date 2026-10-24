@@ -174,6 +174,17 @@ class FakeHandsRuntime:
                     if code == "precondition sentinel":
                         output = "no"
                     result = {"output": output}
+                elif method == "messages_people":
+                    result = {"people": []}
+                elif method == "contacts_search":
+                    result = {"matches": [{
+                        "id": "mom", "name": "Mom", "handles": [{
+                            "kind": "phone", "value": "+15550100",
+                            "label": "mobile"}]}]}
+                elif method == "messages_compose":
+                    result = {"ok": True, "frontmost": True,
+                              "body_visible": True, "recipient_ok": True,
+                              "window_title": "Mom"}
                 else:
                     result = {"ok": True}
                 await ws.send(json.dumps(protocol.rpc_result(

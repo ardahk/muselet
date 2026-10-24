@@ -1,6 +1,4 @@
 import subprocess
-import sys
-from pathlib import Path
 from types import SimpleNamespace
 
 from bench.hobbylm import replay

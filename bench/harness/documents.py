@@ -14,6 +14,7 @@ class DocumentApp:
     name: str
     bundle_ids: tuple[str, ...]
     aliases: tuple[str, ...]
+    scripted: bool = True
 
 
 DOCUMENT_APPS: tuple[DocumentApp, ...] = (
@@ -26,25 +27,25 @@ DOCUMENT_APPS: tuple[DocumentApp, ...] = (
     ),
     DocumentApp("Keynote", ("com.apple.iWork.Keynote", "com.apple.Keynote"), ("Apple Keynote",)),
     DocumentApp("Notes", ("com.apple.Notes",), ("Apple Notes",)),
-    DocumentApp("Mail", ("com.apple.mail",), ("Apple Mail",)),
-    DocumentApp("Messages", ("com.apple.MobileSMS",), ("iMessage",)),
+    DocumentApp("Mail", ("com.apple.mail",), ("Apple Mail",), scripted=False),
+    DocumentApp("Messages", ("com.apple.MobileSMS",), ("iMessage",), scripted=False),
     DocumentApp("Preview", ("com.apple.Preview",), ("Apple Preview",)),
-    DocumentApp("Reminders", ("com.apple.reminders",), ("Apple Reminders",)),
+    DocumentApp("Reminders", ("com.apple.reminders",), ("Apple Reminders",), scripted=False),
     DocumentApp("Script Editor", ("com.apple.ScriptEditor2",), ("AppleScript Editor",)),
     DocumentApp("Word", ("com.microsoft.Word",), ("Microsoft Word",)),
     DocumentApp("Excel", ("com.microsoft.Excel",), ("Microsoft Excel",)),
     DocumentApp("PowerPoint", ("com.microsoft.Powerpoint",), ("Microsoft PowerPoint",)),
-    DocumentApp("Outlook", ("com.microsoft.Outlook",), ("Microsoft Outlook",)),
-    DocumentApp("Safari", ("com.apple.Safari",), ("Apple Safari",)),
-    DocumentApp("Google Chrome", ("com.google.Chrome",), ("Chrome",)),
-    DocumentApp("Firefox", ("org.mozilla.firefox",), ("Mozilla Firefox",)),
-    DocumentApp("Arc", ("company.thebrowser.Browser",), ()),
-    DocumentApp("Slack", ("com.tinyspeck.slackmacgap",), ()),
-    DocumentApp("Discord", ("com.hnc.Discord",), ()),
-    DocumentApp("WhatsApp", ("net.whatsapp.WhatsApp",), ()),
-    DocumentApp("Telegram", ("ru.keepcoder.Telegram",), ()),
-    DocumentApp("Signal", ("org.whispersystems.signal-desktop",), ()),
-    DocumentApp("Adobe Premiere Pro", ("com.adobe.PremierePro",), ()),
+    DocumentApp("Outlook", ("com.microsoft.Outlook",), ("Microsoft Outlook",), scripted=False),
+    DocumentApp("Safari", ("com.apple.Safari",), ("Apple Safari",), scripted=False),
+    DocumentApp("Google Chrome", ("com.google.Chrome",), ("Chrome",), scripted=False),
+    DocumentApp("Firefox", ("org.mozilla.firefox",), ("Mozilla Firefox",), scripted=False),
+    DocumentApp("Arc", ("company.thebrowser.Browser",), (), scripted=False),
+    DocumentApp("Slack", ("com.tinyspeck.slackmacgap",), (), scripted=False),
+    DocumentApp("Discord", ("com.hnc.Discord",), (), scripted=False),
+    DocumentApp("WhatsApp", ("net.whatsapp.WhatsApp",), (), scripted=False),
+    DocumentApp("Telegram", ("ru.keepcoder.Telegram",), (), scripted=False),
+    DocumentApp("Signal", ("org.whispersystems.signal-desktop",), (), scripted=False),
+    DocumentApp("Adobe Premiere Pro", ("com.adobe.PremierePro",), (), scripted=False),
 )
 
 _MAY_EDIT_CATEGORIES = {"input", "finance", "docs", "notes", "writing", "mail", "messages"}
@@ -124,7 +125,7 @@ def document_apps_for_case(case: dict) -> list[DocumentApp]:
 
 def inventory_script(apps: Sequence[DocumentApp]) -> str:
     requested = [
-        {"name": app.name, "bundle_ids": list(app.bundle_ids)}
+        {"name": app.name, "bundle_ids": list(app.bundle_ids), "scripted": app.scripted}
         for app in apps
     ]
     return f"""// muselet-doc-inventory
@@ -158,6 +159,11 @@ for (const appInfo of requested) {{
         row.ax_windows = (Array.isArray(names) ? names : [names]).map(name => String(name));
       }} catch (error) {{
         row.system_events_error = String(error);
+      }}
+      if (!appInfo.scripted) {{
+        row.scripting_skipped = true;
+        inventory[bundleId] = row;
+        continue;
       }}
       const app = Application(bundleId);
       try {{

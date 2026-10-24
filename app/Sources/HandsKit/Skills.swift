@@ -991,13 +991,21 @@ public final class Skills {
         guard granted else { throw HandsError.permission("calendar/reminders access denied") }
     }
 
-    private func iso(_ s: String) throws -> Date {
+    func iso(_ s: String) throws -> Date {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         if let d = f.date(from: s) { return d }
         let f2 = ISO8601DateFormatter()
         f2.formatOptions = [.withInternetDateTime]
         if let d = f2.date(from: s) { return d }
+        // Naive local ISO (no offset): read in the current time zone.
+        for fmt in ["yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd'T'HH:mm"] {
+            let df = DateFormatter()
+            df.locale = Locale(identifier: "en_US_POSIX")
+            df.timeZone = .current
+            df.dateFormat = fmt
+            if let d = df.date(from: s) { return d }
+        }
         throw HandsError.invalidParams("bad datetime: \(s)")
     }
 
