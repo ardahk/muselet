@@ -42,7 +42,7 @@ struct PanelView: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             header
             if showSettings {
                 SettingsView(model: model)
@@ -53,10 +53,19 @@ struct PanelView: View {
             }
         }
         .font(.system(size: 13))
-        .padding(14)
+        .padding(16)
         .frame(width: 340)
+        .background(alignment: .top) {
+            LinearGradient(colors: [PanelPalette.wash, .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: 140)
+                .allowsHitTesting(false)
+        }
+        .tint(PanelPalette.ginger)
         .animation(reduceMotion ? .easeOut(duration: 0.15) : .snappy(duration: 0.25), value: showSettings)
         .onAppear { actions.panelVisible(true) }
+        .onReceive(NotificationCenter.default.publisher(for: .museletPanelPage)) { n in
+            showSettings = (n.object as? String) == "settings"
+        }
         .onDisappear {
             actions.panelVisible(false)
             showSettings = false
@@ -73,17 +82,20 @@ struct PanelView: View {
                         .frame(width: 26, height: 26)
                 }
                 .buttonStyle(.plain)
+                .foregroundStyle(PanelPalette.accent)
                 .help("Back")
-                Text("Settings").font(.system(size: 15, weight: .semibold))
+                Text("Settings").font(.system(size: 15, weight: .semibold)).foregroundStyle(PanelPalette.ink)
             } else {
-                Image(nsImage: MenuBarIcon.make(recording: model.isRecording))
-                    .renderingMode(.template)
-                    .resizable()
-                    .frame(width: 20, height: 20)
-                    .foregroundStyle(Brand.tintColor)
-                    .padding(4)
-                    .background(Brand.tintColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                Text("Muselet").font(.system(size: 15, weight: .semibold))
+                KittenAvatar(mood: model.isRecording ? .listening : model.mood, size: 40)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Muselet")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(PanelPalette.ink)
+                    Text(Self.statusLine(mood: model.mood, recording: model.isRecording, brain: model.brainStatus))
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
             Spacer()
             StatusDot(status: model.brainStatus)
@@ -115,22 +127,25 @@ struct PanelView: View {
         VStack(spacing: 6) {
             Image(systemName: model.isRecording ? "waveform" : "mic.fill")
                 .font(.system(size: 22, weight: .medium))
-                .foregroundStyle(Brand.tintColor)
+                .foregroundStyle(PanelPalette.accent)
                 .symbolEffect(.variableColor.iterative, isActive: model.isRecording && !reduceMotion)
-                .frame(height: 28)
+                .frame(width: 40, height: 40)
+                .background(PanelPalette.ginger.opacity(0.18), in: Circle())
             HStack(spacing: 5) {
                 Text("Hold")
                 KeyCap(text: "right ⌥")
                 Text("to talk")
             }
             .font(.system(size: 13, weight: .medium))
-            Text(model.isRecording ? "Listening… release to send" : "or use the mic under the mascot · esc cancels")
+            Text(model.isRecording ? "Listening… release to send" : "or rest the pointer on me for mic & keyboard · esc cancels")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(PanelPalette.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .strokeBorder(PanelPalette.cardStroke, lineWidth: 0.5))
     }
 
     private var needsAttention: Bool { !model.permissions.allGranted || !model.pushToTalkActive }
@@ -146,7 +161,7 @@ struct PanelView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -156,7 +171,10 @@ struct PanelView: View {
         VStack(alignment: .leading, spacing: 6) {
             SectionTitle("Last request")
             if let req = model.lastRequest {
-                Text("“\(req)”").font(.system(size: 13, weight: .medium)).lineLimit(2)
+                Text("“\(req)”")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(PanelPalette.ink)
+                    .lineLimit(2)
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     outcomeIcon
                     Text(resultText).foregroundStyle(.secondary).lineLimit(2)
@@ -167,7 +185,11 @@ struct PanelView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background(PanelPalette.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .strokeBorder(PanelPalette.cardStroke, lineWidth: 0.5))
     }
 
     private var resultText: String {
@@ -198,6 +220,25 @@ struct PanelView: View {
             }
         }
     }
+
+    static func statusLine(mood: MascotMood, recording: Bool, brain: BrainStatus) -> String {
+        if recording { return "I'm listening…" }
+        switch brain {
+        case .connecting: return "Waking up my brain…"
+        case .offline: return "Can't reach my brain yet"
+        case .busy: return "Another app has my brain"
+        case .connected: break
+        }
+        switch mood {
+        case .idle: return "Ready when you are"
+        case .thinking: return "Thinking it over…"
+        case .acting: return "On it!"
+        case .success: return "Done! What's next?"
+        case .confused: return "Hmm, I didn't catch that"
+        case .sleeping: return "Napping. Hover me to wake me"
+        case .listening: return "I'm listening…"
+        }
+    }
 }
 
 // MARK: - home components
@@ -209,7 +250,7 @@ struct SectionTitle: View {
         Text(text.uppercased())
             .font(.system(size: 10, weight: .semibold))
             .tracking(0.6)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(PanelPalette.accent.opacity(0.9))
     }
 }
 
@@ -238,8 +279,10 @@ private struct ExampleRow: View {
             HStack(spacing: 9) {
                 Image(systemName: symbol)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Brand.tintColor)
-                    .frame(width: 18)
+                    .foregroundStyle(PanelPalette.accent)
+                    .frame(width: 22, height: 22)
+                    .background(PanelPalette.ginger.opacity(0.16),
+                                in: RoundedRectangle(cornerRadius: 7, style: .continuous))
                 Text(text).font(.system(size: 13))
                 Spacer()
                 Image(systemName: "arrow.up.right")
@@ -249,12 +292,16 @@ private struct ExampleRow: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
-            .background(Color.primary.opacity(hovering ? 0.08 : 0.04),
-                        in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .background(hovering ? PanelPalette.hover : PanelPalette.card,
+                        in: RoundedRectangle(cornerRadius: 11, style: .continuous))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .help("Run “\(text)”")
     }
+}
+
+extension Notification.Name {
+    static let museletPanelPage = Notification.Name("ai.muselet.panelPage")
 }

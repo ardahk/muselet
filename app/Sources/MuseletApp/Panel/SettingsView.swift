@@ -89,7 +89,7 @@ struct SettingsView: View {
                 }
                 if case .downloading(let f, let phase) = model.sttState {
                     VStack(alignment: .leading, spacing: 3) {
-                        ProgressView(value: f).progressViewStyle(.linear).tint(Brand.tintColor)
+                        ProgressView(value: f).progressViewStyle(.linear).tint(PanelPalette.ginger)
                         Text("\(phase) · \(Int(f * 100))%").font(.system(size: 10.5))
                             .foregroundStyle(.secondary).monospacedDigit()
                     }

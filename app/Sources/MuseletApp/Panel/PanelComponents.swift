@@ -21,7 +21,7 @@ struct Card<Content: View, Accessory: View>: View {
             HStack {
                 Text(title.uppercased())
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(PanelPalette.accent.opacity(0.9))
                     .tracking(0.6)
                 Spacer()
                 accessory()
@@ -30,9 +30,9 @@ struct Card<Content: View, Accessory: View>: View {
         }
         .padding(11)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5))
+        .background(PanelPalette.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .strokeBorder(PanelPalette.cardStroke, lineWidth: 0.5))
     }
 }
 
@@ -90,7 +90,7 @@ struct PermissionRow: View {
         HStack(spacing: 9) {
             Image(systemName: kind.symbol)
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(state == .granted ? Brand.tintColor : .secondary)
+                .foregroundStyle(state == .granted ? PanelPalette.accent : .secondary)
                 .frame(width: 20)
             VStack(alignment: .leading, spacing: 0) {
                 Text(kind.title).font(.system(size: 12.5, weight: .medium))
@@ -105,7 +105,7 @@ struct PermissionRow: View {
             } else {
                 Button(state == .notDetermined ? "Allow" : "Grant…", action: action)
                     .buttonStyle(.glassProminent)
-                    .tint(Brand.tintColor)
+                    .tint(PanelPalette.ginger)
                     .controlSize(.small)
             }
         }
@@ -129,7 +129,7 @@ struct AutomationRow: View {
             HStack(spacing: 9) {
                 Image(systemName: "applescript")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(granted == installed.count && granted > 0 ? Brand.tintColor : .secondary)
+                    .foregroundStyle(granted == installed.count && granted > 0 ? PanelPalette.accent : .secondary)
                     .frame(width: 20)
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Automation").font(.system(size: 12.5, weight: .medium))
@@ -190,7 +190,7 @@ struct AutomationChip: View {
             default:
                 Button(status == .denied ? "Settings…" : "Grant", action: action)
                     .buttonStyle(.glassProminent)
-                    .tint(status == .denied ? .orange : Brand.tintColor)
+                    .tint(status == .denied ? .orange : PanelPalette.ginger)
                     .controlSize(.mini)
             }
         }
@@ -212,7 +212,7 @@ struct ActivityRow: View {
     var tint: Color {
         if entry.ok == false || entry.kind == .error { return .red }
         switch entry.kind {
-        case .say: return Brand.tintColor
+        case .say: return PanelPalette.accent
         case .utterance, .stt: return .blue
         case .rpc: return .purple
         case .confirm: return .orange
