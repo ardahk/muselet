@@ -1,8 +1,8 @@
 {
-  "pass": 52,
-  "ts": "2026-10-24T23:26:08Z",
+  "pass": 53,
+  "ts": "2026-10-24T23:42:00Z",
   "last_reviewed": {
-    "main": "46b97f5",
+    "main": "18c139f",
     "wip/local": "719907a",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
@@ -52,7 +52,7 @@
     "cloud/memory-eval": "c05944e",
     "cloud/memory": "ba3dc0a",
     "cloud/memory-lt": "cc056af",
-    "cloud/planner-lora": "ceafe3d",
+    "cloud/planner-lora": "79f0a97",
     "cloud/router-it3-serve": "b455d2c",
     "cloud/docs-demo": "095d4ef",
     "cloud/ui-polish": "e8bceef",
@@ -71,5 +71,5 @@
     "cloud/safety-planner28": "fb4a45a"
   },
   "next_id": 47,
-  "note": "pass 52: only cloud/decisions changed (results.md). Calibration was fit on the dev split; benchmarks are labeled Tinker bf16 and p50 is labeled as RTT. No new findings."
+  "note": "pass 53: main merged live-cases/planner-lora/think/brain-12/18/38; -46 now on main; planner LoRA is not the serving default (PLANNER defaults to BASE)."
 }
