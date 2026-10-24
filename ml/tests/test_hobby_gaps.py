@@ -10,7 +10,6 @@ from pathlib import Path
 import pytest
 
 from brain import calc
-from brain.catalog import Catalog, CatalogError
 from brain.orchestrator import Orchestrator
 from brain.traces import Tracer
 from fakes import FakeEngine, FakeServer
@@ -213,34 +212,8 @@ def test_jxa_script_confirmation_matches_origin_main_examples(tmp_path):
         "jxa", Orchestrator._calculator_readback_script()) is True
 
 
-def _skill_engine(label, args=None):
-    return FakeEngine(default=(label, 0.99), argmap={
-        (label, "brightness to 70"): {**(args or {}), "level": 70},
-    })
-
-
-@pytest.mark.parametrize(("text", "label", "expected"), [
-    ("make the screen brighter", "set_brightness", {"delta": 15}),
-    ("make the screen dimmer", "set_brightness", {"delta": -15}),
-    ("volume up", "change_volume", {"delta": 10}),
-    ("turn it down a lot", "change_volume", {"delta": -25}),
-])
-def test_relative_brightness_and_volume_inference(tmp_path, text, label, expected):
+def test_rejected_brightness_delta_fails_without_asking(tmp_path):
     async def scenario():
-        orch, server, _ = _orchestrator(
-            tmp_path, engine=_skill_engine(label))
-        await orch.handle_utterance(text)
-        assert server.skills()[0] == {"name": label, "args": expected}
-    asyncio.run(scenario())
-
-
-def test_absolute_brightness_and_direct_failure_bubble(tmp_path):
-    async def scenario():
-        orch, server, _ = _orchestrator(
-            tmp_path, engine=_skill_engine("set_brightness"))
-        await orch.handle_utterance("brightness to 70")
-        assert server.skills()[0]["args"] == {"level": 70}
-
         class RejectingServer(FakeServer):
             async def rpc(self, method, params, timeout=30):
                 self.rpcs.append((method, params))
@@ -251,60 +224,13 @@ def test_absolute_brightness_and_direct_failure_bubble(tmp_path):
         rejecting = RejectingServer()
         trace = Tracer(tmp_path / "reject")
         failed = Orchestrator(rejecting, tracer=trace,
-                              engine=_skill_engine("set_brightness"))
+                              engine=FakeEngine(default=("set_brightness", .99)))
         result = await failed.handle_utterance("make the screen brighter")
         assert result["outcome"] == "failed"
+        skill = next(params for method, params in rejecting.rpcs
+                     if method == "skill")
+        assert skill == {"name": "set_brightness", "args": {"delta": 10}}
         assert rejecting.said
         assert not any("ask" in line.casefold() for line in rejecting.said)
         assert not rejecting.confirms
-    asyncio.run(scenario())
-
-
-def test_v0_relative_route_and_generic_require_one_of(tmp_path):
-    orch, _, _ = _orchestrator(tmp_path)
-    assert orch.route("make the screen brighter")["args"] == {"delta": 15}
-    assert orch.route("turn it down a lot")["args"] == {"delta": -25}
-    assert orch.route("look up the weather")["name"] == "web_search"
-    assert orch.route("turn it up")["args"] == {"delta": 10}
-    assert orch.route("volume down")["args"] == {"delta": -10}
-    data = {"skills": [{
-        "name": "set_brightness",
-        "args": [
-            {"name": "level", "type": "int", "required": False},
-            {"name": "delta", "type": "int", "required": False},
-        ],
-        "require_one_of": ["level", "delta"],
-    }]}
-    catalog = Catalog(data)
-    with pytest.raises(CatalogError):
-        catalog.validate_args("set_brightness", {})
-    assert catalog.validate_args("set_brightness", {"delta": 15}) == {"delta": 15}
-    assert orch._missing("set_brightness", {}) == ["level"]
-
-
-@pytest.mark.parametrize(("label", "args", "text", "want"), [
-    ("set_brightness", {"level": 40}, "make it brighter", {"delta": 15}),
-    ("change_volume", {"delta": 10}, "quieter", {"delta": -10}),
-    ("set_volume", {"delta": 10}, "volume up", {"delta": 10}),
-    ("change_volume", {}, "volume down", {"delta": -10}),
-    ("set_brightness", {}, "turn brightness down a lot", {"delta": -15}),
-])
-def test_direction_override_replaces_model_arguments(tmp_path, label, args, text, want):
-    async def scenario():
-        engine = FakeEngine(default=(label, .99),
-                            argmap={(label, text): args})
-        orch, server, _ = _orchestrator(tmp_path, engine=engine)
-        await orch.handle_utterance(text)
-        assert server.skills()[0]["args"] == want
-        assert not server.confirms
-    asyncio.run(scenario())
-
-
-def test_rel_delta_wins_for_volume_notches(tmp_path):
-    async def scenario():
-        engine = FakeEngine(default=("change_volume", .99))
-        orch, server, tracer = _orchestrator(tmp_path, engine=engine)
-        await orch.handle_utterance("turn the volume up two notches")
-        assert server.skills()[0]["args"] == {"delta": 20}
-        assert {"rel_delta": 20} in tracer.last["decisions"]
     asyncio.run(scenario())

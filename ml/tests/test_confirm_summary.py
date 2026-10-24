@@ -30,7 +30,7 @@ def summ(o, a):
      'Email Sam Lee: "Here are the Q3 numbers"?'),
     ({"op": "skill", "name": "move_to_trash",
       "args": {"path": "/Users/a/Downloads/report final.pdf"}},
-     "Move report final.pdf to Trash?"),
+     "Move /Users/a/Downloads/report final.pdf to Trash?"),
     ({"op": "skill", "name": "quit_app", "args": {"app": "Keynote"}},
      "Quit Keynote?"),
     ({"op": "skill", "name": "empty_trash", "args": {}},
@@ -85,7 +85,7 @@ def test_skill_confirm_uses_object_summary(orch):
 def test_trash_confirm_names_file(orch):
     asyncio.run(orch.execute_actions([{"op": "skill", "name": "move_to_trash",
                                        "args": {"path": "~/Desktop/old.key"}}]))
-    assert orch.server.confirms == ["Move old.key to Trash?"]
+    assert orch.server.confirms == ["Move ~/Desktop/old.key to Trash?"]
 
 
 def test_script_confirm_names_app(orch):

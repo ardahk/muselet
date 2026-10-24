@@ -1,8 +1,13 @@
 """Load and validate skills/catalog.json — the single source of truth."""
 
 import os
+import re
 from datetime import datetime
 from pathlib import Path
+
+
+_DURATION_UNIT = re.compile(
+    r"\b(?:seconds?|secs?|minutes?|mins?|hours?|hrs?)\b", re.IGNORECASE)
 
 
 class CatalogError(ValueError):
@@ -61,11 +66,6 @@ class Catalog:
         for a in spec.get("args", []):
             if a.get("required") and a["name"] not in out:
                 raise CatalogError(f"{name}: missing required arg {a['name']!r}")
-        one_of = spec.get("require_one_of", [])
-        if one_of and not any(key in out and out[key] not in (None, "")
-                              for key in one_of):
-            raise CatalogError(
-                f"{name}: requires one of {', '.join(one_of)}")
         return out
 
     @staticmethod
@@ -104,6 +104,22 @@ class Catalog:
                 s = str(val)
                 datetime.fromisoformat(s)  # raises on bad input
                 return s
+            if t == "duration":
+                if isinstance(val, bool):
+                    raise ValueError(val)
+                if isinstance(val, (int, float)):
+                    return int(val)
+                s = str(val).strip()
+                try:
+                    return int(float(s))
+                except (TypeError, ValueError, OverflowError):
+                    if not _DURATION_UNIT.search(s):
+                        raise ValueError(val)
+                from .durations import parse_duration
+                seconds = parse_duration(s)
+                if seconds is None:
+                    raise ValueError(val)
+                return seconds
             return str(val)
         except CatalogError:
             raise

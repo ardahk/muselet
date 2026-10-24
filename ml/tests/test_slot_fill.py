@@ -189,9 +189,9 @@ def test_slot_value_coerced_by_type(tracer):
     run(o.handle_utterance("set a timer"))
     assert o.server.said[-1] == "For how long?"
     run(o.handle_utterance("ten minutes"))
-    # parsed to seconds by code; catalog.validate_args stringifies durations
+    # Durations are sent to HandsKit as integer seconds.
     assert o.server.skills() == [{"name": "start_timer",
-                                  "args": {"duration": "600"}}]
+                                  "args": {"duration": 600}}]
 
 
 def test_slot_invalid_value_reasks_then_gives_up(tracer):

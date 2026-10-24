@@ -100,6 +100,10 @@ def question(skill: str, arg: str, typ: str | None) -> str:
     return q or f"What {arg.replace('_', ' ')} should I use?"
 
 
+def duration_question(number: str) -> str:
+    return f"{number} seconds or {number.lower()} minutes?"
+
+
 _FILLER = re.compile(r"^(?:(?:um+|uh+|so|okay|ok|well),?\s+)+", re.IGNORECASE)
 _SAY_LEAD = re.compile(r"^(?:it should say|it says|that says|have it say|"
                        r"make it say|say|call it|name it)\s+", re.IGNORECASE)

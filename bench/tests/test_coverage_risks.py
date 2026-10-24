@@ -17,7 +17,10 @@ def test_coverage_keeps_confirmed_gaps_and_ranks_pending_risks():
     assert "Calculator/arithmetic has no executable skill or route" not in report
     assert "Countdown timers have no executable start_timer implementation" not in report
     assert "Directional brightness: brain done; HandsKit delta pending (lead's Swift batch)" not in report
-    assert "Directional brightness is implemented through the HandsKit delta argument" in report
+    assert "Directional brightness uses brain-5's argument inference" in report
+    assert "ml/src/brain/argfix.py:17-22" in report
+    assert "ml/src/brain/orchestrator.py:537-558" in report
+    assert "app/Sources/HandsKit/Skills.swift:418-435" in report
     assert "Native System Settings navigation is not implemented" in report
     assert "## Risks pending live evidence" in report
     assert "unverified until the Muselet live replay runs" in report
