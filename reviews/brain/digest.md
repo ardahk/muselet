@@ -1,23 +1,24 @@
-# brain digest — pass 18 (2026-10-24T09:50:00Z)
+# brain digest — pass 19 (2026-10-24T10:05:00Z)
 
-main 28dc259 changes only evals/: the planner bench holdout set and the ARGS end-to-end score in router_check. No findings there. wip/local e1701a3 has the same tree as main. Every pass-16 repro still fails on main.
-cloud/brain-4 3aca368 (separate ARGS model, planner flags, OpConstraint, brain-16 attempt): 907 passed, 2 skipped, 51 xfailed. The ARGS-model split shares weights when the paths are equal. OpConstraint allows stop tokens at line start, so decoding can still end a batch. Of the pass-16 repros, brain-16 still fails, and so do the other 5 (brain-17/18/14/12/8).
-cloud/hobby-gaps 14ff59b (calculator execution, relative controls): 1 failed, 847 passed. It brings the new P0 brain-20.
-MERGE NOTE: brain-4 and hobby-gaps conflict in orchestrator.py, because both rewrite the volume/brightness handling in _run_skill with different delta scales (brain-4 rel_delta: notch = 10; hobby-gaps: normalize_delta, brightness +-15). The lead must pick one scheme.
+main 758a017 has no ml/ changes since 2920225. It changes the live runner, pitch, one planner_offline holdout accept regex and the cloud/builder_brain5.md brief. wip/local a3f82f1 has the same tree as main. Every pass-16 repro still fails on main.
+cloud/hobby-gaps 929b931: 855 passed, 2 skipped, 51 xfailed (green again). brain-20 (P0) is RESOLVED: calc now runs before the router only when the app is Calculator or the user says 'calculator' (orchestrator.py:299-305). New P1 brain-23: '…all the way up' is overwritten with +25.
+cloud/brain-4 dfb66a3 (history default dsl, opt-in --planner-escalate-model): 914 passed, 2 skipped, 51 xfailed. New P1 brain-22: the few-shot prefix teaches the '[ok] x' format, but Last batch now sends 'x -> ok', which still parses as an executable action. The escalation loop-guard logic itself is fine: it resets the streak once and stops after two more failures.
+MERGE NOTE: there are now THREE relative-volume/brightness schemes: brain-4 rel_delta (notch = 10), hobby-gaps (normalize_delta 'way' = 25, brightness ±15), and the brain-5 brief (10/30, HandsKit delta). Pick one before any of them merges.
 
 ## Open P0/P1 (ranked)
-1. brain-20 (P0, cloud/hobby-gaps) calc.result runs before the router and hijacks commands containing numbers — orchestrator.py:296, calc.py:_problem_expression
-2. brain-16 (P1, main; partly fixed on cloud/brain-4, with a new 'up 20%' -> absolute 20 regression) abs_level misreads relative requests — orchestrator.py abs_level
-3. brain-21 (P1, cloud/hobby-gaps) set_brightness delta always fails in HandsKit — Skills.swift:361
-4. brain-17 (P1, main) compound check adds serial route passes before every 'and' utterance — orchestrator.py:336
-5. brain-15 (P1, main) route parity gate disabled on main: stale v1 samples xfail — ml/tests/test_route_parity.py:60-91
+1. brain-23 (P1, cloud/hobby-gaps) 'all the way up/down' becomes a ±25/±15 delta — orchestrator.py:443-462
+2. brain-16 (P1, main + cloud/brain-4) abs_level misreads relative requests ('down a bit at 3 pm' -> 3; brain-4 'up 20%' -> 20) — orchestrator.py abs_level
+3. brain-21 (P1, cloud/hobby-gaps) brightness delta always fails, HandsKit needs level — Skills.swift:361
+4. brain-22 (P1, cloud/brain-4) history default dsl vs [ok] few-shot; echoed lines are executable — planner.py:224, cli.py:266
+5. brain-17 (P1, main) compound check adds serial route passes before every 'and' utterance — orchestrator.py:336
+6. brain-15 (P1, main) route parity gate disabled by stale v1 samples — ml/tests/test_route_parity.py:60-91
 
 ## Open P2
-brain-14 (confirm token carry-over), brain-18 (BatchCutter bare skills), brain-12 (pending ASK capture), brain-19 (no_text_target), brain-8 (last_action quoting). Repros for all of these are in reviews/brain/tests/test_brain_pass16.py.
+brain-14 (confirm token carry-over), brain-18 (BatchCutter bare skills), brain-12 (pending ASK capture), brain-19 (no_text_target), brain-8 (last_action quoting). Repros are in tests/test_brain_pass16.py; pass-18/19 repros are in tests/test_brain_pass18.py and tests/test_brain_pass19.py.
 
 ## Highest-leverage next moves
-1. Do not merge cloud/hobby-gaps until calc is gated behind the ANSWER route (brain-20). Its own suite is also red.
-2. brain-16 on brain-4: treat 'up/down ... N%' as relative and reject 'at N pm'. Repros are in test_brain_pass18.py and test_brain_pass16.py.
-3. Pick one relative-delta scheme (brain-4 rel_delta) before merging brain-4 and hobby-gaps, and drop the other.
-4. brain-21: apply brightness delta in Swift from brightnessGet, or don't emit delta at all.
-5. brain-15: land parity_300.jsonl on main and point test_route_parity at it.
+1. Choose ONE relative-control scheme (brain-4 / hobby-gaps / brain-5 brief) and have abs_level cover 'all the way', 'max' and 'full' (brain-23, brain-16).
+2. Ship HandsKit set_brightness delta before any brain branch emits delta (brain-21).
+3. brain-4: keep history=marked, or render the few-shot through history() and make action_line reject '-> ok'. Record tuned planner_offline numbers (brain-22).
+4. brain-16 on brain-4: treat 'up/down … N%' as relative and reject 'at N pm'.
+5. brain-15: land parity_300.jsonl on main and make parity failures fail the test.
