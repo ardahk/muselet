@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from urllib.parse import quote, quote_plus
 
-from .working import site_for_url
+from .working import _COMMS, site_for_url
 
 
 SEARCH_URLS: dict[str, str] = {
@@ -111,7 +111,13 @@ def _undo(text: str, turn):
 
 
 def _again(text: str, turn, catalog):
-    if not turn.ok or not turn.resolved:
+    if not turn.ok:
+        return None
+    if turn.skill in _COMMS or "redacted" in turn.resolved.casefold():
+        return Resolution(
+            "ask", text, False, "again",
+            ask="What should I send, and to whom?")
+    if not turn.resolved:
         return None
     direct = None
     if turn.skill == "planner":
@@ -150,8 +156,10 @@ def _refinement(text: str, turn):
     if not turn.ok:
         return None
     normalized = text.casefold()
-    up = bool(re.search(r"\b(?:louder|brighter|more|up)\b", normalized))
-    down = bool(re.search(r"\b(?:quieter|dimmer|less|down)\b", normalized))
+    up = bool(re.search(r"\b(?:louder|brighter|higher|more|up)\b",
+                        normalized))
+    down = bool(re.search(r"\b(?:quieter|softer|dimmer|darker|lower|less|"
+                          r"down)\b", normalized))
     if skill in {"change_volume", "set_volume"}:
         last_delta = turn.args.get("delta")
         sign = -1 if down else 1
@@ -174,8 +182,10 @@ def _refinement(text: str, turn):
 
 
 def _correction(text: str, turn):
-    match = re.search(r"\bno,?\s+i meant\s+(.+?)\s*[.!?]*$", text,
-                      re.IGNORECASE)
+    match = re.search(
+        r"^(?:(?:actually,?\s+)?i meant|no,?\s+i meant)\s+"
+        r"(.+?)\s*[.!?]*$",
+        text, re.IGNORECASE)
     if not match:
         return None
     replacement = match.group(1).strip()

@@ -584,7 +584,6 @@ class Orchestrator:
                 if self.memory_enabled:
                     memory_result = await self._memory_followup(text, trace)
                 if memory_result and memory_result.ask:
-                    self._pending_task = {"goal": text, "t": time.time()}
                     await self.server.say(memory_result.ask)
                     await self.server.ui("listening")
                     outcome = "awaiting_user"

@@ -146,6 +146,66 @@ def test_refinement_and_correction():
     fixed = resolve("no, I meant Safari", correction, {}, 11)
     assert fixed.changed
     assert fixed.text == "open Safari"
+    assert resolve("I meant Safari", correction, {}, 11).text == "open Safari"
+
+
+def test_refinement_only_matches_short_commands():
+    volume = _memory("set_volume", {"level": 40})
+    utterance = "add milk to the list too"
+    result = resolve(utterance, volume, {}, 11)
+    assert result.text == utterance
+    assert not result.changed
+    assert detect(utterance, volume, {}, 11) is None
+
+    change = _memory("change_volume", {"delta": 10})
+    utterance = "show me more results"
+    result = resolve(utterance, change, {}, 11)
+    assert result.text == utterance
+    assert not result.changed
+    assert detect(utterance, change, {}, 11) is None
+
+    for utterance in ("a bit more", "louder"):
+        assert detect(utterance, change, {}, 11) == "refinement"
+        assert resolve(utterance, change, {}, 11).changed
+
+
+def test_native_commands_and_nonreferential_pronouns_skip_llm():
+    calls = []
+
+    def forbidden_llm(*args):
+        calls.append(args)
+        raise AssertionError("native command reached the LLM")
+
+    music = _memory("open_app", {"app": "Music"}, resolved="open Music")
+    for utterance in ("what time is it", "turn it up"):
+        assert detect(utterance, music, {}, 11) is None
+        result = resolve(utterance, music, {}, 11, llm=forbidden_llm)
+        assert result.text == utterance
+        assert not result.changed
+
+    file = _memory("open_file", {"path": "calendar.txt"})
+    for utterance in (
+            "what's on my calendar this week",
+            "set a timer for one minute",
+            "remind me that the meeting is at noon",
+            "say that I want coffee",
+            "saying that the report is ready",
+            "tell Alex that the meeting moved"):
+        assert detect(utterance, file, {}, 11) is None
+        result = resolve(utterance, file, {}, 11, llm=forbidden_llm)
+        assert result.text == utterance
+        assert not result.changed
+
+    assert calls == []
+
+
+def test_again_after_redacted_communication_asks_for_details():
+    message = _memory(
+        "send_message", {"to": "Arda", "body": "private"},
+        resolved="send message to Arda")
+    result = resolve("again", message, {}, 11, catalog=_Catalog())
+    assert result.path == "ask"
+    assert result.ask == "What should I send, and to whom?"
 
 
 def test_llm_fallback_parses_results_and_guard_rejects_new_irreversible_verb():

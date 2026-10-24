@@ -27,17 +27,30 @@ _ITEM = re.compile(
     r"\b(?:it|that|this|there)\b|\bopen that folder\b",
     re.IGNORECASE)
 _CORRECTION = re.compile(
-    r"\b(?:no,?\s+(?:i meant\b|the other one\b)|not that one\b)",
+    r"^(?:actually,?\s+)?i meant\s+.+$|"
+    r"\bno,?\s+(?:i meant\b|the other one\b)|\bnot that one\b",
     re.IGNORECASE)
 _ORDINAL = re.compile(
     r"\b(?:the\s+)?(?:first|second|third|fourth|last)\s+one\b",
     re.IGNORECASE)
 _PRONOUN = re.compile(
-    r"\b(?:it|that|this|there|the same|one|him|her|them)\b",
+    r"\b(?:it|that|this|there|the same|him|her|them)\b",
     re.IGNORECASE)
 _REFINEMENT = re.compile(
-    r"\b(?:louder|quieter|brighter|dimmer|a bit more|more|less|too|"
-    r"make it louder|make it quieter|make it brighter|make it dimmer)\b",
+    r"(?:(?:and|now|ok(?:ay)?)\s+)?"
+    r"(?:(?:make it|turn it|go|a (?:little |tiny )?bit|slightly|even|"
+    r"much|way)\s+)*"
+    r"(?:louder|quieter|softer|brighter|dimmer|darker|higher|lower|more|"
+    r"less|up|down)"
+    r"(?:\s+(?:a (?:little |tiny )?bit|please|still|again|more|less))*"
+    r"[.!]?",
+    re.IGNORECASE)
+_NONPRONOUN_THIS = re.compile(
+    r"\bthis\s+(?:week|weekend|morning|afternoon|evening|month|year|time)\b",
+    re.IGNORECASE)
+_THAT_CONJUNCTION = re.compile(
+    r"\b(?:remind\s+me|say|saying|tell\b(?:\s+\w+){0,5})\s+"
+    r"(?P<that>that)\b",
     re.IGNORECASE)
 _NATIVE_IDIOM = re.compile(
     r"\bturn it (?:up|down)\b|\bwhat time is it\b|"
@@ -82,6 +95,14 @@ def _names_other_site(text: str, site: str | None) -> bool:
     return False
 
 
+def _has_pronoun(text: str) -> bool:
+    cleaned = _NONPRONOUN_THIS.sub(" ", text)
+    cleaned = _THAT_CONJUNCTION.sub(
+        lambda match: match.group(0)[:match.start("that") - match.start()],
+        cleaned)
+    return _PRONOUN.search(cleaned) is not None
+
+
 def detect(text: str, wm, ctx: dict | None, now: float) -> str | None:
     turn = wm.last(now)
     if turn is None:
@@ -100,19 +121,19 @@ def detect(text: str, wm, ctx: dict | None, now: float) -> str | None:
         return "undo"
     if _PERSON.search(text):
         return "person"
-    if _REFINEMENT.search(text):
+    if _REFINEMENT.fullmatch(text):
         if turn.skill in _REFINEMENT_SKILLS:
             return "refinement"
         if _NATIVE_IDIOM.search(text):
             return None
+    if _NATIVE_IDIOM.search(text):
+        return None
     if _CORRECTION.search(text):
         return "correction"
     if _ORDINAL.search(text):
         return "ordinal"
     if _ITEM.search(text):
         return "item"
-    if _PRONOUN.search(text):
+    if _has_pronoun(text):
         return "pronoun"
-    if _NATIVE_IDIOM.search(text):
-        return None
     return None

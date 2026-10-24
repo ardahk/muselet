@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import time
 
 from brain.catalog import Catalog
 from brain.memory import WorkingMemory
@@ -68,5 +69,24 @@ def test_disabled_memory_routes_followup_normally(tmp_path):
                             .read_text().splitlines()[0])
         assert not any("memory.followup" in item
                        for item in record["decisions"])
+
+    asyncio.run(run())
+
+
+def test_memory_ask_does_not_create_planner_pending_task(tmp_path):
+    async def run():
+        server = FakeServer()
+        orch = Orchestrator(
+            server, Catalog.load(), Tracer(tmp_path / "traces"))
+        orch.memory = WorkingMemory()
+        orch.memory.record(
+            "move window left", "move window left", "window_layout",
+            {"layout": "left"}, True, {"app": "Finder"},
+            t=time.time())
+
+        result = await orch.handle_utterance("undo", {"app": "Finder"})
+
+        assert result["outcome"] == "awaiting_user"
+        assert orch._pending_task is None
 
     asyncio.run(run())
