@@ -1,4 +1,4 @@
-# hands — digest (pass 37)
+# hands — digest (pass 38)
 
 Open findings were re-verified on main 2920225 in pass 15: hands-1 to 9 and 11 to 14 are resolved, and hands-15 is superseded.
 Pass 21 checks:
@@ -6,6 +6,13 @@ Pass 21 checks:
 - wip/local b63699f is identical to main.
 - cloud/brain-5 b752261 handles `not_frontmost` by reading the failure `result`. That works: RPC.swift returns r with r["error"], BrainConnection always sends `result`, and server.rpc returns it with ok=false.
 No new defects.
+Pass 38: open 1 P0, 3 P1, 4 P2.
+- P0 hands-19 (raised; now on main 7065dd3): comms merged, so send_message always calls contacts_search, which HandsKit doesn't dispatch ("unknown method"). Texting is broken on main. wip/local's new Contacts.swift and MessagesCompose.swift aren't wired into RPC.swift yet.
+- NEW P1 hands-21 (wip/local e29ea7c): build_app.sh's Info.plist has no NSContactsUsageDescription, so the first CNContactStore access will be killed by TCC.
+- NEW P2 hands-22: the brain's 5 s contacts_search timeout is shorter than the first-use permission prompt (Swift waits up to 60 s).
+- hands-18 and hands-20 are now on main (app-ui and comms merged), unchanged.
+- The wip MessagesComposer send gate looks right: it re-checks frontmost, same window and an unchanged draft, then sends one Return and reads back that the field emptied.
+- hands-10 and hands-16 are unchanged.
 Pass 37: open 0 P0, 2 P1, 3 P2. No new findings.
 - main fb2cfd0 merged cloud/bench-fix plus live-suite case edits; the changes are in bench/ and evals/ only. They add no new RPC methods to the HandsKit contract, and app/ and ml/src/brain are unchanged. wip/local 9ed6bc8 is identical to main.
 - Still open: P1 hands-18 (app-ui unchanged), P1 hands-19 (comms unchanged, HandsKit has no contacts/messages RPCs), P2 hands-20, P2 hands-16 (orchestrator.py:1078), P2 hands-10 (Act.swift:348).
