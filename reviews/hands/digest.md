@@ -1,20 +1,18 @@
-# hands — digest (pass 41)
+# hands — digest (pass 42)
 
-Reviewed: main 27ebd13 (create_event datetimes now carry the local UTC offset, HANDOFF docs), wip/local 4585ce4 (bench replay only), and the new cloud/comms-2 265c86d, cloud/clock-timers d060b5a, cloud/mascot-animal 238db23 and cloud/planner-retrieval 9786fa4. data-pipeline 34aff30 and decisions b78d778 don't touch my lane.
+Reviewed: main 3876f3a (HandsKit messages_people, fuzzy contacts_search, compose v2 with a 2 s window/field poll and the `name` param, windows probe, naive local ISO dates), wip/local 3cfa06d (local merge of comms-2 at cad2e67) and cloud/comms-2 c65ee70 (verb-first parsing restricted to message nouns; brain only).
 
 Open: 0 P0, 0 P1, 4 P2. Static analysis only.
 
-- P2 hands-24 (new, comms-2): `messages_people` and `contacts_search{fuzzy}` don't exist in HandsKit on any branch. The flow falls back cleanly, but Messages-first ranking and fuzzy STT answers do nothing until the Swift side lands.
-- P2 hands-20: send_draft doesn't re-check the window after the confirm (draft_email.py:454-470).
+Resolved: hands-24. The Swift side of messages_people and contacts_search{fuzzy} is on main. comms-2 itself is merged only on wip/local so far.
+
+- P2 hands-25 (new): a cold messages_people runs an AppleScript that makes one Apple Event per participant, with no timeout, on the serial RPC queue. My estimate is over 4 s on a large Messages history, so the brain gives up while the next RPC waits behind it. Fix: one bulk Apple Event, `with timeout`, and a prewarmed cache.
+- P2 hands-20: send_draft doesn't re-check the window after the confirm.
 - P2 hands-16: the calculator types one keystroke per RPC.
 - P2 hands-10: act ignores cursor_lead_ms.
 - Not filed: `appears` matches substrings and counts other windows of the same app.
+- Not filed, safety residual: the recipient check accepts the contact name, and now also the brain-supplied `name`, as a case-insensitive substring of the header or To texts. A single-word name like "Alex" also matches a header "Alex Kim". This is limited by scoping to the header and To field (hands-23), but a handle match would be stricter. Worth a live check with two contacts who share a first name.
 
-Checked and fine:
-- main's create_event change: naive ISO datetimes used to fail the Swift parse (`.withInternetDateTime` needs an offset, Skills.swift:994-1001). The brain now sends `isoformat(timespec="seconds")` with the local offset, which that parser accepts.
-- clock-timers: `/usr/bin/shortcuts` runs through Process with argv only (no shell). Both pipes are drained concurrently, with a 10 s timeout, then terminate, then SIGKILL. Failures fall back to a Muselet timer with `fallback_reason`. Worst case (list + run) is about 20 s, under the brain's 45 s skill timeout. timers_cancel error replies carry `result`. `shortcuts list` runs off the main thread in the panel. The Settings toggle is persisted.
-- comms-2: send still goes through messages_compose/messages_send with the scoped recipient check. Mail opens are blocked for messaging goals.
-- mascot-animal only changes art. planner-retrieval is brain-only, with no new RPCs.
-- Not filed, low confidence: `Muselet Cancel Timer` cancels Clock's current timer whatever the id. With two Clock-backed records, cancelling by id may stop the other one. Worth a live check.
+Checked and fine: Skills.iso now also accepts naive local datetimes. Fuzzy search enumerates contacts in-process, so it's cheap. The windows probe uses AX only, with a 0.5 s per-app timeout. compose error replies carry `contact_name_lookup` in `result`.
 
-No lead decision needed. Before demoing comms-2's fuzzy names, the Swift side of its two RPCs must land.
+No lead decision needed.
