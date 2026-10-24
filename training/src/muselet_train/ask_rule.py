@@ -54,7 +54,10 @@ def main() -> None:
         usage["calls"] += 1
         usage["input"] += u["input"]
         usage["output"] += u["output"]
-        return {"verdict": verdict(req, res["line"], res["missing"]), "missing": res["missing"], "line": res["line"]}
+        v = verdict(req, res["line"], res["missing"])
+        if v == "ask" and ns == "send_message" and res["missing"] == ["body"] and "draft_email" in opts:
+            v = "named_recipient"  # catalog v3: "message my mom" is send_message with missing=body
+        return {"verdict": v, "missing": res["missing"], "line": res["line"]}
 
     with cf.ThreadPoolExecutor(16) as ex:
         res = list(ex.map(one, asks))
@@ -63,7 +66,7 @@ def main() -> None:
     d = DATA / a.run
     (d / "ask_rule.jsonl").write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in out))
 
-    is_ask = {x["utterance"] for x in out if x["verdict"] == "ask"}
+    is_ask = {x["utterance"] for x in out if x["verdict"] in ("ask", "named_recipient")}
     ask_utts = {x["utterance"] for x in out}
     args = _load(a.run, "args.jsonl")
     (d / "args.pre_ask_rule.jsonl").write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in args))
@@ -73,7 +76,7 @@ def main() -> None:
     added = [{"skill": x["nearest_skill"], "context": x["context"], "utterance": x["utterance"],
               "target": f"missing={x['missing'][0]}", "src": x["src"], "kind": "ask_rule",
               "labeler": GEN_ANTHROPIC, "labeler_line": x["line"]}
-             for x in out if x["verdict"] == "ask" and x["utterance"] not in have]
+             for x in out if x["verdict"] in ("ask", "named_recipient") and x["utterance"] not in have]
     (d / "args.jsonl").write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in keep + added))
 
     rng = random.Random(a.seed)

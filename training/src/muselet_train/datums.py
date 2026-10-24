@@ -52,6 +52,7 @@ def route_items(run: str, teacher_files: tuple[str, ...] = (), stats: dict | Non
         st.setdefault(k, collections.Counter())
     rule = {(r["utterance"], r["src"]): r for r in _load(run, "ask_rule.jsonl")}
     fin = {(r["utterance"], r["src"]): r["fits"] for r in _load(run, "finance_check.jsonl")}
+    v3 = {(r["utterance"], r["src"]): r["label"] for r in _load(run, "v3_relabel.jsonl") if r["label"] in names}
     out = []
 
     def drop(r, why):
@@ -66,9 +67,14 @@ def route_items(run: str, teacher_files: tuple[str, ...] = (), stats: dict | Non
         adj = (t or {}).get("adjudication") or {}
         verdict, alab = adj.get("verdict"), adj.get("label")
         label = r["label"]
+        if (r["utterance"], r["src"]) in v3:  # catalog-v3 boundary relabel (it3gen v3-apply): one-hot, no teacher
+            st["relabeled"][f"{label}->{v3[(r['utterance'], r['src'])]}"] += 1
+            label = v3[(r["utterance"], r["src"])]
+            out.append(RouteItem(r["utterance"], r["context"], label, {label: 1.0}, r.get("split", "train")))
+            continue
         if label == "ASK" and rule:
             v = rule.get((r["utterance"], r["src"])) or {}
-            if v.get("verdict") == "concrete" and v.get("nearest_skill") in names:
+            if v.get("verdict") in ("concrete", "named_recipient") and v.get("nearest_skill") in names:
                 st["relabeled"][f"ASK->{v['nearest_skill']}"] += 1
                 label = v["nearest_skill"]
             elif v.get("verdict") != "ask":

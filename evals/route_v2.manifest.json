@@ -1,0 +1,97 @@
+{
+ "name": "route_v2",
+ "frozen": true,
+ "items": 955,
+ "sha256": "20cd542b50862ccf4dc83af18cf16bb9b8c61ab5da505abf745d00aa3155dd51",
+ "catalog": "training/artifacts/catalog_v3.json",
+ "catalog_sha256": "fb99dd04da673b224ac5eccf7d12c529492a4c2fd718787458c676b42dd8cd20",
+ "labels": {
+  "ANSWER": 37,
+  "ASK": 24,
+  "MULTI_STEP": 45,
+  "REFUSE": 24,
+  "advisor_prep": 21,
+  "battery_status": 17,
+  "bluetooth": 16,
+  "change_volume": 20,
+  "compose_email": 22,
+  "compose_text": 40,
+  "copy_selection": 18,
+  "create_event": 20,
+  "create_reminder": 20,
+  "dark_mode": 20,
+  "draft_email": 51,
+  "empty_trash": 17,
+  "finance_review": 22,
+  "find_file": 20,
+  "hide_app": 16,
+  "lock_screen": 17,
+  "media_control": 14,
+  "move_to_trash": 18,
+  "mute": 18,
+  "new_folder": 21,
+  "new_note": 17,
+  "open_app": 14,
+  "open_file": 20,
+  "open_folder": 18,
+  "open_url": 39,
+  "play_music": 20,
+  "premiere_command": 17,
+  "quit_app": 16,
+  "send_message": 47,
+  "set_brightness": 20,
+  "set_volume": 19,
+  "sleep_display": 15,
+  "start_timer": 20,
+  "take_screenshot": 20,
+  "todays_agenda": 16,
+  "type_text": 20,
+  "web_search": 20,
+  "wifi": 19,
+  "window_layout": 20
+ },
+ "asr_items": 351,
+ "writers": {
+  "anthropic": "claude-sonnet-5-5",
+  "openai": "gpt-5.4"
+ },
+ "gold": "kept only where the other family's judge (same policy, all 43 options) picked the writer's label",
+ "gate": {
+  "written": 1137,
+  "judge_agree": 1081,
+  "train_texts": 66801,
+  "drop_train_overlap": 122,
+  "drop_eval_overlap": 0,
+  "drop_internal_dup": 4,
+  "kept": 955,
+  "rules": "normalized exact, word/CJK-char 13-gram, token edit<=1 when either side <=5 tokens",
+  "against": "every datum export (main, it2, it2b, it2_trained; raw + ASR-rendered) and every row under /data/gen (all runs incl. it3), plus route_v1, live_t1, evals/external"
+ },
+ "usage": {
+  "write": {
+   "claude-sonnet-5-5": {
+    "calls": 94,
+    "input": 112561,
+    "output": 38504
+   },
+   "gpt-5.4": {
+    "calls": 94,
+    "input": 73258,
+    "output": 30289
+   }
+  },
+  "judge": {
+   "gpt-5.4": {
+    "calls": 24,
+    "input": 49343,
+    "output": 13681
+   },
+   "claude-sonnet-5-5": {
+    "calls": 109,
+    "input": 279256,
+    "output": 13037
+   }
+  }
+ },
+ "policy": "training/src/muselet_train/it3gen.py POLICY"
+}

@@ -148,6 +148,17 @@ def build(run: str, seed: int = 0) -> None:
                 reject(x, "length")
                 continue
             a, status = norm_args(x["label"], r.get("args") or {}, text)
+            if a is None and status == "missing_required:body" and x["label"] == "send_message" \
+                    and "draft_email" in names:  # catalog v3: named recipient, no text -> send_message, missing=body
+                ra = dict(r.get("args") or {})
+                a, status = norm_args("send_message", {**ra, "body": "x"}, text)
+                if a is not None:
+                    a.pop("body")
+                    ctx = constrain(x["label"], sample_context(rng), rng)
+                    add(text, x["label"], ctx, x["src"], {"args": a})
+                    args.append({"skill": x["label"], "utterance": text, "context": asdict(ctx),
+                                 "target": "missing=body", "src": x["src"]})
+                    continue
             if a is None:
                 reject(x, status)
                 continue

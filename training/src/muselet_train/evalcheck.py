@@ -18,7 +18,8 @@ from pathlib import Path
 from muselet_train.decontam import SHORT, norm, tok_edit_le1
 
 REPO = Path(__file__).resolve().parents[3]
-EVALS = {"route_v1": REPO / "evals/route_v1.jsonl", "live_t1": REPO / "evals/live_t1.jsonl"}
+EVALS = {"route_v1": REPO / "evals/route_v1.jsonl", "live_t1": REPO / "evals/live_t1.jsonl",
+         "route_v2": REPO / "evals/route_v2.jsonl"}
 EXTERNAL = REPO / "evals/external/utterances.jsonl"
 N = 13
 
@@ -26,6 +27,8 @@ N = 13
 def eval_items() -> list[tuple[str, int, str]]:
     out = []
     for name, p in EVALS.items():
+        if not p.exists():
+            continue
         for i, line in enumerate(p.read_text().splitlines()):
             if line.strip():
                 out.append((name, i, json.loads(line)["utterance"]))

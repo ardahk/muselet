@@ -24,9 +24,9 @@ from muselet_train.train import OUT, route_metrics
 CTX_KEYS = {f.name for f in fields(RouteContext)}
 
 
-def route_v1_items() -> list[D.RouteItem]:
+def route_v1_items(name: str = "route_v1") -> list[D.RouteItem]:
     out = []
-    for ln in (REPO_ROOT / "evals" / "route_v1.jsonl").read_text().splitlines():
+    for ln in (REPO_ROOT / "evals" / f"{name}.jsonl").read_text().splitlines():
         if ln.strip():
             r = json.loads(ln)
             ctx = {k: ({"yes": True, "no": False}.get(v, v) if k in ("selection", "online") else v)
@@ -52,12 +52,12 @@ async def run(tinker_path: str, items: list[D.RouteItem], conc: int = 32) -> lis
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--tinker-path", required=True)
-    ap.add_argument("--set", choices=["route_v1", "val"], required=True)
+    ap.add_argument("--set", choices=["route_v1", "route_v2", "val"], required=True)
     ap.add_argument("--name", required=True, help="training run name; outputs go to /data/train/<name>/")
     ap.add_argument("--run", default="v2all")
     ap.add_argument("--teacher-files", nargs="*", default=[])
     a = ap.parse_args()
-    items = route_v1_items() if a.set == "route_v1" else \
+    items = route_v1_items(a.set) if a.set.startswith("route_v") else \
         [it for it in D.route_items(a.run, tuple(a.teacher_files)) if it.split == "val"]
     rows = asyncio.run(run(a.tinker_path, items))
     out = OUT / a.name

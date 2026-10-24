@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CATALOG_PATH = REPO_ROOT / "skills" / "catalog.json"
+# MUSELET_CATALOG selects another catalog file (e.g. training/artifacts/catalog_v3.json for it3).
+CATALOG_PATH = Path(os.environ.get("MUSELET_CATALOG") or REPO_ROOT / "skills" / "catalog.json")
 SPECIAL = ("MULTI_STEP", "ASK", "REFUSE", "ANSWER")
 
 
@@ -27,11 +29,11 @@ def load_catalog(path: Path = CATALOG_PATH) -> dict:
 
 
 def options(path: Path = CATALOG_PATH) -> list[Option]:
-    """Catalog skills in file order, then the 4 special options in SPEC order."""
+    """Routable catalog skills (``router`` not false) in file order, then the 4 special options in SPEC order."""
     cat = load_catalog(path)
     out = [
         Option(s["name"], s["description"], tuple(s.get("args", [])), tuple(s.get("examples", [])))
-        for s in cat["skills"]
+        for s in cat["skills"] if s.get("router", True)
     ]
     special = {o["name"]: o["description"] for o in cat["special_options"]}
     out += [Option(n, special[n], special=True) for n in SPECIAL]
