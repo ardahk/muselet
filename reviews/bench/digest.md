@@ -10,6 +10,9 @@ No P0. Fixed on cloud/bench@14c7eb1: bench-1, -2, -3, -6, -9, -10 (the timer gap
 
 Open P2: bench-11 (fake-backend runs labelled muselet), bench-12 (chunked combine contradicts stage-two winner).
 
+## cloud/grounding
+Branch not pushed yet. Will review CANDIDATES.md citations, per-adapter coordinate conventions, zoom-crop mapping, grounder.py, and whether ScreenSpot-Pro data could reach training (cache path, training globs).
+
 ## Highest-leverage next moves
 - decontam/dedup: read `text`/`source` rows from evals/external before cloud/bench merges to main.
 - replay latency: same kinds, same probe, same clock for both systems.
