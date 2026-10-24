@@ -1,4 +1,9 @@
-# brain lane digest — pass 31 (2026-10-24T13:05Z)
+# brain lane digest — pass 32 (2026-10-24T14:33Z)
+
+Pass 32: main 5292608 (AGENTS.md only: it2 has 0 real DeskMind Bench overlaps after the CJK-aware gate) and wip/local a02959b
+(== main). No brain-lane changes; every open finding stands (P0 0, P1 5, P2 7). No new findings.
+
+## Pass 31 (2026-10-24T13:05Z)
 
 Pass 31: main 82d94d9 = merged cloud/brain-6 (#21) + 82d94d9 (sendgate browser names: Zen, Zen Browser, Vivaldi, Opera, Orion);
 wip/local 5b3d695 == main. Main suite 1198 passed / 2 skipped / 1 deselected (real_model). Review repros on main: 21 failed /
