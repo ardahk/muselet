@@ -1,4 +1,4 @@
-# bench digest — pass 48 (2026-10-24T23:15Z, main@46b97f5)
+# bench digest — pass 49 (2026-10-24T23:30Z, main@46b97f5)
 
 P0: 0 | open P1: 9 | open P2: 8
 

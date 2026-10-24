@@ -1,12 +1,12 @@
 {
-  "pass": 48,
-  "ts": "2026-10-24T23:15Z",
+  "pass": 49,
+  "ts": "2026-10-24T23:30Z",
   "branches": {
     "main": "46b97f5",
     "wip/local": "719907a",
     "cloud/bench": "f584cb2",
     "cloud/data-pipeline": "830ba35",
-    "cloud/decisions": "08dae49",
+    "cloud/decisions": "c88b613",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
     "cloud/finance-3": "31be399",
@@ -64,5 +64,5 @@
     "cloud/safety-brain38": "54ca8f6",
     "cloud/safety-planner28": "fb4a45a"
   },
-  "notes": "pass48: no new findings, no status changes. main 46b97f5 proxy _close_bounded (reviewed in wip pass 47) is clean. live-cases fa9c374 adds the final settle to multi-turn top-level checks (test included). safety-* branches touch no lane files; safety-planner28 compose_text confirm may add confirms in live composer cases, so check confirm_asked_unexpectedly on the next T1 run."
+  "notes": "pass49: only cloud/decisions moved (results.md + cal snapshot). Recomputed the totals: JevBench full .801 = 185/231, brain-4b ref .831 = 192/231, TD .6645 matches the per-kind weights. Calibration is fit on dev only. Tinker-vs-Mac numbers are labelled not comparable, and the gate defers to the Mac MLX run. No findings. Risk to watch: choosing pilot vs full by JevBench hard tier would be tuning on the benchmark."
 }
