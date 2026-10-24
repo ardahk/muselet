@@ -5,7 +5,7 @@ import Foundation
 /// Dispatches brain -> app RPC methods per AGENTS.md.
 public final class RPCHandler {
     public let hands = Hands()
-    public let skills = Skills()
+    public let skills: Skills
     public var ownBundleId: String? = Bundle.main.bundleIdentifier
     public weak var delegate: HandsDelegate? {
         didSet {
@@ -27,11 +27,17 @@ public final class RPCHandler {
         return hands.lastPid != 0 ? hands.lastPid : nil
     }
 
-    public init() {
+    /// `skills`: injectable for tests; `warmUp: false` skips the AppleScript
+    /// precompile (tests must not touch System Events).
+    public init(skills: Skills? = nil, warmUp: Bool = true) {
+        self.skills = skills ?? Skills()
+        guard warmUp else { return }
         // Warm the AppleScript runner off the hot path (first compile ~9 s).
-        DispatchQueue.global(qos: .utility).async { [skills] in
+        DispatchQueue.global(qos: .utility).async { [skills = self.skills] in
             skills.warmUp()
         }
+        // Vision's first accurate OCR in a new binary takes ~25 s; pay it now.
+        DispatchQueue.global(qos: .background).async { OCR.warmUp() }
     }
 
     /// Returns (ok, result-dict-or-nil, error-string-or-nil).

@@ -23,7 +23,7 @@ from .decision import DecisionEngine, split_model, _OnlineProbe  # noqa: F401
 
 PROMPT_PATH = Path(__file__).resolve().parents[3] / "prompts" / "planner_system.md"
 TERMINAL_OPS = {"ask", "confirm", "done", "refuse"}
-MAX_TOKENS = 220
+MAX_TOKENS = 320   # room for multi-line script blocks
 SENTINEL = "SENTINELMARKER9Z"
 
 # ---------- shared MLX worker (single thread, FIFO) ----------
@@ -201,6 +201,8 @@ class Planner:
         terminal = False
         ttft = None
         n_decoded = 0
+        in_script = False      # inside a `script ... """` block
+        script_lines: list[str] = []
         for _ in range(MAX_TOKENS):
             if cancel.is_set():
                 break
@@ -216,12 +218,26 @@ class Planner:
             cur = mx.array([[nxt]])
             while "\n" in buf:
                 line, buf = buf.split("\n", 1)
+                if in_script:
+                    # inside """...""" — never count/stop; emit whole block
+                    script_lines.append(line)
+                    if '"""' in line:
+                        in_script = False
+                        block = "\n".join(script_lines).strip()
+                        script_lines = []
+                        lines.append(block)
+                        loop.call_soon_threadsafe(
+                            lines_out.put_nowait, block)
+                    continue
                 line = line.strip()
                 if not line:
                     continue
-                if re.match(r"^(expect|#)", line):
-                    pass                       # attaches to previous action
-                else:
+                if re.match(r"^script\b", line) and line.count('"""') % 2:
+                    # opening line of a multi-line script block
+                    in_script = True
+                    script_lines = [line]
+                    continue
+                if not re.match(r"^(expect|#)", line):
                     n_actions += 1
                     if line.split()[0] in TERMINAL_OPS:
                         terminal = True
@@ -231,6 +247,11 @@ class Planner:
                     break
             if terminal or n_actions >= 5 or cancel.is_set():
                 break
+        if in_script and script_lines:
+            tail_block = "\n".join(script_lines + [buf]).strip()
+            lines.append(tail_block)
+            loop.call_soon_threadsafe(lines_out.put_nowait, tail_block)
+            buf = ""
         tail = buf.strip()
         if tail and not terminal:
             lines.append(tail)

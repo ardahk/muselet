@@ -2,13 +2,13 @@ import AppKit
 import HandsKit
 
 /// Local demo/debug hooks over DistributedNotificationCenter ("ai.muselet.debug").
-/// They only drive the UI (mascot, bubble, ghost-cursor preview) — no OS
-/// actions are executed. See app/scripts/debug_ui.sh.
+/// They only drive the UI (mascot, bubble, ghost-cursor preview, skill HUD,
+/// timer-done bubble) — no OS actions are executed. See app/scripts/debug_ui.sh.
 final class DebugHooks {
     private var observer: NSObjectProtocol?
 
     init(model: AppModel, ghost: GhostCursor, mascot: MascotController, brain: BrainConnection,
-         rpc: RPCHandler) {
+         rpc: RPCHandler, hud: SkillHUD, bridge: HandsBridge) {
         observer = DistributedNotificationCenter.default().addObserver(
             forName: Notification.Name("ai.muselet.debug"), object: nil, queue: .main) { n in
             let info = n.userInfo ?? [:]
@@ -60,6 +60,29 @@ final class DebugHooks {
             case "confirm":
                 brain.onConfirm?("debug-\(Int(Date().timeIntervalSince1970))",
                                  info["summary"] as? String ?? "Send the message to Mom?")
+            case "hud":
+                // Preview the skill HUD without running the skill:
+                //   kind=volume|mute|brightness|dark|wifi|bluetooth level=0..100 on=true|false
+                //   style=glass|vibrancy (sticks for later HUDs)
+                if let s = (info["style"] as? String).flatMap(SkillHUD.Style.init(rawValue:)) {
+                    SkillHUD.style = s
+                }
+                let level = Int(num("level") ?? 50)
+                let on = (info["on"] as? String).map { ["1", "true", "on", "yes"].contains($0.lowercased()) } ?? true
+                let fb: SkillFeedback
+                switch info["kind"] as? String ?? "volume" {
+                case "mute": fb = .level(kind: .volume, level: level, muted: true)
+                case "brightness": fb = .level(kind: .brightness, level: level, muted: false)
+                case "dark", "dark_mode": fb = .toggle(kind: .darkMode, on: on)
+                case "wifi": fb = .toggle(kind: .wifi, on: on)
+                case "bluetooth": fb = .toggle(kind: .bluetooth, on: on)
+                default: fb = .level(kind: .volume, level: level, muted: false)
+                }
+                hud.show(fb)
+            case "timer":
+                // Same path as a fired start_timer (bubble + success mood).
+                let label = (info["label"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                bridge.handsTimerFired(label: label)
             case "status":
                 let p = Permissions.snapshot()
                 FileLog.shared.raw("status brain=\(model.brainStatus) stt=\(model.sttState) ptt=\(model.pushToTalkActive) "

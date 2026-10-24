@@ -164,6 +164,7 @@ class AlphaChoiceRenderer(PrefixedChoiceRenderer):
         if len(keep) < 40:
             raise RuntimeError(f"only {len(keep)} usable choice ids, need >= 40")
         self.usable_ids = keep
+        self.IDS = keep            # render_choices zips labels with self.IDS
 
 
 class RouteDecisionRenderer(DecisionRenderer):

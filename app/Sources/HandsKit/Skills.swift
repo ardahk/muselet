@@ -719,8 +719,11 @@ public final class Skills {
     /// Seconds from a number or a duration string ("90", "90s", "10 minutes",
     /// "1h 30m", "1:30", "PT10M"). The brain normally sends seconds.
     public static func parseDuration(_ v: Any?) -> Double? {
-        if let b = v as? Bool { _ = b; return nil }
-        if let n = v as? NSNumber { return n.doubleValue }
+        if let n = v as? NSNumber {
+            // JSON booleans are NSNumbers too; a bool is not a duration.
+            if CFGetTypeID(n) == CFBooleanGetTypeID() { return nil }
+            return n.doubleValue
+        }
         guard var s = (v as? String)?.lowercased().trimmingCharacters(in: .whitespaces),
               !s.isEmpty else { return nil }
         if let d = Double(s) { return d }
@@ -752,11 +755,12 @@ public final class Skills {
         let firesAt = Date().addingTimeInterval(seconds)
         let hooks = self.hooks
         let t = DispatchSource.makeTimerSource(queue: timerQueue)
-        t.schedule(deadline: .now() + seconds, leeway: .milliseconds(20))
+        // Wall clock: keeps counting across system sleep, like a kitchen timer.
+        t.schedule(wallDeadline: .now() + seconds, leeway: .milliseconds(20))
         t.setEventHandler { [weak self, weak t, weak delegate = self.delegate] in
             hooks.playSound("Glass")
             hooks.notify("Timer done", label ?? "Your \(Self.humanDuration(seconds)) timer is up.")
-            delegate?.handsTimerFired(label: label)
+            (self?.delegate ?? delegate)?.handsTimerFired(label: label)
             t?.cancel()
             if let self {
                 self.timerLock.lock()

@@ -1,4 +1,5 @@
 import CoreGraphics
+import CoreText
 import Foundation
 import ImageIO
 import Vision
@@ -66,6 +67,27 @@ public enum OCR {
     /// spaces ("TOTAL  $41.20"), rows with newlines.
     public static func joinRows(_ lines: [Line]) -> String {
         rows(lines).map { $0.map(\.text).joined(separator: "  ") }.joined(separator: "\n")
+    }
+
+    /// The first accurate recognition in a new binary takes ~25 s (Vision
+    /// compiles/loads its model per executable; cached afterwards). Run once
+    /// at startup on a tiny synthetic image so the first real OCR is fast.
+    @discardableResult
+    public static func warmUp() -> Double {
+        let t0 = Date()
+        let w = 260, h = 64
+        guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8,
+                                  bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return 0 }
+        ctx.setFillColor(CGColor(gray: 1, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        let font = CTFontCreateWithName("Helvetica" as CFString, 30, nil)
+        let line = CTLineCreateWithAttributedString(
+            NSAttributedString(string: "TOTAL 12.34", attributes: [.font: font]))
+        ctx.textPosition = CGPoint(x: 12, y: 20)
+        CTLineDraw(line, ctx)
+        if let img = ctx.makeImage() { _ = try? recognize(img) }
+        return Date().timeIntervalSince(t0) * 1000
     }
 
     public static func loadImage(path: String) throws -> CGImage {

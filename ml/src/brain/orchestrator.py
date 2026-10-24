@@ -64,6 +64,8 @@ class Orchestrator:
         self._script_output: str | None = None
         self._spec_norm = ""
         self._spec_fut = None
+        self._current_goal = ""
+        self._done_summary = None
 
     # ---------- v0 router ----------
 
@@ -148,12 +150,6 @@ class Orchestrator:
                     await self.server.say("I can't do that yet")
                     await self.server.ui("confused")
                     outcome = "fallback"
-            self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
-            return {"outcome": outcome}
-        except asyncio.CancelledError:
-            outcome = "cancelled"
-            self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
-            raise
             trace["release_to_first_action_ms"] = self._first_action_ms
             self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
             return {"outcome": outcome}
@@ -326,9 +322,11 @@ class Orchestrator:
                 await self.server.say("Okay, cancelled")
                 return {"status": "cancelled",
                         "_log": f"{dsl_line}-> cancelled"}
+            self._batch_confirmed = True      # no double confirm this batch
             return {"status": "ok", "confirmed": True,
                     "_log": f"{dsl_line}-> confirmed"}
         if op == "done":
+            self._done_summary = a["summary"].strip('"')
             return {"status": "done", "summary": a["summary"],
                     "_log": f"{dsl_line}-> done"}
         if op == "refuse":
@@ -342,6 +340,13 @@ class Orchestrator:
             a = dict(a)
             a.get("args", {}).pop("confirmed", None)   # model can't self-confirm
             spec = self.catalog.get(a["name"]) or {}
+            if spec.get("executor") == "brain":
+                # brain-executor skills never reach HandsKit
+                st = await self._brain_tool(
+                    a["name"], a.get("args", {}), self._current_goal or "")
+                st_label = st if st != "ok" else "ok"
+                return {"status": st,
+                        "_log": f"{dsl_line}-> {st_label}"}
             risk = spec.get("risk")
             if risk in ("confirm", "confirm_if_unsaved"):
                 # if we can't tell the unsaved state, confirm (spec rule)
@@ -388,6 +393,10 @@ class Orchestrator:
             elif op == "type" and a.get("enter"):
                 needs = bool(self._DANGEROUS_LABEL.search(
                     self._label_of(a.get("ref"))))
+                if not needs:
+                    app = ((self._last_obs or {}).get("app")
+                           or self._ctx.get("app") or "")
+                    needs = app in ("Messages", "Mail", "Slack")
             if needs and not self._batch_confirmed:
                 yes = await self.server.ask_confirm(
                     await self._confirm_summary(a))
@@ -457,27 +466,28 @@ class Orchestrator:
     def script_needs_confirm(self, lang: str, code: str) -> bool:
         """confirm unless the script targets only allow-listed apps with
         read-only verbs and contains no blocked pattern. Numbers gets a
-        wider exception. shell always confirms."""
+        wider exception (set value / background color / sort / make new
+        table need no confirm). shell always confirms."""
         if lang == "shell":
             return True
-        targets = re.findall(r'tell\s+application\s+(?:id\s+)?"([^"]+)"',
-                             code, re.I)
-        low_targets = {t.lower() for t in targets}
+        targets = {t.lower() for t in re.findall(
+            r'tell\s+application\s+(?:id\s+)?"([^"]+)"', code, re.I)}
+        if lang == "jxa" and not targets:
+            targets = {t.lower() for t in re.findall(
+                r'Application\(\s*[\'"]([^\'"]+)', code)}
         allowed = self._SCRIPT_APPS_READ | self._SCRIPT_APPS_LIMITED
-        if not low_targets or not low_targets <= allowed:
+        if not targets or not targets <= allowed:
             return True
-        # blocked patterns, except Numbers' allowed mutations
-        code_for_block = code
-        if low_targets <= {"com.apple.numbers", "numbers"}:
-            code_for_block = self._NUMBERS_OK.sub("", code_for_block)
-        if self._SCRIPT_BLOCK.search(code_for_block):
+        numbers_only = targets <= {"com.apple.numbers", "numbers"}
+        if numbers_only:
+            # allowed mutations exempted; any other blocked pattern confirms
+            stripped = self._NUMBERS_OK.sub("", code)
+            return bool(self._SCRIPT_BLOCK.search(stripped))
+        # non-Numbers: blocked pattern -> confirm
+        if self._SCRIPT_BLOCK.search(code):
             return True
-        # verbs must stay read-only outside the Numbers exception
-        writes = re.search(r"\b(set|delete|move|duplicate|make)\b",
-                           code_for_block, re.I)
-        if writes:
-            return True
-        return True if not self._READ_VERBS.search(code) else False
+        # and a read verb must appear (Finder reveal/open, Safari get URL...)
+        return not self._READ_VERBS.search(code)
 
     async def _planner_loop(self, text: str, trace: dict,
                             hint: str | None = None,
@@ -497,6 +507,7 @@ class Orchestrator:
         self._script_output = None
         last_batch: list[str] | None = None
         prev_had_failure = False
+        done_rejected = False
         obs_text = ""
         for turn in range(12):
             if time.perf_counter() - t_start > 60:
@@ -513,6 +524,8 @@ class Orchestrator:
             fut = worker().submit(
                 self.planner.plan, goal, obs_text, last_batch, q, loop,
                 cancel, hint, self._script_output)
+            self._script_output = None   # consumed by this turn
+            self._current_goal = goal
             # stream-consume lines; execute each action once complete
             lines: list[str] = []
             pending: list[dict] = []       # parsed, not yet flushed
@@ -520,51 +533,66 @@ class Orchestrator:
             failed = False
             self._batch_confirmed = False
             res_status = "ok"
+            done_seen = False
+            n_executed = 0
             script_buf: list[str] | None = None   # multi-line """ block
-            while True:
-                line = await q.get()
-                if line is None:
-                    break
-                lines.append(line)
-                # accumulate triple-quoted script blocks until they close
-                if script_buf is not None:
-                    script_buf.append(line)
-                    if '"""' in line:
-                        line = "\n".join(script_buf)
-                        script_buf = None
-                    else:
+            try:
+                while True:
+                    line = await q.get()
+                    if line is None:
+                        break
+                    lines.append(line)
+                    # accumulate triple-quoted script blocks until they close
+                    if script_buf is not None:
+                        script_buf.append(line)
+                        if '"""' in line:
+                            line = "\n".join(script_buf)
+                            script_buf = None
+                        else:
+                            continue
+                    elif line.startswith("script") and line.count('"""') % 2:
+                        script_buf = [line]
                         continue
-                elif line.startswith("script") and line.count('"""') % 2:
-                    script_buf = [line]
-                    continue
-                if re.match(r"^(expect|#)", line):
-                    if pending and line.startswith("expect"):
-                        pending[-1]["expect"] = line[7:].strip()
-                    continue
-                # a new action line: flush the previous pending action
-                if pending and not failed:
-                    r = await self._exec_one(pending.pop(0))
-                    batch_log.append(r["_log"])
-                    if r["status"] != "ok":
+                    if re.match(r"^(expect|#)", line):
+                        if pending and line.startswith("expect"):
+                            pending[-1]["expect"] = line[7:].strip()
+                        continue
+                    # a new action line: flush the previous pending action
+                    if pending and not failed and not done_seen:
+                        r = await self._exec_one(pending.pop(0))
+                        batch_log.append(r["_log"])
+                        if r["status"] == "done":
+                            done_seen = True
+                            cancel.set()      # done ends the batch's execution
+                        else:
+                            n_executed += 1
+                            if r["status"] != "ok":
+                                failed = True
+                                cancel.set()
+                                res_status = r["status"]
+                    try:
+                        acts = dsl.parse(line)
+                        pending.extend(acts)
+                    except Exception as e:
                         failed = True
+                        res_status = "failed"
+                        batch_log.append(f"{line} -> failed: {e}")
                         cancel.set()
-                        res_status = r["status"]
-                try:
-                    acts = dsl.parse(line)
-                    pending.extend(acts)
-                except Exception as e:
-                    failed = True
-                    res_status = "failed"
-                    batch_log.append(f"{line} -> failed: {e}")
-                    cancel.set()
+            except asyncio.CancelledError:
+                cancel.set()   # stop the decode
+                raise
             # flush tail action(s)
-            while pending and not failed:
+            while pending and not failed and not done_seen:
                 r = await self._exec_one(pending.pop(0))
                 batch_log.append(r["_log"])
-                if r["status"] != "ok":
-                    failed = True
-                    res_status = r["status"]
-                    cancel.set()
+                if r["status"] == "done":
+                    done_seen = True
+                else:
+                    n_executed += 1
+                    if r["status"] != "ok":
+                        failed = True
+                        res_status = r["status"]
+                        cancel.set()
             info = await asyncio.wrap_future(fut)
             trace["decisions"].append({
                 "planner_turn": turn, "lines": lines,
@@ -578,15 +606,16 @@ class Orchestrator:
             if res_status == "cancelled":
                 return "cancelled"
             # done validation: alone in batch + no prior failure
-            done_acts = [l for l in lines if l.startswith("done ")]
-            if done_acts and not failed:
-                if len([l for l in lines if not l.startswith("#")]) == 1 \
-                        and not prev_had_failure:
-                    summary = done_acts[0][5:].strip().strip('"')
-                    await self.server.say(summary[:60] or "Done")
+            if done_seen and not failed:
+                if n_executed == 0 and (not prev_had_failure or done_rejected):
+                    summary = self._done_summary or "Done"
+                    await self.server.say(summary[:60])
                     await self.server.ui("success")
                     return "ok"
-                prev_had_failure = True
+                # reject once, then let a subsequent alone-done succeed
+                # ("re-plan once" — a strict prev-batch check would reject
+                # done forever after any failure)
+                done_rejected = True
                 batch_log.append("done -> failed: done without evidence")
                 failed = True
             if res_status == "failed" or failed:

@@ -104,10 +104,15 @@ public final class WorkspaceApps: AppControlling {
                               bundleId: a.bundleIdentifier ?? "")
     }
 
+    /// Exact bundle id first, else a regular (Dock) app whose id starts with
+    /// the prefix (e.g. "com.adobe.PremierePro" -> "com.adobe.PremierePro.26";
+    /// never a helper process).
     public func runningApp(bundlePrefix: String) -> RunningAppInfo? {
-        guard let a = NSWorkspace.shared.runningApplications.first(where: {
-            ($0.bundleIdentifier ?? "").hasPrefix(bundlePrefix) && !$0.isTerminated
-        }) else { return nil }
+        let all = NSWorkspace.shared.runningApplications.filter { !$0.isTerminated }
+        guard let a = all.first(where: { $0.bundleIdentifier == bundlePrefix })
+            ?? all.first(where: {
+                ($0.bundleIdentifier ?? "").hasPrefix(bundlePrefix) && $0.activationPolicy == .regular
+            }) else { return nil }
         return RunningAppInfo(pid: a.processIdentifier, name: a.localizedName ?? "?",
                               bundleId: a.bundleIdentifier ?? "")
     }

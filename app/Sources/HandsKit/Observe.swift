@@ -332,6 +332,16 @@ public final class Hands {
     /// unique so there is no aliasing). Kept across epochs so `gone #ref`
     /// can test liveness when the ref fell past the node cap.
     private var knownElements: [Int: Element] = [:]
+    /// Recently left window sessions (LRU, 4): returning to a window (e.g.
+    /// after an Open dialog or popover window closes) resumes its refs, so
+    /// refs stay stable while the element persists.
+    private struct SessionSnapshot {
+        var previous: [ElementRecord]
+        var refs: Set<Int>
+        var startEpoch: Int
+    }
+    private var pastSessions: [String: SessionSnapshot] = [:]
+    private var pastOrder: [String] = []
     public weak var delegate: HandsDelegate?
     /// Injectable script runner for the `script` op (cached NSAppleScript).
     public var scripts: ScriptRunning = AppleScriptRunner()
@@ -462,17 +472,33 @@ public final class Hands {
         // from the process-wide counter, never reused) and replaces the
         // diff with the full text.
         let key = "\(pid)|\(roots.first?.stableId ?? 0)"
+        var resumed = false
         if key != sessionKey {
+            if !sessionKey.isEmpty {
+                pastSessions[sessionKey] = SessionSnapshot(
+                    previous: previous, refs: sessionRefs, startEpoch: sessionStartEpoch)
+                pastOrder.removeAll { $0 == sessionKey }
+                pastOrder.append(sessionKey)
+                while pastOrder.count > 4 { pastSessions.removeValue(forKey: pastOrder.removeFirst()) }
+            }
             sessionKey = key
-            previous = []
-            sessionRefs = []
-            sessionStartEpoch = epoch + 1      // the epoch this observation gets
-            obs.full = true
+            if let snap = pastSessions.removeValue(forKey: key) {
+                pastOrder.removeAll { $0 == key }
+                previous = snap.previous
+                sessionRefs = snap.refs
+                sessionStartEpoch = snap.startEpoch
+                resumed = true
+            } else {
+                previous = []
+                sessionRefs = []
+                sessionStartEpoch = epoch + 1      // the epoch this observation gets
+            }
+            obs.full = true                        // the brain last saw another window
         }
 
-        // Stabilize refs against the previous epoch.
-        // matched maps provisional ref -> old ref; translate to stable space.
-        let provMatched = obs.full ? [:] : Differ.match(old: previous, new: records)
+        // Stabilize refs against the previous epoch (or the resumed
+        // session's last epoch). matched maps provisional ref -> old ref.
+        let provMatched = (obs.full && !resumed) ? [:] : Differ.match(old: previous, new: records)
         var matched: [Int: Int] = [:]           // stableRef -> oldRef
         for i in records.indices {
             let prov = records[i].ref

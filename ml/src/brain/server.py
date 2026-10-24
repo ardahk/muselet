@@ -24,6 +24,7 @@ class BrainServer:
         self._connected = asyncio.Event()
         self._utterance_task: asyncio.Task | None = None
         self.on_utterance = None      # async cb(text, final, ctx)
+        self.on_partial = None        # sync cb(text, ctx) for spec route
         self.on_hello = None          # async cb(screens)
         self.on_cancel = None         # async cb()
 
@@ -104,6 +105,9 @@ class BrainServer:
                     if msg.get("final"):
                         self._start_utterance(msg.get("text", ""),
                                               msg.get("ctx"))
+                    elif self.on_partial:
+                        self.on_partial(msg.get("text", ""),
+                                        msg.get("ctx"))
                 elif t == "cancel":
                     self.cancel_utterance()
                     if self.on_cancel:

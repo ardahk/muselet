@@ -19,6 +19,13 @@ final class BrainConnection: NSObject, URLSessionWebSocketDelegate {
     var onSay: ((String) -> Void)?
     var onConfirm: ((_ id: String, _ summary: String) -> Void)?
     var onRPC: ((_ method: String, _ summary: String, _ ms: Double, _ ok: Bool) -> Void)?
+    /// A final utterance spoken while offline was dropped (not delivered
+    /// within `outboxTTL`); the app shows the "brain offline" bubble.
+    var onUtteranceDropped: ((_ id: String) -> Void)?
+
+    /// Max age of a held final utterance; older ones are never replayed
+    /// (a stale command must not execute minutes later).
+    static let outboxTTL: TimeInterval = 5
 
     private let stateQueue = DispatchQueue(label: "ai.muselet.brain.state")
     private let rpcQueue = DispatchQueue(label: "ai.muselet.brain.rpc", qos: .userInitiated)
@@ -28,7 +35,9 @@ final class BrainConnection: NSObject, URLSessionWebSocketDelegate {
     private var backoff: TimeInterval = 0.5
     private var isOpen = false
     private var lastCloseWasBusy = false
-    private var outbox: [String] = []   // utterances queued while offline (latest few)
+    /// At most one final utterance held while offline, with its timestamp.
+    private var outbox: (id: String, frame: String, at: Date)?
+    private var offlineSince: Date? = Date()
 
     init(url: URL = URL(string: "ws://127.0.0.1:8765")!, handler: RPCHandler) {
         self.url = url
@@ -44,6 +53,11 @@ final class BrainConnection: NSObject, URLSessionWebSocketDelegate {
     }
 
     var connected: Bool { stateQueue.sync { isOpen } }
+
+    /// Seconds since the socket was last open (0 while connected).
+    var offlineFor: TimeInterval {
+        stateQueue.sync { isOpen ? 0 : Date().timeIntervalSince(offlineSince ?? .distantPast) }
+    }
 
     func start() {
         stateQueue.async { self.connect() }
@@ -99,9 +113,15 @@ final class BrainConnection: NSObject, URLSessionWebSocketDelegate {
         }
         stateQueue.async {
             guard let task = self.task, self.isOpen else {
-                if (obj["t"] as? String) == "utterance", obj["final"] as? Bool == true {
-                    self.outbox.append(s)
-                    if self.outbox.count > 3 { self.outbox.removeFirst() }
+                if (obj["t"] as? String) == "utterance", obj["final"] as? Bool == true,
+                   let id = obj["id"] as? String {
+                    // Keep only the latest; drop it if not delivered in time.
+                    self.outbox = (id, s, Date())
+                    self.stateQueue.asyncAfter(deadline: .now() + Self.outboxTTL) {
+                        guard let o = self.outbox, o.id == id else { return }
+                        self.outbox = nil
+                        DispatchQueue.main.async { self.onUtteranceDropped?(id) }
+                    }
                 }
                 return
             }
@@ -115,6 +135,7 @@ final class BrainConnection: NSObject, URLSessionWebSocketDelegate {
 
     private func connect() {
         generation += 1
+        if offlineSince == nil { offlineSince = Date() }
         isOpen = false
         let t = session.webSocketTask(with: url)
         t.maximumMessageSize = 64 << 20
@@ -148,13 +169,28 @@ final class BrainConnection: NSObject, URLSessionWebSocketDelegate {
                     didOpenWithProtocol protocol: String?) {
         guard webSocketTask === task else { return }
         isOpen = true
+        offlineSince = nil
         lastCloseWasBusy = false
         backoff = 0.5
         publish(.connected)
         sendHello()
-        let pending = outbox
-        outbox.removeAll()
-        for s in pending { webSocketTask.send(.string(s)) { _ in } }
+        if let o = outbox {
+            outbox = nil
+            if Date().timeIntervalSince(o.at) <= Self.outboxTTL {
+                // hello is queued on main first; keep frame order.
+                DispatchQueue.main.async {
+                    self.stateQueue.async {
+                        guard self.isOpen, let t = self.task else {
+                            DispatchQueue.main.async { self.onUtteranceDropped?(o.id) }
+                            return
+                        }
+                        t.send(.string(o.frame)) { _ in }
+                    }
+                }
+            } else {
+                DispatchQueue.main.async { self.onUtteranceDropped?(o.id) }
+            }
+        }
     }
 
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
@@ -178,6 +214,7 @@ final class BrainConnection: NSObject, URLSessionWebSocketDelegate {
         guard gen == generation, reconnectScheduledFor != gen else { return }
         reconnectScheduledFor = gen
         isOpen = false
+        if offlineSince == nil { offlineSince = Date() }
         if lastCloseWasBusy {
             publish(.busy)
         } else {

@@ -45,7 +45,8 @@ async def _stdin_lines():
             yield line
 
 
-async def serve(port: int = 8765, model: str | None = None):
+async def serve(port: int = 8765, model: str | None = None,
+                planner_model: str | None = None):
     server = BrainServer(port=port)
     await server.start()
     engine = None
@@ -53,13 +54,21 @@ async def serve(port: int = 8765, model: str | None = None):
         from .decision import DecisionEngine
         engine = DecisionEngine(model, Catalog.load())
         print(f"[engine] {model}", flush=True)
+    planner = None
+    pmodel = _resolve_model(planner_model)
+    if pmodel:
+        from .planner import Planner
+        planner = Planner(pmodel, Catalog.load(), engine=engine)
+        print(f"[planner] {pmodel}", flush=True)
     orch = Orchestrator(server, Catalog.load(), Tracer(), engine=engine)
+    orch.planner = planner
 
     async def on_utt(text: str, final: bool, ctx: dict | None = None):
         print(f"[utterance] {text} ctx={ctx}", flush=True)
         await orch.handle_utterance(text, ctx)
 
     server.on_utterance = on_utt
+    server.on_partial = lambda t, c=None: orch._speculative_route(t)
     print(f"brain listening on ws://127.0.0.1:{server.port}", flush=True)
     print("type an utterance + enter (headless mode)", flush=True)
 
@@ -195,6 +204,8 @@ def main():
                    help="model path/repo; 'none' = regex fallback; "
                         "default: 4B-4bit if cached else 0.8B-4bit")
     s.add_argument("--tau", type=float, default=0.55)
+    s.add_argument("--planner-model", default=None,
+                   help="planner model; default: cached Qwen3.5-4B-4bit")
     e = sub.add_parser("eval-route", help="eval the router on a JSONL cases file")
     e.add_argument("--model", default=None)
     e.add_argument("--cases", required=True)
@@ -202,7 +213,7 @@ def main():
     args = ap.parse_args()
     if args.cmd == "serve":
         m = _resolve_model(args.model)
-        asyncio.run(serve(args.port, m))
+        asyncio.run(serve(args.port, m, args.planner_model))
     elif args.cmd == "eval-route":
         eval_route(args.model, args.cases, args.out)
     else:
