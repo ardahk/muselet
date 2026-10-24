@@ -1,4 +1,8 @@
-# planner lane — pass 35 (main cf53292, wip e14fa54 [behind main: lacks brain-7], new cloud/comms 956d4ac)
+# planner lane — pass 36 (main e56582b, wip 73f7044 = main in this lane; comms c94a407, data-planner ee8ae33, bench-fix 4bcf0db)
+
+Pass 36: 1 new P1 (planner-29: planner bench v2 goals near-duplicate the few-shot examples the runner puts in the prompt, and the validator doesn't check against the few-shot file). comms c94a407 is a merge of main plus a fix to the fake planner worker in tests; the send confirms are unchanged. bench-fix only brings in main's brain-7 files plus harness fixes. app-ui, decisions and data-route don't touch the planner lane. Open findings on main are unchanged: planner-28 compose_text L70, planner-24 L984, planner-6, planner-26, planner-27, planner-25.
+
+## Pass 35 notes
 
 Pass 35: no new findings. brain-7 (#25), report (#22) and native-research (#23) are merged, so planner-28 is now on main. cloud/comms: messages_send and the draft_email send are both behind ask_confirm, with an excerpt and the recipient in the summary; a confirm timeout counts as no. Before sending, it re-checks that the draft window is still frontmost. The Mail send combo is cmd+shift+d and Gmail's is cmd+return. No issues found in a static review. Open findings on main are unchanged: planner-24 L984, planner-26 L289, planner-27 L1516, planner-25, planner-6.
 
