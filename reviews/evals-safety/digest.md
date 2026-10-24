@@ -1,23 +1,18 @@
-# evals-safety digest — pass 49 (main@3772f7c, wip/local@8fcf55f)
+# evals-safety digest — pass 50 (main@a97fcba)
 
-Open: P0 1, P1 10, P2 11.
+Open: P0 0, P1 7, P2 11.
 
 ## Open P0/P1 (ranked)
-1. **-37 (P0):** script policy lets System Events shut down / restart / log out and Finder empty / eject run with no confirm. A read verb anywhere, even in a comment, exempts the script. (`ml/src/brain/orchestrator.py`). Fix is on cloud/w9-safety 50a3b25; merge it.
-2. **-41 (P1):** the brain WS on :8765 has no Origin or token check, so any web page can send utterances and confirm_reply yes. (`ml/src/brain/server.py`) The fix is on w9-safety 6aa332a.
-3. **-38 (P1):** `tell app "X"` is not parsed; one Numbers tell block masks other targets. (`orchestrator.py`)
-4. **-39 (P1):** the finance rules miss BERKELEY BOWL. Groceries comes out 203.61 vs the key's 298.70 without the model. (`ml/src/brain/finance/categorize.py`)
-5. **-36 (P1):** the v2 clobbering accept rules are now retrievable, because main ships RETRIEVAL_K=1.
-6. **-42 (P1):** route_v1 case 87 is mislabeled (it should be draft_email); cases 73 and 89 are ambiguous. All three are in the clean set.
-7. **-40 (P1):** the finance fixtures contradict `cloud/session_b.md` (rent 1625, Netflix 7.99, PEET'S, ranges, receipt 05 date). The keys themselves recompute correctly.
-8. **-43 (P1):** the Tinker trainers check only their per-run estimate, not month-to-date spend against the $148 stop.
-9. **-25 (P1):** skipped and manual live cases are excluded from the denominator.
-10. **-11 (P1):** `done` has no harness goal check.
+1. **-39 (P1):** the finance rules miss BERKELEY BOWL, so Groceries comes out 203.61 vs the key's 298.70 without the model. (`ml/src/brain/finance/categorize.py`)
+2. **-43 (P1):** the decisions trainers have no month-to-date gate. Month-to-date is ~$142 against the $148 stop. (`training/decisions/*.py`)
+3. **-36 (P1):** v2 clobbering accept rules can be retrieved at k=1, and the offline eval runs at k=0. (`evals/planner_scenarios_v2.jsonl`)
+4. **-42 (P1):** route_v1 case 87 is mislabeled (should be draft_email); 73 and 89 are ambiguous. (`evals/route_v1.jsonl`)
+5. **-40 (P1):** the finance fixtures contradict cloud/session_b.md. (`evals/fixtures/finance/generate.py`)
+6. **-25 (P1):** skips and --exclude-kind drop out of the live/HobbyLM denominator. (`bench/`)
+7. **-11 (P1):** done is model-claimed; planner-verify is a self-judge. (`ml/src/brain/orchestrator.py`)
 
 ## Next moves
-1. Patch `_SCRIPT_BLOCK`/targets (-37/-38) and set `origins=[None]` on the WS server (-41). These are small diffs that close the destructive and remote paths.
-2. Add BERKELEY BOWL to the Groceries rules, plus a no-model fixture==truth test (-39).
+1. Add BERKELEY BOWL to the Groceries rules, plus a no-model fixture==truth test (-39).
+2. Port the planner-lora month-to-date guard to the decisions trainers before any approval (-43).
 3. Relabel route_v1 case 87 and re-quote it2 on clean (-42).
-4. Pick one finance contract (amend session_b.md or regenerate) (-40).
-5. Gate every Tinker launch on month-to-date + lag ledger + estimate <= $148 (-43).
-6. Tinker month-to-date is ~$142 after planner-lora-v1, about $6 under the $148 stop; gate every launch (-43). Score the LoRA on v2-holdout before claiming it (-45).
+4. Run the planner offline eval at the serving k (-36/-45).
