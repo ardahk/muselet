@@ -1,20 +1,22 @@
-# brain digest — pass 3 (2026-10-24T06:02Z, wip/local cbc4879; main dec310b same catalog v2)
+# brain digest — pass 4 (2026-10-24T06:25Z)
+Reviewed: wip/local e0bdc65, main e78f143, cloud/data-pipeline 153a01c, cloud/bench 14c7eb1, cloud/finance-2 f4ae461 (144 tests pass), cloud/advisor-2 ec98013; cloud/pitch has nothing in lane.
+Suites at e0bdc65: catalog 9, dsl 45, orchestrator 9, planner_loop 14, finance 90, advisor 22 pass; route_parity 51 xfail (stale v1 artifact on wip).
+Resolved this pass: brain-5 on wip/local (v2 parity 50/50 vs data-pipeline artifact) — main e78f143 still lacks the fix.
 
-Open P0/P1 (ranked):
-1. brain-5 P0 Catalog v2 (41 options) crashes every route call: unfiltered ids — ml/src/brain/decision.py
-2. brain-9 P0 script_needs_confirm lets click/JS/open side effects run unconfirmed — ml/src/brain/orchestrator.py
-3. brain-11 P1 Planner stops before the 5th action's expect; DONE accepted unverified — ml/src/brain/planner.py
-4. brain-10 P1 Bool 'on' regex override inverts mute for natural phrasings — ml/src/brain/orchestrator.py
-5. brain-6 P1 engine.args still runs on the event loop, racing the MLX worker — ml/src/brain/orchestrator.py
-6. brain-3 P1 parse_duration wrong seconds for compound spoken numbers — ml/src/brain/decision.py
-7. brain-4 P1 parse_datetime silently returns wrong dates and times — ml/src/brain/decision.py
-Open P2: brain-8 last_action quoting; brain-12 pending ASK captures next utterance.
+## Open P0/P1 (ranked)
+1. brain-9  P0 Unsafe scripts execute without confirmation — orchestrator.py script_needs_confirm
+2. brain-14 P1 One confirm unlocks every dangerous action in the batch — orchestrator.py:325/400
+3. brain-11 P1 5th action expect dropped; DONE accepted unverified; scripts uncounted — planner.py:246, orchestrator.py:610
+4. brain-13 P1 Speculative partial routes queue ahead of final route — orchestrator.py:257-267
+5. brain-10 P1 Mute polarity inverted ("turn the sound back on" mutes) — orchestrator.py _coerce_args
+6. brain-6  P1 engine.args runs on event loop, racing MLX worker — orchestrator.py:218,637
+7. brain-3  P1 parse_duration wrong on compound/spoken numbers — decision.py
+8. brain-4  P1 parse_datetime silently wrong ("at 3" -> March) — decision.py
+(P2 open: brain-8 last_action quoting, brain-12 pending ASK captures next command)
 
-Suite at cbc4879: test_route_parity 50 failed (brain-5); catalog/dsl/orchestrator/finance/advisor pass.
-
-Highest-leverage next moves:
-- `self.IDS = keep` in AlphaChoiceRenderer + pull the 41-option v2 artifact from cloud/data-pipeline (restores System 1).
-- Make script_needs_confirm default-confirm; block click/perform action/do JavaScript/open.
-- Route engine.args through worker().submit_async.
-- Keep decoding expect lines after the 5th action; never accept done without a passed expect.
-- Remove/narrow the bool-on override (mute first).
+## Highest-leverage next moves
+- Copy the v2 route_render_samples.jsonl to wip and merge the brain-5 fix to main so the parity gate is live again.
+- brain-9 + brain-14: confirm any script that clicks/presses/runs JS/opens files, and bind each confirm to one action.
+- brain-13: cancel superseded spec routes and strip punctuation in the spec key, or speculation costs latency.
+- brain-11: decode the 5th action's expect; verify DONE via `verify` RPC.
+- brain-10/3/4: polarity-specific mute regex; parse via a number-word parser; ASK on ambiguous dates.
