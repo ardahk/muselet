@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "notes": "Single source of truth for native skills. Swift (HandsKit) implements an executor per name; Python reads it for routing prompts, shortlisting and training data. arg types: int, float, bool, string, enum, datetime, duration, path, app, url, contact. risk: safe (run immediately) | confirm (always ask first) | confirm_if_unsaved (ask only if the app reports unsaved changes). Free-text args (datetime, duration) are parsed by code, not by the model. executor: hands (default; HandsKit implements it) | brain (a Python tool in ml/src/brain/tools/ that computes deterministically and drives the Mac through HandsKit RPCs). New skills are appended at the end so existing choice ids stay stable.",
+  "notes": "Single source of truth for native skills. Swift (HandsKit) implements an executor per name; Python reads it for routing prompts, shortlisting and training data. arg types: int, float, bool, string, enum, datetime, duration, path, app, url, contact. risk: safe (run immediately) | confirm (always ask first) | confirm_if_unsaved (ask only if the app reports unsaved changes). Free-text args (datetime, duration) are parsed by code, not by the model. Hidden args are filled by the brain from the request and left out of the router/ARGS/planner prompt text. executor: hands (default; HandsKit implements it) | brain (a Python tool in ml/src/brain/tools/ that computes deterministically and drives the Mac through HandsKit RPCs). New skills are appended at the end so existing choice ids stay stable.",
   "special_options": [
     {"name": "MULTI_STEP", "description": "The request needs several UI steps or apps; hand off to the planner."},
     {"name": "ASK", "description": "The request is ambiguous or missing required information; ask one short clarifying question."},
@@ -43,10 +43,12 @@
      "args": [{"name": "layout", "type": "enum", "values": ["full", "left", "right", "center"], "required": true}],
      "examples": ["maximize this window", "put this on the left half"]},
     {"name": "open_url", "category": "web", "risk": "safe", "description": "Open a URL in the default browser.",
-     "args": [{"name": "url", "type": "url", "required": true}],
+     "args": [{"name": "url", "type": "url", "required": true},
+              {"name": "browser", "type": "string", "required": false, "hidden": true}],
      "examples": ["go to github.com", "open youtube"]},
     {"name": "web_search", "category": "web", "risk": "safe", "description": "Search the web for a query in the default browser.",
-     "args": [{"name": "query", "type": "string", "required": true}],
+     "args": [{"name": "query", "type": "string", "required": true},
+              {"name": "browser", "type": "string", "required": false, "hidden": true}],
      "examples": ["search for best ramen near me", "google how tall is mount fuji"]},
     {"name": "open_folder", "category": "files", "risk": "safe", "description": "Open a folder in Finder (e.g. Downloads, Documents, Desktop, or a path).",
      "args": [{"name": "path", "type": "path", "required": true}],

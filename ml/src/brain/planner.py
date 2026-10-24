@@ -310,6 +310,52 @@ class Planner:
             self._constraint = OpConstraint(self.tokenizer, done_alone=self.done_alone)
         return self._constraint if self.constrain else None
 
+    def warm(self) -> dict:
+        """Prime the planner's prefix, constraint, retrieval, and decode path."""
+        started = time.perf_counter()
+        t = time.perf_counter()
+        if self._cache is None:
+            self._build_cache()
+        prefix_ms = (time.perf_counter() - t) * 1000
+
+        t = time.perf_counter()
+        self._op_constraint()
+        constraint_ms = (time.perf_counter() - t) * 1000
+
+        goal = "warm up planner"
+        observation = "app: Finder | window: warm up"
+        t = time.perf_counter()
+        retrieval = ""
+        if self.plan_bank:
+            retrieval = self.retrieval_block(goal, observation)
+        retrieval_ms = (time.perf_counter() - t) * 1000
+        self.last_retrieval = {"ids": [], "ms": 0.0}
+
+        t = time.perf_counter()
+        msgs = [Message(role="system", content=self.system),
+                Message(role="user", content=retrieval +
+                        self.user_message(goal, observation, None)),
+                Message(role="assistant", content=SENTINEL)]
+        toks = self._render_msgs(msgs)
+        acut = self._content_cut(toks, SENTINEL)
+        cache = copy.deepcopy(self._cache)
+        cur = mx.array([toks[self._cut:acut]])
+        out = self.body(cur, cache=cache)
+        logits = self.lm_head(out[:, -1:, :]).astype(mx.float32)
+        nxt = int(np.argmax(np.array(logits[0, 0])))
+        out = self.body(mx.array([[nxt]]), cache=cache)
+        logits = self.lm_head(out[:, -1:, :]).astype(mx.float32)
+        mx.eval(logits)
+        self.last_retrieval = {"ids": [], "ms": 0.0}
+        decode_ms = (time.perf_counter() - t) * 1000
+        return {
+            "warm_ms": round((time.perf_counter() - started) * 1000, 2),
+            "prefix_ms": round(prefix_ms, 2),
+            "constraint_ms": round(constraint_ms, 2),
+            "retrieval_ms": round(retrieval_ms, 2),
+            "decode_ms": round(decode_ms, 2),
+        }
+
     def settings(self) -> str:
         result = (f"constrain={self.constrain} done_alone={self.done_alone} "
                   f"few_shot={self.few_shot or 'none'} history={self.history} "

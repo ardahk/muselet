@@ -413,6 +413,8 @@ class DecisionEngine:
         spec = (self.catalog.get(name) or {}) if self.catalog else {}
         parts = []
         for a in spec.get("args", []):
+            if a.get("hidden"):
+                continue
             sig = f"{a['name']}:{a['type']}"
             if "min" in a or "max" in a:
                 sig += f" {a.get('min', '')}-{a.get('max', '')}"

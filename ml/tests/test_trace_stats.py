@@ -26,6 +26,14 @@ def test_load_skips_bad_lines_and_filters_since(tmp_path):
     assert len(tracestats.load(tmp_path)) == 7       # directory of files
 
 
+def test_load_skips_event_rows(tmp_path):
+    path = tmp_path / "trace.jsonl"
+    path.write_text(json.dumps({"ts": "2026-10-24T09:00:00",
+                                "event": "planner.warm",
+                                "warm_ms": 42}) + "\n")
+    assert tracestats.load(path) == []
+
+
 def test_overall_metrics():
     rep = tracestats.stats(tracestats.load(FIX))
     a = rep["all"]
