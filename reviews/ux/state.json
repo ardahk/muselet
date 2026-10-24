@@ -1,9 +1,9 @@
 {
-  "pass": 42,
-  "ts": "2026-10-24T21:58:00Z",
+  "pass": 43,
+  "ts": "2026-10-24T22:15:00Z",
   "last_reviewed": {
-    "main": "3772f7c",
-    "wip/local": "8fcf55f",
+    "main": "2a2c2a9",
+    "wip/local": "4f963a7",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -48,7 +48,9 @@
     "cloud/mascot-animal-handoff": "3aa6bd0",
     "cloud/planner-demos-handoff": "e5e9903",
     "cloud/planner-retrieval-handoff": "f728b79",
-    "cloud/w9-safety": "d5fe82b"
+    "cloud/w9-safety": "50a3b25",
+    "cloud/memory": "4b519b1",
+    "cloud/memory-eval": "c05944e"
   },
-  "notes": "pass 42: main 3876f3a..3772f7c brings in the merges of mascot-animal 238db23, comms-2 c65ee70 (+ff1a4b6 parser-only), clock-timers d060b5a (all reviewed in pass 40) and planner retrieval k=1 (outside lane). wip/local == main for lane files. New cloud branches are handoff notes only. No new findings."
+  "notes": "pass 43: main 2a2c2a9 adds only briefs (ui-polish brief read, no conflict with open findings). wip == main for lane files. w9-safety: confirm scope + script gate (ux-24). memory: ctx url/window_title (AX, 0.15 s budget; hands lane). memory-eval: no lane files."
 }
