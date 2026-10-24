@@ -1,26 +1,22 @@
-# evals-safety digest, pass 23 (2026-10-24T10:33:28Z): main d514300 (brain-4 merged, serve_brain.sh defaults)
+# evals-safety digest — pass 27 (main@7147694)
+
+Open: P0 0 · P1 6 · P2 7
 
 ## Open P0/P1 (ranked)
-No open P0.
-1. evals-safety-25 P1: the document guard skips 9/43 live cases (plus time-event if the calendar probe fails) and drops them from the denominator (bench/harness/documents.py, bench/live/run_live.py)
-2. evals-safety-6 P1: Enter/Send in Discord/WhatsApp/web composers is unconfirmed (ml/src/brain/orchestrator.py)
-3. evals-safety-11 P1: done is accepted after an expect-less batch + fresh observe (ml/src/brain/orchestrator.py:1076-1093)
-4. evals-safety-23 P1: the spend guard's level-only latch and $10 margin (tools/review_pulse.sh:25-31)
-5. evals-safety-26 P1 (now main: serve_brain.sh defaults to main-final, picked on route_v1): main-final's training rows have no decontam record (training/src/muselet_train/datums_export.py)
+1. **-25** live document guard skips 9/43 cases (any Chrome/Slack/Messages window) and drops skips from the denominator; calendar-probe failure adds another skip. bench/harness/documents.py, bench/live/run_live.py.
+2. **-30 (NEW, cloud/grounder-wire afb12a6, unmerged)**: grounded `click "<target>"` confirms only if the planner's description contains a danger word. "the paper plane icon" clicks Send with no confirm on blind (empty-AX/canvas) windows; the grounder is on by default. orchestrator.py:1319-1336.
+3. **-6** Enter-to-send confirm fallback still only covers Messages/Mail/Slack (orchestrator.py:1118@main).
+4. **-11** `done` accepted after a passed expect or a fresh observation; no harness final-state check.
+5. **-26** main-final near-dups: 37/140 route_v1 and 10/43 live_t1. pitch-3 reports on route_v1_clean with disclosure (unmerged); main serve_brain.sh:6 still cites full-set r2 1.000; no live_t1 clean subset.
+6. **-23** spend guard latch plus billing lag ($34.60 MTD per pitch-3; $140 stop leaves $10 headroom).
 
-Resolved this pass: -29 (hobby-gaps ef95140: calc before the router only in Calculator context). Open P2: -8, -12, -20, -21, -22, -24, -28.
-Pass 21 checked, nothing material: brain-5 pathfind (a single resolved path for move_to_trash still goes through confirm, which now shows the full path); decisions decontam (fails closed if the JevBench/Typed-Decisions references are missing); wip keystroke typing for Calculator. Earlier: the brain-4 escalate planner (opt-in, same done gate); the pitch-2 claims re-verify (-2 resolved, -11 partial: both correct).
+P2: -8, -12, -20, -21, -22, -24, -28.
 
-## Highest-leverage next moves
-- Scope the doc guard to the case's own apps, and print skipped alongside passed/executed (-25).
-- Confirm `type ... enter` in any chat-like composer (-6). Require a passed expect before done (-11).
-- Export main's rows with --reader dedup and decontam them (-26).
-- Fix the guard latch, and cap tokens in the Tinker bench backend (-23, -28).
-- Qualify claims.md:66: 12/43 live cases are trace-graded (-24).
+## Next moves (max 5)
+1. Before merging grounder-wire: confirm grounded clicks on blind windows when the goal or app is send/delete-like (-30).
+2. Count skips in the live denominator, or narrow the document guard to the case's own apps (-25).
+3. Merge pitch-3, and add a live_t1 clean subset or caveat; fix the serve_brain.sh:6 comment (-26).
+4. Check or reset runs/tinker_guard.state before the it2/decisions runs (-23).
+5. Extend the Enter-confirm app list to Discord/WhatsApp/Teams/web composers (-6).
 
-
-Pass 26 (main 26ff05b, wip 2c79363, data-pipeline eae3b7e, decisions 91a62c2, hobby-gaps 861b991): no new findings. brain-5 merge + argfix kill/cut=off verified (mute polarity kept). it2 H9 ARGS gate is on val ARGS (ok). decisions teacher gate goes through BudgetLedger (ok). All open P1s unchanged.
-
-Pass 26 (main d502b78, wip c7c04ce, data-pipeline 19737e1, decisions 6d395df, hobby-gaps 156556e): no new findings. -26 narrowed: the decontam record exists and confirms 37/140 route_v1 + 10/43 live_t1 near-dups in main-final training. route_v1_clean (103) is on main but unused; no live_t1 clean subset; serve_brain cites full-set r2 1.000. The it2 train.py hard gate (aborts before spend) looks right. decisions amendment 3 caps cumulative generation spend at $57. -6/-11/-23/-25 unchanged.
-
-Pass 26 (data-pipeline 0c1ca3d, wip 0db1681; main unchanged at d502b78): no new findings. The evalcheck gate now also covers evals/external (570 rows, reads the `text` key correctly). The it2b filter dropped 9 route-train near-dups. The wip generic_decide MLX single-worker thread routes decide->decide_many->_submit and reports init errors, so nothing material. All open findings unchanged (main didn't move).
+Pass 27 also checked, nothing material: main generic_decide single MLX thread; planner holdout-2 (opt-in, written after holdout-1 was used to derive rules 16-18; pitch-3 holdout .57 should say which prompt it used); data-pipeline it2 report (non-candidate, fails evalcheck: 8 pairs, so the gate works).
