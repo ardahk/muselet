@@ -1,4 +1,8 @@
-# planner lane — pass 40 (main dae4b26, wip 972081d = main in this lane, planner-demos 9008990)
+# planner lane — pass 41 (main 27ebd13, wip 4585ce4, new planner-retrieval 9786fa4, comms-2, clock-timers, mascot-animal)
+
+Pass 41: no new findings. planner-retrieval plan_bank.py draws its BM25 demos from v2-tune and excludes the v1 tune/holdout/holdout2, v2-holdout, live_t1 and external goals (L187-208). Holdout results stay clean, but v2-tune scores are inflated once retrieval is on, so quote only v2-holdout for retrieval comparisons. I only skimmed comms-2 and clock-timers this pass and will review them fully next pass. mascot-animal doesn't touch this lane. main changed only catalog.py and the create_event UTC offset. Open findings are unchanged: planner-28, planner-24, planner-29, planner-6 (P1); planner-26, planner-27, planner-25 (P2).
+
+## Pass 40 notes
 
 Pass 40: no new findings. brain-8 is merged into main, and 9a47376 tightens the permission gate (a matching phrase only counts when the window has an Allow/Deny-style button); no issues. planner-demos gate.py decontaminates synthetic states against the v2-holdout goals, the v1 tune/holdout/holdout2 goals, live_t1 and evals/external (exact, 13-gram, edit<=1) and rejects equal goal+observation pairs; no leakage found. Open findings on main are unchanged: planner-28 (compose_text, no sendgate), planner-24 (orchestrator.py L1263), planner-29 (validator has no few-shot check), planner-6, planner-26, planner-27, planner-25.
 
