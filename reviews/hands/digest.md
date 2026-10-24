@@ -1,4 +1,6 @@
-# hands — digest (pass 48)
+# hands — digest (pass 49)
+
+Pass 49: only cloud/decisions moved (c88b613). Its app/ is identical to main 46b97f5, so there is nothing new. Open findings are re-checked and unchanged.
 
 Pass 48:
 - main 46b97f5 has no app/ changes. hands-26 is still open (orchestrator.py:1965) and so is hands-27 (BrainClient.swift:91).
