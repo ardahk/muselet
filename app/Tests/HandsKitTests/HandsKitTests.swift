@@ -10,10 +10,12 @@ final class MockElement: Element {
     var settable: Set<String> = ["AXFocused"]
     var store: [String: Any?] = [:]
     var failAttrs = false
+    var alive = true
 
     var stableIdOverride: Int = 0
     var stableId: Int { stableIdOverride != 0 ? stableIdOverride
         : ObjectIdentifier(self).hashValue }
+    func isAlive() -> Bool { alive }
 
     init(role: String, title: String? = nil, x: CGFloat = 0, y: CGFloat = 0,
          w: CGFloat = 80, h: CGFloat = 24, children: [MockElement] = []) {
@@ -282,14 +284,17 @@ final class StableRefTests: XCTestCase {
         XCTAssertTrue((o2.diffText ?? "").contains("+ #\(refs2["New"]!)"))
     }
 
-    func testSessionChangeRestarts() {
+    func testSessionChangeNeverReusesRefs() {
         let h = Hands()
-        _ = observe(h, root: tree(), window: "W1")
-        // a DIFFERENT window element (new stableId) restarts numbering
+        let o1 = observe(h, root: tree(), window: "W1")
+        // a DIFFERENT window element (new stableId) starts a new session,
+        // but ref numbers are never reused (process-wide counter)
         let o2 = observe(h, root: tree(), window: "W1")
         XCTAssertTrue(o2.full)
-        XCTAssertEqual(o2.elements.first?.ref, 1)             // numbering restarts
+        let max1 = o1.elements.map(\.ref).max()!
+        XCTAssertTrue(o2.elements.allSatisfy { $0.ref > max1 })
         XCTAssertEqual(o2.diffText, "")
+        XCTAssertEqual(h.sessionStartEpoch, o2.epoch)
     }
 
     func testTitleChangeKeepsRefs() {
@@ -335,7 +340,8 @@ final class CatalogTests: XCTestCase {
 
 final class SkillGatingTests: XCTestCase {
     func skills() -> Skills {
-        Skills(catalog: (try! Catalog.load()), scripts: SpyRunner())
+        Skills(catalog: (try! Catalog.load()), scripts: SpyRunner(),
+               events: MockPoster(), apps: MockApps(), hooks: .inert)
     }
 
     func testConfirmRiskRefusesWithoutConfirmed() {
@@ -361,11 +367,12 @@ final class SkillGatingTests: XCTestCase {
     }
 
     func testUnimplementedSkill() {
-        let r = skills().execute(name: "start_timer", args: ["duration": "60"])
+        // executor=brain skills are not implemented by HandsKit
+        let r = skills().execute(name: "finance_review", args: [:])
         XCTAssertEqual(r["ok"] as? Bool, false)
         XCTAssertTrue((r["error"] as? String)?.contains("not_implemented") ?? false)
         XCTAssertEqual(r["error"] as? String,
-                       HandsError.notImplemented("start_timer").description)
+                       HandsError.notImplemented("finance_review").description)
     }
 
     func testMissingRequiredArg() {
@@ -376,7 +383,8 @@ final class SkillGatingTests: XCTestCase {
 
     func testSetVolumeThroughSpy() {
         let spy = SpyRunner()
-        let s = Skills(catalog: try! Catalog.load(), scripts: spy)
+        let s = Skills(catalog: try! Catalog.load(), scripts: spy,
+                       events: MockPoster(), apps: MockApps(), hooks: .inert)
         let r = s.execute(name: "set_volume", args: ["level": 30])
         XCTAssertEqual(r["ok"] as? Bool, true, "\(r)")
         XCTAssertEqual(spy.ran.first, "set volume output volume 30")

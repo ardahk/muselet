@@ -164,6 +164,7 @@ class AlphaChoiceRenderer(PrefixedChoiceRenderer):
         if len(keep) < 40:
             raise RuntimeError(f"only {len(keep)} usable choice ids, need >= 40")
         self.usable_ids = keep
+        self.IDS = keep            # render_choices zips labels with self.IDS
 
 
 class RouteDecisionRenderer(DecisionRenderer):
@@ -400,20 +401,54 @@ class DecisionEngine:
             out_tokens.append(nxt)
             cur = mx.array([[nxt]])
         text = self.tokenizer.decode(out_tokens).strip()
-        parsed = self._parse_args_line(text)
+        names = {a["name"] for a in
+                 (self.catalog.get(skill) or {}).get("args", [])}
+        parsed = self._parse_args_line(text, names)
         parsed["ms"] = {"args_ms": round((time.perf_counter() - t0) * 1000, 2)}
         parsed["_raw"] = text
         return parsed
 
     @staticmethod
-    def _parse_args_line(text: str) -> dict:
-        """key=value pairs, quoted values allowed; missing=<arg> special."""
+    def _parse_args_line(text: str, arg_names: set | None = None) -> dict:
+        """key=value pairs. Quoted values keep escapes; an unquoted value
+        runs until the next ` <name>=` where <name> is one of this skill's
+        arg names (or `missing`), or to end of line."""
         out = {}
         first = text.splitlines()[0] if text.strip() else ""
-        for m in re.finditer(r'(\w+)=(?:"((?:[^"\\]|\\.)*)"|(\S+))', first):
+        names = set(arg_names or ()) | {"missing"}
+        i, n = 0, len(first)
+        while i < n:
+            m = re.match(r'\s*(\w+)=', first[i:])
+            if not m:
+                break
             k = m.group(1)
-            v = m.group(2) if m.group(2) is not None else m.group(3)
-            v = v.replace('\\"', '"').replace("\\\\", "\\")
+            i += m.end()
+            if i < n and first[i] == '"':
+                j = i + 1
+                buf = []
+                while j < n:
+                    c = first[j]
+                    if c == '\\' and j + 1 < n:
+                        buf.append(first[j + 1]); j += 2; continue
+                    if c == '"':
+                        break
+                    buf.append(c); j += 1
+                v = "".join(buf)
+                i = j + 1
+            else:
+                j = i
+                while True:
+                    m2 = re.search(r' (\w+)=', first[j:])
+                    if not m2:
+                        j = n
+                        break
+                    pos = j + m2.start()
+                    if m2.group(1) in names:
+                        j = pos
+                        break
+                    j = j + m2.end()
+                v = first[i:j].strip()
+                i = j
             if k == "missing":
                 out["missing"] = v
             else:
