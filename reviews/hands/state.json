@@ -1,8 +1,8 @@
 {
- "pass": 50,
+ "pass": 51,
  "last_reviewed": {
-  "main": "18c139f",
-  "wip/local": "719907a",
+  "main": "0b83c3b",
+  "wip/local": "e4f4331",
   "cloud/data-pipeline": "830ba35",
   "cloud/finance": "529e9ff",
   "cloud/finance-2": "dfaf785",
@@ -16,7 +16,7 @@
   "cloud/advisor-3": "ca93147",
   "cloud/brain-3": "14a3f52",
   "cloud/finance-3": "31be399",
-  "cloud/decisions": "c88b613",
+  "cloud/decisions": "ae36620",
   "cloud/pitch-2": "3303678",
   "cloud/brain-4": "dfb66a3",
   "cloud/hobby-gaps": "156556e",
@@ -48,9 +48,9 @@
   "cloud/planner-demos-handoff": "e5e9903",
   "cloud/planner-retrieval-handoff": "f728b79",
   "cloud/w9-safety": "6aa332a",
-  "cloud/memory": "ba3dc0a",
+  "cloud/memory": "711c0fe",
   "cloud/memory-eval": "c05944e",
-  "cloud/memory-lt": "cc056af",
+  "cloud/memory-lt": "4794e8a",
   "cloud/docs-demo": "095d4ef",
   "cloud/planner-lora": "79f0a97",
   "cloud/router-it3-serve": "b455d2c",
@@ -59,14 +59,14 @@
   "cloud/hands-clock": "26d4427",
   "cloud/live-cases": "fa9c374",
   "cloud/planner-think": "3677348",
-  "cloud/planner-verify": "d22b9a9",
-  "cloud/brain-9": "e9e9b42",
+  "cloud/planner-verify": "484f5e7",
+  "cloud/brain-9": "2590811",
   "cloud/safety-bench28": "a0c456e",
   "cloud/safety-brain27": "ac43219",
   "cloud/safety-architect27": "4edcba5",
   "cloud/safety-brain12": "97c5242",
   "cloud/safety-brain18": "9aa2e4c",
   "cloud/safety-brain38": "54ca8f6",
-  "cloud/safety-planner28": "fb4a45a"
+  "cloud/safety-planner28": "e3abc5e"
  }
 }

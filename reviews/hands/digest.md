@@ -1,4 +1,6 @@
-# hands — digest (pass 50)
+# hands — digest (pass 51)
+
+Pass 51: main 0b83c3b and wip/local e4f4331 have no app/ changes. brain-9 and decisions only merged main's Expect scoping, which I reviewed in pass 46. memory, memory-lt, planner-verify and safety-planner28 have no app/ changes. hands-26 is still open (orchestrator.py:2101) and so is hands-27 (BrainClient.swift:91).
 
 Pass 50: main 18c139f and cloud/planner-lora 79f0a97 have no app/ changes. hands-26 is still open (the expect strip is now at orchestrator.py:1986) and so is hands-27 (BrainClient.swift:91).
 
