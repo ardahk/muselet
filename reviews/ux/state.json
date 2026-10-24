@@ -1,9 +1,9 @@
 {
-  "pass": 17,
-  "ts": "2026-10-24T09:55:00Z",
+  "pass": 18,
+  "ts": "2026-10-24T10:10:00Z",
   "last_reviewed": {
     "main": "758a017",
-    "wip/local": "a3f82f1",
+    "wip/local": "630d661",
     "cloud/data-pipeline": "80cb13f",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -17,10 +17,11 @@
     "cloud/brain-3": "14a3f52",
     "cloud/advisor-3": "ca93147",
     "cloud/finance-3": "31be399",
-    "cloud/decisions": "3a865a0",
+    "cloud/decisions": "c08a96d",
     "cloud/pitch-2": "3303678",
     "cloud/brain-4": "dfb66a3",
-    "cloud/hobby-gaps": "929b931"
+    "cloud/hobby-gaps": "929b931",
+    "cloud/brain-5": "003d1bb"
   },
-  "notes": "pass 17: main 758a017 (pitch-2 merge, live runner, bench grader) has no lane edits; wip matches main. brain-4 dfb66a3 (opt-in planner escalation, dsl history default) has no UX change. hobby-gaps 929b931 partly fixes ux-17 (acting UI); ux-16 unchanged."
+  "notes": "pass 18: wip 630d661 only changes HandsKit (Act, Launch, MediaKeys, Timers, TextTarget; hands lane), with no MuseletApp or brain changes. brain-5 003d1bb keeps the ux-11 handler and replies; trash confirm now shows a ~/-relative path (still _cap12; fine). It adds ux-18. ux-12 and ux-14 are still present on brain-5 (listening at 706/761/903/1503; 'Okay, cancelled' at 908/1509/1572/1625). decisions c08a96d has no lane edits."
 }

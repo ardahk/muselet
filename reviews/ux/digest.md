@@ -1,4 +1,4 @@
-# ux digest — pass 17 (main 758a017, wip a3f82f1, brain-4 dfb66a3, hobby-gaps 929b931)
+# ux digest — pass 18 (main 758a017, wip 630d661, brain-5 003d1bb, hobby-gaps 929b931)
 
 All 13 P1s (ux-1 to ux-11, ux-13) are resolved on main, with file:line evidence in findings.jsonl (pass 14). No branch-only findings remain.
 Tests: test_planner_confirm_summary.py 3/3 PASS, and test_confirm_summary_names_object PASS. test_confirm_timeout_clears_app_confirm is stale: its fake ask_confirm doesn't emit confirm_cancel, and the real server.py:174 does.
@@ -14,6 +14,7 @@ None.
 
 - ux-16 (hobby-gaps) Relative brightness says 'Done' and shows no HUD level — ml/src/brain/replies.py:48-52
 - ux-17 (hobby-gaps, partly fixed) Calculator replay: the answer bubble comes only after all keys and the read-back; a mismatch shows a confused face — orchestrator.py _deliver_calc
+- ux-18 (brain-5) File disambiguation asks 'report.pdf or report.pdf?' — orchestrator.py:508-518
 
 ## Highest-leverage next moves
 - Before merging hobby-gaps: fix ux-16 (20 min) and say the answer before replaying it into Calculator and keep 'success' on a read-back mismatch (ux-17, 15 min).
