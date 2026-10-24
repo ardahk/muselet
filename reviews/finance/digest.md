@@ -1,4 +1,4 @@
-# finance digest (pass 4 + self-poll 07:20Z, 2026-10-24; no new lane commits)
+# finance digest (pass 4 + self-polls 07:20Z/07:40Z, 2026-10-24; no new lane commits)
 Open P0/P1, ranked:
 1. finance-18 P0 finance_review reads the front Numbers doc as the statement; demo setup -> 'Couldn't read the statement'; ml/src/brain/tools/finance_review.py
 2. finance-19 P1 Budget 'Note' written to column E of a 4-column table (pending rows) -> write fails; ml/src/brain/finance/numbers_script.py
@@ -16,3 +16,5 @@ Next moves:
 - Replace 'total impact' sum in the advisor bubble with the top opportunity.
 - Keep unreadable receipts as flagged 'unreadable'; broaden merchant_match first-token/alias rule.
 - Advisor: Muselet-owned sheet/note names, and target the portfolio by file path.
+
+Risk (data lane, not a finance finding): cloud/data-pipeline@8f0b9bc training/reports/phase1_pilot-lr{2e-4,4e-4}.md report finance_review val acc 0.000 / 0.250 (advisor_prep 1.000). Unless this improves, the 'reconcile receipts / update budget' utterances won't route to the finance tool. Small val n likely; check finance_review teacher/val coverage.
