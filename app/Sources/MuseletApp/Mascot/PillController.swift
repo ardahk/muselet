@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import HandsKit
 import SwiftUI
 
 /// Panel for the pill. Becomes key only while the text field is open
