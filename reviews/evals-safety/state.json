@@ -1,19 +1,19 @@
 {
-  "pass": 8,
-  "ts": "2026-10-24T07:07:55Z",
+  "pass": 9,
+  "ts": "2026-10-24T07:25:19Z",
   "last_reviewed": {
-    "main": "c2d2988",
-    "wip/local": "8874962",
-    "cloud/data-pipeline": "8f0b9bc",
-    "cloud/fixtures-docs": "4bf2291",
-    "cloud/finance": "529e9ff",
-    "cloud/finance-2": "f4ae461",
-    "cloud/bench": "911a384",
+    "main": "d8ad966",
+    "wip/local": "85ec0df",
     "cloud/advisor": "9432c30",
-    "cloud/advisor-2": "ec98013",
-    "cloud/pitch": "454a563",
-    "cloud/grounding": "42310cd",
-    "cloud/brain-2": "9f41c11"
+    "cloud/advisor-2": "0a65f75",
+    "cloud/bench": "911a384",
+    "cloud/brain-2": "741465c",
+    "cloud/data-pipeline": "b8c0604",
+    "cloud/finance": "529e9ff",
+    "cloud/finance-2": "dfaf785",
+    "cloud/fixtures-docs": "4bf2291",
+    "cloud/grounding": "3441ee8",
+    "cloud/pitch": "ad1b058"
   },
-  "next_id": 21
+  "next_id": 22
 }
