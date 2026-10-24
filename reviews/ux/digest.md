@@ -1,20 +1,16 @@
-# ux digest — pass 37
+# ux digest — pass 38
 
-Heads: main 7065dd3 (merged cloud/comms 6885b7c and cloud/app-ui e150506, both identical to the heads reviewed in pass
-35 for lane files; adds live-suite grader fixes and a brain-8 brief), wip/local e29ea7c (adds HandsKit Contacts.swift
-and MessagesCompose.swift).
+Heads: main 026aff0 (adds the Contacts permission row and probe, and the contacts_search / messages_compose /
+messages_send RPCs), wip/local 98d1401, new cloud/brain-8 4546d09 and cloud/planner-demos 84798ec (no lane files).
 
-Counts: 0 P0, 0 P1, 10 P2 (1 new).
+Counts: 0 P0, 0 P1, 10 P2. None new.
 
-New
-- ux-23: when Messages is in front but its compose field can't be found, MessagesCompose returns `no_text_target`, and
-  comms._preview shows "Messages didn't come to the front" for every error except screen_locked. Mapping
-  no_text_target to its own copy is a 2-line fix.
-
-Rechecks
-- ux-22 is now live on main: the app sends config on every connect, and a saved 35B toggle makes the brain load the 35B
-  on the shared MLX worker.
-- ux-15 is now in the redesigned Settings on main (counts granted only; shows "Grant" for not-running apps).
-- The wip compose/send results (frontmost, body_visible, sent, not_frontmost, screen_locked) otherwise match what
-  comms.py expects.
-- ux-12, ux-14, ux-16, ux-17, ux-18, ux-19, ux-20: unchanged.
+- ux-23: fixed on wip/local (no_text_target -> "Couldn't find the Messages text box", plus copy for
+  recipient_unverified and bad_handle), but not yet on main.
+- wip also sends panel example requests only after Muselet deactivates (sendFromPanel, 0.5 s deadline), so ctx never
+  binds to Muselet itself. Good.
+- main: the Contacts row follows the existing permission pattern (notDetermined -> requestAccess, denied -> Settings).
+- brain-8: the permission-prompt gate ("A permission prompt is open. Please answer it, then say continue.", 11 words)
+  and the web-answer fallback (10 words) stay within 12 words, and the web answer ends success/idle. The permission
+  gate adds another ui("listening") while the mic is off (ux-12).
+- ux-14, ux-15, ux-16, ux-17, ux-18, ux-19, ux-20, ux-22: unchanged on main.

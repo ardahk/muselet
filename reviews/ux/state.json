@@ -1,9 +1,9 @@
 {
-  "pass": 37,
-  "ts": "2026-10-24T20:12:00Z",
+  "pass": 38,
+  "ts": "2026-10-24T20:30:00Z",
   "last_reviewed": {
-    "main": "7065dd3",
-    "wip/local": "e29ea7c",
+    "main": "026aff0",
+    "wip/local": "98d1401",
     "cloud/data-pipeline": "f8b721a",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -34,7 +34,9 @@
     "cloud/report-2": "3c25e78",
     "cloud/bench-fix": "4bcf0db",
     "cloud/data-planner": "ee8ae33",
-    "cloud/data-route": "42835ce"
+    "cloud/data-route": "42835ce",
+    "cloud/brain-8": "4546d09",
+    "cloud/planner-demos": "84798ec"
   },
-  "notes": "pass 37: main merged app-ui + comms (identical to reviewed heads); wip adds HandsKit Messages compose; ux-23 new."
+  "notes": "pass 38: main adds Contacts permission + comms RPCs; wip fixes ux-23; brain-8 reviewed, no new findings."
 }
