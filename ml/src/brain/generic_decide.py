@@ -132,12 +132,13 @@ class GenericMLXDecider:
         import threading
 
         self._jobs: queue.Queue = queue.Queue()
+        self._init_done: queue.Queue = queue.Queue()
         self._worker = threading.Thread(
             target=self._worker_main, args=(model_path,), daemon=True, name="mlx-decide"
         )
         self._worker.start()
         self.last_input_tokens: int | None = None
-        err = self._jobs.get()  # init result
+        err = self._init_done.get()  # init result
         if isinstance(err, Exception):
             raise err
 
@@ -153,9 +154,9 @@ class GenericMLXDecider:
             self.renderer = GenericRenderer(model_path)
             self._make_prompt_cache = make_prompt_cache
             self._static_cache = self._prefill(self.renderer.static_tokens)
-            self._jobs.put(None)
+            self._init_done.put(None)
         except Exception as e:  # report init failure to __init__
-            self._jobs.put(e)
+            self._init_done.put(e)
             return
         while True:
             job = self._jobs.get()
