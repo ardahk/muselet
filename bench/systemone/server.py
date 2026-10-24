@@ -107,6 +107,7 @@ class _Handler(BaseHTTPRequestHandler):
             state = state_text(request.state)
             with self.server.backend_lock:
                 distributions = decide_many(self.server.decider, state, parsed_questions)
+                input_tokens = getattr(self.server.decider, "last_input_tokens", None)
             if set(distributions) != set(parsed_questions):
                 raise ValueError("backend returned a different set of question IDs")
             answers = {
@@ -118,7 +119,7 @@ class _Handler(BaseHTTPRequestHandler):
                 "id": "systemone-" + uuid.uuid4().hex,
                 "model": self.server.model_name,
                 "answers": answers,
-                "usage": {"input_tokens": None, "output_tokens": 0},
+                "usage": {"input_tokens": input_tokens, "output_tokens": 0},
                 "latency_ms": elapsed_ms,
             }
             body.update({key: request.identity[key] for key in ("request_id", "session_id", "step") if key in request.identity})

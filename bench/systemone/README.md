@@ -16,6 +16,9 @@ on `noul` answers is intentional: JevBench consumes `noul`, while Typed Decision
 Examples are generated with `python3 -m bench.systemone.examples.build_examples`; the README in that directory
 records their exact source revisions and row identifiers.
 
-The saved DeskMind fixtures include requests above the local renderer's 58-choice alphabet. The schema and fake
-backend accept them; the MLX backend returns `invalid_request` with `too_many_options` rather than silently dropping
-options.
+The protocol accepts up to 255 choice options. An MLX renderer pass supports up to 58 usable labels; requests with
+more options use a two-stage approximation. The first stage scores contiguous, balanced chunks, then the second
+stage chooses among each chunk's winner. The returned probability for an option is its within-chunk probability
+multiplied by that chunk winner's second-stage probability. Requests with 58 or fewer options use the original
+single-stage path. MLX reports rendered prompt tokens fed across the request in `usage.input_tokens`; cached static
+prefix tokens are excluded. The fake backend reports `null` for that field.

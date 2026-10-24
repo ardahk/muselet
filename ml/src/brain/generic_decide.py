@@ -7,15 +7,8 @@ import json
 from typing import Any
 
 from brain.decision import AlphaChoiceRenderer, split_model
+from brain.decision_chunking import chunk_options, combine_chunked
 from brain.vendor.tinker_decisions import Decision, DecisionRenderer
-
-
-class TooManyOptionsError(ValueError):
-    code = "invalid_request"
-
-    def __init__(self, field: str, count: int, maximum: int):
-        super().__init__(f"too_many_options: {count} options exceed the renderer limit of {maximum}")
-        self.field = field
 
 
 def _text(value: Any) -> str:
@@ -64,28 +57,20 @@ def _common_prefix(renderings: list[Any]) -> int:
     return common
 
 
-class GenericMLXDecider:
-    """Cache the renderer's static prefix and score each question's choice tokens."""
+class GenericRenderer:
+    """Tokenizer-only rendering and common-prefix planning for System One decisions."""
 
-    def __init__(self, model_path: str):
-        import mlx.core as mx
-        import mlx_lm
+    def __init__(self, tokenizer_path: str):
         from tinker_cookbook import model_info, renderers, tokenizer_utils
-        from mlx_lm.models.cache import make_prompt_cache
 
-        self.mx = mx
-        self.model, _ = mlx_lm.load(model_path)
-        self.body, self.lm_head = split_model(self.model)
         renderer_name = model_info.get_recommended_renderer_name("Qwen/Qwen3.5-4B")
-        renderer = renderers.get_renderer(
-            renderer_name, tokenizer_utils.get_tokenizer(model_path)
-        )
+        renderer = renderers.get_renderer(renderer_name, tokenizer_utils.get_tokenizer(tokenizer_path))
         self.tokenizer = renderer.tokenizer
         self.choice_renderer = AlphaChoiceRenderer(renderer)
+        self.choice_renderer.IDS = self.choice_renderer.usable_ids
         self.renderer = DecisionRenderer(renderer, choice_renderer=self.choice_renderer)
-        self._make_prompt_cache = make_prompt_cache
-        self._static_tokens = self._render_static_prefix()
-        self._static_cache = self._prefill(self._static_tokens)
+        self.maximum = len(self.choice_renderer.usable_ids)
+        self.static_tokens = self._render_static_prefix()
 
     def _render_static_prefix(self) -> list[int]:
         marker = "MUSELET_STATIC_PREFIX_SENTINEL"
@@ -95,6 +80,58 @@ class GenericMLXDecider:
         ))
         marker_tokens = self.tokenizer.encode(marker, add_special_tokens=False)
         return probe.tokens[:_find_subsequence(probe.tokens, marker_tokens)]
+
+    def prepare(self, state: str, questions: dict[str, dict]):
+        plans = {}
+        decisions = {}
+        for qid, question in questions.items():
+            choices = _choices(question)
+            if len(choices) == 1:
+                plans[qid] = {
+                    "decision": None,
+                    "chunks": [choices],
+                    "keys": [],
+                    "fixed": choices[0][0],
+                }
+                continue
+            decision = _decision(state, question)
+            chunks = chunk_options(list(decision.choices), self.maximum)
+            keys = []
+            for index, chunk in enumerate(chunks):
+                key = (qid, index)
+                keys.append(key)
+                decisions[key] = decision if len(chunks) == 1 else Decision(
+                    text=decision.text, choices=chunk
+                )
+            plans[qid] = {"decision": decision, "chunks": chunks, "keys": keys}
+        return plans, decisions
+
+    def render(self, decision: Decision):
+        return self.renderer.render(decision)
+
+    def render_decisions(self, decisions: dict):
+        return {key: self.render(decision) for key, decision in decisions.items()}
+
+    @staticmethod
+    def common_prefix(renderings: list[Any]) -> int:
+        return _common_prefix(renderings)
+
+
+class GenericMLXDecider:
+    """Cache the renderer's static prefix and score choice tokens with MLX."""
+
+    def __init__(self, model_path: str):
+        import mlx.core as mx
+        import mlx_lm
+        from mlx_lm.models.cache import make_prompt_cache
+
+        self.mx = mx
+        self.model, _ = mlx_lm.load(model_path)
+        self.body, self.lm_head = split_model(self.model)
+        self.renderer = GenericRenderer(model_path)
+        self._make_prompt_cache = make_prompt_cache
+        self._static_cache = self._prefill(self.renderer.static_tokens)
+        self.last_input_tokens: int | None = None
 
     def _prefill(self, tokens: list[int]):
         cache = self._make_prompt_cache(self.model)
@@ -111,33 +148,77 @@ class GenericMLXDecider:
     def decide(self, state: str, question: dict) -> dict[str, float]:
         return self.decide_many(state, {"decision": question})["decision"]
 
-    def decide_many(self, state: str, questions: dict[str, dict]) -> dict[str, dict[str, float]]:
-        decisions = {qid: _decision(state, question) for qid, question in questions.items()}
-        maximum = len(self.choice_renderer.usable_ids)
-        for qid, decision in decisions.items():
-            if len(decision.choices) > maximum:
-                raise TooManyOptionsError(f"questions.{qid}.criteria", len(decision.choices), maximum)
-
-        renderings = {qid: self.renderer.render(decision) for qid, decision in decisions.items()}
-        shared_len = _common_prefix(list(renderings.values()))
-        static_len = len(self._static_tokens)
+    def _score_renderings(self, renderings: dict) -> tuple[dict, int]:
+        if not renderings:
+            return {}, 0
+        shared_len = self.renderer.common_prefix(list(renderings.values()))
+        static_len = len(self.renderer.static_tokens)
         if shared_len < static_len:
             raise RuntimeError("decision rendering diverged from the cached static prefix")
 
         shared_cache = copy.deepcopy(self._static_cache)
+        input_tokens = 0
+        shared_logits = None
         first = next(iter(renderings.values()), None)
         if first is not None and shared_len > static_len:
-            self._feed(shared_cache, first.tokens[static_len:shared_len])
+            shared_tokens = first.tokens[static_len:shared_len]
+            shared_logits = self._feed(shared_cache, shared_tokens)
+            input_tokens += len(shared_tokens)
 
-        results: dict[str, dict[str, float]] = {}
+        results = {}
         for qid, rendering in renderings.items():
             cache = copy.deepcopy(shared_cache)
-            logits = self._feed(cache, rendering.tokens[shared_len:rendering.choice_pos])
-            labels = decisions[qid].labels
+            suffix = rendering.tokens[shared_len:rendering.choice_pos]
+            if suffix:
+                logits = self._feed(cache, suffix)
+                input_tokens += len(suffix)
+            elif shared_logits is not None:
+                logits = shared_logits
+            else:
+                raise RuntimeError("rendered decision has no dynamic prompt tokens")
+            labels = list(rendering.label_tokens)
             token_ids = [rendering.label_tokens[label] for label in labels]
             probabilities = self.mx.softmax(logits[self.mx.array(token_ids)], axis=0).tolist()
             results[qid] = dict(zip(labels, (float(value) for value in probabilities), strict=True))
+        return results, input_tokens
+
+    def decide_many(self, state: str, questions: dict[str, dict]) -> dict[str, dict[str, float]]:
+        plans, decisions = self.renderer.prepare(state, questions)
+        renderings = self.renderer.render_decisions(decisions)
+        conditional, input_tokens = self._score_renderings(renderings)
+
+        results = {}
+        stage_two = {}
+        for qid, plan in plans.items():
+            chunks = plan["chunks"]
+            if not plan["keys"]:
+                results[qid] = {plan["fixed"]: 1.0}
+                continue
+            distributions = [conditional[key] for key in plan["keys"]]
+            if len(chunks) == 1:
+                results[qid] = distributions[0]
+                continue
+            winners = []
+            for chunk, distribution in zip(chunks, distributions, strict=True):
+                winner = max(chunk, key=lambda option: distribution[option[0]])
+                winners.append(winner)
+            stage_two[qid] = Decision(text=plan["decision"].text, choices=winners)
+
+        final_renderings = self.renderer.render_decisions(stage_two)
+        final_distributions, final_tokens = self._score_renderings(final_renderings)
+        for qid, decision in stage_two.items():
+            plan = plans[qid]
+            conditional_distributions = [
+                conditional[key] for key in plan["keys"]
+            ]
+            results[qid] = combine_chunked(
+                plan["chunks"], conditional_distributions, final_distributions[qid]
+            )
+        self.last_input_tokens = input_tokens + final_tokens
         return results
 
 
-__all__ = ["GenericMLXDecider", "TooManyOptionsError", "_decision"]
+__all__ = [
+    "GenericMLXDecider", "GenericRenderer", "chunk_options",
+    "combine_chunked", "_decision",
+]

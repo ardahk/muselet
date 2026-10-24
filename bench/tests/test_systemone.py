@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import sys
 import threading
+import types
 import unittest
 import urllib.error
 import urllib.request
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -16,6 +19,12 @@ sys.path.insert(0, str(ROOT))
 from bench.systemone.fake import FakeDecider
 from bench.systemone.schema import ProtocolError, build_answer, from_answer, parse_request
 from bench.systemone.server import make_server
+
+_chunking_spec = spec_from_file_location(
+    "_decision_chunking", ROOT / "ml" / "src" / "brain" / "decision_chunking.py"
+)
+_chunking = module_from_spec(_chunking_spec)
+_chunking_spec.loader.exec_module(_chunking)
 
 
 def _schema_errors(value, schema, root):
@@ -169,6 +178,41 @@ class SystemOneTests(unittest.TestCase):
         with self.assertRaises(ProtocolError):
             parse_request({"state": "s", "state_digest": "sha256:bad", "questions": {}})
 
+    def test_choice_limit_remains_255(self):
+        choices = {f"option-{index}": "" for index in range(255)}
+        request = parse_request({"state": "s", "questions": {"q": {
+            "type": "choice", "instructions": "choose", "criteria": choices,
+        }}})
+        self.assertEqual(len(request.questions["q"].options), 255)
+        choices["option-255"] = ""
+        with self.assertRaisesRegex(ProtocolError, "1..255"):
+            parse_request({"state": "s", "questions": {"q": {
+                "type": "choice", "instructions": "choose", "criteria": choices,
+            }}})
+
+    def test_chunk_options_balances_and_preserves_order(self):
+        chunk_options = _chunking.chunk_options
+        for count, expected_sizes in ((59, [30, 29]), (240, [48, 48, 48, 48, 48])):
+            options = [(f"option-{index}", f"description-{index}") for index in range(count)]
+            chunks = chunk_options(options, 58)
+            self.assertEqual([len(chunk) for chunk in chunks], expected_sizes)
+            self.assertEqual([option for chunk in chunks for option in chunk], options)
+            self.assertTrue(all(0 < len(chunk) <= 58 for chunk in chunks))
+        options = [("a", "A"), ("b", "B"), ("c", "C")]
+        self.assertEqual(chunk_options(options, 58), [options])
+
+    def test_combine_chunked_normalizes_and_preserves_option_order(self):
+        chunks = [[("a", "A"), ("b", "B")], [("c", "C"), ("d", "D")]]
+        conditional = [
+            {"a": 0.7, "b": 0.3},
+            {"c": 0.2, "d": 0.8},
+        ]
+        combined = _chunking.combine_chunked(chunks, conditional, {"a": 0.4, "d": 0.6})
+        self.assertEqual(list(combined), ["a", "b", "c", "d"])
+        for option, probability in {"a": 0.28, "b": 0.12, "c": 0.12, "d": 0.48}.items():
+            self.assertAlmostEqual(combined[option], probability)
+        self.assertAlmostEqual(sum(combined.values()), 1.0)
+
     def test_answer_normalization_and_confidence(self):
         request = parse_request({"state": "s", "questions": {
             "choice": {"type": "choice", "instructions": "pick", "criteria": {"a": "A", "b": "B"}},
@@ -206,6 +250,7 @@ class SystemOneTests(unittest.TestCase):
                 with self.subTest(path=path):
                     body = json.loads(urllib.request.urlopen(req, timeout=5).read())
                     self.assertEqual(_schema_errors(body, self.response_schema, self.response_schema), [])
+                    self.assertIsNone(body["usage"]["input_tokens"])
                     self.assertEqual(set(body["answers"]), set(payload["questions"]))
                     for qid, raw_question in payload["questions"].items():
                         question = parse_request({
@@ -264,17 +309,135 @@ class SystemOneTests(unittest.TestCase):
         )
 
     def test_tokenizer_only_renderer_when_upstream_dependencies_exist(self):
+        decision_src = os.environ.get("MUSELET_DECISION_SRC")
+        if decision_src:
+            sys.path.insert(0, decision_src)
         sys.path.insert(0, str(ROOT / "ml" / "src"))
+        stubbed_mlx = False
         try:
-            from brain.generic_decide import _decision
+            import brain
+            if decision_src:
+                brain.__path__.insert(0, str(Path(decision_src) / "brain"))
+            try:
+                import mlx.core
+                import mlx_lm
+            except ImportError:
+                mlx = types.ModuleType("mlx")
+                core = types.ModuleType("mlx.core")
+                mlx.core = core
+                mlx.__path__ = []
+                sys.modules.setdefault("mlx", mlx)
+                sys.modules.setdefault("mlx.core", core)
+                sys.modules.setdefault("mlx_lm", types.ModuleType("mlx_lm"))
+                stubbed_mlx = True
+            try:
+                import dateparser
+            except ImportError:
+                dateparser = types.ModuleType("dateparser")
+                dateparser.parse = lambda *_args, **_kwargs: None
+                sys.modules["dateparser"] = dateparser
+            from brain.generic_decide import Decision, GenericRenderer, _decision
+            from bench.systemone.server import state_text
+            from huggingface_hub import snapshot_download
+            if stubbed_mlx:
+                sys.modules.pop("mlx", None)
+                sys.modules.pop("mlx.core", None)
+                sys.modules.pop("mlx_lm", None)
         except ImportError as exc:
-            self.skipTest(f"origin/wip/local renderer dependencies unavailable: {exc}")
-        rendered = _decision("state", {
-            "type": "noul", "instructions": "safe?", "options": ["false", "true"],
-            "descriptions": {"false": "No", "true": "Yes"},
-        })
-        self.assertEqual(rendered.text, "State:\nstate\n\nQuestion:\nsafe?")
-        self.assertEqual(rendered.labels, ["true", "false"])
+            if decision_src:
+                raise
+            self.skipTest(f"set MUSELET_DECISION_SRC to run the WIP tokenizer renderer: {exc}")
+
+        tokenizer_path = os.environ.get("MUSELET_DECISION_TOKENIZER")
+        if not tokenizer_path:
+            tokenizer_path = snapshot_download(
+                "mlx-community/Qwen3.5-4B-4bit",
+                allow_patterns=[
+                    "config.json", "tokenizer.json", "tokenizer_config.json",
+                    "special_tokens_map.json", "added_tokens.json", "vocab.json",
+                    "merges.txt", "*.model", "chat_template.jinja",
+                ],
+            )
+        renderer = GenericRenderer(tokenizer_path)
+        self.assertEqual(renderer.maximum, 58)
+        static = renderer.static_tokens
+        checked_types = set()
+        chunked_questions = 0
+
+        for path in self.examples:
+            payload = json.loads(path.read_text())
+            parsed = parse_request(payload)
+            questions = {
+                qid: {
+                    "type": question.type,
+                    "instructions": question.instructions,
+                    "criteria": question.criteria,
+                    "options": question.options,
+                    "descriptions": question.descriptions,
+                }
+                for qid, question in parsed.questions.items()
+            }
+            plans, decisions = renderer.prepare(state_text(parsed.state), questions)
+            renderings = renderer.render_decisions(decisions)
+            self.assertGreaterEqual(renderer.common_prefix(list(renderings.values())), len(static))
+            for key, decision in decisions.items():
+                rendered = renderings[key]
+                self.assertEqual(rendered.tokens[:len(static)], static)
+                self.assertEqual(rendered.choice_pos, len(rendered.tokens) - 1)
+                self.assertEqual(
+                    rendered.tokens[rendered.choice_pos],
+                    renderer.choice_renderer.answer_tokens[
+                        len(renderer.choice_renderer.prefix_tokens)
+                    ],
+                )
+                self.assertEqual(list(rendered.label_tokens), decision.labels)
+                self.assertEqual(len(rendered.label_tokens), len(decision.choices))
+                qtype = questions[key[0]]["type"]
+                if qtype == "noul":
+                    self.assertEqual(len(rendered.label_tokens), 2)
+                elif qtype == "score":
+                    self.assertEqual(len(rendered.label_tokens), len(questions[key[0]]["options"]))
+                prefix = renderer.choice_renderer.prefix_tokens
+                for index, (label, _description) in enumerate(decision.choices):
+                    choice_id = renderer.choice_renderer.usable_ids[index]
+                    label_tokens = renderer.tokenizer.encode(
+                        renderer.choice_renderer.prefix + choice_id,
+                        add_special_tokens=False,
+                    )
+                    self.assertEqual(label_tokens[:len(prefix)], prefix)
+                    self.assertEqual(len(label_tokens), len(prefix) + 1)
+                    self.assertEqual(rendered.label_tokens[label], label_tokens[-1])
+                checked_types.add(qtype)
+
+            for qid, plan in plans.items():
+                if len(plan["chunks"]) <= 1:
+                    continue
+                chunked_questions += 1
+                winners = [chunk[0] for chunk in plan["chunks"]]
+                stage_two = renderer.render(
+                    Decision(text=plan["decision"].text, choices=winners)
+                )
+                self.assertEqual(stage_two.tokens[:len(static)], static)
+                self.assertEqual(stage_two.choice_pos, len(stage_two.tokens) - 1)
+                self.assertEqual(len(stage_two.label_tokens), len(winners))
+                self.assertEqual(list(stage_two.label_tokens), [label for label, _ in winners])
+                for index, (label, _description) in enumerate(winners):
+                    label_tokens = renderer.tokenizer.encode(
+                        renderer.choice_renderer.prefix
+                        + renderer.choice_renderer.usable_ids[index],
+                        add_special_tokens=False,
+                    )
+                    self.assertEqual(label_tokens[:len(renderer.choice_renderer.prefix_tokens)],
+                                     renderer.choice_renderer.prefix_tokens)
+                    self.assertEqual(
+                        len(label_tokens),
+                        len(renderer.choice_renderer.prefix_tokens) + 1,
+                    )
+                    self.assertEqual(stage_two.label_tokens[label], label_tokens[-1])
+
+        self.assertIn("noul", checked_types)
+        self.assertIn("score", checked_types)
+        self.assertGreater(chunked_questions, 0)
 
 
 if __name__ == "__main__":
