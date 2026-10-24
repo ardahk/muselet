@@ -1,5 +1,8 @@
 # DeskMind diagnostic tasks
 
+Pin: `diag-v27`, suite hash `5eec62a0c662`, public DeskMind Hands commit
+`89be730acdbdd50a77bb6ac44583e190c719a14a`, locale `zh-Hans`.
+
 ## G01-finder-sort
 
 - **Goal (original):** 工作目录里混着几个不同类型的文件。请新建一个名为 docs 的文件夹，

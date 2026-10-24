@@ -1,9 +1,14 @@
 # DeskMind Bench comparisons
 
-Pinned reference revisions: Brain `dadf97d01512f6384ca8bfd90a77cc88ae1a2f43`,
-Bench `888035da50299f5523a5b55844a2114c4b8c6c3d`, and Hands
-`3c1ceac6e1918b656d56728c5fef1bc6726462f3`. The reference run requires a Mac,
-Peekaboo, the published Bench environment and the `zh-Hans` locale.
+Pinned comparison: DeskMind Bench `diag-v27`, suite hash `5eec62a0c662`,
+public DeskMind Hands commit `89be730acdbdd50a77bb6ac44583e190c719a14a`,
+locale `zh-Hans`. The Muselet runner refuses a different suite hash or installed
+Hands commit. Compare Muselet only with DeskMind run on the same Mac at this
+pin; published numbers made with another harness version are not comparable.
+The reference run requires macOS and Peekaboo. Before all compared runs, use
+System Settings > General > Language & Region > Preferred Languages to put
+Simplified Chinese first, verify `defaults read -g AppleLanguages` includes
+`zh-Hans`, then restore the previous order after benchmarking.
 
 ## Published Brain baselines
 
@@ -45,7 +50,7 @@ running local Muselet brain and Hands CLI:
 
 ```sh
 python3 bench/deskmind/run_muselet.py --repeats 3 --port 8765
-deskmind-bench score runs/bench/deskmind/muselet --suite-version diag-v25 --out runs/bench/deskmind/muselet/score.json
+deskmind-bench score runs/bench/deskmind/muselet --suite-version diag-v27 --out runs/bench/deskmind/muselet/score.json
 deskmind-bench table runs/bench/deskmind/muselet/score.json
 ```
 
@@ -61,7 +66,7 @@ Task wall-clock budgets begin after fixture staging and app setup, as they do
 in the pinned runner. TextEdit reset closes only documents under this runner's
 workspace, and reset-app checks do not launch apps that were not already open.
 The pinned suite requires macOS `AppleLanguages` to include `zh-Hans`, which
-the runner checks before replay. Since Muselet receives the app context from
+the runner checks before replay. DeskMind Brain 0.8b/4b, the shim, and Muselet loop must all use `zh-Hans` and the exact public Hands pin above. Since Muselet receives the app context from
 the live desktop rather than a task-app override, the primary staged app is
 opened in the foreground; secondary staged apps use `open -g`. This differs
 from Bench's pinned-window observation but ensures the Muselet utterance starts

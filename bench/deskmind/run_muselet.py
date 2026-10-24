@@ -21,6 +21,9 @@ from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_BENCH = Path("/home/ubuntu/ext/deskmind-ai__bench")
+SUITE_VERSION = "diag-v27"
+SUITE_HASH = "5eec62a0c662"
+HANDS_COMMIT = "89be730acdbdd50a77bb6ac44583e190c719a14a"
 
 
 def make_plan(tasks, repeats, port, runs_dir):
@@ -215,7 +218,54 @@ def _require_zh_hans():
         check=True, capture_output=True, text=True, timeout=10,
     )
     if "zh-Hans" not in result.stdout:
-        raise RuntimeError("DeskMind diag-v25 requires macOS AppleLanguages to include zh-Hans")
+        raise RuntimeError(f"DeskMind {SUITE_VERSION} requires macOS AppleLanguages to include zh-Hans")
+
+
+def _installed_hands_commit(binary: str) -> str:
+    path = shutil.which(binary) or binary
+    try:
+        first_line = Path(path).read_text(encoding="utf-8").splitlines()[0]
+        python = first_line[2:].split()[0] if first_line.startswith("#!") else ""
+    except (OSError, IndexError):
+        python = ""
+    if not python:
+        raise RuntimeError("Cannot identify the Python environment for the installed Hands executable")
+    code = (
+        "import importlib.metadata as m,json; "
+        "d=m.distribution('deskmind-hands'); "
+        "u=json.loads(d.read_text('direct_url.json') or '{}'); "
+        "print(u.get('vcs_info',{}).get('commit_id',''))"
+    )
+    result = subprocess.run([python, "-c", code], capture_output=True, text=True, timeout=15)
+    if result.returncode:
+        raise RuntimeError(f"Cannot inspect installed deskmind-hands package: {result.stderr.strip()}")
+    commit = result.stdout.strip()
+    if not commit:
+        raise RuntimeError("Installed deskmind-hands has no VCS commit metadata")
+    return commit
+
+
+def write_run_files(
+    run_dir: Path, task, run: dict, trace_lines: list[str], *,
+    suite_hash: str, repeat: int, harness_commit: str, hands_commit: str,
+    locale: str,
+) -> None:
+    manifest = {
+        "run_id": run["run_id"], "task_id": task.id, "fixture": task.fixture,
+        "suite": "diag", "suite_version": SUITE_VERSION, "suite_hash": suite_hash,
+        "repeat": repeat,
+        "environment": {
+            "harness_commit": harness_commit, "hands_commit": hands_commit,
+            "locale": locale,
+        },
+    }
+    (run_dir / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    (run_dir / "trace.jsonl").write_text("".join(trace_lines), encoding="utf-8")
+    (run_dir / "run.json").write_text(
+        json.dumps(run, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
 
 
 def main(argv=None):
@@ -238,6 +288,12 @@ def main(argv=None):
     from deskmind_bench.verify import NULL_METRICS, _unpack
 
     tasks = load_set(args.bench_dir / "tasks", args.task_set)
+    installed_suite_hash = suite_hash(args.task_set)
+    if args.task_set != "diag" or installed_suite_hash != SUITE_HASH:
+        parser.error(
+            f"expected diag-v27 suite hash {SUITE_HASH}, found "
+            f"{args.task_set} {installed_suite_hash}"
+        )
     if args.task:
         selected = set(args.task)
         tasks = [task for task in tasks if task.id in selected]
@@ -249,13 +305,21 @@ def main(argv=None):
     plans = make_plan(tasks, args.repeats, args.port, args.runs_dir)
     if args.dry_run:
         print(json.dumps({"suite_hash": suite_hash(args.task_set), "planned": plans,
-                          "score": f"deskmind-bench score {args.runs_dir} --suite-version diag-v25 --out {args.runs_dir}/score.json",
+                          "suite_version": SUITE_VERSION,
+                          "hands_commit": HANDS_COMMIT,
+                          "score": f"deskmind-bench score {args.runs_dir} --suite-version {SUITE_VERSION} --out {args.runs_dir}/score.json",
                           "table": f"deskmind-bench table {args.runs_dir}/score.json"}, ensure_ascii=False, indent=2))
         return 0
     if sys.platform != "darwin":
         parser.error("live DeskMind Bench replay requires macOS, Accessibility permissions, and a running brain server")
     _require_zh_hans()
     binary = shutil.which(args.hands_command) or args.hands_command
+    installed_commit = _installed_hands_commit(binary)
+    if installed_commit != HANDS_COMMIT:
+        parser.error(
+            f"DeskMind Bench {SUITE_VERSION} requires deskmind-hands {HANDS_COMMIT}; "
+            f"found {installed_commit}"
+        )
     fixtures = args.bench_dir / "fixtures"
     args.runs_dir.mkdir(parents=True, exist_ok=True)
     for task in tasks:
@@ -264,15 +328,10 @@ def main(argv=None):
             run_dir = args.runs_dir / run_id
             run_dir.mkdir(parents=True)
             ws = _unpack(task, fixtures, run_dir)
-            manifest = {
-                "run_id": run_id, "task_id": task.id, "fixture": task.fixture,
-                "suite_hash": suite_hash(args.task_set), "repeat": repeat,
-                "harness_commit": subprocess.run(
-                    ["git", "-C", str(args.bench_dir), "rev-parse", "HEAD"],
-                    check=True, capture_output=True, text=True,
-                ).stdout.strip(),
-            }
-            (run_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+            harness_commit = subprocess.run(
+                ["git", "-C", str(args.bench_dir), "rev-parse", "HEAD"],
+                check=True, capture_output=True, text=True,
+            ).stdout.strip()
             trace_path = ROOT / "runs/traces" / f"{datetime.now().date().isoformat()}.jsonl"
             trace_offset = trace_path.stat().st_size if trace_path.is_file() else 0
             command = [binary, "serve", "--url", f"ws://127.0.0.1:{args.port}", "--utterance", task.goal]
@@ -320,7 +379,6 @@ def main(argv=None):
                 for page_server in page_servers:
                     page_server.close()
             trace_lines = trace_records
-            (run_dir / "trace.jsonl").write_text("".join(trace_lines), encoding="utf-8")
             run = {
                 "run_id": run_id, "task_id": task.id, "state": state,
                 "metrics": dict(NULL_METRICS), "driver_state": {},
@@ -334,11 +392,16 @@ def main(argv=None):
             )
             grade_result = grade(task, context, sentinel_digests=pristine_sentinels(task, fixtures))
             run["grade"] = grade_result.to_json()
-            (run_dir / "run.json").write_text(json.dumps(run, ensure_ascii=False, indent=2) + "\n")
+            write_run_files(
+                run_dir, task, run, trace_lines,
+                suite_hash=suite_hash(args.task_set), repeat=repeat,
+                harness_commit=harness_commit, hands_commit=installed_commit,
+                locale="zh-Hans",
+            )
             print(json.dumps({"run_id": run_id, "task_id": task.id, "state": state,
                               "strict": grade_result.strict, "run_dir": str(run_dir)})
                   )
-    print(f"deskmind-bench score {args.runs_dir} --suite-version diag-v25 --out {args.runs_dir}/score.json")
+    print(f"deskmind-bench score {args.runs_dir} --suite-version {SUITE_VERSION} --out {args.runs_dir}/score.json")
     print(f"deskmind-bench table {args.runs_dir}/score.json")
     return 0
 
