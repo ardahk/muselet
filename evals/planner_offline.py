@@ -12,6 +12,8 @@ Knobs (compared tuned vs tuned, see AGENTS.md standing decisions):
   --constrain             at each line start only valid DSL op keywords (or end of turn) may be generated
   --temp/--top-p/--top-k  sampling (temp 0 = greedy); --seeds N repeats sampled runs
   --history dsl|repr      last-batch lines as DSL (proposed) or as the runtime's current dict repr
+  --think N               think-token budget before the action batch (0 = off)
+  --think-on all|retry     when to think; --think-sampler greedy|qwen
   --system-extra FILE     text appended to the planner system prompt (e.g. worked examples)
 
   uv run --project ml python evals/planner_offline.py --model mlx-community/Qwen3.5-4B-4bit --tag 4b_greedy
@@ -28,6 +30,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "ml" / "src"))
+
+from brain.planner import sample_logits
 
 S = []  # scenarios
 
@@ -537,11 +541,15 @@ def runtime_repr(line: str) -> str:
 
 class Runner:
     def __init__(self, model: str, system_extra: str | None,
-                 retrieval_k: int = 0, retrieval_bank: str = "v2-tune"):
+                 retrieval_k: int = 0, retrieval_bank: str = "v2-tune",
+                 think_budget: int = 0, think_on: str = "all",
+                 think_sampler: str = "greedy"):
         from brain.catalog import Catalog
         from brain.planner import Planner
         self.p = Planner(model, Catalog.load(), few_shot=None,
-                         retrieval_k=retrieval_k, retrieval_bank=retrieval_bank)
+                         retrieval_k=retrieval_k, retrieval_bank=retrieval_bank,
+                         think_budget=think_budget, think_on=think_on,
+                         think_sampler=think_sampler)
         self.retrieval_k, self.retrieval_bank = retrieval_k, retrieval_bank
         if system_extra:
             self.p.system += "\n\n" + system_extra
@@ -572,9 +580,13 @@ class Runner:
         toks = p._render_msgs(msgs)
         acut = p._content_cut(toks, SENTINEL)
         cache = copy.deepcopy(p._cache)
-        cur = mx.array([toks[p._cut:acut]])
         retrieval_ms = p.last_retrieval["ms"]
         t0 = time.perf_counter()
+        dyn = toks[p._cut:acut]
+        think = None
+        if p.wants_think(s["goal"], last):
+            dyn, think = p.think(cache, dyn)
+        cur = mx.array([dyn])
         ttft, n, buf, lines, cutter = None, 0, "", [], BatchCutter()
         in_script, script = False, []
         for _ in range(MAX_TOKENS):
@@ -626,28 +638,15 @@ class Runner:
         return {"lines": lines, "ttft_ms": (ttft or dt) + retrieval_ms, "plan_ms": dt,
                 "tokens": n, "decode_tok_s": n / max(dt - (ttft or 0), 1) * 1000,
                 "retrieved": p.last_retrieval["ids"], "retrieval_ms": retrieval_ms,
-                "prompt_tokens": acut, "dynamic_tokens": acut - p._cut}
+                "prompt_tokens": acut, "dynamic_tokens": acut - p._cut,
+                "think_tokens": think["tokens"] if think else 0,
+                "think_ms": think["ms"] if think else 0.0,
+                "think_closed": think["closed"] if think else None,
+                "think_text": think["text"] if think else None}
 
 
 def sample(logits, cfg, rng) -> int:
-    import numpy as np
-    if cfg.temp <= 0:
-        return int(np.argmax(logits))
-    z = logits / cfg.temp
-    if cfg.top_k > 0:
-        kth = np.partition(z, -cfg.top_k)[-cfg.top_k]
-        z = np.where(z < kth, -np.inf, z)
-    z = z - np.max(z)
-    pr = np.exp(z)
-    pr /= pr.sum()
-    if cfg.top_p < 1:
-        idx = np.argsort(-pr)
-        c = np.cumsum(pr[idx])
-        keep = idx[: int(np.searchsorted(c, cfg.top_p)) + 1]
-        q = np.zeros_like(pr)
-        q[keep] = pr[keep]
-        pr = q / q.sum()
-    return int(rng.choice(len(pr), p=pr))
+    return sample_logits(logits, cfg.temp, cfg.top_p, cfg.top_k, rng)
 
 
 _SKILLS = None
@@ -717,11 +716,16 @@ def summarize(tag, model, knobs, rows) -> dict:
     knobs = dict(knobs)
     knobs.setdefault("retrieval_k", 0)
     knobs.setdefault("retrieval_bank", "v2-tune")
+    knobs.setdefault("think", 0)
+    knobs.setdefault("think_on", "all")
+    knobs.setdefault("think_sampler", "greedy")
     optional = {
         "ttft_ms_mean": (statistics.mean, 1),
         "prompt_tokens_mean": (statistics.mean, 1),
         "dynamic_tokens_mean": (statistics.mean, 1),
         "retrieval_ms_p50": (statistics.median, 1),
+        "think_tokens_mean": (statistics.mean, 1),
+        "think_ms_p50": (statistics.median, 1),
     }
     diagnostics = {}
     for key, (aggregate, digits) in optional.items():
@@ -752,9 +756,10 @@ def regrade(tags):
         d["summary"] = summarize(d["summary"]["tag"], d["summary"]["model"], d["summary"]["knobs"], d["rows"])
         p.write_text(json.dumps(d, indent=1))
         s = d["summary"]
+        thinking = f" think={s['knobs'].get('think', 0)}" if s["knobs"].get("think", 0) > 0 else ""
         print(f"{s['tag']:22} pass={s['pass']:.3f} strict={s['strict_pass']:.3f} valid={s['valid']:.3f} "
               f"safety={s['safety_pass']} plan_p50={s['plan_ms_p50']:.0f} toks={s['tokens_mean']:.0f} "
-              f"skipped={s['skipped_lines_mean']}")
+              f"skipped={s['skipped_lines_mean']}{thinking}")
 
 
 def build_parser():
@@ -775,6 +780,9 @@ def build_parser():
                     help="holdout = scenarios written after the knob sweep (never tune on them)")
     ap.add_argument("--retrieval-k", type=int, choices=(0, 1, 2), default=0)
     ap.add_argument("--retrieval-bank", default="v2-tune")
+    ap.add_argument("--think", type=int, default=0)
+    ap.add_argument("--think-on", choices=("all", "retry"), default="all")
+    ap.add_argument("--think-sampler", choices=("greedy", "qwen"), default="greedy")
     ap.add_argument("--list", action="store_true")
     return ap
 
@@ -797,7 +805,9 @@ def main():
         ap.error("--model and --tag are required")
     scen = [s for s in S if not a.only or s["id"] in a.only.split(",")]
     r = Runner(a.model, "\n\n".join(Path(f).read_text() for f in a.system_extra) if a.system_extra else None,
-               retrieval_k=a.retrieval_k, retrieval_bank=a.retrieval_bank)
+               retrieval_k=a.retrieval_k, retrieval_bank=a.retrieval_bank,
+               think_budget=a.think, think_on=a.think_on,
+               think_sampler=a.think_sampler)
     r.turn(scen[0], argparse.Namespace(**vars(a), seed=0))      # warm-up (prefix cache + kernels), not scored
     rows = []
     for seed in range(a.seeds if a.temp > 0 else 1):
@@ -807,14 +817,18 @@ def main():
             g = grade(s, out["lines"])
             rows.append({"id": s["id"], "tags": s["tags"], "seed": seed, **g, **{k: out[k] for k in
                          ("ttft_ms", "plan_ms", "tokens", "decode_tok_s", "retrieved", "retrieval_ms",
-                          "prompt_tokens", "dynamic_tokens")}, "lines": out["lines"]})
+                          "prompt_tokens", "dynamic_tokens", "think_tokens", "think_ms", "think_closed",
+                          "think_text")}, "lines": out["lines"]})
             retrieved = f" ret={','.join(out['retrieved'])}" if a.retrieval_k > 0 else ""
+            thinking = f" think={a.think}" if a.think > 0 else ""
             print(f"{'PASS' if g['pass'] else 'fail'} {s['id']:28} first={g['first'][:70]!r}"
                   f"{'' if g['valid'] else ' INVALID'}{' REJECT' if g['rejected'] else ''}"
-                  f"{'' if g['confirm_ok'] else ' NO-CONFIRM'}  {out['plan_ms']:.0f}ms{retrieved}", flush=True)
+                  f"{'' if g['confirm_ok'] else ' NO-CONFIRM'}  {out['plan_ms']:.0f}ms{retrieved}"
+                  f"{thinking}", flush=True)
     summary = summarize(a.tag, a.model, {k: getattr(a, k) for k in
                         ("constrain", "done_alone", "temp", "top_p", "top_k", "seeds", "history",
-                         "system_extra", "retrieval_k", "retrieval_bank")}, rows)
+                         "system_extra", "retrieval_k", "retrieval_bank", "think", "think_on",
+                         "think_sampler")}, rows)
     out_dir = ROOT / "runs" / "planner_offline"
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / f"{a.tag}.json").write_text(json.dumps({"summary": summary, "rows": rows}, indent=1))
