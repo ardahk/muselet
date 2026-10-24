@@ -1,12 +1,12 @@
 {
-  "pass": 50,
-  "ts": "2026-10-24T23:45Z",
+  "pass": 51,
+  "ts": "2026-10-25T00:05Z",
   "branches": {
-    "main": "18c139f",
-    "wip/local": "719907a",
+    "main": "0b83c3b",
+    "wip/local": "e4f4331",
     "cloud/bench": "f584cb2",
     "cloud/data-pipeline": "830ba35",
-    "cloud/decisions": "c88b613",
+    "cloud/decisions": "ae36620",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
     "cloud/finance-3": "31be399",
@@ -43,9 +43,9 @@
     "cloud/planner-retrieval": "7df32b1",
     "cloud/data-decisions": "91de461",
     "cloud/w9-safety": "6aa332a",
-    "cloud/memory": "ba3dc0a",
+    "cloud/memory": "711c0fe",
     "cloud/memory-eval": "c05944e",
-    "cloud/memory-lt": "cc056af",
+    "cloud/memory-lt": "4794e8a",
     "cloud/planner-lora": "79f0a97",
     "cloud/router-it3-serve": "b455d2c",
     "cloud/docs-demo": "095d4ef",
@@ -54,15 +54,15 @@
     "cloud/hands-clock": "26d4427",
     "cloud/live-cases": "fa9c374",
     "cloud/planner-think": "3677348",
-    "cloud/planner-verify": "d22b9a9",
-    "cloud/brain-9": "e9e9b42",
+    "cloud/planner-verify": "484f5e7",
+    "cloud/brain-9": "2590811",
     "cloud/safety-bench28": "a0c456e",
     "cloud/safety-brain27": "ac43219",
     "cloud/safety-architect27": "4edcba5",
     "cloud/safety-brain12": "97c5242",
     "cloud/safety-brain18": "9aa2e4c",
     "cloud/safety-brain38": "54ca8f6",
-    "cloud/safety-planner28": "fb4a45a"
+    "cloud/safety-planner28": "e3abc5e"
   },
-  "notes": "pass50: main merged planner-lora (#48), planner-think (#56), live-cases (#57) and bench-28 bank fix (#60); all reviewed on their branches earlier. The planner-lora export checks are consistent (untied lm_head; input embeddings equal base within 4-bit tolerance). The MLX smoke test was skipped on Linux. No new findings."
+  "notes": "pass51: new bench-34 (think ship decided on a single-seed sampled run). Reviewed: 62eed6f harness quits only case-launched document apps and new Finder window ids (baseline diff), which is fine. Think gains vs the k=1 baseline are real (v2-holdout 60->78/130 greedy). Other branch moves are merges of main."
 }
