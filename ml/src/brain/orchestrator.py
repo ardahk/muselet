@@ -14,6 +14,7 @@ import re
 import subprocess
 import threading
 import time
+import unicodedata
 
 from . import argfix, calc, dsl, obsdiff, pathfind, replies, sendgate, slots
 from .catalog import Catalog, CatalogError
@@ -2062,6 +2063,9 @@ function run() {
         wider exception (set value / background color / sort / make new
         table need no confirm). shell always confirms."""
         if lang not in ("applescript", "jxa"):
+            return True
+        if any(unicodedata.category(c) in ("Cc", "Cf") and c not in "\n\t\r"
+               for c in code):
             return True
         code = " ".join(re.sub(r"¬\s*\n", " ", code).split())
         targets = {t.lower() for t in re.findall(

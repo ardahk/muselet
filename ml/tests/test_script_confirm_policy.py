@@ -4,6 +4,10 @@ from brain.orchestrator import Orchestrator
 
 
 @pytest.mark.parametrize("lang,code", [
+    ["applescript", 'tell application "Safari" to get\x00 URL of tab 1 of window 1'],
+    ["applescript", 'tell application "Safari" to get\x1b URL of tab 1 of window 1'],
+    ["applescript", 'tell application "Safari" to get\u200b URL of tab 1 of window 1'],
+    ["jxa", 'Application("Safari").get()\u202e'],
     [
         "shell",
         "echo hi"
