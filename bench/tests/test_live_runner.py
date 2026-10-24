@@ -36,6 +36,10 @@ def test_dry_run_includes_all_live_cases_and_tier_counts(capsys):
     assert all("{{" not in json.dumps(row["resolved"]) for row in plan["case_plan"])
     assert all("document_apps" in row for row in plan["case_plan"])
     assert any(row["document_apps"] for row in plan["case_plan"])
+    assert all(
+        row["step_order"][0] == "session: hands probe session (skip if locked/asleep)"
+        for row in plan["case_plan"]
+    )
 
 
 def test_filters_report_manual_pending_online_and_user_consent_skips():

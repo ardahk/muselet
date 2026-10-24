@@ -67,6 +67,24 @@ class HandsRuntime:
             lang, code, allow_inflight=allow_inflight
         )
 
+    async def run_skill(
+        self, name: str, args: dict[str, Any], *, allow_inflight: bool = False
+    ) -> dict[str, Any]:
+        if self.process is None or self.process.poll() is not None:
+            await self.start_scripts()
+        return await self.proxy.run_skill(
+            name, args, allow_inflight=allow_inflight
+        )
+
+    async def run_rpc(
+        self, method: str, params: dict[str, Any], *, allow_inflight: bool = False
+    ) -> dict[str, Any]:
+        if self.process is None or self.process.poll() is not None:
+            await self.start_scripts()
+        return await self.proxy.run_rpc(
+            method, params, allow_inflight=allow_inflight
+        )
+
     async def prepare_for_cleanup(self) -> None:
         if self.proxy.capture.active:
             await self._stop_client()

@@ -392,6 +392,12 @@ def test_run_live_drives_real_brain_and_fake_hands_through_proxy(
         monkeypatch.setattr(run_live, "ROOT", root)
         monkeypatch.setattr(run_live.Path, "home", lambda: tmp_path)
         monkeypatch.setattr(run_live, "HandsRuntime", FakeHandsRuntime)
+        monkeypatch.setattr(
+            run_live, "probe_session",
+            lambda _binary: {
+                "skip_reason": None, "session_probe": {"screen_locked": False},
+            },
+        )
         FakeHandsRuntime.sent_scripts = []
         worker = FakePlannerWorker()
         monkeypatch.setitem(

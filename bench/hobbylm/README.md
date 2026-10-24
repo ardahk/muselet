@@ -10,6 +10,14 @@ case-created window IDs, never the front window. Re-run skipped tasks before
 claiming a complete score. Terminal apps are deliberately excluded from the
 registry, so terminal-driven changes remain a residual risk.
 
+Before each case's other preconditions, document guard, or setup, both replay
+modes run `<hands-bin> probe session` with a five-second timeout. Locked or
+asleep sessions are recorded as `screen_locked`; failed or invalid probes as
+`session_unverifiable`. Skipped cases receive no setup, utterance, teardown, or
+restore, and native-worker skips are never sent to the worker. `AGENTS.md`
+states that results gathered while the screen is locked are invalid. Dry runs
+show the planned probe without invoking it.
+
 `upstream/PROVENANCE.md` records the vendored HobbyLM revision, Apache-2.0 license,
 source links, and hashes. The frozen r1–r4 inputs are included unchanged.
 
@@ -51,6 +59,17 @@ from the utterance frame to the first `act`/`skill` RPC, so it excludes client
 startup and uses no BrainServer monkeypatch. The shared core polls and
 evaluates the final-state grader; the agent's own outcome claim is retained
 only as `reported_success`/`false_done`.
+
+Muselet calculator trials disclose a setup choice that mirrors HobbyLM's
+harness: Calculator is opened, cleared with Escape, and verified at Display 0
+before the utterance. Timer trials snapshot the top-level HandsKit `timers {}`
+RPC after setup and after the utterance, grading new timer IDs by `minutes` in
+`fires_at` order. If `timers` is unavailable, successful proxied `start_timer`
+results are the disclosed fallback. Teardown sends one
+`timers_cancel {"id": ...}` per case-created timer; `unknown_timer` is recorded
+as already fired. If cancellation is unavailable, the record discloses that
+timers could not be canceled. Existing timers are excluded from grading and
+are never canceled.
 
 Event trials run only when EventKit proves `Muselet Bench` is in a local source
 and is the default for new events. Otherwise they are recorded as skipped with
