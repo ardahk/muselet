@@ -1,20 +1,21 @@
-# evals-safety digest — pass 36 (2026-10-24T16:33:37Z, main@c949565)
+# evals-safety digest — pass 37 (2026-10-24T16:47:08Z, main@cf53292)
 
-Open: P0 0, P1 3, P2 9.
+Open: P0 0, P1 4, P2 9.
 
 ## Open P0/P1 (ranked)
-1. **-33 (P1, new; cloud/brain-7 13432fe vs cloud/app-ui afb2688, both unmerged):** conflicting `config`/`config_ack` contracts. app-ui's Swift reads `ok`, which brain-7 never sends, so every ack reads as a failure. brain-7 loads 35B on demand and app-ui only toggles a resident one. server.py conflicts on merge.
-2. **-25 (P1, main):** the document guard skips 9/43 live cases, and skips leave the denominator.
-3. **-11 (P1, main):** `done` is accepted with no harness goal/result check.
+1. **-34 (P1, new; cloud/comms 956d4ac):** every send_message now needs the HandsKit RPCs contacts_search, messages_compose and messages_send, which exist in no pushed app/ code. If comms merges alone, all sends fail ("Couldn't search your contacts"). This fails closed, and the confirm flow is correct.
+2. **-25 (P1):** the first live run executed 27 of 43 cases (T1 19/22, T2 1/5). Skip reasons are not reported, and the /43 template remains.
+3. **-11 (P1):** `done` has no harness goal check. There were 4 false_done in 27 live cases.
+4. **-33 (P1):** main (with brain-7) and cloud/app-ui disagree on config_ack (app reads `ok`, brain never sends it). Merging conflicts in server.py.
 
 ## Next moves
-1. Settle one config/config_ack contract (with `ok` plus the actual state) before brain-7 or app-ui merges (-33).
-2. Before the morning live runs: count skips in the live pass rate, or narrow the document guard to each case's apps (-25).
-3. REPORT.md:122 and claims.md:66: add the 12/43 trace-graded caveat (-24).
-4. Report the planner on holdout-2 with the prompt SHA (-31).
+1. Land the HandsKit contacts/messages RPCs together with cloud/comms, or keep a fallback (-34).
+2. Publish per-case skip reasons for run 20261024T161427Z, and quote passed/executed (-25).
+3. Triage the 4 false_done traces: each is a case where a harness goal check would have caught a false success (-11).
+4. Settle one config_ack contract before app-ui merges (-33).
+5. REPORT.md:122 and claims.md:66: add the 12/43 trace-graded caveat (-24).
 
-## Checked, nothing material (pass 36)
-- data-pipeline 6c1e565: route_v2 is frozen (955 items, 0 overlap with the training pools and other evals), and evalcheck now includes route_v2, so the it3 training gate covers it.
-- decisions 184c80f/43abfa3: the trainer has an estimate-based preflight, --max-usd and a $25 acknowledgement gate. The Tinker backend still has no runtime cap (-28 unchanged).
-- brain-7: sign-in gate on typing, site/browser URL rewriting, compose_text verifies the note appears, no-op press guard. Confirm gates unchanged.
-- native-research, report: docs only (see -24 for the report).
+## Checked, nothing material (pass 37)
+- main cf53292: the brain-7 merge (reviewed in pass 36), REPORT.md, native-research, and three data briefs.
+- data-pipeline f8b721a: gate_filter drops pool rows overlapping any frozen eval, on both raw and ASR-noised text.
+- report-2: planner numbers now on the shipped prompt (holdout2 .667 shown), and speed marked as measured on the earlier config. Decisions API cap raised to $120 by the user (lead-reported); Tinker billed $64.89 of $150.
