@@ -1,10 +1,10 @@
-# training lane digest — pass 47 (main ebdd639, router-it3-serve b455d2c, planner-lora ceafe3d)
+# training lane digest — pass 48 (main 806b0d4, wip/local 6b1006e, decisions 08dae49)
 
-Open: 0 P0, 14 P1, 16 P2. training-44 is resolved on cloud/router-it3-serve (MUSELET_ROUTE_CATALOG, v3 parity test). New: training-51 (P2). Spend: planner-lora used about $5.84, so MTD is about $142-144.
+Open: 0 P0, 14 P1, 16 P2. No new findings. training-49 (memory gate crash) is now on main. Four cloud branches edit cli.py/serve_brain.sh; re-check ROUTER=it3/MUSELET_ROUTE_CATALOG after they merge.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
-2. training-49 P1 — memory-eval gate appends 2-tuples; overlaps() raises ValueError, so route rebuild is broken (training/data_route/build.py).
+2. training-49 P1 — memory-eval gate appends 2-tuples; overlaps() raises ValueError, so route rebuild is broken (training/data_route/build.py, now on main).
 3. training-47 P1 — route_v2 gate misses mid-length paraphrases; 13-gram rule can't fire on 640/955 items (evalcheck.py).
 4. training-48 P1 — merge_it3cand keeps source splits; val3/tau may be inflated (router_check drops only exact it2-train rows).
 5. training-45 P1 — it3 ARGS audit noise fixed only on the 1,061 sampled rows.
