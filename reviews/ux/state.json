@@ -1,9 +1,9 @@
 {
-  "pass": 46,
-  "ts": "2026-10-24T23:00:00Z",
+  "pass": 47,
+  "ts": "2026-10-24T23:15:00Z",
   "last_reviewed": {
-    "main": "a97fcba",
-    "wip/local": "ac41cd2",
+    "main": "46b97f5",
+    "wip/local": "719907a",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -58,12 +58,17 @@
     "cloud/router-it3-serve": "b455d2c",
     "cloud/docs-demo-2": "fa79929",
     "cloud/hands-clock": "26d4427",
-    "cloud/live-cases": "5c173f6",
+    "cloud/live-cases": "fa9c374",
     "cloud/planner-think": "3677348",
     "cloud/planner-verify": "d22b9a9",
-    "cloud/brain-9": "3f9718b",
+    "cloud/brain-9": "e9e9b42",
     "cloud/safety-bench28": "a0c456e",
-    "cloud/safety-brain27": "ac43219"
+    "cloud/safety-brain27": "ac43219",
+    "cloud/safety-architect27": "4edcba5",
+    "cloud/safety-brain12": "97c5242",
+    "cloud/safety-brain18": "9aa2e4c",
+    "cloud/safety-brain38": "54ca8f6",
+    "cloud/safety-planner28": "fb4a45a"
   },
-  "notes": "pass 46: main merged W9 (#46), router-it3 and docs-demo-2; ux-24 now on main. brain-9: browser-name mapping, no new copy. safety-brain27/bench28: no copy. memory-lt: ux-27 still open. No new findings."
+  "notes": "pass 47: no lane changes on main. wip/live-cases carry the Calculator frontmost guard and the trash confirm summary (internal error text, no new bubble copy). safety-* branches: small brain changes with no user-facing copy. No new findings; open findings unchanged."
 }
