@@ -1,15 +1,24 @@
-# ux digest — pass 32
+# ux digest — pass 33
 
-Heads: main c949565, wip/local 4ec066f (= main for lane files), cloud/decisions e125c13; others unchanged.
+Heads: main c949565 (unchanged), wip/local 4ec066f (= main), new cloud/app-ui afb2688, cloud/brain-7 13432fe,
+cloud/native-research fa88c22 and cloud/report dffa733 (docs only), cloud/decisions 184c80f and cloud/data-pipeline
+6c1e565 (no lane files).
 
-- main 5292608..c949565: only `cloud/builder_appui.md` and `cloud/builder_comms.md` (briefs, no code). No lane change.
-- cloud/decisions: no app/brain changes since merge base (training reports only).
-- Note on `cloud/builder_appui.md`: it redesigns Panel/ and Mascot/ and adds a typed-utterance pill and a
-  `config`/`config_ack` frame. It keeps "the current rows (Automation grants included)", so ux-15 (`.notRunning` shown
-  as "Grant") would carry over unless the builder is told to fix it. Will review the code when `cloud/app-ui` lands.
+Counts: 0 P0, 1 P1 (branch-only), 9 P2 (8 on main, 1 branch-only).
 
-Counts: 0 P0, 0 P1, 8 P2 open (all on main): ux-12, ux-14, ux-15, ux-16, ux-17, ux-18, ux-19, ux-20. Re-checked: no lane
-file changed since pass 31, so all remain open at the same evidence lines.
+New
+- ux-21 P1 (brain-7 x app-ui): the two branches use different config_ack shapes. brain-7 sends `{escalate_planner, loaded}`
+  with no `ok`; app-ui's ConfigAck.parse falls back to ok=false, so a successful 35B load shows "Not available". Both
+  branches also add a config handler to server.py and will conflict when merged. Pick one schema before merging either.
+- ux-22 P2 (brain-7): the app sends the persisted toggle on every reconnect, and brain-7 then loads the 35B on the shared
+  MLX worker, so the first planner requests after a brain restart queue behind the load with only "thinking" on screen
+  (load time not measured).
 
-Top: ux-19 (unanswered screenshot-click confirm -> "Something went wrong", orchestrator.py:1361/1419, ~5 min),
-ux-20 (grounder lazy load, no bubble), ux-16 (relative brightness -> bare "Done", ~10 min).
+Rechecks
+- ux-12: brain-7 adds three sign-in-gate prompts that also set ui("listening") while the mic is off.
+- ux-15: the app-ui tooltip is now honest, but the row still counts only granted apps and shows "Grant" for not-running ones.
+- ux-14, ux-16, ux-17, ux-18, ux-19, ux-20: unchanged on main.
+
+app-ui otherwise looks sound: typed and example requests reuse the utterance path with ctx captured before Muselet
+takes focus (RequestCtx), the pill mic toggles pressBegan/pressEnded, and config is re-sent after hello on reconnect.
+Swift was not compiled (Linux).
