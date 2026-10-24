@@ -26,6 +26,8 @@ import unicodedata
 from . import slots
 from .orchestrator import _excerpt
 
+CONTACTS_TIMEOUT_S = 65
+
 _EMAIL = re.compile(r"^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9-]+"
                     r"(?:\.[A-Z0-9-]+)+$", re.IGNORECASE)
 _PHONE = re.compile(r"^\+?[\d\s()./-]+$")
@@ -366,7 +368,8 @@ async def send_message(orch, to, body, *, from_planner=False) -> str:
     old = getattr(orch, "_comms", None)
     tries = old.get("tries", 0) if old and old.get("kind") == "handle" else 0
     result, error = await _rpc(
-        orch, "resolve", "contacts_search", {"query": query, "limit": 5}, 5)
+        orch, "resolve", "contacts_search", {"query": query, "limit": 5},
+        CONTACTS_TIMEOUT_S)
     if error == "contacts_denied":
         _trace(orch, "resolve", {
             "query": query, "n_matches": 0,
