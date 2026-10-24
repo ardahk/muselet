@@ -1,3 +1,5 @@
+import AppKit
+import ApplicationServices
 import ArgumentParser
 import Foundation
 import HandsKit
@@ -14,7 +16,8 @@ struct HandsCLI: ParsableCommand {
         commandName: "hands",
         abstract: "HandsKit headless CLI: observe, act, skills, brain client.",
         subcommands: [ObserveCmd.self, ReplCmd.self, SkillCmd.self,
-                      BenchObserveCmd.self, ServeCmd.self, OcrCmd.self, ProbeCmd.self])
+                      BenchObserveCmd.self, ServeCmd.self, OcrCmd.self, ProbeCmd.self,
+                      WebAXCmd.self])
 }
 
 struct OcrCmd: ParsableCommand {
@@ -84,22 +87,95 @@ struct ObserveCmd: ParsableCommand {
     @Option(help: "Max elements") var max: Int = 150
     @Option(help: "Scope: focused_window|app|menubar") var scope = "focused_window"
     @Flag(help: "Emit JSON instead of text") var json = false
+    @Flag(help: "Don't turn on the web AX tree (AXManualAccessibility / AXEnhancedUserInterface)")
+    var noWebAx = false
     func run() throws {
         Permissions.requireAX()
-        let h = Hands()
-        let rpc = RPCHandler()
         if json {
+            let rpc = RPCHandler(warmUp: false)
+            rpc.hands.webAXEnabled = !noWebAx
             let (ok, r, e) = rpc.handle(method: "observe", params: [
                 "app": app as Any, "max_nodes": max, "scope": scope, "diff": true])
             if ok, let r { printJSON(r) }
             else { FileHandle.standardError.write("error: \(e ?? "?")\n".data(using: .utf8)!); throw ExitCode(1) }
         } else {
+            let h = Hands()
+            h.webAXEnabled = !noWebAx
             let obs = try h.observe(scope: scope, app: app, maxNodes: max)
             print(obs.text)
             if let d = obs.diffText, !d.isEmpty { print("--- diff ---\n\(d)") }
-            FileHandle.standardError.write(
-                "ax_ms=\(obs.axMs.rounded(to: 1)) nodes=\(obs.elements.count)\n".data(using: .utf8)!)
+            let web = obs.elements.filter { $0.inWebArea }.count
+            var line = "ax_ms=\(obs.axMs.rounded(to: 1)) nodes=\(obs.elements.count) web_nodes=\(web)"
+                + (obs.truncated ? " truncated" : "")
+            if let m = obs.webAX {
+                line += " web_ax=\(m) web_wait_ms=\((obs.webAXWaitMs ?? 0).rounded(to: 1))"
+                if let w = h.lastWebAX?.wait {
+                    line += " web_area=\(w.foundWebArea) populated=\(w.populated) polls=\(w.polls)"
+                }
+            }
+            FileHandle.standardError.write((line + "\n").data(using: .utf8)!)
         }
+    }
+}
+
+/// Inspect (and optionally set) an app's web AX switches.
+struct WebAXCmd: ParsableCommand {
+    static var configuration = CommandConfiguration(
+        commandName: "webax",
+        abstract: "Show an app's AXManualAccessibility / AXEnhancedUserInterface and web area; --set changes them.")
+    @Option(help: "App name") var app: String
+    @Option(help: "manual | enhanced | off (sets both false) | manual-off | enhanced-off") var set: String?
+    func run() throws {
+        Permissions.requireAX()
+        guard let ra = NSWorkspace.shared.runningApplications.first(where: {
+            ($0.localizedName ?? "").localizedCaseInsensitiveCompare(app) == .orderedSame
+        }) else { throw ValidationError("not running: \(app)") }
+        let node = AXNode(AXUIElementCreateApplication(ra.processIdentifier))
+        node.setMessagingTimeout(0.5)
+        var d: [String: Any] = ["app": ra.localizedName ?? app, "pid": ra.processIdentifier,
+                                "bundle_id": ra.bundleIdentifier ?? "",
+                                "mode": WebAX.mode(bundleId: ra.bundleIdentifier,
+                                                   bundleURL: ra.bundleURL)?.rawValue ?? "none"]
+        func state(_ prefix: String) {
+            for a in [WebAX.manualAttribute, WebAX.enhancedAttribute] {
+                let v = node.copySingleAttr(a)
+                d["\(prefix)\(a)"] = (v as? Bool).map { $0 as Any } ?? (v.map { "\($0)" } ?? "unset")
+            }
+        }
+        state("before_")
+        if let set {
+            var r: [String: Bool] = [:]
+            switch set {
+            case "manual": r["manual"] = node.setAttr(WebAX.manualAttribute, true)
+            case "enhanced": r["enhanced"] = node.setAttr(WebAX.enhancedAttribute, true)
+            case "manual-off": r["manual"] = node.setAttr(WebAX.manualAttribute, false)
+            case "enhanced-off": r["enhanced"] = node.setAttr(WebAX.enhancedAttribute, false)
+            case "off":
+                r["manual"] = node.setAttr(WebAX.manualAttribute, false)
+                r["enhanced"] = node.setAttr(WebAX.enhancedAttribute, false)
+            default: throw ValidationError("bad --set \(set)")
+            }
+            d["set_ok"] = r
+            state("after_")
+        }
+        let wins = (node.copySingleAttr(kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
+        d["windows"] = wins.map { w -> String in
+            let n = AXNode(w)
+            n.setMessagingTimeout(0.5)
+            return n.copySingleAttr(kAXTitleAttribute as String) as? String ?? ""
+        }
+        if let w = node.copySingleAttr(kAXFocusedWindowAttribute as String),
+           CFGetTypeID(w as CFTypeRef) == AXUIElementGetTypeID() {
+            let win = AXNode(w as! AXUIElement)
+            win.setMessagingTimeout(0.5)
+            d["window"] = win.copySingleAttr(kAXTitleAttribute as String) as? String ?? ""
+            if let area = WebAX.findWebArea(in: win, deadline: Date().addingTimeInterval(1)) {
+                d["web_area_children"] = area.copyAttrs().children.count
+            } else {
+                d["web_area_children"] = NSNull()
+            }
+        }
+        printJSON(d)
     }
 }
 

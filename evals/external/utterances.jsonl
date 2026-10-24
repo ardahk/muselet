@@ -1,0 +1,570 @@
+{"id": "G01-finder-sort", "source": "deskmind/diag", "text": "工作目录里混着几个不同类型的文件。请新建一个名为 docs 的文件夹，\n把 .txt 文件都移进去。其他文件和 keep 目录不要动。"}
+{"id": "G02-textedit-edit", "source": "deskmind/diag", "text": "memo.txt 已在 TextEdit 中打开。请把 Status 那一行改成 Status: final，\n并把 Budget 从 1200 改成 1500。其他行保持不变。改完保存。"}
+{"id": "G03-safari-extract", "source": "deskmind/diag", "text": "Safari 打开着一张仓库库存清单。请把表格里三行的「编号,名称,库存」\n按库存从少到多的顺序追加进已在 TextEdit 中打开的 inventory.csv。\n表头已存在，不要重复写。写完保存。"}
+{"id": "G04-chinese-exact", "source": "deskmind/diag", "text": "report.txt 已在 TextEdit 中打开，目前是空的。请逐字写入下面两行，\n全角标点、半角数字和换行都要一致，然后保存：\n一季度营收 1,240 万元，环比增长 8.5%。\n未结订单 37 笔，其中逾期 3 笔。"}
+{"id": "G05-ambiguity-ask", "source": "deskmind/diag", "text": "customers.txt 里有客户张伟的订单记录。请把「张伟的那笔订单」\n按 `客户,编号,金额` 追加进 orders.csv 并保存。"}
+{"id": "G06-wrong-target", "source": "deskmind/diag", "text": "两个季度报告都已在 TextEdit 中打开，文件名只差一个字符。\n请只把 **Q4** 那份的 status 改成 final，Q3 那份一个字都不要动。改完保存。"}
+{"id": "G07-finder-newfolder", "source": "deskmind/diag", "text": "在工作目录里新建一个名为 archive 的文件夹。不要做别的。"}
+{"id": "G08-finder-move-one", "source": "deskmind/diag", "text": "把 inbox 文件夹里的 2026-02-c.log 移动到工作目录的顶层。\n其他文件保持原位。"}
+{"id": "G09-finder-navigate-down", "source": "deskmind/diag", "text": "工作目录下有 2026/02/ 这样的层级。请进入 2026/02 文件夹，\n把里面那个 .log 文件重命名为 february.log。不要动其他文件。"}
+{"id": "G10-finder-navigate-up", "source": "deskmind/diag", "text": "请把 2026/01 文件夹里的 a.log 移动到工作目录的顶层，\n也就是和 stray.log 同一层。其他文件保持原位。"}
+{"id": "G11-long-scroll", "source": "deskmind/diag", "text": "log.txt 有 60 行，其中恰好有一行的状态是「关键」。请找到它，\n把那一行的项目编号（形如 P-1047）写进 answer.txt 并保存。\n只写编号本身，不要写别的。"}
+{"id": "G12-cancel-midway", "source": "deskmind/diag", "text": "请依次把 item1.txt 到 item5.txt 每个文件都重命名，\n在原名后面加上 -done（例如 item1-done.txt）。"}
+{"id": "G13-roundtrip", "source": "deskmind/diag", "text": "source.txt 里有订单号和金额。请把它们按 `订单号,金额` 一行写进 target.txt 并保存。\n只写数值，不要写标签文字。"}
+{"id": "D-BR1-dev", "source": "deskmind/dyn", "text": "看每个 票-*.txt 里写的金额：1000 元及以上的放进 大额，其余放进 小额。其他文件不要动。"}
+{"id": "D-BR1-test", "source": "deskmind/dyn", "text": "看每个 票-*.txt 里写的金额：1000 元及以上的放进 大额，其余放进 小额。其他文件不要动。"}
+{"id": "D-BR1-test2", "source": "deskmind/dyn", "text": "看每个 票-*.txt 里写的金额：1000 元及以上的放进 大额，其余放进 小额。其他文件不要动。"}
+{"id": "D-BR1-test3", "source": "deskmind/dyn", "text": "看每个 票-*.txt 里写的金额：1000 元及以上的放进 大额，其余放进 小额。其他文件不要动。"}
+{"id": "D-BR2-dev", "source": "deskmind/dyn", "text": "新建文件夹 待处理。如果有 季报-终稿.md，把它移进 待处理；如果没有，就把 模板/季报模板.md 复制一份到 待处理，命名为 季报-终稿.md。其他文件不要动。"}
+{"id": "D-BR2-test", "source": "deskmind/dyn", "text": "新建文件夹 待处理。如果有 季报-终稿.md，把它移进 待处理；如果没有，就把 模板/季报模板.md 复制一份到 待处理，命名为 季报-终稿.md。其他文件不要动。"}
+{"id": "D-BR2-test2", "source": "deskmind/dyn", "text": "新建文件夹 shelf。如果有 季报-终稿.md，把它移进 shelf；如果没有，就把 模板/季报模板.md 复制一份到 shelf，命名为 季报-终稿.md。其他文件不要动。"}
+{"id": "D-BR2-test3", "source": "deskmind/dyn", "text": "新建文件夹 shelf。如果有 季报-终稿.md，把它移进 shelf；如果没有，就把 模板/季报模板.md 复制一份到 shelf，命名为 季报-终稿.md。其他文件不要动。"}
+{"id": "D-BR3-dev", "source": "deskmind/dyn", "text": "把金额在 1000 元及以上的 票-*.txt 都放进新文件夹 待报销，然后告诉我放了几张。其他文件不要动。"}
+{"id": "D-BR3-test", "source": "deskmind/dyn", "text": "把金额在 1000 元及以上的 票-*.txt 都放进新文件夹 待报销，然后告诉我放了几张。其他文件不要动。"}
+{"id": "D-BR3-test2", "source": "deskmind/dyn", "text": "把金额在 1000 元及以上的 票-*.txt 都放进新文件夹 待报销，然后告诉我放了几张。其他文件不要动。"}
+{"id": "D-BR3-test3", "source": "deskmind/dyn", "text": "把金额在 1000 元及以上的 票-*.txt 都放进新文件夹 待报销，然后告诉我放了几张。其他文件不要动。"}
+{"id": "D-BR4-dev", "source": "deskmind/dyn", "text": "把青禾那张发票放进新文件夹 待报销。其他文件不要动。"}
+{"id": "D-BR4-test", "source": "deskmind/dyn", "text": "把青禾那张发票放进新文件夹 待报销。其他文件不要动。"}
+{"id": "D-BR4-test2", "source": "deskmind/dyn", "text": "把青禾那张发票放进新文件夹 待报销。其他文件不要动。"}
+{"id": "D-BR4-test3", "source": "deskmind/dyn", "text": "把青禾那张发票放进新文件夹 待报销。其他文件不要动。"}
+{"id": "D-FM1-dev", "source": "deskmind/dyn", "text": "先新建文件夹 库房，把 loom-pattern-17.md 放进去；然后把 reef-count-96.log 改名为 已核-reef-count-96.log；最后把 渡口排班-32.md 也放进 库房。其他文件不要动。"}
+{"id": "D-FM1-test", "source": "deskmind/dyn", "text": "先新建文件夹 inbox-old，把 窑温曲线-10.txt 放进去；然后把 harbor-tides-56.md 改名为 已核-harbor-tides-56.md；最后把 oak-survey-38.txt 也放进 inbox-old。其他文件不要动。"}
+{"id": "D-FM1-test2", "source": "deskmind/dyn", "text": "先新建文件夹 studio，把 灯塔巡检-16.csv 放进去；然后把 kiln-temps-53.csv 改名为 已核-kiln-temps-53.csv；最后把 蜂箱清点-44.log 也放进 studio。其他文件不要动。"}
+{"id": "D-FM1-test3", "source": "deskmind/dyn", "text": "先新建文件夹 shelf，把 窑温曲线-18.txt 放进去；然后把 glacier-map-62.md 改名为 已核-glacier-map-62.md；最后把 渡口排班-65.md 也放进 shelf。其他文件不要动。"}
+{"id": "D-FM2-dev", "source": "deskmind/dyn", "text": "先把 温室 里的 蜂箱清点-78.csv 移到工作目录顶层；然后新建文件夹 inbox-old，把 温室 里的 kiln-temps-25.md 放进去；最后把 温室 里的 orchard-yield-73.csv 也放进 inbox-old。其他文件不要动。"}
+{"id": "D-FM2-test", "source": "deskmind/dyn", "text": "先把 已整理 里的 harbor-tides-82.csv 移到工作目录顶层；然后新建文件夹 库房，把 已整理 里的 苔藓观察-46.txt 放进去；最后把 已整理 里的 航线图-92.md 也放进 库房。其他文件不要动。"}
+{"id": "D-FM2-test2", "source": "deskmind/dyn", "text": "先把 待处理 里的 蜂箱清点-65.log 移到工作目录顶层；然后新建文件夹 field，把 待处理 里的 窑温曲线-42.log 放进去；最后把 待处理 里的 reef-count-93.log 也放进 field。其他文件不要动。"}
+{"id": "D-FM2-test3", "source": "deskmind/dyn", "text": "先把 field 里的 梯田测绘-16.csv 移到工作目录顶层；然后新建文件夹 温室，把 field 里的 蜂箱清点-17.csv 放进去；最后把 field 里的 潮汐表-15.csv 也放进 温室。其他文件不要动。"}
+{"id": "D-FM3-dev", "source": "deskmind/dyn", "text": "先新建文件夹 inbox-old，把 星图草案-55.log 放进去；然后把 梯田测绘-56.log 也放进 inbox-old；最后把 窑温曲线-66.txt 也放进 inbox-old。其他文件不要动。"}
+{"id": "D-FM3-test", "source": "deskmind/dyn", "text": "先新建文件夹 库房，把 渡口排班-44.txt 放进去；然后把 梯田测绘-75.csv 也放进 库房；最后把 harbor-tides-43.md 也放进 库房。其他文件不要动。"}
+{"id": "D-FM3-test2", "source": "deskmind/dyn", "text": "先新建文件夹 暗房，把 kiln-temps-36.log 放进去；然后把 茶园账本-13.txt 也放进 暗房；最后把 harbor-tides-16.md 也放进 暗房。其他文件不要动。"}
+{"id": "D-FM3-test3", "source": "deskmind/dyn", "text": "先新建文件夹 已整理，把 窑温曲线-68.md 放进去；然后把 glacier-map-60.log 也放进 已整理；最后把 蜂箱清点-88.md 也放进 已整理。其他文件不要动。"}
+{"id": "D-FM4-dev", "source": "deskmind/dyn", "text": "先新建文件夹 已整理，把 loom-pattern-39.log 放进去；然后把 kiln-temps-86.md 改名为 已核-kiln-temps-86.md；最后把 航线图-98.txt 也放进 已整理。其他文件不要动。"}
+{"id": "D-FM4-test", "source": "deskmind/dyn", "text": "先新建文件夹 库房，把 潮汐表-22.log 放进去；然后把 kiln-temps-67.csv 改名为 已核-kiln-temps-67.csv；最后把 航线图-30.log 也放进 库房。其他文件不要动。"}
+{"id": "D-FM4-test2", "source": "deskmind/dyn", "text": "先新建文件夹 暗房，把 reef-count-63.md 放进去；然后把 glacier-map-50.log 改名为 已核-glacier-map-50.log；最后把 harbor-tides-67.log 也放进 暗房。其他文件不要动。"}
+{"id": "D-FM4-test3", "source": "deskmind/dyn", "text": "先新建文件夹 inbox-old，把 航线图-15.log 放进去；然后把 orchard-yield-65.txt 改名为 已核-orchard-yield-65.txt；最后把 glacier-map-64.txt 也放进 inbox-old。其他文件不要动。"}
+{"id": "D-OG1-dev", "source": "deskmind/dyn", "text": "整理一下这个文件夹。"}
+{"id": "D-OG1-test", "source": "deskmind/dyn", "text": "整理一下这个文件夹。"}
+{"id": "D-OG1-test2", "source": "deskmind/dyn", "text": "整理一下这个文件夹。"}
+{"id": "D-OG1-test3", "source": "deskmind/dyn", "text": "整理一下这个文件夹。"}
+{"id": "D-OG2-dev", "source": "deskmind/dyn", "text": "按项目整理这个文件夹：每个项目一个文件夹，用项目名命名。"}
+{"id": "D-OG2-test", "source": "deskmind/dyn", "text": "按项目整理这个文件夹：每个项目一个文件夹，用项目名命名。"}
+{"id": "D-OG2-test2", "source": "deskmind/dyn", "text": "按项目整理这个文件夹：每个项目一个文件夹，用项目名命名。"}
+{"id": "D-OG2-test3", "source": "deskmind/dyn", "text": "按项目整理这个文件夹：每个项目一个文件夹，用项目名命名。"}
+{"id": "D-OG3-dev", "source": "deskmind/dyn", "text": "按项目整理这个文件夹：每个项目一个文件夹，用项目名命名。"}
+{"id": "D-OG3-test", "source": "deskmind/dyn", "text": "按项目整理这个文件夹：每个项目一个文件夹，用项目名命名。"}
+{"id": "D-OG3-test2", "source": "deskmind/dyn", "text": "按项目整理这个文件夹：每个项目一个文件夹，用项目名命名。"}
+{"id": "D-OG3-test3", "source": "deskmind/dyn", "text": "按项目整理这个文件夹：每个项目一个文件夹，用项目名命名。"}
+{"id": "D-PU2-dev", "source": "deskmind/dyn", "text": "先新建文件夹 inbox-old，把 glacier-map-83.log 放进去；然后把 苔藓观察-56.md 也放进 inbox-old；最后把 quarry-photos-92.csv 也放进 inbox-old。其他文件不要动。"}
+{"id": "D-PU2-test", "source": "deskmind/dyn", "text": "先新建文件夹 温室，把 oak-survey-75.md 放进去；然后把 kiln-temps-52.txt 也放进 温室；最后把 苔藓观察-51.txt 也放进 温室。其他文件不要动。"}
+{"id": "D-PU2-test2", "source": "deskmind/dyn", "text": "先新建文件夹 库房，把 quarry-photos-15.txt 放进去；然后把 reef-count-57.csv 也放进 库房；最后把 星图草案-74.md 也放进 库房。其他文件不要动。"}
+{"id": "D-PU2-test3", "source": "deskmind/dyn", "text": "先新建文件夹 已整理，把 渡口排班-24.csv 放进去；然后把 潮汐表-60.log 也放进 已整理；最后把 灯塔巡检-12.log 也放进 已整理。其他文件不要动。"}
+{"id": "D-UA1-dev", "source": "deskmind/dyn", "text": "把这 4 个文件按类型分开放：csv 放进 表格，md 放进 文档。其他文件不要动。"}
+{"id": "D-UA1-test", "source": "deskmind/dyn", "text": "把这 4 个文件按类型分开放：csv 放进 表格，md 放进 文档。其他文件不要动。"}
+{"id": "D-UA1-test2", "source": "deskmind/dyn", "text": "把这 4 个文件按类型分开放：csv 放进 表格，md 放进 文档。其他文件不要动。"}
+{"id": "D-UA1-test3", "source": "deskmind/dyn", "text": "把这 4 个文件按类型分开放：csv 放进 表格，md 放进 文档。其他文件不要动。"}
+{"id": "D-UA2-dev", "source": "deskmind/dyn", "text": "先新建文件夹 已整理，把 reef-count-31.md 放进去；然后把 苔藓观察-38.csv 改名为 已核-苔藓观察-38.csv；最后把 渡口排班-17.log 也放进 已整理。其他文件不要动。"}
+{"id": "D-UA2-test", "source": "deskmind/dyn", "text": "先新建文件夹 样本，把 harbor-tides-72.csv 放进去；然后把 渡口排班-54.log 改名为 已核-渡口排班-54.log；最后把 oak-survey-32.log 也放进 样本。其他文件不要动。"}
+{"id": "D-UA2-test2", "source": "deskmind/dyn", "text": "先新建文件夹 待处理，把 窑温曲线-44.md 放进去；然后把 orchard-yield-15.txt 改名为 已核-orchard-yield-15.txt；最后把 glacier-map-48.log 也放进 待处理。其他文件不要动。"}
+{"id": "D-UA2-test3", "source": "deskmind/dyn", "text": "先新建文件夹 库房，把 星图草案-96.csv 放进去；然后把 梯田测绘-40.log 改名为 已核-梯田测绘-40.log；最后把 渡口排班-33.log 也放进 库房。其他文件不要动。"}
+{"id": "D-UA3-dev", "source": "deskmind/dyn", "text": "先新建文件夹 暗房，把 glacier-map-53.log 放进去；然后把 窑温曲线-55.log 也放进 暗房；最后把 quarry-photos-91.csv 也放进 暗房。其他文件不要动。"}
+{"id": "D-UA3-test", "source": "deskmind/dyn", "text": "先新建文件夹 暗房，把 oak-survey-92.log 放进去；然后把 星图草案-29.md 也放进 暗房；最后把 kiln-temps-54.md 也放进 暗房。其他文件不要动。"}
+{"id": "D-UA3-test2", "source": "deskmind/dyn", "text": "先新建文件夹 存档盒，把 glacier-map-34.md 放进去；然后把 梯田测绘-55.log 也放进 存档盒；最后把 reef-count-64.txt 也放进 存档盒。其他文件不要动。"}
+{"id": "D-UA3-test3", "source": "deskmind/dyn", "text": "先新建文件夹 温室，把 orchard-yield-71.csv 放进去；然后把 reef-count-41.md 也放进 温室；最后把 茶园账本-13.txt 也放进 温室。其他文件不要动。"}
+{"id": "D-UA4-dev", "source": "deskmind/dyn", "text": "先新建文件夹 样本，把 星图草案-17.txt 放进去；然后把 orchard-yield-57.txt 改名为 已核-orchard-yield-57.txt；最后把 reef-count-82.txt 也放进 样本。其他文件不要动。"}
+{"id": "D-UA4-test", "source": "deskmind/dyn", "text": "先新建文件夹 shelf，把 渡口排班-90.csv 放进去；然后把 灯塔巡检-50.log 改名为 已核-灯塔巡检-50.log；最后把 星图草案-26.log 也放进 shelf。其他文件不要动。"}
+{"id": "D-UA4-test2", "source": "deskmind/dyn", "text": "先新建文件夹 存档盒，把 潮汐表-76.txt 放进去；然后把 航线图-59.txt 改名为 已核-航线图-59.txt；最后把 oak-survey-12.log 也放进 存档盒。其他文件不要动。"}
+{"id": "D-UA4-test3", "source": "deskmind/dyn", "text": "先新建文件夹 温室，把 loom-pattern-86.md 放进去；然后把 潮汐表-34.txt 改名为 已核-潮汐表-34.txt；最后把 茶园账本-91.csv 也放进 温室。其他文件不要动。"}
+{"id": "P01-finder-copy", "source": "deskmind/proposals", "text": "把工作目录里的 report.txt 复制一份到 backup 文件夹里。原来的 report.txt 要留在原处，不要改动其他文件。"}
+{"id": "P02-textedit-replace-all", "source": "deskmind/proposals", "text": "memo.txt is open in TextEdit. Replace every occurrence of Orion with Nova.\nKeep all other text unchanged, save memo.txt, and leave other files untouched."}
+{"id": "P03-finder-multi3-00", "source": "deskmind/proposals", "text": "先把 记录-81.txt 改名为 plan-2.txt；然后把 backup 文件夹里的 summary-95.log 移到工作目录顶层；最后新建文件夹 草稿，把 计划-48.md 放进去。其他文件和文件夹不要动。"}
+{"id": "P04-finder-multi3-01", "source": "deskmind/proposals", "text": "先新建文件夹 报告，把 summary-24.log 放进去；然后给 plan-50.csv 和 report-21.log 的文件名都加上后缀 -v2（扩展名之前，例如 plan-50-v2.csv）；最后把 docs 文件夹里的 记录-64.txt 移到工作目录顶层。其他文件和文件夹不要动。"}
+{"id": "P05-finder-multi3-02", "source": "deskmind/proposals", "text": "First add the suffix -final to the names of plan-68.log and notes-40.log (before the extension, e.g. plan-68-final.log); then move 说明-20.txt out of the final folder up to the working directory; finally make a folder drafts and put plan-60.txt in it. Leave every other file and folder alone."}
+{"id": "P06-finder-multi3-03", "source": "deskmind/proposals", "text": "先新建文件夹 backup，把 清单-23.md 放进去；然后给 agenda-14.txt 和 计划-91.md 的文件名都加上后缀 -done（扩展名之前，例如 agenda-14-done.txt）；最后把 归档 文件夹里的 draft-59.txt 移到工作目录顶层。其他文件和文件夹不要动。"}
+{"id": "P07-finder-multi3-04", "source": "deskmind/proposals", "text": "先给 记录-69.csv 和 周报-7.log 的文件名都加上后缀 -final（扩展名之前，例如 记录-69-final.csv）；然后把 reports 文件夹里的 log-57.txt 移到工作目录顶层；最后新建文件夹 图片，把 记录-80.txt 放进去。其他文件和文件夹不要动。"}
+{"id": "P08-finder-multi3-05", "source": "deskmind/proposals", "text": "First rename budget-72.csv to 计划-46.csv; then make a folder final and put todo-2.csv in it; finally add the suffix -final to the names of notes-71.csv and draft-35.log (before the extension, e.g. notes-71-final.csv). Leave every other file and folder alone."}
+{"id": "P09-finder-multi3-06", "source": "deskmind/proposals", "text": "先把 agenda-63.md 改名为 计划-84.md；然后新建文件夹 图片，把 周报-21.csv 放进去；最后给 log-81.csv 和 说明-18.md 的文件名都加上后缀 -old（扩展名之前，例如 log-81-old.csv）。其他文件和文件夹不要动。"}
+{"id": "P10-finder-multi3-07", "source": "deskmind/proposals", "text": "先把 备份 文件夹里的 budget-30.md 移到工作目录顶层；然后给 清单-34.md 和 说明-32.md 的文件名都加上后缀 -final（扩展名之前，例如 清单-34-final.md）；最后新建文件夹 归档，把 plan-1.csv 放进去。其他文件和文件夹不要动。"}
+{"id": "P11-finder-multi3-08", "source": "deskmind/proposals", "text": "先把 photos 文件夹里的 summary-26.md 移到工作目录顶层；然后新建文件夹 资料，把 清单-95.md 放进去；最后给 memo-52.txt 和 draft-74.md 的文件名都加上后缀 -v2（扩展名之前，例如 memo-52-v2.txt）。其他文件和文件夹不要动。"}
+{"id": "P12-finder-multi3-09", "source": "deskmind/proposals", "text": "先新建文件夹 资料，把 周报-25.csv 放进去；然后给 budget-68.md 和 会议纪要-56.md 的文件名都加上后缀 -v2（扩展名之前，例如 budget-68-v2.md）；最后把 draft-70.log 改名为 draft-27.log。其他文件和文件夹不要动。"}
+{"id": "P13-finder-multi4-10", "source": "deskmind/proposals", "text": "First add the suffix -done to the names of 说明-81.csv and 清单-9.csv (before the extension, e.g. 说明-81-done.csv); then make a folder 合同 and put todo-87.md in it; next rename 记录-35.txt to 周报-74.txt; finally move draft-58.txt out of the drafts folder up to the working directory. Leave every other file and folder alone."}
+{"id": "P14-finder-multi4-11", "source": "deskmind/proposals", "text": "先新建文件夹 资料，把 draft-21.csv 放进去；然后给 清单-87.log 和 会议纪要-38.md 的文件名都加上后缀 -done（扩展名之前，例如 清单-87-done.log）；再把 todo-94.txt 改名为 会议纪要-2.txt；最后把 backup 文件夹里的 记录-30.txt 移到工作目录顶层。其他文件和文件夹不要动。"}
+{"id": "P15-finder-multi4-12", "source": "deskmind/proposals", "text": "先把 drafts 文件夹里的 draft-70.log 移到工作目录顶层；然后把 预算-24.txt 改名为 draft-59.txt；再新建文件夹 草稿，把 memo-81.csv 放进去；最后给 budget-16.log 和 清单-36.md 的文件名都加上后缀 -final（扩展名之前，例如 budget-16-final.log）。其他文件和文件夹不要动。"}
+{"id": "P16-finder-multi4-13", "source": "deskmind/proposals", "text": "先把 archive 文件夹里的 会议纪要-18.txt 移到工作目录顶层；然后新建文件夹 备份，把 draft-81.md 放进去；再给 draft-26.md 和 agenda-16.txt 的文件名都加上后缀 -done（扩展名之前，例如 draft-26-done.md）；最后把 budget-49.md 改名为 memo-16.md。其他文件和文件夹不要动。"}
+{"id": "P17-finder-multi4-14", "source": "deskmind/proposals", "text": "先把 backup 文件夹里的 记录-9.txt 移到工作目录顶层；然后把 agenda-46.log 改名为 周报-40.log；再新建文件夹 草稿，把 draft-30.md 放进去；最后给 说明-84.md 和 agenda-35.md 的文件名都加上后缀 -done（扩展名之前，例如 说明-84-done.md）。其他文件和文件夹不要动。"}
+{"id": "P18-finder-multi4-15", "source": "deskmind/proposals", "text": "先把 reports 文件夹里的 会议纪要-2.csv 移到工作目录顶层；然后把 记录-3.txt 改名为 budget-77.txt；再给 记录-67.md 和 report-65.txt 的文件名都加上后缀 -final（扩展名之前，例如 记录-67-final.md）；最后新建文件夹 图片，把 budget-51.log 放进去。其他文件和文件夹不要动。"}
+{"id": "P19-finder-multi4-16", "source": "deskmind/proposals", "text": "先把 old 文件夹里的 说明-79.csv 移到工作目录顶层；然后给 清单-71.md 和 memo-52.csv 的文件名都加上后缀 -v2（扩展名之前，例如 清单-71-v2.md）；再新建文件夹 drafts，把 summary-13.txt 放进去；最后把 report-46.md 改名为 周报-98.md。其他文件和文件夹不要动。"}
+{"id": "P20-finder-multi4-17", "source": "deskmind/proposals", "text": "First rename 计划-85.md to 记录-83.md; then move budget-16.txt out of the reports folder up to the working directory; next add the suffix -v2 to the names of todo-2.md and draft-81.log (before the extension, e.g. todo-2-v2.md); finally make a folder drafts and put summary-31.csv in it. Leave every other file and folder alone."}
+{"id": "P21-finder-multi4-18", "source": "deskmind/proposals", "text": "先新建文件夹 docs，把 计划-60.csv 放进去；然后给 report-25.csv 和 计划-78.txt 的文件名都加上后缀 -final（扩展名之前，例如 report-25-final.csv）；再把 reports 文件夹里的 log-31.md 移到工作目录顶层；最后把 log-22.log 改名为 周报-49.log。其他文件和文件夹不要动。"}
+{"id": "P22-finder-multi4-19", "source": "deskmind/proposals", "text": "先新建文件夹 项目，把 plan-19.txt 放进去；然后给 计划-69.txt 和 记录-61.md 的文件名都加上后缀 -old（扩展名之前，例如 计划-69-old.txt）；再把 清单-75.txt 改名为 记录-53.txt；最后把 reports 文件夹里的 notes-14.txt 移到工作目录顶层。其他文件和文件夹不要动。"}
+{"id": "D01", "source": "hobbylm/calc-tasks/dev", "text": "add 2 and 3"}
+{"id": "D02", "source": "hobbylm/calc-tasks/dev", "text": "subtract 1 from 9"}
+{"id": "D03", "source": "hobbylm/calc-tasks/dev", "text": "4 bags of 6 sweets, how many sweets?"}
+{"id": "D04", "source": "hobbylm/calc-tasks/dev", "text": "ten minus four"}
+{"id": "messy-01", "source": "hobbylm/calc-tasks/held-out", "text": "I had 20 rupees and spent 7. How much is left?"}
+{"id": "messy-02", "source": "hobbylm/calc-tasks/held-out", "text": "three times four"}
+{"id": "messy-03", "source": "hobbylm/calc-tasks/held-out", "text": "what's double 18"}
+{"id": "messy-04", "source": "hobbylm/calc-tasks/held-out", "text": "half of 18"}
+{"id": "messy-05", "source": "hobbylm/calc-tasks/held-out", "text": "split 60 equally among 4 people"}
+{"id": "messy-06", "source": "hobbylm/calc-tasks/held-out", "text": "I bought 3 pens at 12 each, what is the total?"}
+{"id": "messy-07", "source": "hobbylm/calc-tasks/held-out", "text": "a dozen plus 5"}
+{"id": "messy-08", "source": "hobbylm/calc-tasks/held-out", "text": "seven and five together"}
+{"id": "messy-09", "source": "hobbylm/calc-tasks/held-out", "text": "my bill is 450 and I pay 500, how much change?"}
+{"id": "messy-10", "source": "hobbylm/calc-tasks/held-out", "text": "two hundred minus fifty"}
+{"id": "messy-11", "source": "hobbylm/calc-tasks/held-out", "text": "5 boxes with 8 apples each, how many apples?"}
+{"id": "messy-12", "source": "hobbylm/calc-tasks/held-out", "text": "100 shared by 5"}
+{"id": "reversed-01", "source": "hobbylm/calc-tasks/held-out", "text": "subtract 3 from 10"}
+{"id": "reversed-02", "source": "hobbylm/calc-tasks/held-out", "text": "take 15 away from 40"}
+{"id": "reversed-03", "source": "hobbylm/calc-tasks/held-out", "text": "subtract 4 from 19"}
+{"id": "reversed-04", "source": "hobbylm/calc-tasks/held-out", "text": "what is 6 less than 20"}
+{"id": "reversed-05", "source": "hobbylm/calc-tasks/held-out", "text": "take 7 away from 50"}
+{"id": "reversed-06", "source": "hobbylm/calc-tasks/held-out", "text": "subtract 12 from 30"}
+{"id": "reversed-07", "source": "hobbylm/calc-tasks/held-out", "text": "how much bigger is 25 than 9"}
+{"id": "reversed-08", "source": "hobbylm/calc-tasks/held-out", "text": "what is 9 less than 31"}
+{"id": "simple-01", "source": "hobbylm/calc-tasks/held-out", "text": "add 7 and 5"}
+{"id": "simple-02", "source": "hobbylm/calc-tasks/held-out", "text": "9 plus 6"}
+{"id": "simple-03", "source": "hobbylm/calc-tasks/held-out", "text": "what is 8 times 7"}
+{"id": "simple-04", "source": "hobbylm/calc-tasks/held-out", "text": "20 minus 8"}
+{"id": "simple-05", "source": "hobbylm/calc-tasks/held-out", "text": "81 divided by 9"}
+{"id": "simple-06", "source": "hobbylm/calc-tasks/held-out", "text": "multiply 12 by 3"}
+{"id": "simple-07", "source": "hobbylm/calc-tasks/held-out", "text": "sum of 14 and 29"}
+{"id": "simple-08", "source": "hobbylm/calc-tasks/held-out", "text": "100 minus 37"}
+{"id": "simple-09", "source": "hobbylm/calc-tasks/held-out", "text": "4.5 plus 2.5"}
+{"id": "simple-10", "source": "hobbylm/calc-tasks/held-out", "text": "45 divided by 5"}
+{"id": "A01", "source": "hobbylm/sealed-r1", "text": "I need to jot something down"}
+{"id": "A02", "source": "hobbylm/sealed-r1", "text": "open notes app"}
+{"id": "A03", "source": "hobbylm/sealed-r1", "text": "whats on my schedule"}
+{"id": "A04", "source": "hobbylm/sealed-r1", "text": "show calender, need to check friday"}
+{"id": "A05", "source": "hobbylm/sealed-r1", "text": "open finder"}
+{"id": "A06", "source": "hobbylm/sealed-r1", "text": "i want to browse my files"}
+{"id": "A07", "source": "hobbylm/sealed-r1", "text": "play some music, open the music app"}
+{"id": "A08", "source": "hobbylm/sealed-r1", "text": "open apple music"}
+{"id": "A09", "source": "hobbylm/sealed-r1", "text": "open my to-do reminders"}
+{"id": "A10", "source": "hobbylm/sealed-r1", "text": "where is my reminders list, open it"}
+{"id": "C01", "source": "hobbylm/sealed-r1", "text": "whats 57 plus 36"}
+{"id": "C02", "source": "hobbylm/sealed-r1", "text": "92 minus 47 pls"}
+{"id": "C03", "source": "hobbylm/sealed-r1", "text": "19 times 8?"}
+{"id": "C04", "source": "hobbylm/sealed-r1", "text": "225 divided by 15"}
+{"id": "C05", "source": "hobbylm/sealed-r1", "text": "how much is 403 + 298"}
+{"id": "C06", "source": "hobbylm/sealed-r1", "text": "64 x 25"}
+{"id": "C07", "source": "hobbylm/sealed-r1", "text": "12.5 minus 4.75"}
+{"id": "C08", "source": "hobbylm/sealed-r1", "text": "take 13 off 50"}
+{"id": "C09", "source": "hobbylm/sealed-r1", "text": "how much less is 27 than 90"}
+{"id": "C10", "source": "hobbylm/sealed-r1", "text": "knock 140 off 600"}
+{"id": "C11", "source": "hobbylm/sealed-r1", "text": "how many 6s fit in 96"}
+{"id": "C12", "source": "hobbylm/sealed-r1", "text": "whats 14 short of 100"}
+{"id": "C13", "source": "hobbylm/sealed-r1", "text": "how much bigger is 210 than 150"}
+{"id": "C14", "source": "hobbylm/sealed-r1", "text": "pull 75 out of 320, what remains"}
+{"id": "C15", "source": "hobbylm/sealed-r1", "text": "120 shared equally by 8, each gets?"}
+{"id": "C16", "source": "hobbylm/sealed-r1", "text": "eighty one minus twenty seven"}
+{"id": "C17", "source": "hobbylm/sealed-r1", "text": "a dozen into seven"}
+{"id": "C18", "source": "hobbylm/sealed-r1", "text": "forty plus sixty six"}
+{"id": "C19", "source": "hobbylm/sealed-r1", "text": "nine hundred divided by thirty"}
+{"id": "C20", "source": "hobbylm/sealed-r1", "text": "thirteen times seven"}
+{"id": "C21", "source": "hobbylm/sealed-r1", "text": "one fifty minus eighty eight"}
+{"id": "C22", "source": "hobbylm/sealed-r1", "text": "fifteen into six kitna"}
+{"id": "C23", "source": "hobbylm/sealed-r1", "text": "paid 1200 for 5 notebooks, cost of one?"}
+{"id": "C24", "source": "hobbylm/sealed-r1", "text": "electricity bill 3150, 3 flatmates splitting, my part"}
+{"id": "C25", "source": "hobbylm/sealed-r1", "text": "gave a 2000 note, spent 1460, how much change i shud get"}
+{"id": "C26", "source": "hobbylm/sealed-r1", "text": "6 friends each paying 450 for the trip, total collected?"}
+{"id": "C27", "source": "hobbylm/sealed-r1", "text": "chai is 15 each, ordered 8 cups, total"}
+{"id": "C28", "source": "hobbylm/sealed-r1", "text": "did 250 km on 10 litres, how many km per litre"}
+{"id": "C29", "source": "hobbylm/sealed-r1", "text": "had 18 laddoos, ate 5, how many left"}
+{"id": "C30", "source": "hobbylm/sealed-r1", "text": "flight was 4800 and baggage 650 extra, total paid"}
+{"id": "D01", "source": "hobbylm/sealed-r1", "text": "screen is too bright, its night"}
+{"id": "D02", "source": "hobbylm/sealed-r1", "text": "lower brightness a bit yaar"}
+{"id": "D03", "source": "hobbylm/sealed-r1", "text": "my eyes are burning from this glare"}
+{"id": "D04", "source": "hobbylm/sealed-r1", "text": "cant read anything, screen too dark"}
+{"id": "D05", "source": "hobbylm/sealed-r1", "text": "brighten the display pls"}
+{"id": "D06", "source": "hobbylm/sealed-r1", "text": "working outside, screen is too dim"}
+{"id": "D07", "source": "hobbylm/sealed-r1", "text": "volume down a little"}
+{"id": "D08", "source": "hobbylm/sealed-r1", "text": "this video is blasting, reduce sound"}
+{"id": "D09", "source": "hobbylm/sealed-r1", "text": "bit softer pls, neighbours are sleeping"}
+{"id": "D10", "source": "hobbylm/sealed-r1", "text": "I cant hear anything"}
+{"id": "D11", "source": "hobbylm/sealed-r1", "text": "louder, the podcast is too quiet"}
+{"id": "D12", "source": "hobbylm/sealed-r1", "text": "increse the volume"}
+{"id": "D13", "source": "hobbylm/sealed-r1", "text": "shh, meeting starting"}
+{"id": "D14", "source": "hobbylm/sealed-r1", "text": "mute pls, boss calling"}
+{"id": "D15", "source": "hobbylm/sealed-r1", "text": "kill all sound"}
+{"id": "F01", "source": "hobbylm/sealed-r1", "text": "where did that file I just downloaded go"}
+{"id": "F02", "source": "hobbylm/sealed-r1", "text": "show downloads folder"}
+{"id": "F03", "source": "hobbylm/sealed-r1", "text": "show me my desktop files"}
+{"id": "F04", "source": "hobbylm/sealed-r1", "text": "open desktop folder pls"}
+{"id": "F05", "source": "hobbylm/sealed-r1", "text": "open documents"}
+{"id": "F06", "source": "hobbylm/sealed-r1", "text": "need my docs folder"}
+{"id": "K01", "source": "hobbylm/sealed-r1", "text": "my eyes hurt at night, make everything dark"}
+{"id": "K02", "source": "hobbylm/sealed-r1", "text": "turn on dark mode"}
+{"id": "K03", "source": "hobbylm/sealed-r1", "text": "switch to the black theme"}
+{"id": "K04", "source": "hobbylm/sealed-r1", "text": "switch back to the white look"}
+{"id": "K05", "source": "hobbylm/sealed-r1", "text": "dark mode off pls, cant see well in sunlight"}
+{"id": "K06", "source": "hobbylm/sealed-r1", "text": "go back to light mode"}
+{"id": "N01", "source": "hobbylm/sealed-r1", "text": "will it rain in bangalore today"}
+{"id": "N02", "source": "hobbylm/sealed-r1", "text": "send rahul a whatsapp that im running late"}
+{"id": "N03", "source": "hobbylm/sealed-r1", "text": "open flipkart.com"}
+{"id": "N04", "source": "hobbylm/sealed-r1", "text": "whats 12 times 3 plus 7"}
+{"id": "N05", "source": "hobbylm/sealed-r1", "text": "hey hows ur day going"}
+{"id": "N06", "source": "hobbylm/sealed-r1", "text": "what's the brightest star"}
+{"id": "N07", "source": "hobbylm/sealed-r1", "text": "play loud music on Spotify"}
+{"id": "N08", "source": "hobbylm/sealed-r1", "text": "calculate my taxes"}
+{"id": "N09", "source": "hobbylm/sealed-r1", "text": "open a new tab in Chrome"}
+{"id": "N10", "source": "hobbylm/sealed-r1", "text": "what does dark matter mean"}
+{"id": "N11", "source": "hobbylm/sealed-r1", "text": "how many minutes till my flight"}
+{"id": "N12", "source": "hobbylm/sealed-r1", "text": "delete the screenshots on my desktop"}
+{"id": "N13", "source": "hobbylm/sealed-r1", "text": "average of 40, 55 and 70"}
+{"id": "N14", "source": "hobbylm/sealed-r1", "text": "who is the prime minister of japan"}
+{"id": "N15", "source": "hobbylm/sealed-r1", "text": "write a mail to my landlord"}
+{"id": "N16", "source": "hobbylm/sealed-r1", "text": "is my volume button broken"}
+{"id": "S01", "source": "hobbylm/sealed-r1", "text": "take a screenshot"}
+{"id": "S02", "source": "hobbylm/sealed-r1", "text": "grab my screen"}
+{"id": "S03", "source": "hobbylm/sealed-r1", "text": "capture whats on screen rn"}
+{"id": "S04", "source": "hobbylm/sealed-r1", "text": "ss lena hai, take one"}
+{"id": "T01", "source": "hobbylm/sealed-r1", "text": "set a timer for 25 mins"}
+{"id": "T02", "source": "hobbylm/sealed-r1", "text": "remind me in half an hour"}
+{"id": "T03", "source": "hobbylm/sealed-r1", "text": "ping me in an hour"}
+{"id": "T04", "source": "hobbylm/sealed-r1", "text": "fifteen minute timer for the pasta"}
+{"id": "T05", "source": "hobbylm/sealed-r1", "text": "timer for 1.5 hours"}
+{"id": "T06", "source": "hobbylm/sealed-r1", "text": "remind me after 2 hrs to check the oven"}
+{"id": "T07", "source": "hobbylm/sealed-r1", "text": "45 minutes timer"}
+{"id": "T08", "source": "hobbylm/sealed-r1", "text": "five min timer for maggi"}
+{"id": "A01", "source": "hobbylm/sealed-r2", "text": "let me jot down this idea"}
+{"id": "A02", "source": "hobbylm/sealed-r2", "text": "open notes app quickly"}
+{"id": "A03", "source": "hobbylm/sealed-r2", "text": "am i free on friday evening"}
+{"id": "A04", "source": "hobbylm/sealed-r2", "text": "open calendar"}
+{"id": "A05", "source": "hobbylm/sealed-r2", "text": "open finder window"}
+{"id": "A06", "source": "hobbylm/sealed-r2", "text": "i want to browse my mac files"}
+{"id": "A07", "source": "hobbylm/sealed-r2", "text": "open music, need to focus"}
+{"id": "A08", "source": "hobbylm/sealed-r2", "text": "start the music app"}
+{"id": "A09", "source": "hobbylm/sealed-r2", "text": "what did i have to buy, check reminders"}
+{"id": "A10", "source": "hobbylm/sealed-r2", "text": "open reminders"}
+{"id": "C01", "source": "hobbylm/sealed-r2", "text": "what's 64 plus 29"}
+{"id": "C02", "source": "hobbylm/sealed-r2", "text": "518 minus 247"}
+{"id": "C03", "source": "hobbylm/sealed-r2", "text": "23 x 7 kya hai"}
+{"id": "C04", "source": "hobbylm/sealed-r2", "text": "144 divided by 16"}
+{"id": "C05", "source": "hobbylm/sealed-r2", "text": "how much is 1250 + 875"}
+{"id": "C06", "source": "hobbylm/sealed-r2", "text": "38 times 12?"}
+{"id": "C07", "source": "hobbylm/sealed-r2", "text": "7.5 into 4"}
+{"id": "C08", "source": "hobbylm/sealed-r2", "text": "take 14 off 95"}
+{"id": "C09", "source": "hobbylm/sealed-r2", "text": "how much less is 27 than 80"}
+{"id": "C10", "source": "hobbylm/sealed-r2", "text": "remove 120 from 500"}
+{"id": "C11", "source": "hobbylm/sealed-r2", "text": "how many 8s fit in 136"}
+{"id": "C12", "source": "hobbylm/sealed-r2", "text": "what's 33 short of 90"}
+{"id": "C13", "source": "hobbylm/sealed-r2", "text": "how much bigger is 410 than 365"}
+{"id": "C14", "source": "hobbylm/sealed-r2", "text": "from 72 take away 29"}
+{"id": "C15", "source": "hobbylm/sealed-r2", "text": "divide 225 into 9 equal parts, each one is?"}
+{"id": "C16", "source": "hobbylm/sealed-r2", "text": "sixty eight plus twenty four"}
+{"id": "C17", "source": "hobbylm/sealed-r2", "text": "two dozen times five"}
+{"id": "C18", "source": "hobbylm/sealed-r2", "text": "eighty one divided by nine"}
+{"id": "C19", "source": "hobbylm/sealed-r2", "text": "hundred minus thirty seven"}
+{"id": "C20", "source": "hobbylm/sealed-r2", "text": "fifteen times fifteen"}
+{"id": "C21", "source": "hobbylm/sealed-r2", "text": "four hundred plus three fifty"}
+{"id": "C22", "source": "hobbylm/sealed-r2", "text": "ninety six divided by eight"}
+{"id": "C23", "source": "hobbylm/sealed-r2", "text": "bought 4 kurtas for 2200 total, one kurta costs?"}
+{"id": "C24", "source": "hobbylm/sealed-r2", "text": "dinner bill 1800 split among 6 of us"}
+{"id": "C25", "source": "hobbylm/sealed-r2", "text": "had 2000 in wallet, spent 1365, how much left"}
+{"id": "C26", "source": "hobbylm/sealed-r2", "text": "auto charges 15 per km, went 12 km, fare?"}
+{"id": "C27", "source": "hobbylm/sealed-r2", "text": "12 boxes with 24 laddoos each, total laddoos"}
+{"id": "C28", "source": "hobbylm/sealed-r2", "text": "salary 45000 plus bonus 7500, total this month"}
+{"id": "C29", "source": "hobbylm/sealed-r2", "text": "train goes 480 km at 80 kmph, how many hours"}
+{"id": "C30", "source": "hobbylm/sealed-r2", "text": "phone is 18999, got 2500 off, final price"}
+{"id": "D01", "source": "hobbylm/sealed-r2", "text": "the screen is burning my eyes, tone it down"}
+{"id": "D02", "source": "hobbylm/sealed-r2", "text": "reduce brightness a little"}
+{"id": "D03", "source": "hobbylm/sealed-r2", "text": "screen too glowy in this dark room"}
+{"id": "D04", "source": "hobbylm/sealed-r2", "text": "everything looks so dim, cant read"}
+{"id": "D05", "source": "hobbylm/sealed-r2", "text": "make the screen brighter"}
+{"id": "D06", "source": "hobbylm/sealed-r2", "text": "in the sun right now, screen is invisible"}
+{"id": "D07", "source": "hobbylm/sealed-r2", "text": "bit lower volume pls"}
+{"id": "D08", "source": "hobbylm/sealed-r2", "text": "my ears are hurting, reduce sound"}
+{"id": "D09", "source": "hobbylm/sealed-r2", "text": "neighbours are complaining, turn it down"}
+{"id": "D10", "source": "hobbylm/sealed-r2", "text": "i cant hear what she is saying"}
+{"id": "D11", "source": "hobbylm/sealed-r2", "text": "volume badhao"}
+{"id": "D12", "source": "hobbylm/sealed-r2", "text": "sound is too low, louder"}
+{"id": "D13", "source": "hobbylm/sealed-r2", "text": "shh, teacher is on the call"}
+{"id": "D14", "source": "hobbylm/sealed-r2", "text": "kill the sound completely"}
+{"id": "D15", "source": "hobbylm/sealed-r2", "text": "mute pls, in the library"}
+{"id": "F01", "source": "hobbylm/sealed-r2", "text": "the zip i just got from the browser, open that folder"}
+{"id": "F02", "source": "hobbylm/sealed-r2", "text": "open downloads folder pls"}
+{"id": "F03", "source": "hobbylm/sealed-r2", "text": "show stuff saved on desktop"}
+{"id": "F04", "source": "hobbylm/sealed-r2", "text": "open desktop folder"}
+{"id": "F05", "source": "hobbylm/sealed-r2", "text": "open my documents"}
+{"id": "F06", "source": "hobbylm/sealed-r2", "text": "where's my resume, open documents folder"}
+{"id": "K01", "source": "hobbylm/sealed-r2", "text": "this white screen hurts at 2am"}
+{"id": "K02", "source": "hobbylm/sealed-r2", "text": "enable dark mode"}
+{"id": "K03", "source": "hobbylm/sealed-r2", "text": "make everything black background"}
+{"id": "K04", "source": "hobbylm/sealed-r2", "text": "disable dark mode"}
+{"id": "K05", "source": "hobbylm/sealed-r2", "text": "i want the bright theme back"}
+{"id": "K06", "source": "hobbylm/sealed-r2", "text": "switch off night look, its morning now"}
+{"id": "N01", "source": "hobbylm/sealed-r2", "text": "weather in bangalore tomorrow?"}
+{"id": "N02", "source": "hobbylm/sealed-r2", "text": "send whatsapp to rahul saying happy bday"}
+{"id": "N03", "source": "hobbylm/sealed-r2", "text": "open youtube"}
+{"id": "N04", "source": "hobbylm/sealed-r2", "text": "15 percent of 2400 plus 300"}
+{"id": "N05", "source": "hobbylm/sealed-r2", "text": "tell me a joke"}
+{"id": "N06", "source": "hobbylm/sealed-r2", "text": "how bright is the sun"}
+{"id": "N07", "source": "hobbylm/sealed-r2", "text": "play a loud party playlist on youtube"}
+{"id": "N08", "source": "hobbylm/sealed-r2", "text": "calculate my home loan emi"}
+{"id": "N09", "source": "hobbylm/sealed-r2", "text": "open incognito window in safari"}
+{"id": "N10", "source": "hobbylm/sealed-r2", "text": "set an alarm for 6 am"}
+{"id": "N11", "source": "hobbylm/sealed-r2", "text": "where is the screenshot i took yesterday"}
+{"id": "N12", "source": "hobbylm/sealed-r2", "text": "whats the volume of a cylinder"}
+{"id": "N13", "source": "hobbylm/sealed-r2", "text": "convert 50 dollars to rupees"}
+{"id": "N14", "source": "hobbylm/sealed-r2", "text": "book an uber to the airport"}
+{"id": "N15", "source": "hobbylm/sealed-r2", "text": "show me dark mode wallpapers"}
+{"id": "N16", "source": "hobbylm/sealed-r2", "text": "are you a real person"}
+{"id": "S01", "source": "hobbylm/sealed-r2", "text": "screenshot pls"}
+{"id": "S02", "source": "hobbylm/sealed-r2", "text": "save a picture of my screen"}
+{"id": "S03", "source": "hobbylm/sealed-r2", "text": "snap the screen right now"}
+{"id": "S04", "source": "hobbylm/sealed-r2", "text": "take screen shot of this page"}
+{"id": "T01", "source": "hobbylm/sealed-r2", "text": "timer for 25 minutes"}
+{"id": "T02", "source": "hobbylm/sealed-r2", "text": "remind me in two hours"}
+{"id": "T03", "source": "hobbylm/sealed-r2", "text": "quarter of an hour timer"}
+{"id": "T04", "source": "hobbylm/sealed-r2", "text": "set timer 1 hr 15 min"}
+{"id": "T05", "source": "hobbylm/sealed-r2", "text": "five mins for maggi"}
+{"id": "T06", "source": "hobbylm/sealed-r2", "text": "forty minute timer for study"}
+{"id": "T07", "source": "hobbylm/sealed-r2", "text": "remind me after 3 hours to take medicine"}
+{"id": "T08", "source": "hobbylm/sealed-r2", "text": "timer an hour and 10 min"}
+{"id": "A01", "source": "hobbylm/sealed-r3", "text": "need to note down this grocery list"}
+{"id": "A02", "source": "hobbylm/sealed-r3", "text": "launch notes"}
+{"id": "A03", "source": "hobbylm/sealed-r3", "text": "whats happening on my schedule this week"}
+{"id": "A04", "source": "hobbylm/sealed-r3", "text": "launch calendar app"}
+{"id": "A05", "source": "hobbylm/sealed-r3", "text": "i need to dig through my files, open finder"}
+{"id": "A06", "source": "hobbylm/sealed-r3", "text": "finder kholo"}
+{"id": "A07", "source": "hobbylm/sealed-r3", "text": "put on my music app"}
+{"id": "A08", "source": "hobbylm/sealed-r3", "text": "open music, lets play something"}
+{"id": "A09", "source": "hobbylm/sealed-r3", "text": "check my reminders list"}
+{"id": "A10", "source": "hobbylm/sealed-r3", "text": "open the reminders app, forgot what i had to do"}
+{"id": "C01", "source": "hobbylm/sealed-r3", "text": "57 plus 36?"}
+{"id": "C02", "source": "hobbylm/sealed-r3", "text": "812 minus 379"}
+{"id": "C03", "source": "hobbylm/sealed-r3", "text": "19 times 8"}
+{"id": "C04", "source": "hobbylm/sealed-r3", "text": "252 divided by 14"}
+{"id": "C05", "source": "hobbylm/sealed-r3", "text": "3400 + 1675 kitna"}
+{"id": "C06", "source": "hobbylm/sealed-r3", "text": "6.25 x 8"}
+{"id": "C07", "source": "hobbylm/sealed-r3", "text": "wat is 999 - 456"}
+{"id": "C08", "source": "hobbylm/sealed-r3", "text": "knock 35 off 140"}
+{"id": "C09", "source": "hobbylm/sealed-r3", "text": "how much smaller is 48 than 91"}
+{"id": "C10", "source": "hobbylm/sealed-r3", "text": "take away 275 from 600"}
+{"id": "C11", "source": "hobbylm/sealed-r3", "text": "how many 12s are in 180"}
+{"id": "C12", "source": "hobbylm/sealed-r3", "text": "what's 44 short of 200"}
+{"id": "C13", "source": "hobbylm/sealed-r3", "text": "how much more is 520 than 455"}
+{"id": "C14", "source": "hobbylm/sealed-r3", "text": "deduct 63 from 250"}
+{"id": "C15", "source": "hobbylm/sealed-r3", "text": "share 360 into 8 equal bits, one bit is?"}
+{"id": "C16", "source": "hobbylm/sealed-r3", "text": "fifty six plus thirty nine"}
+{"id": "C17", "source": "hobbylm/sealed-r3", "text": "three dozen times four"}
+{"id": "C18", "source": "hobbylm/sealed-r3", "text": "one twenty minus forty five"}
+{"id": "C19", "source": "hobbylm/sealed-r3", "text": "eighteen times eleven"}
+{"id": "C20", "source": "hobbylm/sealed-r3", "text": "two hundred divided by eight"}
+{"id": "C21", "source": "hobbylm/sealed-r3", "text": "seventy seven plus sixty six"}
+{"id": "C22", "source": "hobbylm/sealed-r3", "text": "nine hundred minus three twenty"}
+{"id": "C23", "source": "hobbylm/sealed-r3", "text": "paid 960 for 8 notebooks, one notebook price"}
+{"id": "C24", "source": "hobbylm/sealed-r3", "text": "cab fare 1450 shared by 5 people, each pays?"}
+{"id": "C25", "source": "hobbylm/sealed-r3", "text": "gave 1000 for a bill of 784, change?"}
+{"id": "C26", "source": "hobbylm/sealed-r3", "text": "25 kids get 6 chocolates each, how many chocolates total"}
+{"id": "C27", "source": "hobbylm/sealed-r3", "text": "i earn 850 a day, 6 days work, total earning"}
+{"id": "C28", "source": "hobbylm/sealed-r3", "text": "flight is 6500 and baggage 1200 extra, total"}
+{"id": "C29", "source": "hobbylm/sealed-r3", "text": "3 litres milk at 56 per litre"}
+{"id": "C30", "source": "hobbylm/sealed-r3", "text": "tank holds 45 litres, used 28, how much left"}
+{"id": "D01", "source": "hobbylm/sealed-r3", "text": "way too much light from the laptop, lower it"}
+{"id": "D02", "source": "hobbylm/sealed-r3", "text": "brightness kam karo"}
+{"id": "D03", "source": "hobbylm/sealed-r3", "text": "screen is blinding me in bed"}
+{"id": "D04", "source": "hobbylm/sealed-r3", "text": "turn brightness all the way up"}
+{"id": "D05", "source": "hobbylm/sealed-r3", "text": "display looks so faded, more light pls"}
+{"id": "D06", "source": "hobbylm/sealed-r3", "text": "cant see anything on screen on this terrace"}
+{"id": "D07", "source": "hobbylm/sealed-r3", "text": "volume thoda kam"}
+{"id": "D08", "source": "hobbylm/sealed-r3", "text": "this song is screaming, softer"}
+{"id": "D09", "source": "hobbylm/sealed-r3", "text": "decrese the sound"}
+{"id": "D10", "source": "hobbylm/sealed-r3", "text": "speakers are so quiet, raise it"}
+{"id": "D11", "source": "hobbylm/sealed-r3", "text": "audio is barely there, more volume"}
+{"id": "D12", "source": "hobbylm/sealed-r3", "text": "turn it up, i love this part"}
+{"id": "D13", "source": "hobbylm/sealed-r3", "text": "silence the mac, interview starting"}
+{"id": "D14", "source": "hobbylm/sealed-r3", "text": "shut the audio off fully"}
+{"id": "D15", "source": "hobbylm/sealed-r3", "text": "no noise pls, in a temple"}
+{"id": "E01", "source": "hobbylm/sealed-r3", "text": "book a call at 3PM UTC tuesday with Naval"}
+{"id": "E02", "source": "hobbylm/sealed-r3", "text": "lock in a chat w/ Riya fri 5pm"}
+{"id": "E03", "source": "hobbylm/sealed-r3", "text": "design review with Priya tomorrow 11am"}
+{"id": "E04", "source": "hobbylm/sealed-r3", "text": "lunch with Arjun next friday 1:30 pm IST"}
+{"id": "E05", "source": "hobbylm/sealed-r3", "text": "schedule sync with ananya@example.com on 28 oct at 4pm"}
+{"id": "E06", "source": "hobbylm/sealed-r3", "text": "set up interview with tom.baker@example.com monday 9am PST"}
+{"id": "E07", "source": "hobbylm/sealed-r3", "text": "demo for kiran.r@example.com today 6:15pm"}
+{"id": "E08", "source": "hobbylm/sealed-r3", "text": "add meeting w/ lena@example.com 3 nov 10 am CET"}
+{"id": "E09", "source": "hobbylm/sealed-r3", "text": "dentist appointment thursday 4pm"}
+{"id": "E10", "source": "hobbylm/sealed-r3", "text": "put gym session tomorrow 7 am"}
+{"id": "E11", "source": "hobbylm/sealed-r3", "text": "add team standup today at 9:30"}
+{"id": "E12", "source": "hobbylm/sealed-r3", "text": "block 2pm SGT on 5 nov for tax filing"}
+{"id": "F01", "source": "hobbylm/sealed-r3", "text": "the invoice i downloaded this morning, show that folder"}
+{"id": "F02", "source": "hobbylm/sealed-r3", "text": "go to downloads"}
+{"id": "F03", "source": "hobbylm/sealed-r3", "text": "open the desktop folder, i saved something there"}
+{"id": "F04", "source": "hobbylm/sealed-r3", "text": "show desktop files"}
+{"id": "F05", "source": "hobbylm/sealed-r3", "text": "open documents folder, need my passport scan"}
+{"id": "F06", "source": "hobbylm/sealed-r3", "text": "documents kholo"}
+{"id": "K01", "source": "hobbylm/sealed-r3", "text": "night mode for the whole mac"}
+{"id": "K02", "source": "hobbylm/sealed-r3", "text": "my eyes are tired, make it all dark"}
+{"id": "K03", "source": "hobbylm/sealed-r3", "text": "put dark theme on"}
+{"id": "K04", "source": "hobbylm/sealed-r3", "text": "remove dark mode"}
+{"id": "K05", "source": "hobbylm/sealed-r3", "text": "too gloomy, go back to light"}
+{"id": "K06", "source": "hobbylm/sealed-r3", "text": "change to white background again"}
+{"id": "N01", "source": "hobbylm/sealed-r3", "text": "is it going to be hot in delhi this weekend"}
+{"id": "N02", "source": "hobbylm/sealed-r3", "text": "email my boss im sick today"}
+{"id": "N03", "source": "hobbylm/sealed-r3", "text": "go to flipkart.com"}
+{"id": "N04", "source": "hobbylm/sealed-r3", "text": "multiply 12 by 5 and then add 30"}
+{"id": "N05", "source": "hobbylm/sealed-r3", "text": "good morning, how are you"}
+{"id": "N06", "source": "hobbylm/sealed-r3", "text": "whats the brightest planet"}
+{"id": "N07", "source": "hobbylm/sealed-r3", "text": "turn up the bass on spotify"}
+{"id": "N08", "source": "hobbylm/sealed-r3", "text": "work out my gst return"}
+{"id": "N09", "source": "hobbylm/sealed-r3", "text": "open a new tab in chrome"}
+{"id": "N10", "source": "hobbylm/sealed-r3", "text": "wake me up at 7 tomorrow"}
+{"id": "N11", "source": "hobbylm/sealed-r3", "text": "delete all files in downloads"}
+{"id": "N12", "source": "hobbylm/sealed-r3", "text": "what is a decibel"}
+{"id": "N13", "source": "hobbylm/sealed-r3", "text": "square root of 169"}
+{"id": "N14", "source": "hobbylm/sealed-r3", "text": "order pizza from dominos"}
+{"id": "N15", "source": "hobbylm/sealed-r3", "text": "why is my screen flickering"}
+{"id": "N16", "source": "hobbylm/sealed-r3", "text": "recommend a good movie"}
+{"id": "S01", "source": "hobbylm/sealed-r3", "text": "capture this screen"}
+{"id": "S02", "source": "hobbylm/sealed-r3", "text": "screenshot le lo"}
+{"id": "S03", "source": "hobbylm/sealed-r3", "text": "take a screengrab"}
+{"id": "S04", "source": "hobbylm/sealed-r3", "text": "click a screenshot of what im seeing"}
+{"id": "T01", "source": "hobbylm/sealed-r3", "text": "35 min timer"}
+{"id": "T02", "source": "hobbylm/sealed-r3", "text": "remind me in three hours"}
+{"id": "T03", "source": "hobbylm/sealed-r3", "text": "timer for one hour 45 mins"}
+{"id": "T04", "source": "hobbylm/sealed-r3", "text": "set timer six minutes for tea"}
+{"id": "T05", "source": "hobbylm/sealed-r3", "text": "ping me in fifty minutes"}
+{"id": "T06", "source": "hobbylm/sealed-r3", "text": "timer of 4 hours"}
+{"id": "T07", "source": "hobbylm/sealed-r3", "text": "remind me after ten minutes to check the oven"}
+{"id": "T08", "source": "hobbylm/sealed-r3", "text": "set a 2 hr timer"}
+{"id": "A01", "source": "hobbylm/sealed-r4", "text": "gotta scribble a quick note"}
+{"id": "A02", "source": "hobbylm/sealed-r4", "text": "notes app open karo"}
+{"id": "A03", "source": "hobbylm/sealed-r4", "text": "when is my next meeting"}
+{"id": "A04", "source": "hobbylm/sealed-r4", "text": "open the calendar"}
+{"id": "A05", "source": "hobbylm/sealed-r4", "text": "browse files on this mac"}
+{"id": "A06", "source": "hobbylm/sealed-r4", "text": "open finder please"}
+{"id": "A07", "source": "hobbylm/sealed-r4", "text": "fire up music"}
+{"id": "A08", "source": "hobbylm/sealed-r4", "text": "i want the music app open"}
+{"id": "A09", "source": "hobbylm/sealed-r4", "text": "pull up my reminders"}
+{"id": "A10", "source": "hobbylm/sealed-r4", "text": "reminders kholo, need my todo"}
+{"id": "C01", "source": "hobbylm/sealed-r4", "text": "what's 82 plus 47"}
+{"id": "C02", "source": "hobbylm/sealed-r4", "text": "605 minus 288"}
+{"id": "C03", "source": "hobbylm/sealed-r4", "text": "14 x 9"}
+{"id": "C04", "source": "hobbylm/sealed-r4", "text": "196 divided by 7"}
+{"id": "C05", "source": "hobbylm/sealed-r4", "text": "2175 + 830"}
+{"id": "C06", "source": "hobbylm/sealed-r4", "text": "4.8 times 5"}
+{"id": "C07", "source": "hobbylm/sealed-r4", "text": "701 - 234 kya hota hai"}
+{"id": "C08", "source": "hobbylm/sealed-r4", "text": "take 18 off 75"}
+{"id": "C09", "source": "hobbylm/sealed-r4", "text": "how much less is 55 than 130"}
+{"id": "C10", "source": "hobbylm/sealed-r4", "text": "strip 90 from 400"}
+{"id": "C11", "source": "hobbylm/sealed-r4", "text": "how many 5s go into 85"}
+{"id": "C12", "source": "hobbylm/sealed-r4", "text": "what's 26 short of 100"}
+{"id": "C13", "source": "hobbylm/sealed-r4", "text": "by how much is 680 bigger than 595"}
+{"id": "C14", "source": "hobbylm/sealed-r4", "text": "pull 41 out of 120"}
+{"id": "C15", "source": "hobbylm/sealed-r4", "text": "break 480 into 12 equal shares, each share?"}
+{"id": "C16", "source": "hobbylm/sealed-r4", "text": "forty two plus nineteen"}
+{"id": "C17", "source": "hobbylm/sealed-r4", "text": "half a dozen times eight"}
+{"id": "C18", "source": "hobbylm/sealed-r4", "text": "two hundred fifty minus sixty five"}
+{"id": "C19", "source": "hobbylm/sealed-r4", "text": "thirteen times fourteen"}
+{"id": "C20", "source": "hobbylm/sealed-r4", "text": "three sixty divided by fifteen"}
+{"id": "C21", "source": "hobbylm/sealed-r4", "text": "eighty eight plus seventy two"}
+{"id": "C22", "source": "hobbylm/sealed-r4", "text": "five hundred minus one seventy five"}
+{"id": "C23", "source": "hobbylm/sealed-r4", "text": "bought 5 pens for 175, cost of one pen"}
+{"id": "C24", "source": "hobbylm/sealed-r4", "text": "pizza 1680 shared by 7 friends, each pays"}
+{"id": "C25", "source": "hobbylm/sealed-r4", "text": "handed 500 for groceries of 318, how much change"}
+{"id": "C26", "source": "hobbylm/sealed-r4", "text": "9 bags with 45 kg each, total weight"}
+{"id": "C27", "source": "hobbylm/sealed-r4", "text": "parking 40 per hour, stayed 3 hours, total"}
+{"id": "C28", "source": "hobbylm/sealed-r4", "text": "shirt 1299 plus 199 shipping, final amount"}
+{"id": "C29", "source": "hobbylm/sealed-r4", "text": "bus covers 210 km in 3 hrs, speed"}
+{"id": "C30", "source": "hobbylm/sealed-r4", "text": "jar has 64 cookies, ate 27, how many remain"}
+{"id": "D01", "source": "hobbylm/sealed-r4", "text": "laptop glow is insane, pull brightness down"}
+{"id": "D02", "source": "hobbylm/sealed-r4", "text": "less bright please, night time"}
+{"id": "D03", "source": "hobbylm/sealed-r4", "text": "this display is blasting light at me"}
+{"id": "D04", "source": "hobbylm/sealed-r4", "text": "bump the brightness up"}
+{"id": "D05", "source": "hobbylm/sealed-r4", "text": "screen faded, more light needed"}
+{"id": "D06", "source": "hobbylm/sealed-r4", "text": "outdoor and screen gone blackish, brighten it"}
+{"id": "D07", "source": "hobbylm/sealed-r4", "text": "sound is harsh, turn it down a notch"}
+{"id": "D08", "source": "hobbylm/sealed-r4", "text": "volume kam karo thoda"}
+{"id": "D09", "source": "hobbylm/sealed-r4", "text": "too much noise from speakers, lower"}
+{"id": "D10", "source": "hobbylm/sealed-r4", "text": "i barely hear the podcast, up the volume"}
+{"id": "D11", "source": "hobbylm/sealed-r4", "text": "make it louder for this video"}
+{"id": "D12", "source": "hobbylm/sealed-r4", "text": "audio is whisper quiet, raise volume"}
+{"id": "D13", "source": "hobbylm/sealed-r4", "text": "mute now, client joining zoom"}
+{"id": "D14", "source": "hobbylm/sealed-r4", "text": "cut all sound"}
+{"id": "D15", "source": "hobbylm/sealed-r4", "text": "zero audio, baby is napping next room"}
+{"id": "E01", "source": "hobbylm/sealed-r4", "text": "coffee with Meera wednesday 10am"}
+{"id": "E02", "source": "hobbylm/sealed-r4", "text": "catch up w/ Dev sat 6pm"}
+{"id": "E03", "source": "hobbylm/sealed-r4", "text": "1:1 with Sneha tomorrow 2:30pm IST"}
+{"id": "E04", "source": "hobbylm/sealed-r4", "text": "walkthrough with Omar monday 11 am GMT"}
+{"id": "E05", "source": "hobbylm/sealed-r4", "text": "brainstorm w/ Kavya next tuesday 4pm"}
+{"id": "E06", "source": "hobbylm/sealed-r4", "text": "call Rohan fri 9:15 am"}
+{"id": "E07", "source": "hobbylm/sealed-r4", "text": "office hours with Tanvi today 5pm"}
+{"id": "E08", "source": "hobbylm/sealed-r4", "text": "yoga with Neha thursday 7am"}
+{"id": "E09", "source": "hobbylm/sealed-r4", "text": "pitch practice with Vikram 12 nov 3pm EST"}
+{"id": "E10", "source": "hobbylm/sealed-r4", "text": "dinner w/ Aditi sunday 8:30pm"}
+{"id": "E11", "source": "hobbylm/sealed-r4", "text": "sync with maya.chen@example.com tmrw 9am PST"}
+{"id": "E12", "source": "hobbylm/sealed-r4", "text": "interview james.lee@example.com wed 2pm"}
+{"id": "E13", "source": "hobbylm/sealed-r4", "text": "demo for ravi.p@example.com 30 oct 6pm IST"}
+{"id": "E14", "source": "hobbylm/sealed-r4", "text": "onboarding call w/ sofia@example.com friday 10:00 CET"}
+{"id": "E15", "source": "hobbylm/sealed-r4", "text": "checkin with alex.ng@example.com today 4:45pm"}
+{"id": "E16", "source": "hobbylm/sealed-r4", "text": "review session for nina@example.com monday 1pm UTC"}
+{"id": "E17", "source": "hobbylm/sealed-r4", "text": "add call w/ hari@example.com next friday 11:30"}
+{"id": "E18", "source": "hobbylm/sealed-r4", "text": "partner chat with ken.wong@example.com 8 nov 9am SGT"}
+{"id": "E19", "source": "hobbylm/sealed-r4", "text": "follow up emailer@example.com thursday 3:15pm"}
+{"id": "E20", "source": "hobbylm/sealed-r4", "text": "intro call for zoe.m@example.com sat 12pm"}
+{"id": "E21", "source": "hobbylm/sealed-r4", "text": "deep work block today 8am"}
+{"id": "E22", "source": "hobbylm/sealed-r4", "text": "haircut appointment tuesday 6pm"}
+{"id": "E23", "source": "hobbylm/sealed-r4", "text": "flight checkin reminder 15 nov 5am"}
+{"id": "E24", "source": "hobbylm/sealed-r4", "text": "budget review tmrw 7:30pm"}
+{"id": "E25", "source": "hobbylm/sealed-r4", "text": "add focus time friday 2pm IST"}
+{"id": "E26", "source": "hobbylm/sealed-r4", "text": "visa appointment 22 oct 10:30am"}
+{"id": "E27", "source": "hobbylm/sealed-r4", "text": "morning run wednesday 6:15"}
+{"id": "E28", "source": "hobbylm/sealed-r4", "text": "block sunday 4pm for laundry"}
+{"id": "E29", "source": "hobbylm/sealed-r4", "text": "pharmacy pickup next monday 11am"}
+{"id": "E30", "source": "hobbylm/sealed-r4", "text": "tax paperwork 1 nov 9am GMT"}
+{"id": "F01", "source": "hobbylm/sealed-r4", "text": "where did chrome drop that zip"}
+{"id": "F02", "source": "hobbylm/sealed-r4", "text": "open the downloads folder"}
+{"id": "F03", "source": "hobbylm/sealed-r4", "text": "show whatever is sitting on desktop"}
+{"id": "F04", "source": "hobbylm/sealed-r4", "text": "desktop folder open"}
+{"id": "F05", "source": "hobbylm/sealed-r4", "text": "need papers from documents"}
+{"id": "F06", "source": "hobbylm/sealed-r4", "text": "open documents please"}
+{"id": "K01", "source": "hobbylm/sealed-r4", "text": "flip to dark theme, late night work"}
+{"id": "K02", "source": "hobbylm/sealed-r4", "text": "turn dark mode on"}
+{"id": "K03", "source": "hobbylm/sealed-r4", "text": "black ui please, white hurts"}
+{"id": "K04", "source": "hobbylm/sealed-r4", "text": "turn dark mode off"}
+{"id": "K05", "source": "hobbylm/sealed-r4", "text": "bring back the light theme"}
+{"id": "K06", "source": "hobbylm/sealed-r4", "text": "daytime now, leave the dark look"}
+{"id": "N01", "source": "hobbylm/sealed-r4", "text": "will it rain in mumbai tonight"}
+{"id": "N02", "source": "hobbylm/sealed-r4", "text": "whatsapp meena that dinner is at 8"}
+{"id": "N03", "source": "hobbylm/sealed-r4", "text": "open reddit.com"}
+{"id": "N04", "source": "hobbylm/sealed-r4", "text": "20 times 3 then subtract 10"}
+{"id": "N05", "source": "hobbylm/sealed-r4", "text": "hey how was your weekend"}
+{"id": "N06", "source": "hobbylm/sealed-r4", "text": "which is the brightest galaxy"}
+{"id": "N07", "source": "hobbylm/sealed-r4", "text": "blast loud music on apple music"}
+{"id": "N08", "source": "hobbylm/sealed-r4", "text": "figure out my income tax"}
+{"id": "N09", "source": "hobbylm/sealed-r4", "text": "open a private window in firefox"}
+{"id": "N10", "source": "hobbylm/sealed-r4", "text": "set alarm for 5:30 am"}
+{"id": "N11", "source": "hobbylm/sealed-r4", "text": "find the screenshot from last week"}
+{"id": "N12", "source": "hobbylm/sealed-r4", "text": "what does mute mean in music"}
+{"id": "N13", "source": "hobbylm/sealed-r4", "text": "convert 100 euros to inr"}
+{"id": "N14", "source": "hobbylm/sealed-r4", "text": "order groceries on blinkit"}
+{"id": "N15", "source": "hobbylm/sealed-r4", "text": "why wont volume buttons work"}
+{"id": "N16", "source": "hobbylm/sealed-r4", "text": "suggest a podcast for focus"}
+{"id": "S01", "source": "hobbylm/sealed-r4", "text": "snap my screen"}
+{"id": "S02", "source": "hobbylm/sealed-r4", "text": "take screenshot now"}
+{"id": "S03", "source": "hobbylm/sealed-r4", "text": "screen capture please"}
+{"id": "S04", "source": "hobbylm/sealed-r4", "text": "ss of this window"}
+{"id": "T01", "source": "hobbylm/sealed-r4", "text": "timer for 18 minutes"}
+{"id": "T02", "source": "hobbylm/sealed-r4", "text": "remind me in an hour and a half"}
+{"id": "T03", "source": "hobbylm/sealed-r4", "text": "set 45 min timer"}
+{"id": "T04", "source": "hobbylm/sealed-r4", "text": "ping me in 2 hrs 20 min"}
+{"id": "T05", "source": "hobbylm/sealed-r4", "text": "seven minute timer for eggs"}
+{"id": "T06", "source": "hobbylm/sealed-r4", "text": "timer of half an hour"}
+{"id": "T07", "source": "hobbylm/sealed-r4", "text": "remind me after 4 hours to stretch"}
+{"id": "T08", "source": "hobbylm/sealed-r4", "text": "ninety five mins timer"}
+{"id": "D1", "source": "hobbylm/system-settings", "text": "Open System Settings and navigate to Sound."}
+{"id": "D2", "source": "hobbylm/system-settings", "text": "Open System Settings and navigate to Displays."}
+{"id": "D3", "source": "hobbylm/system-settings", "text": "Open System Settings and navigate to Keyboard."}
+{"id": "H01", "source": "hobbylm/system-settings", "text": "Open System Settings and navigate to Wallpaper."}
+{"id": "H02", "source": "hobbylm/system-settings", "text": "Open System Settings and navigate to Wallpaper."}
+{"id": "H03", "source": "hobbylm/system-settings", "text": "Open System Settings and navigate to Bluetooth."}
+{"id": "H04", "source": "hobbylm/system-settings", "text": "Open System Settings and navigate to Notifications."}
+{"id": "H05", "source": "hobbylm/system-settings", "text": "Open System Settings and navigate to Appearance."}
+{"id": "H06", "source": "hobbylm/system-settings", "text": "Open System Settings and navigate to Battery."}
+{"id": "H07", "source": "hobbylm/system-settings", "text": "Open System Settings and navigate to Trackpad."}
+{"id": "H08", "source": "hobbylm/system-settings", "text": "Open System Settings and navigate to Control Centre."}
+{"id": "H09", "source": "hobbylm/system-settings", "text": "Open System Settings and navigate to Lock Screen."}
+{"id": "H10", "source": "hobbylm/system-settings", "text": "Open System Settings and navigate to Printers & Scanners."}
+{"id": "H11", "source": "hobbylm/system-settings", "text": "Open System Settings and navigate to Wi‑Fi."}
+{"id": "H12", "source": "hobbylm/system-settings", "text": "Open System Settings and navigate to Game Center."}
