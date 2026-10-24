@@ -1,8 +1,8 @@
-# ux digest — pass 47
+# ux digest — pass 48
 
 Heads: main 806b0d4 / wip 6b1006e (no lane changes), memory-lt f0ea345, hands-clock 26d4427, planner-verify c9de7aa, ui-polish e8bceef, w9-safety 2a7d0df, memory 5cd44e6.
 
-Counts: 0 P0, 0 P1, 13 P2. No new findings in passes 46-47; heads main 46b97f5, wip 719907a. New in pass 45: ux-27 (memory-lt: 'what do you remember' dumps raw 'Memory: fact name = Arda' rows, up to about 40 words, into the bubble).
+Counts: 0 P0, 0 P1, 13 P2. No new findings in passes 46-48; heads main 46b97f5, wip 719907a. New in pass 45: ux-27 (memory-lt: 'what do you remember' dumps raw 'Memory: fact name = Arda' rows, up to about 40 words, into the bubble).
 Open P2, ranked:
 - ux-14: a declined or timed-out confirm leaves the mascot thinking (orchestrator.py)
 - ux-25 (ui-polish): the poke hint says 'click my mic below' before the 1 s dwell has shown the pill (MascotController.swift)
