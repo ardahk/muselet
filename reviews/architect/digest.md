@@ -1,5 +1,5 @@
-# architect digest - pass 5 (2026-10-24T06:15Z)
-Reviewed: main e78f143, wip/local e0bdc65, cloud/data-pipeline 153a01c, cloud/finance 529e9ff, cloud/finance-2 f4ae461, cloud/fixtures-docs 4bf2291, cloud/bench 14c7eb1, cloud/advisor 9432c30, cloud/advisor-2 ec98013, cloud/pitch 454a563.
+# architect digest - pass 6 (self-poll, 2026-10-24T06:25Z)
+Reviewed: main e78f143, wip/local d5d2d7d, cloud/data-pipeline 153a01c, cloud/finance 529e9ff, cloud/finance-2 f4ae461, cloud/fixtures-docs 4bf2291, cloud/bench 14c7eb1, cloud/advisor 9432c30, cloud/advisor-2 ec98013, cloud/pitch 454a563. Skimmed this pass: live suite T1/T2 (fcdb365), HandsKit safe refs/OCR (e78f143), finance-2, advisor-2, pitch claims registry (claims.md cites sources and notes there is no on-screen latency readout yet); no new architect findings.
 Resolved this pass: architect-1 (planner loop wired in wip), architect-3 (Premiere/timer executors), architect-7 (bench harnesses on cloud/bench), architect-9 (finance as brain-executor skills).
 
 ## Open P0/P1 (ranked)
