@@ -63,7 +63,9 @@ RPC methods (HandsKit):
 - `observe {scope:"focused_window"|"app"|"menubar", app?, max_nodes:150, diff:true}` ->
   `{epoch, app, window, focused_ref, elements:[{ref,role,label,value?,enabled,frame:[x,y,w,h]}], text, diff_text?, ax_ms}`
   Refs are valid for the returned `epoch`. Frames are global, top-left origin, points.
-- `act {op, ref?, text?, combo?, x?, y?, ..., epoch, expect?}` -> `{ok, error?, act_ms, settle_ms, diff_text?}`
+- `act {op, ref?, text?, combo?, x?, y?, ..., epoch?, expect?}` -> `{ok, error?, act_ms, settle_ms, diff_text?, expect_ok?, observed?}`
+  `expect` is sent as the DSL predicate string (e.g. `title~"Downloads"`). Refs are stable across epochs
+  while the element persists; `rpc_result` always carries `result` when the handler produced one, even if `ok` is false.
   (fused act-and-observe; the app animates the ghost cursor to the target frame first, `cursor_lead_ms` default 120)
 - `skill {name, args}` -> `{ok, result?, error?, ms}`
 - `screenshot {window:true, max_pixels:1000000, region?}` -> `{path, width, height, origin:[x,y], scale}` (own windows excluded)

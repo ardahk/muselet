@@ -1,7 +1,7 @@
 [project]
-name = "m0-speed-lab"
+name = "brain"
 version = "0.1.0"
-description = "Add your description here"
+description = "On-device macOS agent: brain (orchestrator, router, planner)"
 readme = "README.md"
 authors = [
     { name = "Arda Hoke", email = "hoke@berkeley.edu" }
@@ -14,10 +14,16 @@ dependencies = [
     "mlx-vlm==0.7.8",
     "numpy>=2.5.4",
     "pillow>=13.0.0",
+    "websockets==17.2",
 ]
 
 [project.scripts]
-m0-speed-lab = "m0_speed_lab:main"
+brain = "brain.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+]
 
 [build-system]
 requires = ["uv_build>=0.11.6,<0.12.0"]
