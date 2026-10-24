@@ -31,7 +31,7 @@ python3 training/planner_demos/build_states.py --out ~/data/planner_demos      #
 ```
 
 **Artifacts:**
-- Code: branch `cloud/planner-demos` @ 9008990 (the data was built from code @ 99df4b6). PR https://github.com/ardahk/muselet/pull/33.
+- Code: branch `cloud/planner-demos` @ fa60bcf (the data was built from code @ 99df4b6). PR https://github.com/ardahk/muselet/pull/33.
 - HF dataset (private): `jonsnov/muselet-planner-demos-v1` @ 9453ff6. Files: `demos.jsonl.gz`, `bank.jsonl.gz`, `states.jsonl.gz`,
   `replies.jsonl.gz`, `meta.json`, `README.md`.
 - Local run dir (the VM only, may be gone): `~/data/planner_demos/` (`pilot/` holds the 60-state pilot).
