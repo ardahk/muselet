@@ -309,7 +309,7 @@ def test_real_brain_planner_path_executes_fake_hands_action(tmp_path, monkeypatc
     async def scenario():
         calls, confirms, _snapshot, _trace = await _run_brain_case(
             "do it",
-            planner=FakePlanner([["press #1"], ['done "all set"']]),
+            planner=FakePlanner([["press #1"], ['done "all set"', 'expect appears "Open"']]),
             engine=MultiStepEngine(),
             trace_dir=tmp_path,
             monkeypatch=monkeypatch,
@@ -417,7 +417,7 @@ def test_run_live_drives_real_brain_and_fake_hands_through_proxy(
         )
         orch.planner = FakePlanner([
             ["press #1"],
-            ['done "finished"'],
+            ['done "finished"', 'expect appears "Open"'],
         ])
 
         async def on_utterance(utterance, _final, ctx=None):

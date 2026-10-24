@@ -101,7 +101,7 @@ def test_streaming_first_action_before_decode_done(tmp_path):
 
 def test_done_alone_after_clean_batch(tmp_path):
     hands = FakeHands()
-    planner = FakePlanner([["press #1"], ['done "all set"']])
+    planner = FakePlanner([["press #1", 'expect appears "Saved"'], ['done "all set"']])
     server, orch = _mk(0, planner, hands)
 
     async def go():
@@ -133,7 +133,7 @@ def test_done_mixed_rejected(tmp_path):
     run(go())
     # the second turn's Last batch must carry the rejected-done note
     lb = planner.user_msgs[1]["last_batch"]
-    assert lb and any("not verified" in l for l in lb)
+    assert lb and any("needs evidence" in l for l in lb)
 
 
 def test_expect_failure_replans(tmp_path):
@@ -177,7 +177,7 @@ def test_stale_ref_replans(tmp_path):
         out = await orch._planner_loop("do it", trace_for(orch))
         await hands.close(); await server.close()
         return out
-    assert run(go()) == "ok"
+    assert run(go()) == "unverified"
     assert planner.calls == 3
 
 
@@ -456,8 +456,7 @@ def test_turn_obs_from_act_diff_without_observe(tmp_path):
                    lambda p: {"ok": True, "epoch": 2,
                               "diff_text": next(diffs)})
     tr = trace_for(o)
-    assert run(o._planner_loop("search", tr)) == "ok"
-    # unverified done -> one fresh observe, then accepted (planner-13)
+    assert run(o._planner_loop("search", tr)) == "unverified"
     assert o.server.methods() == ["observe", "act", "act", "observe"]
     obs2 = o.planner.user_msgs[1]["obs"]
     assert obs2 == ('app: Finder | window: "Recents" | focused: #4\n'
@@ -468,7 +467,7 @@ def test_turn_obs_from_act_diff_without_observe(tmp_path):
 def test_empty_diff_still_reused(tmp_path):
     o = _diff_orch(tmp_path, [["press #1"], ['done "ok"'], ['done "ok"']],
                    lambda p: {"ok": True, "diff_text": ""})
-    assert run(o._planner_loop("go", trace_for(o))) == "ok"
+    assert run(o._planner_loop("go", trace_for(o))) == "unverified"
     assert o.server.methods()[:2] == ["observe", "act"]
     assert o.planner.user_msgs[1]["obs"] == _OBS0
 
@@ -480,15 +479,15 @@ def test_empty_diff_still_reused(tmp_path):
 ])
 def test_full_truncated_or_missing_diff_observes(tmp_path, res):
     o = _diff_orch(tmp_path, [["press #1"], ['done "ok"'], ['done "ok"']], lambda p: res)
-    assert run(o._planner_loop("go", trace_for(o))) == "ok"
-    assert o.server.methods() == ["observe", "act", "observe"]
+    assert run(o._planner_loop("go", trace_for(o))) == "unverified"
+    assert o.server.methods() == ["observe", "act", "observe", "observe"]
 
 
 def test_skill_in_batch_breaks_diff_chain(tmp_path):
     o = _diff_orch(tmp_path, [["press #1", "skill mute on=true"], ['done "ok"'], ['done "ok"']],
                    lambda p: {"ok": True, "diff_text": ""})
-    assert run(o._planner_loop("go", trace_for(o))) == "ok"
-    assert o.server.methods() == ["observe", "act", "skill", "observe"]
+    assert run(o._planner_loop("go", trace_for(o))) == "unverified"
+    assert o.server.methods() == ["observe", "act", "skill", "observe", "observe"]
 
 
 def test_failed_turn_with_diff_reuses_it(tmp_path):
@@ -497,8 +496,7 @@ def test_failed_turn_with_diff_reuses_it(tmp_path):
                 {"ok": True, "diff_text": ""}])
     o = _diff_orch(tmp_path, [["press #1"], ["press #4"], ['done "ok"'], ['done "ok"']],
                    lambda p: next(seq))
-    assert run(o._planner_loop("go", trace_for(o))) == "ok"
-    # unverified done -> one fresh observe, then accepted (planner-13)
+    assert run(o._planner_loop("go", trace_for(o))) == "unverified"
     assert o.server.methods() == ["observe", "act", "act", "observe"]
     assert 'value="a"' in o.planner.user_msgs[1]["obs"]
 

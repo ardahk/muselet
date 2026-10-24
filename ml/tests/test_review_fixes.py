@@ -71,7 +71,7 @@ def test_skill_final_ui_carries_release_to_first_action_ms(orch):
 
 
 def test_planner_final_ui_carries_total_ms(tmp_path):
-    o = _diff_orch(tmp_path, [['done "ok"']], lambda p: {"ok": True})
+    o = _diff_orch(tmp_path, [['done "ok"', 'expect app "Finder"']], lambda p: {"ok": True})
     o._t_final = __import__("time").perf_counter() - 0.5
     o._first_action_ms = 1.0
     assert run(o._planner_loop("go", trace_for(o))) == "ok"
@@ -233,9 +233,10 @@ def test_done_after_passing_expect_needs_no_extra_observe(tmp_path):
 def test_done_on_diff_view_rejected_then_fresh_observe(tmp_path):
     o = _diff_orch(tmp_path, [["press #1"], ['done "a"'], ['done "b"']],
                    lambda p: {"ok": True, "diff_text": ""})
-    assert run(o._planner_loop("go", trace_for(o))) == "ok"
+    assert run(o._planner_loop("go", trace_for(o))) == "unverified"
     assert o.server.methods() == ["observe", "act", "observe"]
-    assert o.server.said[-1] == "b"
+    assert o.server.said[-1] == "I couldn't verify that"
+    assert o.server.uis[-1] == "idle"
 
 
 def test_script_output_head_tail():
@@ -268,8 +269,8 @@ def test_capped_observation_never_rebuilt_from_diff(tmp_path, obs_extra):
                    lambda p: {"ok": True, "diff_text": "- #1"})
     base = o.server.observe()
     o.server.observe = lambda: dict(base, **obs_extra)
-    assert run(o._planner_loop("go", trace_for(o))) == "ok"
-    assert o.server.methods() == ["observe", "act", "observe"]
+    assert run(o._planner_loop("go", trace_for(o))) == "unverified"
+    assert o.server.methods() == ["observe", "act", "observe", "observe"]
 
 
 # ---- script confirm (brain-9, evals-safety-2) ----
