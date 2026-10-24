@@ -239,7 +239,8 @@ class RouteResult:
 def catalog_options(catalog) -> list[tuple[str, str]]:
     """(name, description) — skills in file order, then special_options in
     file order (matches training muselet_train.catalog.options)."""
-    opts = [(s["name"], s["description"]) for s in catalog.skills.values()]
+    opts = [(s["name"], s["description"]) for s in catalog.skills.values()
+            if s.get("router", True)]
     for s in catalog.special_options:
         opts.append((s["name"], s["description"]))
     return opts
