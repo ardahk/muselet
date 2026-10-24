@@ -1560,7 +1560,11 @@ function run() {
         """Execute one DSL action; `_log` is its Last-batch line."""
         legacy = "script -> " if a["op"] == "script" else _repr_line(a) + "-> "
         act = _log_act(a)
-        r = await self._exec_action(a)
+        try:
+            r = await self._exec_action(a)
+        finally:
+            if a["op"] != "confirm":
+                self._batch_confirmed = False
         log = r.get("_log") or legacy + str(r.get("status", "?"))
         res = log[len(legacy):] if log.startswith(legacy) \
             else str(r.get("status", "?"))
@@ -1597,7 +1601,7 @@ function run() {
                 await self.server.say("Okay, cancelled")
                 return {"status": "cancelled",
                         "_log": f"{dsl_line}-> cancelled"}
-            # one confirm unlocks only the next dangerous action (brain-14)
+            # one confirm covers only the immediately following action
             self._batch_confirmed = True
             return {"status": "ok", "confirmed": True,
                     "_log": f"{dsl_line}-> confirmed"}
