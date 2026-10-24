@@ -1,9 +1,9 @@
 {
- "pass": 26,
- "ts": "2026-10-24T20:15:00Z",
+ "pass": 27,
+ "ts": "2026-10-24T20:30:00Z",
  "branches": {
-  "main": "7065dd3",
-  "wip/local": "e29ea7c",
+  "main": "026aff0",
+  "wip/local": "98d1401",
   "cloud/data-pipeline": "f8b721a",
   "cloud/bench": "f584cb2",
   "cloud/pitch": "ad1b058",
@@ -24,6 +24,8 @@
   "cloud/report-2": "3c25e78",
   "cloud/data-route": "42835ce",
   "cloud/data-planner": "ee8ae33",
-  "cloud/bench-fix": "4bcf0db"
+  "cloud/bench-fix": "4bcf0db",
+  "cloud/brain-8": "4546d09",
+  "cloud/planner-demos": "84798ec"
  }
 }
