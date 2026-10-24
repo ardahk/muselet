@@ -4,9 +4,9 @@ Heads: cloud/decisions c88b613 (results.md + calibrated bench: calibration hurts
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
-0. decisions-37 P1 inline() decider has no temperature attrs; merge with cloud/decisions -> AttributeError in planner verify — ml/src/brain/generic_decide.py@planner-verify
-1. decisions-32 P1 Full run fails its gate; TD +.0065 vs DeskMind is within noise, test-selected — training/decisions/HANDOFF.md:7-8,82-89
-2. decisions-5 P1 4-bit MLX export has no logit parity check vs Tinker; Tinker numbers can't be carried over — training/decisions/export.py
+1. decisions-37 P1 inline() decider has no temperature attrs; merge with cloud/decisions -> AttributeError in planner verify — ml/src/brain/generic_decide.py@planner-verify
+2. decisions-32 P1 Full run fails its gate; TD +.0065 vs DeskMind is within noise, test-selected — training/decisions/HANDOFF.md:7-8,82-89
+3. decisions-5 P1 4-bit MLX export has no logit parity check vs Tinker; Tinker numbers can't be carried over — training/decisions/export.py
 4. decisions-33 P1 near_miss_values makes gold the medoid (~2x chance) — training/decisions/families/core.py:29-49
 5. decisions-17 P1 per-family noul priors (counting 7.5% true, numeric 73%) — families/*
 6. decisions-14 P1 live_t1 T1 quoted while live_t1 was the tuning set — pitch/claims.md
