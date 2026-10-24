@@ -1,11 +1,11 @@
 {
-  "pass": 11,
-  "ts": "2026-10-24T08:15:00Z",
+  "pass": 12,
+  "ts": "2026-10-24T08:25:00Z",
   "branches": {
-    "main": "0fd5698",
-    "wip/local": "64dd1cb",
+    "main": "280715d",
+    "wip/local": "38768f3",
     "cloud/bench": "6e7cd09",
-    "cloud/data-pipeline": "0f3df7f",
+    "cloud/data-pipeline": "1d65818",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
     "cloud/fixtures-docs": "4bf2291",
@@ -18,5 +18,5 @@
     "cloud/brain-3": "14a3f52",
     "cloud/finance-3": "31be399"
   },
-  "notes": "pass11 (PULSE 08:00:26Z): only main/wip moved (AGENTS standing decisions, tcc_warm, spend guard, HandsKit tests); no lane-file changes. New standing decision 'tuned vs tuned' raises the stakes of bench-15 (unrepresentative --limit subsets during grounder tuning). No status changes."
+  "notes": "pass12 (PULSE 08:15:38Z): no lane-file changes (data-pipeline eval_route, HandsKit, live_t1 teardowns, AGENTS live-test safety rule). Checked bench against the new LIVE-TEST SAFETY rule: harness/core.py:343-349 skips on failed precondition; HobbyLM teardown (replay.py:495-507 / upstream hobbymac_run.py:260-267) quits only apps not running before the case, closes only extra Finder windows; DeskMind runner closes only its own workspace TextEdit docs (run_muselet.py:128). No new findings."
 }
