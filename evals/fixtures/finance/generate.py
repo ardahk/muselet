@@ -364,7 +364,7 @@ def is_adjacent_swap(a: int, b: int) -> bool:
 
 def check_spec(rows: list[dict], st: dict, bt: dict, rt: dict) -> None:
     """Fail generation if the fixture drifts from the demo story (see README)."""
-    cents = lambda x: round(x * 100)  # noqa: E731
+    cents = lambda x: round(x * 100)
     assert len(rows) == N_ROWS
     assert rows[0]["bal"] - rows[0]["cents"] == OPENING_CENTS
     assert [r["row"] for r in rows] == list(range(1, N_ROWS + 1))
@@ -387,7 +387,7 @@ def check_spec(rows: list[dict], st: dict, bt: dict, rt: dict) -> None:
 
     # Planted anomalies, exactly as documented.
     by_row = {r["row"]: r for r in rows}
-    key = lambda r: (r["date"], r["desc"], r["cents"])  # noqa: E731
+    key = lambda r: (r["date"], r["desc"], r["cents"])
     assert sorted(tuple(key(by_row[i]) for i in g) for g in st["duplicates"]) == [
         (("2026-10-09", "UBER TRIP", -2347),) * 2, (("2026-10-21", "AMAZON MKTP", -6499),) * 2]
     assert [key(by_row[i]) for i in st["outliers"]] == [("2026-10-24", "APPLE STORE", -129900)]
