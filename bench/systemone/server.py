@@ -17,6 +17,19 @@ class Decider(Protocol):
     def decide(self, state: str, question: dict) -> dict[str, float]: ...
 
 
+def server_questions(request) -> dict[str, dict]:
+    return {
+        qid: {
+            "type": question.type,
+            "instructions": question.instructions,
+            "criteria": question.criteria,
+            "options": question.options,
+            "descriptions": question.descriptions,
+        }
+        for qid, question in request.questions.items()
+    }
+
+
 def state_text(state: Any) -> str:
     return state if isinstance(state, str) else json.dumps(state, ensure_ascii=False, sort_keys=False)
 
@@ -94,16 +107,7 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send_json(400, _error(exc.code, str(exc), field=exc.field))
                 return
 
-            parsed_questions = {
-                qid: {
-                    "type": question.type,
-                    "instructions": question.instructions,
-                    "criteria": question.criteria,
-                    "options": question.options,
-                    "descriptions": question.descriptions,
-                }
-                for qid, question in request.questions.items()
-            }
+            parsed_questions = server_questions(request)
             state = state_text(request.state)
             with self.server.backend_lock:
                 distributions = decide_many(self.server.decider, state, parsed_questions)
