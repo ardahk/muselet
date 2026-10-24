@@ -1,4 +1,4 @@
-# hands — digest (pass 33)
+# hands — digest (pass 34)
 
 Open findings were re-verified on main 2920225 in pass 15: hands-1 to 9 and 11 to 14 are resolved, and hands-15 is superseded.
 Pass 21 checks:
@@ -6,6 +6,13 @@ Pass 21 checks:
 - wip/local b63699f is identical to main.
 - cloud/brain-5 b752261 handles `not_frontmost` by reading the failure `result`. That works: RPC.swift returns r with r["error"], BrainConnection always sends `result`, and server.rpc returns it with ok=false.
 No new defects.
+Pass 34: open 0 P0, 2 P1, 2 P2.
+- NEW P1 hands-17: cloud/app-ui and cloud/brain-7 each add `config`/`config_ack`, with incompatible acks (`ok` vs `loaded`). A successful brain-7 load shows "Not available" in the app. app-ui's server awaits config inline, which would block the receive loop during brain-7's 35B load. The two branches conflict in server.py and cli.py. LEAD DECISION: pick one schema and one semantics.
+- NEW P1 hands-18 (medium confidence): panel example prompts run with the MenuBarExtra window possibly frontmost/key. Observe has no own-pid fallback (Observe.swift:440), so the agent may act on Muselet itself. The pill typed path is correct.
+- cloud/app-ui afb2688 otherwise: HandsKit unchanged; mic-pill toggle reuses pressBegan ctx capture; typed requests keep the cancelled-confirm yes/no guard (handleFinal).
+- cloud/brain-7 13432fe: new RPCs are only `act url` (sites.fix_url) and the brain-side compose_text skill; nothing new is needed from HandsKit.
+- cloud/data-pipeline 6c1e565, cloud/decisions 184c80f, cloud/native-research fa88c22 and cloud/report dffa733: no app/ or protocol changes in my lane.
+- hands-10 (Act.swift:348) and hands-16 (orchestrator.py:988) are unchanged on main c949565.
 Pass 33: main c949565 adds two builder briefs only (cloud/builder_appui.md, cloud/builder_comms.md); there is no code yet. wip/local 4ec066f is identical to main. cloud/decisions e125c13 only touches training data. `app/` and the protocol are unchanged, and hands-10 and hands-16 are still open at the same lines.
 Things to check when these briefs land (not findings, because nothing is built yet):
 (a) The app-UI brief adds a new `config`/`config_ack` frame that is not yet in AGENTS.md, protocol.py or server.py. Check that both sides agree.
