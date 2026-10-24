@@ -1,4 +1,4 @@
-# hands — digest (pass 19)
+# hands — digest (pass 20)
 
 Open findings were re-verified on main 2920225 in pass 15: hands-1 to 9 and 11 to 14 are resolved, and hands-15 is superseded.
 Pass 19 reviewed wip/local 630d661, which adds about 920 Swift lines:
@@ -7,6 +7,14 @@ Pass 19 reviewed wip/local 630d661, which adds about 920 Swift lines:
 - Calculator keystroke `type` path, TimerRegistry plus snapshot, and a screen_locked guard.
 - verifyFailed errors that carry `result`.
 No new defects. RPCs run on rpcQueue, so launch waits (<= 5 s + 3 s) don't block main. cloud/brain-5 only sends `skill` and Finder `keys cmd+1..4` RPCs, which main supports. cloud/decisions has no lane changes.
+
+Pass 20 reviewed wip/local 4350185. Changes:
+- `timers`/`timers_cancel` RPCs: failure results carry `result`; an empty id cancels all timers.
+- set_brightness takes a delta.
+- Launch skills now go through openInBrowser/openFolder with a read-back.
+- Push-to-talk ignores every tagged synthetic event, now including keyUp and mouse events.
+- DSL accepts media keys; timer snapshot files left by dead processes are cleaned up.
+No new defects. cloud/data-pipeline 8881d38 only changes docs.
 
 ## Open P0/P1 (ranked)
 None.
