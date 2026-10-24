@@ -1,6 +1,6 @@
 {
-  "pass": 41,
-  "ts": "2026-10-24T20:15:00Z",
+  "pass": 42,
+  "ts": "2026-10-24T20:35:00Z",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
@@ -14,6 +14,7 @@
     "cloud/brain-5": "b752261",
     "cloud/brain-6": "780f49d",
     "cloud/brain-7": "13432fe",
+    "cloud/brain-8": "4546d09",
     "cloud/comms": "c94a407",
     "cloud/data-pipeline": "f8b721a",
     "cloud/data-planner": "ee8ae33",
@@ -31,10 +32,11 @@
     "cloud/pitch-2": "3303678",
     "cloud/pitch-3": "e203181",
     "cloud/pitch-4": "6393857",
+    "cloud/planner-demos": "84798ec",
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
-    "main": "7065dd3",
-    "wip/local": "e29ea7c"
+    "main": "026aff0",
+    "wip/local": "98d1401"
   },
   "next_id": 26
 }
