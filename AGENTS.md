@@ -97,6 +97,9 @@ App -> brain:
 - `{"t":"cancel"}`
 - `{"t":"rpc_result","id":"r1","ok":true,"result":{...}}` or `{"t":"rpc_result","id":"r1","ok":false,"error":"..."}`
 - `{"t":"confirm_reply","id":"c1","yes":true}`
+- `{"t":"config","escalate_planner":true}` (Settings › Models; sent on change and after every hello). The brain
+  replies `{"t":"config_ack","ok":true,"escalate_planner":true,"reason":"loaded"}`; it only switches the 35B
+  escalation planner loaded at startup (`ESCALATE=1`), else `ok:false` with the reason.
 
 Brain -> app:
 - `{"t":"rpc","id":"r1","method":"<observe|act|skill|screenshot|verify|apps>","params":{...}}`

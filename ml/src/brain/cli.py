@@ -84,6 +84,25 @@ ESCALATE_OPTS = {"constrain": False, "few_shot": "prompts/planner_fewshot.md",
                  "history": "dsl"}
 
 
+def apply_config(orch, resident_escalate, msg: dict) -> dict:
+    """App `config` frame -> `config_ack` fields. `escalate_planner` switches the 35B escalation
+    planner on/off; it only uses the one loaded at startup (`ESCALATE=1`), never loads a model."""
+    ack: dict = {"ok": True}
+    if "escalate_planner" in msg:
+        want = bool(msg.get("escalate_planner"))
+        if not want:
+            orch.planner_escalate = None
+            ack.update(escalate_planner=False, reason="off")
+        elif resident_escalate is None:
+            orch.planner_escalate = None
+            ack.update(escalate_planner=False, ok=False,
+                       reason="not loaded: start the brain with ESCALATE=1")
+        else:
+            orch.planner_escalate = resident_escalate
+            ack.update(escalate_planner=True, reason="loaded")
+    return ack
+
+
 async def serve(port: int = 8765, model: str | None = None,
                 planner_model: str | None = None,
                 planner_kw: dict | None = None,
@@ -114,9 +133,18 @@ async def serve(port: int = 8765, model: str | None = None,
         orch.screens = screens
 
     server.on_hello = on_hello
-    if planner and escalate_model:    # loaded now, kept resident
-        orch.planner_escalate = make_planner(
+    resident_escalate = None
+    if planner and escalate_model:    # loaded now, kept resident; the app's config frame toggles it
+        resident_escalate = make_planner(
             escalate_model, engine, ESCALATE_OPTS, tag="planner-escalate")
+        orch.planner_escalate = resident_escalate
+
+    async def on_config(msg: dict) -> dict:
+        ack = apply_config(orch, resident_escalate, msg)
+        print(f"[config] {msg} -> {ack}", flush=True)
+        return ack
+
+    server.on_config = on_config
 
     async def on_utt(text: str, final: bool, ctx: dict | None = None):
         print(f"[utterance] {text} ctx={ctx}", flush=True)

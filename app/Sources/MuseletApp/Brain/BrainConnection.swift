@@ -26,6 +26,9 @@ final class BrainConnection: NSObject, URLSessionWebSocketDelegate {
     /// A final utterance spoken while offline was dropped (not delivered
     /// within `outboxTTL`); the app shows the "brain offline" bubble.
     var onUtteranceDropped: ((_ id: String) -> Void)?
+    /// Socket (re)opened, after hello was queued (main). Send per-connection config here.
+    var onOpen: (() -> Void)?
+    var onConfigAck: ((ConfigAck) -> Void)?
 
     /// Max age of a held final utterance; older ones are never replayed
     /// (a stale command must not execute minutes later).
@@ -86,6 +89,10 @@ final class BrainConnection: NSObject, URLSessionWebSocketDelegate {
     }
 
     func sendCancel() { send(["t": "cancel"]) }
+
+    /// `{"t":"config","escalate_planner":true|false}`; dropped while offline
+    /// (onOpen sends it again on every connect).
+    func sendConfig(_ frame: [String: Any]) { send(frame) }
 
     func sendConfirmReply(id: String, yes: Bool) {
         send(["t": "confirm_reply", "id": id, "yes": yes])
@@ -178,6 +185,7 @@ final class BrainConnection: NSObject, URLSessionWebSocketDelegate {
         backoff = 0.5
         publish(.connected)
         sendHello()
+        DispatchQueue.main.async { self.onOpen?() }     // after hello's main hop: frame order kept
         if let o = outbox {
             outbox = nil
             if Date().timeIntervalSince(o.at) <= Self.outboxTTL {
@@ -263,8 +271,10 @@ final class BrainConnection: NSObject, URLSessionWebSocketDelegate {
             DispatchQueue.main.async { self.onConfirm?(id, summary) }
         case .confirmCancel(let id):
             DispatchQueue.main.async { self.onConfirmCancel?(id) }
-        case .unknown:
-            break
+        case .unknown(let t):
+            if t == "config_ack", let ack = ConfigAck.parse(s) {
+                DispatchQueue.main.async { self.onConfigAck?(ack) }
+            }
         }
     }
 
