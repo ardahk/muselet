@@ -3,6 +3,8 @@
 Runtime rule (ml/src/brain/orchestrator.py): p_top < tau hands the utterance to System 2 with a top-2 hint.
 --rule strict: a handoff is correct only when gold is MULTI_STEP. --rule hint: a handoff is correct when gold is
 MULTI_STEP or one of the two hinted options. Above tau, tuned accuracy is plain top-1 accuracy.
+--rule mac (default; evals/router_check.py): p_top < tau -> MULTI_STEP, tau on TAUS maximizing val macro-F1 over
+gold labels (ties: higher accuracy, then lower tau).
 --rule precision: tau = lowest grid value whose accepted (p_top >= tau) val items reach --target precision.
 
   uv run python -m muselet_train.tau --names base it2 it3 --val-tag val3 --out reports/it3_route_v2.json
@@ -20,6 +22,22 @@ from muselet_train.train import OUT
 
 NEW_V3 = {"draft_email", "compose_text"}
 GRID = [round(0.05 * i, 2) for i in range(20)]
+TAUS = [0.0, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8]
+
+
+def gated(rows: list[dict], tau: float) -> tuple[float, float]:
+    """evals/router_check.py gated(): accuracy and macro-F1 over gold labels of the gated predictions."""
+    pairs = [(r["label"], r["pred"] if r["p_pred"] >= tau else "MULTI_STEP") for r in rows]
+    acc = sum(g == p for g, p in pairs) / len(pairs)
+    f1s = []
+    for lab in sorted({g for g, _ in pairs}):
+        tp = sum(g == lab and p == lab for g, p in pairs)
+        fp = sum(g != lab and p == lab for g, p in pairs)
+        fn = sum(g == lab and p != lab for g, p in pairs)
+        pr = tp / (tp + fp) if tp + fp else 0
+        rc = tp / (tp + fn) if tp + fn else 0
+        f1s.append(2 * pr * rc / (pr + rc) if pr + rc else 0)
+    return acc, sum(f1s) / len(f1s)
 
 
 def load(name: str, tag: str) -> list[dict]:
@@ -27,7 +45,7 @@ def load(name: str, tag: str) -> list[dict]:
     return [json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
 
 
-RULE = "hint"
+RULE = "mac"
 
 
 def ok(r: dict, tau: float) -> bool:
@@ -35,6 +53,7 @@ def ok(r: dict, tau: float) -> bool:
         return r["pred"] == r["label"]
     top2 = sorted(r["probs"], key=r["probs"].get, reverse=True)[:2]
     return r["label"] == "MULTI_STEP" or (RULE == "hint" and r["label"] in top2)
+
 
 
 def acc(rows: list[dict], tau: float) -> float:
@@ -47,6 +66,8 @@ def precision(rows: list[dict], tau: float) -> float:
 
 
 def fit(rows: list[dict], target: float = 0.97) -> float:
+    if RULE == "mac":
+        return max(TAUS, key=lambda t: (gated(rows, t)[1], gated(rows, t)[0], -t))
     if RULE == "precision":
         return next((t for t in GRID if precision(rows, t) >= target), GRID[-1])
     return max(GRID, key=lambda t: (acc(rows, t), -t))
@@ -56,7 +77,11 @@ def block(rows: list[dict], tau: float) -> dict:
     per = collections.defaultdict(list)
     for r in rows:
         per[r["label"]].append(ok(r, tau))
-    return {"n": len(rows), "argmax": acc(rows, 0.0), "tuned": acc(rows, tau), "accepted_precision": precision(rows, tau),
+    if not rows:
+        return {"n": 0}
+    g_acc, g_f1 = gated(rows, tau)
+    return {"n": len(rows), "argmax": acc(rows, 0.0), "tuned": g_acc, "tuned_macro_f1": g_f1,
+            "argmax_macro_f1": gated(rows, 0.0)[1], "accepted_precision": precision(rows, tau),
             "handoff": sum(r["p_pred"] < tau for r in rows) / len(rows) if rows else float("nan"),
             "per_label": {k: round(sum(v) / len(v), 3) for k, v in sorted(per.items())},
             "per_label_n": {k: len(v) for k, v in sorted(per.items())}}
@@ -67,7 +92,7 @@ def main() -> None:
     ap.add_argument("--names", nargs="+", required=True)
     ap.add_argument("--val-tag", default="val")
     ap.add_argument("--out", required=True)
-    ap.add_argument("--rule", choices=["strict", "hint", "precision"], default="precision")
+    ap.add_argument("--rule", choices=["mac", "strict", "hint", "precision"], default="mac")
     ap.add_argument("--target", type=float, default=0.97)
     a = ap.parse_args()
     global RULE
