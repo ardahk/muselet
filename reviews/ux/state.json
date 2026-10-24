@@ -1,10 +1,10 @@
 {
-  "pass": 20,
-  "ts": "2026-10-24T10:40:00Z",
+  "pass": 21,
+  "ts": "2026-10-24T10:55:00Z",
   "last_reviewed": {
-    "main": "d514300",
-    "wip/local": "b63699f",
-    "cloud/data-pipeline": "f13aa6d",
+    "main": "26ff05b",
+    "wip/local": "2c79363",
+    "cloud/data-pipeline": "eae3b7e",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
@@ -17,11 +17,11 @@
     "cloud/brain-3": "14a3f52",
     "cloud/advisor-3": "ca93147",
     "cloud/finance-3": "31be399",
-    "cloud/decisions": "c08a96d",
+    "cloud/decisions": "91a62c2",
     "cloud/pitch-2": "3303678",
     "cloud/brain-4": "dfb66a3",
-    "cloud/hobby-gaps": "929b931",
+    "cloud/hobby-gaps": "861b991",
     "cloud/brain-5": "b752261"
   },
-  "notes": "pass 20: main d514300 merges brain-4 (reviewed in passes 16-17) and HandsKit batch 5 (wip 4350185, reviewed in pass 19); wip b63699f matches main for lane files. brain-5 5cef455 adds a not_frontmost failure ('Opened it, but it didn't come to the front', 9 words; terminal, so no replan loop). ux-18 still open. data-pipeline has no lane edits."
+  "notes": "pass 21: main 26ff05b merged brain-5 (ux-18 and ux-16 now on main) plus argfix off-words; wip matches main. hobby-gaps 861b991 is a main merge only, so ux-17 is unchanged. decisions and data-pipeline have no lane edits."
 }
