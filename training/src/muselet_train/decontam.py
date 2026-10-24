@@ -46,8 +46,8 @@ class Feats:
 
 
 def eval_utterances() -> list[str]:
-    out = [json.loads(l)["utterance"] for p in sorted((REPO / "evals").glob("**/*.jsonl"))
-           for l in p.read_text().splitlines() if l.strip()]
+    out = [json.loads(ln)["utterance"] for p in sorted((REPO / "evals").glob("**/*.jsonl"))
+           for ln in p.read_text().splitlines() if ln.strip()]
     for p in sorted(HOBBY.glob("*.tsv")):
         out += [row[2] for row in csv.reader(p.open(), delimiter="\t") if len(row) > 2 and row[2].strip()]
     return out
@@ -87,7 +87,7 @@ def run(run_name: str, seed: int) -> dict:
         src = d / f"{name}.pre_decontam.jsonl"
         if not src.exists():
             (d / f"{name}.jsonl").rename(src)
-        rows = [json.loads(l) for l in src.read_text().splitlines() if l.strip()]
+        rows = [json.loads(ln) for ln in src.read_text().splitlines() if ln.strip()]
         kept, drop = [], collections.Counter()
         for r in rows:
             m = idx.match(r["utterance"])

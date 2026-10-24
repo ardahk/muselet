@@ -67,9 +67,9 @@ def blend(label: str, probs: dict[str, float]) -> dict[str, float]:
 
 
 async def run(run_name: str, model: str, limit: int | None, concurrency: int, seed: int,
-              out_name: str, labels: list[str] | None, method: str) -> None:
+              out_name: str, labels: list[str] | None, method: str, infile: str = "route.jsonl") -> None:
     score = {"chunked": chunked_decision, "topk": topk_decision}[method]
-    rows = _load(run_name, "route.jsonl")
+    rows = _load(run_name, infile)
     if labels:
         rows = [r for r in rows if r["label"] in labels]
     if limit and limit < len(rows):
@@ -106,9 +106,10 @@ def main() -> None:
     ap.add_argument("--concurrency", type=int, default=64)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default="teacher.jsonl")
+    ap.add_argument("--in", dest="infile", default="route.jsonl")
     ap.add_argument("--method", choices=["chunked", "topk"], default="chunked")
     a = ap.parse_args()
-    asyncio.run(run(a.run, a.model, a.limit, a.concurrency, a.seed, a.out, a.labels, a.method))
+    asyncio.run(run(a.run, a.model, a.limit, a.concurrency, a.seed, a.out, a.labels, a.method, a.infile))
 
 
 if __name__ == "__main__":

@@ -1,18 +1,19 @@
-"""A1 adjudication with claude-sonnet-5-5 via Message Batches (SPEC 1.4).
+"""A1 adjudication with claude-sonnet-5-5, synchronous calls (lead: no Batch APIs), SPEC 1.4.
 
-  python -m muselet_train.adjudicate submit --run R [--in teacher.jsonl] [--all-labels ASK]
-  python -m muselet_train.adjudicate collect --run R
-By default only items with needs_adjudication; --all-labels X adjudicates every item with label X.
+  python -m muselet_train.adjudicate --run R [--in teacher.jsonl] [--all-labels ASK] [--differs]
+Selected: needs_adjudication items whose label is ASK, REFUSE or has > 10% teacher disagreement;
+--all-labels X adds every item with label X; --differs takes every item whose teacher argmax != label.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import time
+import collections
+import concurrent.futures as cf
 
 from muselet_train.catalog import options
-from muselet_train.gen import DATA, _load, _parse_json
+from muselet_train.gen import DATA, _call, _load, _parse_json
 from muselet_train.prompts import A1
 from muselet_train.route_render import RouteContext
 
@@ -30,60 +31,54 @@ def a1_prompt(r: dict) -> str:
                      teacher_argmax=r["teacher_argmax"], p=f"{r['teacher_p']:.2f}")
 
 
-def submit(run: str, infile: str, all_labels: list[str]) -> None:
-    import anthropic
+ALWAYS = ("ASK", "REFUSE")
+DISAGREE = 0.10
 
+
+def select(rows: list[dict], all_labels: list[str], differs: bool) -> list[int]:
+    n, bad = collections.Counter(), collections.Counter()
+    for r in rows:
+        n[r["label"]] += 1
+        bad[r["label"]] += r["teacher_argmax"] != r["label"]
+    hot = {k for k in n if bad[k] / n[k] > DISAGREE} | set(ALWAYS)
+    return [i for i, r in enumerate(rows)
+            if r["label"] in all_labels
+            or (differs and r["teacher_argmax"] != r["label"])
+            or (r["needs_adjudication"] and r["label"] in hot)]
+
+
+def run(run: str, infile: str, all_labels: list[str], differs: bool, concurrency: int = 16) -> None:
     rows = _load(run, infile)
-    todo = [(i, r) for i, r in enumerate(rows) if r["needs_adjudication"] or r["label"] in all_labels]
-    b = anthropic.Anthropic().messages.batches.create(requests=[
-        {"custom_id": f"a{i}", "params": {"model": ADJUDICATOR, "max_tokens": 400,
-                                           "messages": [{"role": "user", "content": a1_prompt(r)}]}}
-        for i, r in todo])
-    (DATA / run / "adjudication_batch.json").write_text(json.dumps({"id": b.id, "in": infile}))
-    print("submitted", b.id, len(todo))
-
-
-def collect(run: str, wait: bool) -> None:
-    import anthropic
-
-    c = anthropic.Anthropic()
-    meta = json.loads((DATA / run / "adjudication_batch.json").read_text())
-    while True:
-        b = c.messages.batches.retrieve(meta["id"])
-        print(b.processing_status, b.request_counts)
-        if b.processing_status == "ended":
-            break
-        if not wait:
-            return
-        time.sleep(30)
-    rows = _load(run, meta["in"])
+    todo = select(rows, all_labels, differs)
     usage = {"calls": 0, "input": 0, "output": 0}
-    for res in c.messages.batches.results(meta["id"]):
-        r = rows[int(res.custom_id[1:])]
-        if res.result.type != "succeeded":
-            r["adjudication"] = {"error": res.result.type}
-            continue
-        m = res.result.message
-        usage["calls"] += 1
-        usage["input"] += m.usage.input_tokens
-        usage["output"] += m.usage.output_tokens
-        j = _parse_json("".join(x.text for x in m.content if x.type == "text")) or {}
-        r["adjudication"] = {"model": m.model, **j}
-    (DATA / run / meta["in"].replace(".jsonl", "_adj.jsonl")).write_text(
-        "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
-    (DATA / run / "adjudication_usage.json").write_text(json.dumps({ADJUDICATOR: usage}))
-    print(json.dumps(usage))
+    reqs = [{"id": f"a{i}", "provider": "anthropic", "model": ADJUDICATOR, "prompt": a1_prompt(rows[i])}
+            for i in todo]
+    with cf.ThreadPoolExecutor(concurrency) as ex:
+        for i, (res, u) in zip(todo, ex.map(_call, reqs), strict=True):
+            usage["calls"] += 1
+            usage["input"] += u["input"]
+            usage["output"] += u["output"]
+            j = _parse_json(res.get("text") or "") or {}
+            rows[i]["adjudication"] = {"model": res.get("model"), **j} if j else {"error": res.get("error", "bad_json")}
+    out = infile.replace(".jsonl", "_adj.jsonl")
+    (DATA / run / out).write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+    (DATA / run / out.replace(".jsonl", "_usage.json")).write_text(json.dumps({ADJUDICATOR: usage}))
+    adj = [rows[i] for i in todo]
+    by = collections.defaultdict(collections.Counter)
+    for r in adj:
+        a = r["adjudication"]
+        by[r["label"]][a.get("verdict", "error") + ("" if a.get("verdict") != "relabel" else ":" + str(a.get("label")))] += 1
+    print(json.dumps({"adjudicated": len(todo), "usage": usage, "by_label": by}, indent=1))
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["submit", "collect"])
     ap.add_argument("--run", required=True)
     ap.add_argument("--in", dest="infile", default="teacher.jsonl")
     ap.add_argument("--all-labels", nargs="*", default=[])
-    ap.add_argument("--wait", action="store_true")
+    ap.add_argument("--differs", action="store_true")
     a = ap.parse_args()
-    submit(a.run, a.infile, a.all_labels) if a.cmd == "submit" else collect(a.run, a.wait)
+    run(a.run, a.infile, a.all_labels, a.differs)
 
 
 if __name__ == "__main__":

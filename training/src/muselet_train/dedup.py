@@ -42,8 +42,8 @@ def minhash(t: str) -> MinHash:
 
 
 def eval_texts() -> list[str]:
-    out = [json.loads(l)["utterance"] for p in sorted((REPO / "evals").glob("**/*.jsonl"))
-           for l in p.read_text().splitlines() if l.strip()]
+    out = [json.loads(ln)["utterance"] for p in sorted((REPO / "evals").glob("**/*.jsonl"))
+           for ln in p.read_text().splitlines() if ln.strip()]
     for p in sorted(HOBBY.glob("*.tsv")):
         out += [row[2] for row in csv.reader(p.open(), delimiter="\t") if len(row) > 2]
     for p in sorted(HOBBY.glob("*.json")):

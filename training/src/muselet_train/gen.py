@@ -17,7 +17,7 @@ import re
 import time
 from pathlib import Path
 
-from muselet_train.catalog import Option, arg_signature, options, skills
+from muselet_train.catalog import Option, arg_signature, skills
 from muselet_train.prompts import (
     CATEGORIES, G1, G2, G2_NEAR_MISS, G2_NEAR_MISS_ASK, G3, MAC_APPS, MULTI_STEP_FOCUS, STYLES,
 )

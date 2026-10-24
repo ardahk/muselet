@@ -10,7 +10,7 @@ ROUTE_V1 = REPO / "evals" / "route_v1.jsonl"
 
 
 def _route_v1() -> list[str]:
-    return [json.loads(l)["utterance"] for l in ROUTE_V1.read_text().splitlines() if l.strip()]
+    return [json.loads(ln)["utterance"] for ln in ROUTE_V1.read_text().splitlines() if ln.strip()]
 
 
 def test_rules_catch_near_copies():
