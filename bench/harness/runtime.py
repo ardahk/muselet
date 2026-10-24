@@ -128,6 +128,26 @@ class HandsRuntime:
         await self._start_client(utterance, timeout_s=timeout_s)
         await self._wait_for("wait_for_utterance", self.proxy.wait_for_utterance)
 
+    async def start_turns(self, utterances: list[str], timeout_s: float = 30) -> None:
+        """One HandsKit client sends every turn on one WebSocket; the proxy gates each."""
+        await self._stop_client()
+        await self._wait_for("wait_disconnected", self.proxy.wait_disconnected)
+        await self._release_before_start("start_turns")
+        self.proxy.gate_turns()
+        await self._start_client(list(utterances), timeout_s=timeout_s)
+        await self._wait_for("wait_for_utterance", self.proxy.wait_for_utterance)
+
+    def begin_turn(self, confirm_reply: bool | None) -> None:
+        self.proxy.begin_turn(confirm_reply)
+
+    async def wait_next_turn(self, timeout_s: float = 20) -> bool:
+        return await self.proxy.wait_for_held_utterance(timeout_s)
+
+    async def send_next_turn(self) -> None:
+        if not await self.proxy.release_held_utterance():
+            raise RuntimeError("no held utterance to send")
+        await self._wait_for("wait_for_utterance", self.proxy.wait_for_utterance)
+
     async def _wait_for(self, stage: str, wait, *args, **kwargs):
         try:
             return await wait(*args, **kwargs)
@@ -185,7 +205,7 @@ class HandsRuntime:
         await self.proxy.release_slot(5.0)
 
     async def _start_client(
-        self, utterance: str | None = None, *, timeout_s: float = 30
+        self, utterance: str | list[str] | None = None, *, timeout_s: float = 30
     ) -> None:
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self._client_seq += 1
@@ -194,7 +214,8 @@ class HandsRuntime:
         self.log_path = log_path
         command = [self.hands_bin, "serve", "--url", self.proxy.url]
         if utterance is not None:
-            command.extend(["--utterance", utterance])
+            for text in [utterance] if isinstance(utterance, str) else utterance:
+                command.extend(["--utterance", text])
             self.hands_serve_timeout_flag = serve_timeout_supported(self.hands_bin)
             if self.hands_serve_timeout_flag:
                 command.extend(["--timeout", str(math.ceil(timeout_s) + 15)])

@@ -110,6 +110,18 @@ first action; setup and teardown remain outside the utterance. Use read-only
 checks for this phase. A missing `confirm_reply` is treated as unexpected,
 fails the case, and is answered `false`.
 
+Multi-turn cases (`evals/live_t2_new.jsonl`) use `"turns": [{"utterance", "confirm_reply",
+"check"?, "wait_s"?, "timeout_s"?, "expect_outcome"?}]` instead of `utterance`. One `hands serve`
+client gets every `--utterance`; the proxy forwards the first and holds each later one until the
+runner releases it (after the previous turn's outcome, `wait_s`, default 1.0, and that turn's checks),
+so all turns share one brain WebSocket. Preconditions, document inventory, setup, restore and
+teardown run once around the whole case; the top-level `check` grades the final state. A turn check
+with `"save": "<name>"` stores its observed value for a later `"int_at_least_saved": ["<name>", delta]`.
+Predicates may also read HandsKit RPCs: `{"rpc": "timers", "params": {...}, "count": {"path":
+"timers", "where": {...}}}` or `"path": "clock.status"`, then the usual comparators. Teardown
+`{"cancel_timers": {"where": {...}}}` cancels matching timers by id (pair it with a precondition that
+none existed).
+
 The runner does not claim macOS benchmark results on Linux. `--dry-run` and the
 fake-WebSocket tests validate suite planning and protocol behavior, not model
 quality or live macOS execution.
