@@ -1,12 +1,12 @@
 {
-  "pass": 35,
-  "ts": "2026-10-24T17:00:00Z",
+  "pass": 36,
+  "ts": "2026-10-24T19:20:00Z",
   "branches": {
     "main": "e56582b",
-    "wip/local": "4ec066f",
+    "wip/local": "73f7044",
     "cloud/bench": "f584cb2",
     "cloud/data-pipeline": "f8b721a",
-    "cloud/decisions": "43abfa3",
+    "cloud/decisions": "694c198",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
     "cloud/finance-3": "31be399",
@@ -26,12 +26,15 @@
     "cloud/pitch-3": "e203181",
     "cloud/pitch-4": "6393857",
     "cloud/brain-6": "780f49d",
-    "cloud/app-ui": "afb2688",
+    "cloud/app-ui": "ae9ce5e",
     "cloud/brain-7": "13432fe",
     "cloud/native-research": "fa88c22",
     "cloud/report": "dffa733",
-    "cloud/comms": "956d4ac",
-    "cloud/report-2": "3c25e78"
+    "cloud/comms": "c94a407",
+    "cloud/report-2": "3c25e78",
+    "cloud/bench-fix": "4bcf0db",
+    "cloud/data-route": "42835ce",
+    "cloud/data-planner": "ee8ae33"
   },
-  "notes": "pass35: main e56582b merged report (#22, docs/REPORT.md repeats bench-15 '200-sample stratified' and bench-19 holdout numbers without CI), native-research (#23, docs only), brain-7 (#25, orchestrator/sites/compose_text, no lane files). data-pipeline f8b721a gate_filter drops pool rows overlapping frozen evals incl. ASR-rendered text (noisy() key matches datums.route_datums) - good; still relies on eval_items which skips missing files (bench-24). decisions 43abfa3 lazy MLX import only. comms 956d4ac: no lane files. report-2 3c25e78: live suite T1 19/22 -> bench-25; planner holdout2 .667 (8/12) quoted without CI (bench-19)."
+  "notes": "pass36: bench-fix 4bcf0db (harness_timeout recovery, --run-pending, vendored HobbyLM helper) - bench-16 extended (harness_timeout excluded per run); bench-20 (HobbyLM timers) and bench-21 (calc setup quit vs open_cleared, replay.py:170,680,984) unchanged; --run-pending reports pending separately (ok). data-route 42835ce: gate dropped 156 pool rows overlapping route_v1/v2/live_t1/HobbyLM sealed (good); judges gpt-5.6-sol/claude-opus-5-5. data-planner ee8ae33: planner v2 260 scenarios -> bench-26. decisions 694c198 checkpoint log only; comms/app-ui/wip: no lane changes."
 }
