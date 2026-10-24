@@ -10,6 +10,7 @@ class FakeServer:
     def __init__(self, act=None, observe=None):
         self.said: list[str] = []
         self.uis: list[str] = []
+        self.ui_ms: list = []
         self.confirms: list[str] = []
         self.rpcs: list[tuple[str, dict]] = []
         self.confirm_yes = True
@@ -23,8 +24,9 @@ class FakeServer:
     async def say(self, text):
         self.said.append(text)
 
-    async def ui(self, mascot, bubble=None):
+    async def ui(self, mascot, bubble=None, ms=None):
         self.uis.append(mascot)
+        self.ui_ms.append(ms)
 
     async def ask_confirm(self, summary, timeout=120):
         self.confirms.append(summary)

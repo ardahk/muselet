@@ -6,7 +6,7 @@ import re
 
 SLOT_TTL_S = 60
 CANCEL = re.compile(r"^(?:cancel|never ?mind|forget (?:it|about it)|stop|"
-                    r"no(?:pe)?|nothing)[.!]?$", re.I)
+                    r"no(?:pe)?|nothing)[.!]?$", re.IGNORECASE)
 
 _DATETIME_WORDS = (
     r"(?:(?:at|by|on|for|from|in|this|next|every|until|before|after)\s+)?"
@@ -17,23 +17,23 @@ _DATETIME_WORDS = (
     r"(?:an?|\d+|one|two|three|four|five|ten|fifteen|twenty|thirty)\s+"
     r"(?:minutes?|hours?|days?|weeks?)|"
     r"\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.|o'clock)?)")
-_DT_PHRASE = re.compile(rf"(?:\s*\b{_DATETIME_WORDS}\b)+", re.I)
+_DT_PHRASE = re.compile(rf"(?:\s*\b{_DATETIME_WORDS}\b)+", re.IGNORECASE)
 _LEAD = {
     "create_reminder": re.compile(
         r"^(?:please\s+)?(?:remind me(?:\s+to)?|(?:create|add|set|make)\s+"
         r"(?:a\s+|an\s+)?reminder(?:\s+(?:to|for|about|that))?|"
-        r"don't let me forget(?:\s+to)?)(?:\s+|$)", re.I),
+        r"don't let me forget(?:\s+to)?)(?:\s+|$)", re.IGNORECASE),
     "create_event": re.compile(
         r"^(?:please\s+)?(?:(?:create|add|schedule|make|put|set up|book)\s+"
         r"(?:an?\s+)?(?:new\s+)?(?:event|meeting|appointment|calendar event)?"
-        r"(?:\s+(?:called|named|for|titled))?|schedule)\s+", re.I),
+        r"(?:\s+(?:called|named|for|titled))?|schedule)\s+", re.IGNORECASE),
     "new_note": re.compile(
         r"^.*?\b(?:note|write down|jot down)\b(?:\s+(?:that\s+says|saying|"
-        r"which\s+says|with|that|to|:))?\s+", re.I),
+        r"which\s+says|with|that|to|:))?\s+", re.IGNORECASE),
 }
 _NOTE_BODY = re.compile(
     r"\b(?:that says|saying|which says|with the text|with text|reading)\s+(.+)$",
-    re.I)
+    re.IGNORECASE)
 
 
 def _strip(s: str) -> str:
@@ -50,7 +50,7 @@ def _title_from(skill: str, args: dict, utterance: str) -> str | None:
             t = t[:i] + " " + t[i + len(v):]
     t = _DT_PHRASE.sub(" ", t)
     t = _LEAD[skill].sub("", _strip(t))
-    t = _strip(re.sub(r"^(?:to|about|that)\s+", "", _strip(t), flags=re.I))
+    t = _strip(re.sub(r"^(?:to|about|that)\s+", "", _strip(t), flags=re.IGNORECASE))
     return t or None
 
 
@@ -100,11 +100,11 @@ def question(skill: str, arg: str, typ: str | None) -> str:
     return q or f"What {arg.replace('_', ' ')} should I use?"
 
 
-_FILLER = re.compile(r"^(?:(?:um+|uh+|so|okay|ok|well),?\s+)+", re.I)
+_FILLER = re.compile(r"^(?:(?:um+|uh+|so|okay|ok|well),?\s+)+", re.IGNORECASE)
 _SAY_LEAD = re.compile(r"^(?:it should say|it says|that says|have it say|"
-                       r"make it say|say|call it|name it)\s+", re.I)
+                       r"make it say|say|call it|name it)\s+", re.IGNORECASE)
 _PREP_LEAD = re.compile(r"^(?:send it to|text|email|to|at|on|for|in|"
-                        r"it's|it is)\s+", re.I)
+                        r"it's|it is)\s+", re.IGNORECASE)
 
 
 def clean_answer(text: str, typ: str | None) -> str:

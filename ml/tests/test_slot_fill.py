@@ -4,12 +4,10 @@ import asyncio
 import json
 
 import pytest
-
 from brain import slots
 from brain.catalog import Catalog
 from brain.orchestrator import Orchestrator
 from brain.traces import Tracer
-
 from fakes import FakeEngine, FakeServer
 
 

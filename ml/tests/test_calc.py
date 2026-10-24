@@ -1,7 +1,6 @@
 """Deterministic exact answers (task 3): no model call when code parses."""
 
 import pytest
-
 from brain import calc
 
 CASES = [

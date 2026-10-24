@@ -89,9 +89,11 @@ async def serve(port: int = 8765, model: str | None = None,
         await server.close()
 
 
-def eval_route(model: str, cases_path: str, out_dir: str = "runs/evals"):
-    from .decision import DecisionEngine
+def eval_route(model: str, cases_path: str, out_dir: str = "runs/evals",
+               tau: float = 0.55):
     import subprocess
+
+    from .decision import DecisionEngine
     try:
         cases_sha = subprocess.run(
             ["git", "hash-object", cases_path],
@@ -106,7 +108,7 @@ def eval_route(model: str, cases_path: str, out_dir: str = "runs/evals"):
     dummy_orch.catalog = Catalog.load()
     pairs: list[tuple[str, str]] = []   # (true, predicted)
     route_ms, args_ms, probs_ece = [], [], []
-    correct = n_args_scored = e2e_n = 0
+    correct = n_args_scored = e2e_n = raw_correct = 0
     args_hits = e2e_hits = 0
     confusions: dict = {}
 
@@ -126,6 +128,9 @@ def eval_route(model: str, cases_path: str, out_dir: str = "runs/evals"):
         r = engine.route(c["utterance"], c.get("ctx", {}))
         route_ms.append(r.ms["route_ms"])
         lab, lbl = r.top, c["label"]
+        raw_correct += lab == lbl
+        if r.p_top < tau:
+            lab = "MULTI_STEP"     # serve sends unsure routes to the planner
         pairs.append((lbl, lab))
         if lab == lbl:
             correct += 1
@@ -177,6 +182,8 @@ def eval_route(model: str, cases_path: str, out_dir: str = "runs/evals"):
     report = {
         "model": model, "n": len(cases), "cases_sha": cases_sha,
         "accuracy": correct / len(cases) if cases else 0,
+        "accuracy_top1_ungated": raw_correct / len(cases) if cases else 0,
+        "tau": tau,
         "macro_f1": sum(f1s) / len(f1s) if f1s else 0,
         "per_label": per_label,
         "top_confusions": [
@@ -211,6 +218,8 @@ def main():
     e.add_argument("--model", default=None)
     e.add_argument("--cases", required=True)
     e.add_argument("--out", default="runs/evals")
+    e.add_argument("--tau", type=float, default=0.55,
+                   help="below this p_top a case counts as MULTI_STEP (planner)")
     t = sub.add_parser("trace-stats", help="p50/p95 latency report over traces")
     t.add_argument("--since", default=None, help="ISO date/time lower bound")
     t.add_argument("--path", default="runs/traces",
@@ -226,7 +235,8 @@ def main():
         m = _resolve_model(args.model)
         asyncio.run(serve(args.port, m, args.planner_model))
     elif args.cmd == "eval-route":
-        eval_route(args.model, args.cases, args.out)
+        eval_route(args.model, args.cases, args.out,
+                   tau=getattr(args, "tau", 0.55))
     else:
         ap.print_help()
 

@@ -123,7 +123,8 @@ def parse(text: str) -> list[dict]:
         raw = lines[i]
         line = raw.strip()
         i += 1
-        if not line:
+        # '# <note>' comment lines and ``` fences are not actions
+        if not line or line.startswith("#") or line.startswith("```"):
             continue
 
         # triple-quoted script block may span lines

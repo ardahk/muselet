@@ -11,7 +11,7 @@ import re
 import threading
 import time
 
-from . import calc, dsl, obsdiff, slots
+from . import calc, dsl, obsdiff, replies, slots
 from .catalog import Catalog, CatalogError
 from .traces import Tracer
 
@@ -25,7 +25,7 @@ _WORD_NUM = {"zero": 0, "five": 5, "ten": 10, "fifteen": 15, "twenty": 20,
 # script-lang batches that must be confirmed before running
 _DANGEROUS_SCRIPT = re.compile(
     r"\b(delete|remove|rm\s|empty trash|send|quit|shut ?down|restart|"
-    r"log ?out|do shell script|erase|format)\b", re.I)
+    r"log ?out|do shell script|erase|format)\b", re.IGNORECASE)
 
 
 def _num(tok: str) -> int | None:
@@ -36,7 +36,16 @@ def _num(tok: str) -> int | None:
 
 
 def _norm(text: str) -> str:
-    return re.sub(r"\s+", " ", text.strip().lower())
+    # case/punctuation-insensitive: Parakeet finals add both
+    return " ".join(re.sub(r"[^\w\s']", " ", text.lower()).split())
+
+
+def _headtail(s: str, n: int = 1500) -> str:
+    """Script output for the planner: head + tail when longer than n."""
+    if len(s) <= n:
+        return s
+    h = n * 2 // 3
+    return s[:h] + "\n...\n" + s[-(n - h - 5):]
 
 
 def _excerpt(text, n: int) -> str:
@@ -71,6 +80,7 @@ class Orchestrator:
         self.engine = engine
         self.tau = tau
         self.planner = None
+        self._ms_kind = None
         self._last_epoch = None
         self._last_obs = None
         self._ctx = {"app": "none", "focused": "none", "selection": False,
@@ -140,6 +150,7 @@ class Orchestrator:
         t0 = time.perf_counter()
         self._t_final = t0
         self._first_action_ms = None
+        self._ms_kind = None
         trace = self.tracer.begin(text)
         # utterance-frame ctx wins (app/focused/selection/online)
         if ctx:
@@ -176,11 +187,11 @@ class Orchestrator:
                 elif (ans := calc.answer(text)) is not None:
                     trace["decisions"].append({"calc": ans})
                     await self.server.say(ans)
-                    await self.server.ui("success")
+                    await self._end_ui("success")
                 else:
                     await self._observe()
                     await self.server.say("I can't do that yet")
-                    await self.server.ui("confused")
+                    await self._end_ui("confused")
                     outcome = "fallback"
             trace["release_to_first_action_ms"] = self._first_action_ms
             self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
@@ -190,6 +201,17 @@ class Orchestrator:
             trace["release_to_first_action_ms"] = self._first_action_ms
             self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
             raise
+        except Exception as e:      # never leave the mascot thinking (ux-11)
+            log.exception("utterance failed")
+            outcome = "error"
+            trace["error"] = f"{type(e).__name__}: {e}"
+            self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
+            try:
+                await self.server.say("Something went wrong. Try again?")
+                await self._end_ui("confused")
+            except Exception:
+                pass
+            return {"outcome": outcome}
         finally:
             self.tracer.finish(outcome)
 
@@ -198,10 +220,11 @@ class Orchestrator:
     async def _brain_tool(self, label: str, args: dict, text: str) -> str:
         """executor:brain skills — local tools, never sent to HandsKit."""
         from . import tools
+        self._ms_kind = "total"
         out = await tools.run(self, label, args, text)
         if out == "fallback":
             await self.server.say("That workflow is almost ready")
-            await self.server.ui("confused")
+            await self._end_ui("confused")
         elif out == "ok":
             self._ctx["last_action"] = label
         return out
@@ -216,9 +239,15 @@ class Orchestrator:
         if pre is not None:
             res = pre
         elif self._spec_fut is not None and norm == self._spec_norm:
-            res, spec_ext = await asyncio.wrap_future(self._spec_fut)
-            spec_hit = True
+            got = await asyncio.wrap_future(self._spec_fut)
+            if got is not None:
+                res, spec_ext = got
+                spec_hit = True
+            else:
+                res = await worker().submit_async(
+                    self.engine.route, text, dict(self._ctx))
         else:
+            self._spec_gen += 1          # queued stale partials skip (brain-13)
             res = await worker().submit_async(
                 self.engine.route, text, dict(self._ctx))
         self._spec_fut = None
@@ -237,7 +266,7 @@ class Orchestrator:
             return await self._planner_loop(text, trace)
         if label == "REFUSE":
             await self.server.say("Sorry, I can't do that")
-            await self.server.ui("confused")
+            await self._end_ui("confused")
             return "failed"
         if label == "ANSWER":
             return await self._answer(text, trace)
@@ -350,7 +379,7 @@ class Orchestrator:
             if slot["tries"] >= 2:
                 self._slot = None
                 await self.server.say("Sorry, I didn't catch that")
-                await self.server.ui("confused")
+                await self._end_ui("confused")
                 return "failed"
             slot["t"] = time.time()
             await self.server.say(slots.question(slot["skill"], arg,
@@ -373,7 +402,7 @@ class Orchestrator:
 
     _DANGEROUS_LABEL = re.compile(
         r"send|delete|remove|buy|purchase|pay|place order|post|publish|"
-        r"erase|empty trash|replace|submit order", re.I)
+        r"erase|empty trash|replace|submit order", re.IGNORECASE)
     _DANGEROUS_COMBOS = {"cmd+delete", "cmd+opt+delete", "cmd+shift+d"}
 
     def _speculative_route(self, text: str, ctx: dict | None = None):
@@ -395,7 +424,10 @@ class Orchestrator:
                 self._spec_job, text, c, self._spec_gen)
 
     def _spec_job(self, text: str, ctx: dict, gen: int):
-        """worker thread: (route, args|None)."""
+        """worker thread: (route, args|None); None when superseded before it
+        ran, so at most one speculative job is ever ahead of the final."""
+        if gen != self._spec_gen:
+            return None
         res = self.engine.route(text, ctx)
         if res.p_top < self.tau or gen != self._spec_gen or \
                 not (self.catalog.get(res.top) or {}).get("args"):
@@ -408,7 +440,7 @@ class Orchestrator:
         if ans is not None:
             trace["decisions"].append({"calc": ans})
             await self.server.say(ans)
-            await self.server.ui("success")
+            await self._end_ui("success")
             return "ok"
         if self.planner is not None:
             from .planner import worker
@@ -419,7 +451,7 @@ class Orchestrator:
             await self.server.say(ans or "I don't know")
         else:
             await self.server.say("I'll answer that soon")
-        await self.server.ui("success")
+        await self._end_ui("success")
         return "ok"
 
     def _label_of(self, ref: int | None) -> str:
@@ -473,7 +505,7 @@ class Orchestrator:
         if op == "script":
             code = str(a.get("code") or "")
             m = re.search(r'(?:tell\s+application\s+(?:id\s+)?"|'
-                          r'Application\(\s*[\'"])([^"\']+)', code, re.I)
+                          r'Application\(\s*[\'"])([^"\']+)', code, re.IGNORECASE)
             lang = {"applescript": "AppleScript", "jxa": "JXA"}.get(
                 a.get("lang"), a.get("lang") or "a")
             if m:
@@ -498,7 +530,8 @@ class Orchestrator:
                 await self.server.say("Okay, cancelled")
                 return {"status": "cancelled",
                         "_log": f"{dsl_line}-> cancelled"}
-            self._batch_confirmed = True      # no double confirm this batch
+            # one confirm unlocks only the next dangerous action (brain-14)
+            self._batch_confirmed = True
             return {"status": "ok", "confirmed": True,
                     "_log": f"{dsl_line}-> confirmed"}
         if op == "done":
@@ -507,7 +540,7 @@ class Orchestrator:
                     "_log": f"{dsl_line}-> done"}
         if op == "refuse":
             await self.server.say("Sorry, I can't do that")
-            await self.server.ui("confused")
+            await self._end_ui("confused")
             return {"status": "failed", "_log": f"{dsl_line}-> refused"}
         if op == "wait":
             self._diff_chain = None
@@ -528,11 +561,12 @@ class Orchestrator:
             risk = spec.get("risk")
             if risk in ("confirm", "confirm_if_unsaved"):
                 # if we can't tell the unsaved state, confirm (spec rule)
-                yes = await self.server.ask_confirm(
-                    await self._confirm_summary(a))
-                if not yes:
-                    return {"status": "cancelled"}
-                a["args"]["confirmed"] = True
+                if not self._take_confirm():
+                    yes = await self.server.ask_confirm(
+                        await self._confirm_summary(a))
+                    if not yes:
+                        return {"status": "cancelled"}
+                a.setdefault("args", {})["confirmed"] = True
             r = await self._rpc_action("skill",
                                        {"name": a["name"],
                                         "args": a.get("args", {})}, a)
@@ -540,7 +574,8 @@ class Orchestrator:
             return r
         if op == "script":
             lang, code = a["lang"], a["code"]
-            if self.script_needs_confirm(lang, code):
+            if self.script_needs_confirm(lang, code) and \
+                    not self._take_confirm():
                 yes = await self.server.ask_confirm(
                     await self._confirm_summary(a))
                 if not yes:
@@ -552,7 +587,7 @@ class Orchestrator:
                 out = r.get("res", {})
                 text_out = out.get("output") or out.get("stdout") or ""
                 if text_out:
-                    self._script_output = str(text_out)[:300]
+                    self._script_output = _headtail(str(text_out))
             return r
         if op == "click":
             return {"status": "failed", "error": "no screenshot attached",
@@ -575,12 +610,11 @@ class Orchestrator:
                     app = ((self._last_obs or {}).get("app")
                            or self._ctx.get("app") or "")
                     needs = app in ("Messages", "Mail", "Slack")
-            if needs and not self._batch_confirmed:
+            if needs and not self._take_confirm():
                 yes = await self.server.ask_confirm(
                     await self._confirm_summary(a))
                 if not yes:
                     return {"status": "cancelled"}
-                self._batch_confirmed = True
             params = {k: v for k, v in a.items() if k != "op"}
             params["op"] = op
             r = await self._rpc_action("act", params, a)
@@ -592,6 +626,11 @@ class Orchestrator:
         r = await self._rpc_action("act", params, a)
         r["_log"] = f"{dsl_line}-> {'ok' if r['status']=='ok' else 'failed: ' + r.get('error','?')}"
         return r
+
+    def _take_confirm(self) -> bool:
+        """Consume a pending model `confirm`: it covers one dangerous action."""
+        ok, self._batch_confirmed = self._batch_confirmed, False
+        return ok
 
     async def _rpc_action(self, method: str, params: dict,
                           action: dict) -> dict:
@@ -636,21 +675,23 @@ class Orchestrator:
                 return {"status": "failed",
                         "error": f"expect failed: {vres.get('observed', '?')}",
                         "res": res}
-        return {"status": "ok", "res": res}
+        return {"status": "ok", "res": res, "expect_ok": bool(exp)}
 
     # script confirmation policy (evals-safety-2)
     _SCRIPT_BLOCK = re.compile(
         r"do shell script|doShellScript|do script|run script|keystroke|"
         r"key code|ObjC|\$\.|NSFileManager|trash|delete|remove|saving no|"
         r"send|erase|format|quit|close|move|duplicate|make new|"
-        r"set .* to .*", re.I)
+        r"set .* to .*|click|perform action|AXPress|do JavaScript|"
+        r"open location|«event|\braw\b|open\s+(?:POSIX\s+)?file|"
+        r"\.command\b|\.sh\b|removeItem|\brm\s", re.IGNORECASE)
     _SCRIPT_APPS_READ = {
         "com.apple.numbers", "numbers", "music", "calendar", "system events"}
     _SCRIPT_APPS_LIMITED = {"finder", "safari"}
     _READ_VERBS = re.compile(
-        r"\b(get|count|exists|reveal|open)\b", re.I)
+        r"\b(get|count|exists|reveal|open)\b", re.IGNORECASE)
     _NUMBERS_OK = re.compile(
-        r"set value|set background color|sort|make new table", re.I)
+        r"set value|set background color|sort|make new table", re.IGNORECASE)
 
     def script_needs_confirm(self, lang: str, code: str) -> bool:
         """confirm unless the script targets only allow-listed apps with
@@ -660,7 +701,7 @@ class Orchestrator:
         if lang == "shell":
             return True
         targets = {t.lower() for t in re.findall(
-            r'tell\s+application\s+(?:id\s+)?"([^"]+)"', code, re.I)}
+            r'tell\s+application\s+(?:id\s+)?"([^"]+)"', code, re.IGNORECASE)}
         if lang == "jxa" and not targets:
             targets = {t.lower() for t in re.findall(
                 r'Application\(\s*[\'"]([^\'"]+)', code)}
@@ -685,18 +726,20 @@ class Orchestrator:
         12 turns / 60 s. Returns final outcome."""
         if self.planner is None:
             await self.server.say("Planning isn't ready yet")
-            await self.server.ui("confused")
+            await self._end_ui("confused")
             return "fallback"
         from . import dsl
         from .planner import worker
         goal = text
         if answer:
             goal += f'\nUser answer: "{answer}"'
+        self._ms_kind = "total"
         t_start = time.perf_counter()
         self._script_output = None
         last_batch: list[str] | None = None
         prev_had_failure = False
         done_rejected = False
+        prev_expect_ok = False
         obs_text = ""
         diffs: list[str] | None = None
         for turn in range(12):
@@ -712,8 +755,10 @@ class Orchestrator:
                         obs_text, self._last_obs.get("elements")))
                 trace["decisions"].append({"obs_from_diff": turn,
                                            "n_diffs": len(diffs)})
+                obs_fresh = False
             else:
                 obs = await self._observe()
+                obs_fresh = bool(obs)
                 if obs:
                     obs_text = obs["text"]
                     self._last_obs = obs
@@ -737,6 +782,7 @@ class Orchestrator:
             res_status = "ok"
             done_seen = False
             n_executed = 0
+            last_exp_ok = False
             script_buf: list[str] | None = None   # multi-line """ block
             try:
                 while True:
@@ -768,6 +814,7 @@ class Orchestrator:
                             cancel.set()      # done ends the batch's execution
                         else:
                             n_executed += 1
+                            last_exp_ok = bool(r.get("expect_ok"))
                             if r["status"] != "ok":
                                 failed = True
                                 cancel.set()
@@ -791,6 +838,7 @@ class Orchestrator:
                     done_seen = True
                 else:
                     n_executed += 1
+                    last_exp_ok = bool(r.get("expect_ok"))
                     if r["status"] != "ok":
                         failed = True
                         res_status = r["status"]
@@ -802,26 +850,36 @@ class Orchestrator:
                 "decode_tok_s": round(info["decode_tok_s"], 1),
                 "tokens": info["tokens"]})
             last_batch = batch_log or None
-            diffs = self._diff_chain if n_executed else None
+            lo = self._last_obs or {}
+            # capped/truncated observations can't be rebuilt from diffs: an
+            # element pushed past max_nodes shows up as `- #ref` (hands-13)
+            diffs = self._diff_chain if n_executed and not lo.get("truncated") \
+                and len(lo.get("elements") or []) < 150 else None
             self._diff_chain = None
             if res_status == "awaiting_user":
                 self._pending_task = {"goal": text, "t": time.time()}
                 return "awaiting_user"
             if res_status == "cancelled":
                 return "cancelled"
-            # done validation: alone in batch + no prior failure
+            if res_status == "fallback":
+                return "fallback"     # brain tool not ready: one bubble (planner-18)
+            # done is verified, never trusted (planner-13): alone in its batch
+            # and either the previous batch's last expect passed, or the
+            # planner saw a fresh observe (not a diff rebuild); after a
+            # failure, done is rejected once
             if done_seen and not failed:
-                if n_executed == 0 and (not prev_had_failure or done_rejected):
+                if n_executed == 0 and (prev_expect_ok or obs_fresh and (
+                        not prev_had_failure or done_rejected)):
                     summary = self._done_summary or "Done"
                     await self.server.say(summary[:60])
-                    await self.server.ui("success")
+                    await self._end_ui("success")
                     return "ok"
-                # reject once, then let a subsequent alone-done succeed
-                # ("re-plan once" — a strict prev-batch check would reject
-                # done forever after any failure)
                 done_rejected = True
-                batch_log.append("done -> failed: done without evidence")
+                batch_log.append("done -> failed: not verified; check the "
+                                 "fresh observation")
                 failed = True
+                diffs = None          # force a fresh observe next turn
+            prev_expect_ok = n_executed > 0 and not failed and last_exp_ok
             if res_status == "failed" or failed:
                 prev_had_failure = True
                 continue          # replan with fresh observation
@@ -831,20 +889,22 @@ class Orchestrator:
             # batch fully executed without a terminal op -> keep going
             prev_had_failure = False
         await self.server.say("That didn't work")
-        await self.server.ui("confused")
+        await self._end_ui("confused")
         return "failed"
 
     async def _engine_ask(self, text: str, trace: dict, top5) -> str:
         # nearest skill below the special options
         skill = next((n for n, _ in top5 if self.catalog.get(n)), None)
         if skill:
-            ext = self.engine.args(skill, text, self._ctx)
+            from .planner import worker
+            ext = await worker().submit_async(
+                self.engine.args, skill, text, dict(self._ctx))
             if "missing" in ext:
                 await self.server.say(f"What {ext['missing']} should I use?")
-                await self.server.ui("confused")
+                await self._end_ui("confused")
                 return "awaiting_user"
         await self.server.say("What did you mean?")
-        await self.server.ui("confused")
+        await self._end_ui("confused")
         return "awaiting_user"
 
     @staticmethod
@@ -882,9 +942,34 @@ class Orchestrator:
         return v
 
     _BOOL_OFF = re.compile(
-        r"\b(off|disable|deactivate|stop|kill|shut\s*off|turn off)\b", re.I)
+        r"\b(off|disable|deactivate|stop|kill|shut\s*off|turn off)\b", re.IGNORECASE)
     _BOOL_ON = re.compile(
-        r"\b(on|enable|activate|start|turn on|back on)\b", re.I)
+        r"\b(on|enable|activate|start|turn on|back on)\b", re.IGNORECASE)
+
+    def _bool_on(self, name: str, utterance: str) -> bool | None:
+        """`on` from the utterance, or None (keep the model's value). For mute,
+        on/off words describe the sound: 'sound off' = mute on."""
+        u = utterance.lower()
+        snd = r"\b(sound|audio|volume|speakers?)\b"
+        if name == "mute":
+            if re.search(r"\bunmute\b|" + snd + r"[^,.;]*\bon\b|"
+                         r"\bturn (the )?(sound|audio) (back )?on\b", u):
+                return False
+            if re.search(r"\bmute\b|\bsilence\b|" + snd + r"[^,.;]*\boff\b|"
+                         r"\b(kill|cut|shut off|turn off)\b[^,.;]*" + snd, u):
+                return True
+            return None
+        if name not in ("wifi", "bluetooth", "dark_mode"):
+            return None
+        if name == "dark_mode" and re.search(r"\blight mode\b", u):
+            return False
+        if re.search(r"\bback on\b|\boff and (then )?on\b", u):
+            return True
+        m = re.search(r"\b(?:turn|switch|put|set)\b[^,.;]*?\b(on|off)\b", u)
+        if m:
+            return m.group(1) == "on"
+        off, on = self._BOOL_OFF.search(u), self._BOOL_ON.search(u)
+        return bool(on) if bool(off) != bool(on) else None
 
     def _coerce_args(self, name: str, args: dict,
                      utterance: str | None = None) -> dict:
@@ -897,11 +982,9 @@ class Orchestrator:
         for a in spec.get("args", []):
             key, typ = a.get("name"), a.get("type")
             if key == "on" and typ == "bool" and utterance:
-                if self._BOOL_OFF.search(utterance):
-                    out[key] = False
-                    continue
-                if self._BOOL_ON.search(utterance):
-                    out[key] = True
+                b = self._bool_on(name, utterance)
+                if b is not None:
+                    out[key] = b
                     continue
             if key not in args:
                 continue
@@ -952,9 +1035,22 @@ class Orchestrator:
         desc = (self.catalog.get(name) or {}).get("description", name)
         return desc
 
+    async def _end_ui(self, mascot: str, bubble: str | None = None):
+        """Final ui of a request carries `ms` (AGENTS.md): release-to-first-
+        action for native skills, total for planner/brain-tool/answer."""
+        ms = None
+        if getattr(self, "_t_final", None) is not None:
+            ms = (time.perf_counter() - self._t_final) * 1000
+            if self._ms_kind == "skill" and self._first_action_ms is not None:
+                ms = self._first_action_ms
+        await self.server.ui(mascot, bubble, ms=ms)
+
     async def _fail(self, raw_error: str, friendly: str = "That didn't work"):
+        if self.tracer.current is not None:
+            self.tracer.current.setdefault("decisions", []).append(
+                {"error": raw_error})
         await self.server.say(friendly)
-        await self.server.ui("confused")
+        await self._end_ui("confused")
         return "failed"
 
     async def execute_actions(self, actions: list[dict]) -> str:
@@ -962,12 +1058,14 @@ class Orchestrator:
         Returns an outcome: ok | failed | awaiting_user | cancelled."""
         if len(actions) > dsl.MAX_BATCH:
             actions = actions[: dsl.MAX_BATCH]
+        unverified = False        # an act ran without a passing expect
         for a in actions:
             op = a["op"]
             if op == "skill":
                 r = await self._skill(a)
                 if r != "ok":
                     return r
+                unverified = False    # HandsKit skills verify their own result
                 continue
             if op == "ask":
                 await self.server.say(a["question"])
@@ -982,11 +1080,14 @@ class Orchestrator:
                 continue
             if op == "done":
                 await self.server.say(a["summary"])
-                await self.server.ui("success")
+                if unverified:     # DONE is verified, never trusted (es-11)
+                    await self._end_ui("idle")
+                    return "unverified"
+                await self._end_ui("success")
                 return "ok"
             if op == "refuse":
                 await self.server.say("Sorry, I can't do that")
-                await self.server.ui("confused")
+                await self._end_ui("confused")
                 return "failed"
             if op == "script":
                 return await self._script(a)
@@ -1011,6 +1112,14 @@ class Orchestrator:
                 self._last_epoch = res["epoch"]
             if not res.get("ok", False):
                 return await self._fail(res.get("error", "act failed"))
+            unverified = True
+            if a.get("expect"):
+                vres = await self.server.rpc("verify", {"expect": a["expect"]},
+                                             timeout=15)
+                if not vres.get("ok", False):
+                    return await self._fail(
+                        f"expect failed: {vres.get('observed', '?')}")
+                unverified = False
         return "ok"
 
     @staticmethod
@@ -1057,8 +1166,8 @@ class Orchestrator:
         try:
             args = self.catalog.validate_args(name, args)
         except CatalogError as e:
-            await self.server.say("I'm missing some details")
-            return "failed"
+            return await self._fail(
+                str(e), f"I didn't catch the details to {replies.human(name)}.")
         spec = self.catalog.get(name) or {}
         if spec.get("risk") == "confirm" and not args.get("confirmed"):
             summary = await self._confirm_summary(
@@ -1073,6 +1182,8 @@ class Orchestrator:
                 return "cancelled"
             args["confirmed"] = True
         await self.server.ui("acting")
+        if self._ms_kind is None:
+            self._ms_kind = "skill"
         if self._first_action_ms is None:
             self._first_action_ms = \
                 (time.perf_counter() - self._t_final) * 1000
@@ -1083,11 +1194,13 @@ class Orchestrator:
         except RuntimeError as e:
             self.tracer.rpc("skill", {"name": name, "args": args},
                             {"error": str(e)}, (time.perf_counter() - t) * 1000)
-            return await self._fail(str(e), f"{name} didn't work")
+            return await self._fail(str(e), replies.fail_text(name, args, str(e)))
         self.tracer.rpc("skill", {"name": name, "args": args},
                         self._trace_res(res), (time.perf_counter() - t) * 1000)
         if not res.get("ok", False):
-            return await self._fail(res.get("error", "?"),
-                                    f"{name} didn't work")
-        await self.server.ui("success")
+            return await self._fail(res.get("error", "?"), replies.fail_text(
+                name, args, str(res.get("error", ""))))
+        await self.server.say(replies.success_text(name, args,
+                                                   res.get("result")))
+        await self._end_ui("success")
         return "ok"

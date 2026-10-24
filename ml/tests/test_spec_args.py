@@ -4,12 +4,10 @@ import asyncio
 import threading
 
 import pytest
-
 from brain.catalog import Catalog
 from brain.orchestrator import Orchestrator
 from brain.planner import worker
 from brain.traces import Tracer
-
 from fakes import FakeEngine, FakeServer
 
 
@@ -63,7 +61,25 @@ def test_changed_partial_ignores_stale_args(tracer):
     assert eng.args_calls == [("open_app", "open safari")]
     run(o.handle_utterance("open safari"))
     assert o.server.skills()[0]["args"] == {"app": "Safari"}
-    assert len(eng.route_calls) == 2
+    assert eng.route_calls[-1] == "open safari" and len(eng.route_calls) <= 2
+
+
+def test_stale_partials_skip_before_running(tracer):
+    """brain-13: queued superseded partials never run a forward pass, so the
+    final route waits behind at most one in-flight job."""
+    from brain.planner import worker
+    eng = _eng()
+    o = Orchestrator(FakeServer(), Catalog.load(), tracer, engine=eng)
+    gate = threading.Event()
+    worker().submit(gate.wait)         # worker busy: partials queue up
+    for p in ("open", "open sa", "open saf", "open safari"):
+        o._speculative_route(p)
+    gate.set()
+    _drain()
+    assert eng.route_calls == ["open safari"]
+    run(o.handle_utterance("Open Safari."))    # punctuation/case: still a hit
+    assert eng.route_calls == ["open safari"]
+    assert o.server.skills()[0]["args"] == {"app": "Safari"}
 
 
 def test_final_differs_from_partial_routes_fresh(tracer):

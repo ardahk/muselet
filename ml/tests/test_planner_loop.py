@@ -3,20 +3,16 @@ the fake WS hands. Covers streaming, done validation, replan paths, ask/
 confirm continuation, cancel, injection guards and brain-executor dispatch."""
 
 import asyncio
-import json
 import sys
 import time
 import types
 
 import pytest
-import websockets
-
 from brain import protocol
 from brain.catalog import Catalog
 from brain.orchestrator import Orchestrator
 from brain.server import BrainServer
 from brain.traces import Tracer
-
 from test_orchestrator import FakeHands
 
 
@@ -136,7 +132,7 @@ def test_done_mixed_rejected(tmp_path):
     run(go())
     # the second turn's Last batch must carry the rejected-done note
     lb = planner.user_msgs[1]["last_batch"]
-    assert lb and any("done without evidence" in l for l in lb)
+    assert lb and any("not verified" in l for l in lb)
 
 
 def test_expect_failure_replans(tmp_path):
@@ -400,7 +396,7 @@ def test_script_policy_matrix():
 
 # ---------- act diffs feed the next turn (no observe RPC) ----------
 
-from fakes import FakeServer  # noqa: E402
+from fakes import FakeServer
 
 _OBS0 = 'app: Finder | window: "Recents" | focused: #4\n#1 button "Back"\n' \
         '#4 textfield "Search" value=""'
@@ -418,24 +414,24 @@ def _diff_orch(tmp_path, turns, act):
 
 def test_turn_obs_from_act_diff_without_observe(tmp_path):
     diffs = iter(['~ #4 value="hel"', '+ #31 button "Export"\n- #1'])
-    o = _diff_orch(tmp_path, [['type #4 "hel"', 'press #31'], ['done "ok"']],
+    o = _diff_orch(tmp_path, [['type #4 "hel"', 'press #31'], ['done "ok"'], ['done "ok"']],
                    lambda p: {"ok": True, "epoch": 2,
                               "diff_text": next(diffs)})
     tr = trace_for(o)
     assert run(o._planner_loop("search", tr)) == "ok"
-    assert o.server.methods() == ["observe", "act", "act"]
+    # unverified done -> one fresh observe, then accepted (planner-13)
+    assert o.server.methods() == ["observe", "act", "act", "observe"]
     obs2 = o.planner.user_msgs[1]["obs"]
     assert obs2 == ('app: Finder | window: "Recents" | focused: #4\n'
                     '#4 textfield "Search" value="hel"\n#31 button "Export"')
-    assert o._last_obs["text"] == obs2
     assert {"obs_from_diff": 1, "n_diffs": 2} in tr["decisions"]
 
 
 def test_empty_diff_still_reused(tmp_path):
-    o = _diff_orch(tmp_path, [["press #1"], ['done "ok"']],
+    o = _diff_orch(tmp_path, [["press #1"], ['done "ok"'], ['done "ok"']],
                    lambda p: {"ok": True, "diff_text": ""})
     assert run(o._planner_loop("go", trace_for(o))) == "ok"
-    assert o.server.methods().count("observe") == 1
+    assert o.server.methods()[:2] == ["observe", "act"]
     assert o.planner.user_msgs[1]["obs"] == _OBS0
 
 
@@ -445,13 +441,13 @@ def test_empty_diff_still_reused(tmp_path):
     {"ok": True},                                   # no diff_text
 ])
 def test_full_truncated_or_missing_diff_observes(tmp_path, res):
-    o = _diff_orch(tmp_path, [["press #1"], ['done "ok"']], lambda p: res)
+    o = _diff_orch(tmp_path, [["press #1"], ['done "ok"'], ['done "ok"']], lambda p: res)
     assert run(o._planner_loop("go", trace_for(o))) == "ok"
     assert o.server.methods() == ["observe", "act", "observe"]
 
 
 def test_skill_in_batch_breaks_diff_chain(tmp_path):
-    o = _diff_orch(tmp_path, [["press #1", "skill mute on=true"], ['done "ok"']],
+    o = _diff_orch(tmp_path, [["press #1", "skill mute on=true"], ['done "ok"'], ['done "ok"']],
                    lambda p: {"ok": True, "diff_text": ""})
     assert run(o._planner_loop("go", trace_for(o))) == "ok"
     assert o.server.methods() == ["observe", "act", "skill", "observe"]
@@ -461,10 +457,11 @@ def test_failed_turn_with_diff_reuses_it(tmp_path):
     seq = iter([{"ok": False, "error": "expect_failed: x",
                  "diff_text": '~ #4 value="a"'},
                 {"ok": True, "diff_text": ""}])
-    o = _diff_orch(tmp_path, [["press #1"], ["press #4"], ['done "ok"']],
+    o = _diff_orch(tmp_path, [["press #1"], ["press #4"], ['done "ok"'], ['done "ok"']],
                    lambda p: next(seq))
     assert run(o._planner_loop("go", trace_for(o))) == "ok"
-    assert o.server.methods() == ["observe", "act", "act"]
+    # unverified done -> one fresh observe, then accepted (planner-13)
+    assert o.server.methods() == ["observe", "act", "act", "observe"]
     assert 'value="a"' in o.planner.user_msgs[1]["obs"]
 
 
