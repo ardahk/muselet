@@ -105,7 +105,8 @@ async def serve(port: int = 8765, model: str | None = None,
                 grounder: dict | None = None,
                 memory_enabled: bool = True,
                 memory_llm: bool = True,
-                longterm_enabled: bool = True):
+                longterm_enabled: bool = True,
+                verify_done: bool = True):
     server = BrainServer(port=port)
     await server.start()
     engine = None
@@ -123,6 +124,9 @@ async def serve(port: int = 8765, model: str | None = None,
     orch.memory_enabled = memory_enabled
     orch.memory_llm = memory_llm
     orch.longterm_enabled = bool(longterm_enabled and memory_enabled)
+    orch.verify_done = verify_done
+    print(f"[planner] verify_done={'on' if verify_done else 'off'}",
+          flush=True)
     esc = {**ESCALATE_OPTS, **{k: v for k, v in (planner_kw or {}).items()
                                if k.startswith("think_")}}
     orch.escalate_opts = esc
@@ -326,6 +330,8 @@ def build_parser(argv=None):
                    help="model for ARGS; default: same as --model")
     s.add_argument("--planner-model", default=None,
                    help="planner model; default: cached Qwen3.5-4B-4bit")
+    s.add_argument("--verify-done", choices=("on", "off"), default="on",
+                   help="verify planner done (expect or model check) + bounded recovery; off = old behaviour")
     s.add_argument("--planner-constrain", action=argparse.BooleanOptionalAction,
                    default=None, help="line-start DSL op constraint "
                    "(default: planner.PLANNER_CONSTRAIN_DEFAULT)")
@@ -386,9 +392,10 @@ def run_cmd(args, ap):
             memory_kw["memory_llm"] = False
         if not args.longterm or not args.memory:
             memory_kw["longterm_enabled"] = False
-        asyncio.run(serve(args.port, m, args.planner_model, planner_opts(args),
-                          args_model=am, escalate_model=em,
-                          grounder=grounder_cfg(args), **memory_kw))
+        asyncio.run(serve(
+            args.port, m, args.planner_model, planner_opts(args),
+            args_model=am, escalate_model=em, grounder=grounder_cfg(args),
+            verify_done=args.verify_done == "on", **memory_kw))
     elif args.cmd == "eval-route":
         eval_route(args.model, args.cases, args.out,
                    tau=getattr(args, "tau", 0.55), args_model=args.args_model)

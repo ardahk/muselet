@@ -142,6 +142,22 @@ class GenericMLXDecider:
         if isinstance(err, Exception):
             raise err
 
+    @classmethod
+    def inline(cls, model, model_path: str):
+        """Decider on already-loaded weights; runs on the caller's thread (the planner's MLX worker)."""
+        import mlx.core as mx
+        from mlx_lm.models.cache import make_prompt_cache
+
+        self = cls.__new__(cls)
+        self.mx, self.model = mx, model
+        self.body, self.lm_head = split_model(model)
+        self.renderer = GenericRenderer(model_path)
+        self._make_prompt_cache = make_prompt_cache
+        self._static_cache = self._prefill(self.renderer.static_tokens)
+        self.last_input_tokens = None
+        self._submit = lambda fn: fn()
+        return self
+
     def _worker_main(self, model_path: str):
         try:
             import mlx.core as mx

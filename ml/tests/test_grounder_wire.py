@@ -624,7 +624,9 @@ def test_cli_serve_passes_grounder(monkeypatch):
     from brain import cli
     seen = {}
 
-    async def fake_serve(port, model, pmodel, pkw, args_model=None, escalate_model=None, grounder=None):
+    async def fake_serve(port, model, pmodel, pkw, args_model=None,
+                         escalate_model=None, grounder=None,
+                         verify_done=True):
         seen["g"] = grounder
 
     monkeypatch.setattr(cli, "serve", fake_serve)

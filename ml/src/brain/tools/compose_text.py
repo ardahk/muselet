@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 
+from .. import sendgate
+
 
 SYSTEM = (
     "You write short text that a voice assistant puts into a note or a text "
@@ -38,6 +40,23 @@ def _title(topic: str, text: str) -> str:
     return " ".join(str(topic).title().split()[:6])
 
 
+def _composer_target(orch, obs: dict) -> bool:
+    ctx = getattr(orch, "_ctx", None) or {}
+    previous = getattr(orch, "_last_obs", None) or {}
+    if not obs.get("app"):
+        app = ctx.get("app") or previous.get("app")
+        fallback = previous if previous.get("app") == app else {}
+        obs = {**fallback, **obs, "app": app}
+    focused = [element for element in obs.get("elements") or []
+               if element.get("focused") or (
+                   obs.get("focused_ref") is not None and
+                   element.get("ref") == obs["focused_ref"])]
+    if not focused and obs.get("app") == ctx.get("app"):
+        focused = [{"label": ctx.get("focused")}]
+    return sendgate.is_composer_app(obs.get("app"), obs.get("window")) or \
+        sendgate.has_composer_signals(obs.get("window"), focused, "")
+
+
 async def run(orch, args, utterance) -> str:
     planner = getattr(orch, "planner_escalate", None) or \
         getattr(orch, "planner", None)
@@ -67,6 +86,28 @@ async def run(orch, args, utterance) -> str:
     target = str(args.get("target") or "note").strip().lower()
     target = {"notes": "note", "document": "focused"}.get(target, target)   # catalog v3 (it3) values
     if target == "focused":
+        try:
+            obs = await orch.server.rpc(
+                "observe", {"scope": "focused_window", "max_nodes": 150,
+                            "diff": False}, timeout=10)
+        except RuntimeError:
+            obs = None
+        if not isinstance(obs, dict) or obs.get("ok") is False:
+            obs = {}
+        if _composer_target(orch, obs):
+            text = text.rstrip("\r\n")
+            preview = " ".join(text.split()[:8])[:80].rstrip()
+            if preview != " ".join(text.split()):
+                preview += "…"
+            try:
+                yes = await orch.server.ask_confirm(
+                    f'Type this draft: "{preview}"?')
+            except RuntimeError:
+                yes = False
+            if not yes:
+                await orch.server.say("Okay, cancelled")
+                await orch._end_ui("idle")
+                return "cancelled"
         outcome = await orch._run_skill(
             "type_text", {"text": text}, utterance, trace)
         if outcome == "ok":
