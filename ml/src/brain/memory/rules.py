@@ -574,11 +574,8 @@ def _correction(text: str, turn, wm, now):
     if old:
         if key == "preset":
             old_head = str(old).split()[0]
-            new_head = str(replacement).strip()
-            if new_head.casefold() in {"the vimeo", "vimeo"}:
-                new_head = "Vimeo"
-            elif new_head.casefold() in {"the youtube", "youtube"}:
-                new_head = "YouTube"
+            new_head = re.sub(r"^(?:the|that)\s+|\s+(?:one|preset)$", "",
+                              str(replacement).strip(), flags=re.IGNORECASE)
             resolved, count = re.subn(
                 re.escape(old_head), new_head, turn.resolved, count=1,
                 flags=re.IGNORECASE)
