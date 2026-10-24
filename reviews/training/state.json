@@ -1,6 +1,6 @@
 {
-  "pass": 51,
-  "ts": "2026-10-24T23:50:00Z",
+  "pass": 52,
+  "ts": "2026-10-25T00:05:00Z",
   "mode": "pulse",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
@@ -48,12 +48,12 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "46b97f5",
+    "main": "18c139f",
     "wip/local": "719907a",
     "cloud/memory": "ba3dc0a",
     "cloud/memory-eval": "c05944e",
     "cloud/memory-lt": "cc056af",
-    "cloud/planner-lora": "ceafe3d",
+    "cloud/planner-lora": "79f0a97",
     "cloud/router-it3-serve": "b455d2c",
     "cloud/ui-polish": "e8bceef",
     "cloud/docs-demo": "095d4ef",
@@ -81,5 +81,6 @@
   "notes_pass48": "main: memory-eval gate merged (training-49 now on main); memory_eval.py scorer, docs. decisions 08dae49: bench route parity test now pytest.skip when sample option count != catalog (weaker gate; samples reset to main's). It is the decisions lane's own renderer, so no new finding. planner-think/verify/memory/memory-lt each edit cli.py + serve_brain.sh, so expect merge conflicts with router-it3-serve's route_catalog()/ROUTER=it3 lines (outside lane, verify after merges).",
   "notes_pass49": "main merged router-it3 (#52) and W9 safety (#46). brain-9 adds hidden 'browser' arg to open_url/web_search in skills/catalog.json. Hidden args are skipped in the ARGS signature (decision.py ~415), and route options use only name+description, so router parity for it2/v2 samples is unaffected; catalog_v3 (it3) has no browser arg, and the orchestrator fills it from skills/catalog.json. training-49 still on main unchanged.",
   "notes_pass50": "main 46b97f5: harness proxy only. wip/local diff = already-reviewed main merges. brain-9: test only. New safety-* and live-cases branches touch no training/catalog/router files. Open findings re-checked: training-49 still on main; others unchanged.",
-  "notes_pass51": "Only cloud/decisions moved: results.md + calibrated snapshot (training-52)."
+  "notes_pass51": "Only cloud/decisions moved: results.md + calibrated snapshot (training-52).",
+  "notes_pass52": "main: planner-lora (#48), live-cases, planner think, brain-12/18 merged; no router/catalog change. planner-lora export: step 72 only, untied head ok, smoke checks skipped."
 }
