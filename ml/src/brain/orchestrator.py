@@ -2060,6 +2060,10 @@ function run() {
             if hit:
                 return result("ocr", hit, hit)
             snippet = " ".join(text.split()[:4]) or None
+            if snippet is None and sendgate.has_composer_signals(
+                    window_title, obs.get("elements"),
+                    f"{self._current_goal or ''} {self._utterance or ''}"):
+                return result("context", target)
             return result("none", target, snippet)
         except Exception as e:  # noqa: BLE001 - fail closed on OCR failures
             return result("ocr", target, error=str(e)[:200])

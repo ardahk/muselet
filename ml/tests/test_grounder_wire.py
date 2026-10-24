@@ -339,6 +339,54 @@ def test_grounded_click_ocr_cancel_does_not_confirm(tmp_path):
     assert any(method == "ocr" for method, _ in server.rpcs)
 
 
+@pytest.mark.parametrize(("app", "window", "labels", "goal"), [
+    ("Microsoft Outlook", "Inbox", [], ""),
+    ("Google Chrome", "Inbox - Outlook", [], ""),
+    ("Google Chrome", "Messaging | LinkedIn", [], ""),
+    ("Unknown App", "Window", ["To:"], ""),
+    ("Unknown App", "Window", ["Cc"], ""),
+    ("Unknown App", "Window", ["Subject"], ""),
+    ("Unknown App", "Window", ["Message"], ""),
+    ("Unknown App", "Window", ["Reply"], ""),
+    ("Unknown App", "Window", ["Compose"], ""),
+    ("Unknown App", "Window", ["Send"], ""),
+    ("Unknown App", "Window", ["Recipient field"], ""),
+    ("Unknown App", "Window", [], "send this to Alex"),
+    ("Unknown App", "Window", [], "reply to Alex"),
+    ("Unknown App", "Window", [], "messaging Alex"),
+])
+@pytest.mark.parametrize("ocr_error", [None, RuntimeError("Vision unavailable")])
+@pytest.mark.parametrize("intent_source", ["_utterance", "_current_goal"])
+def test_brain27_unlabeled_composer_click_requires_confirm(
+        tmp_path, app, window, labels, goal, ocr_error, intent_source):
+    orch, server = _safety_gate_orch(
+        tmp_path, app=app, window=window, ocr_text="", ocr_error=ocr_error,
+        elements=[{"role": "textfield", "label": label} for label in labels])
+    setattr(orch, intent_source, goal)
+    server.confirm_yes = False
+
+    result = _click(orch, "the paper plane icon")
+
+    assert result["status"] == "cancelled"
+    assert server.confirms == ['Click "the paper plane icon"?']
+    assert server.acts() == []
+
+
+@pytest.mark.parametrize("app", ["Finder", "Notes"])
+@pytest.mark.parametrize("ocr_text", ["", "   ", "Cancel"])
+def test_brain27_non_composer_icon_click_does_not_confirm(tmp_path, app, ocr_text):
+    orch, server = _safety_gate_orch(
+        tmp_path, app=app, window="Welcome to my workspace", ocr_text=ocr_text,
+        elements=[{"role": "button", "label": "Toolbar", "frame": [100, 100, 10, 10]}])
+    server.confirm_yes = False
+
+    result = _click(orch, "the toolbar icon")
+
+    assert result["status"] == "ok"
+    assert server.confirms == []
+    assert len(server.acts()) == 1
+
+
 def test_grounded_click_ocr_failure_confirms_and_traces_error(tmp_path):
     orch, server = _safety_gate_orch(
         tmp_path, ocr_error=RuntimeError("Vision unavailable"))
