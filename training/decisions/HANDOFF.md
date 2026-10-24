@@ -1,3 +1,5 @@
+> **2026-10-24 23:15 UTC (decisions-2):** calibrated cross-check done and Mac export uploaded — see `results.md` and the PR #39 `## Handoff` (current source of truth).
+
 # Handoff: cloud/decisions (generalist System One decisions), PR #39
 
 Updated: 2026-10-24 21:25 UTC (org cut-over). Branch `cloud/decisions`, PR https://github.com/ardahk/muselet/pull/39 (not merged).
