@@ -1,4 +1,4 @@
-# hands — digest (pass 35)
+# hands — digest (pass 36)
 
 Open findings were re-verified on main 2920225 in pass 15: hands-1 to 9 and 11 to 14 are resolved, and hands-15 is superseded.
 Pass 21 checks:
@@ -6,6 +6,11 @@ Pass 21 checks:
 - wip/local b63699f is identical to main.
 - cloud/brain-5 b752261 handles `not_frontmost` by reading the failure `result`. That works: RPC.swift returns r with r["error"], BrainConnection always sends `result`, and server.rpc returns it with ok=false.
 No new defects.
+Pass 36: open 0 P0, 2 P1, 3 P2.
+- hands-17 RESOLVED on cloud/app-ui ae9ce5e: it merged main, uses main's config server code, and ConfigAck now reads `loaded`. Loaded, Off and failed-with-reason each show correctly.
+- Still open: P1 hands-18 (app-ui panel examples: runExample at AppDelegate.swift:242 is unchanged; no own-pid fallback in observe). P1 hands-19 (comms: still no HandsKit contacts_search/messages_* on any branch; comms.py unchanged since 956d4ac). P2 hands-20 (send_draft unchanged).
+- main e56582b = brain-7 + native-research merges, which I already reviewed. wip/local 73f7044 is identical to main. comms c94a407 only merges main and fixes a test fake. decisions 694c198, bench-fix, data-planner and data-route don't touch app/ or the brain protocol.
+- hands-10 (Act.swift:348) and hands-16 (orchestrator.py:1078) are unchanged.
 Pass 35: open 0 P0, 3 P1, 3 P2.
 - NEW P1 hands-19 (cloud/comms 956d4ac): send_message now goes to the contacts_search/messages_compose/messages_send RPCs, which HandsKit doesn't implement, so texting would fail with "Couldn't search your contacts". The working Swift send_message skill (Skills.swift:618) would no longer be used. Merge gate: land the HandsKit RPCs first, or fall back to the skill.
 - NEW P2 hands-20 (cloud/comms): send_draft checks the draft window before the voice confirm and doesn't re-check after it. cmd+return could go to a different browser tab.
