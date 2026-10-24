@@ -1,4 +1,4 @@
-# planner lane — pass 48 (main 46b97f5, wip 719907a, architect27 4edcba5, planner28 fb4a45a)
+# planner lane — pass 49 (main 46b97f5, wip 719907a; only decisions c88b613 changed)
 
 Open P0: none.
 
@@ -21,6 +21,9 @@ Highest-leverage next moves:
 - W9 is merged (planner-30/24 fixed). Next, narrow `\[` to JXA computed keys and drop `\\`, `set .* to` and `format` for Numbers reads (planner-37, planner-15), or the demo-3 planner path will ask for confirmation on reads.
 - brain-9: pick the browser from 'in/using X' context, not the first mention (planner-41).
 - Add `view` to open_folder in catalog.json and to the prompt example (planner-32). Fix rule 14 to say `expect focused #<ref>` (planner-31).
+
+Pass 49 notes:
+- Only cloud/decisions moved (c88b613: results.md and a metrics snapshot, docs only). It changes no planner-lane files, and none of the open findings changed status.
 
 Pass 48 notes:
 - main 46b97f5 only changes the harness proxy (outside this lane). brain-9 e9e9b42 is test only; planner-41 is still open.
