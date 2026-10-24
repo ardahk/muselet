@@ -1,11 +1,12 @@
 {
-  "pass": 2,
-  "ts": "2026-10-24T05:24:11Z",
+  "pass": 3,
+  "ts": "2026-10-24T05:40:05Z",
   "last_reviewed": {
-    "main": "a5e76fa",
-    "wip/local": "bcd3b75",
-    "cloud/data-pipeline": "56ef91b",
-    "cloud/fixtures-docs": "4bf2291"
+    "main": "10793e0",
+    "wip/local": "1d7cc07",
+    "cloud/data-pipeline": "4cbb74a",
+    "cloud/fixtures-docs": "4bf2291",
+    "cloud/finance": "f098120"
   },
-  "next_id": 12
+  "next_id": 14
 }
