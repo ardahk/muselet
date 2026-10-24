@@ -820,7 +820,7 @@ class Orchestrator:
 
     async def _script(self, a: dict) -> str:
         lang, code = a["lang"], a["code"]
-        if script_needs_confirm(lang, code):
+        if self.script_needs_confirm(lang, code):
             yes = await self.server.ask_confirm(f"Run a {lang} script?")
             if not yes:
                 await self.server.say("Okay, cancelled")
