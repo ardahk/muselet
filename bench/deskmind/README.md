@@ -70,10 +70,12 @@ mkdir -p runs/deskmind/muselet-shim-runs
 
 The shim comparisons isolate protocol compatibility; they are not a claim about
 Muselet's native desktop policy. Native loop replay is available on macOS with a
-running local Muselet brain and Hands CLI:
+running local Muselet brain. Set `DM` to the pinned DeskMind checkout and
+`HANDS_BIN` to Muselet's built Swift HandsKit binary as in the runbook:
 
 ```sh
-uv run --project ml python bench/deskmind/run_muselet.py --repeats 3 --port 8765
+uv run --project ml python bench/deskmind/run_muselet.py --repeats 3 --port 8765 \
+  --hands-command "$HANDS_BIN" --deskmind-python "$DM/dm-venv/bin/python" --bench-dir "$DM/bench"
 deskmind-bench score runs/bench/deskmind/muselet --suite-version diag-v27 --out runs/bench/deskmind/muselet/score.json
 deskmind-bench table runs/bench/deskmind/muselet/score.json
 ```

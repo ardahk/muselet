@@ -221,22 +221,19 @@ def _require_zh_hans():
         raise RuntimeError(f"DeskMind {SUITE_VERSION} requires macOS AppleLanguages to include zh-Hans")
 
 
-def _installed_hands_commit(binary: str) -> str:
-    path = shutil.which(binary) or binary
-    try:
-        first_line = Path(path).read_text(encoding="utf-8").splitlines()[0]
-        python = first_line[2:].split()[0] if first_line.startswith("#!") else ""
-    except (OSError, IndexError):
-        python = ""
-    if not python:
-        raise RuntimeError("Cannot identify the Python environment for the installed Hands executable")
+def _installed_hands_commit(python: str) -> str:
     code = (
         "import importlib.metadata as m,json; "
         "d=m.distribution('deskmind-hands'); "
         "u=json.loads(d.read_text('direct_url.json') or '{}'); "
         "print(u.get('vcs_info',{}).get('commit_id',''))"
     )
-    result = subprocess.run([python, "-c", code], capture_output=True, text=True, timeout=15)
+    try:
+        result = subprocess.run(
+            [python, "-c", code], capture_output=True, text=True, timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError(f"Cannot inspect installed deskmind-hands package: {exc}") from exc
     if result.returncode:
         raise RuntimeError(f"Cannot inspect installed deskmind-hands package: {result.stderr.strip()}")
     commit = result.stdout.strip()
@@ -245,19 +242,33 @@ def _installed_hands_commit(binary: str) -> str:
     return commit
 
 
+def _check_hands_commit(python: str) -> str:
+    commit = _installed_hands_commit(python)
+    if commit != HANDS_COMMIT:
+        raise RuntimeError(
+            f"DeskMind Bench {SUITE_VERSION} requires deskmind-hands {HANDS_COMMIT}; "
+            f"found {commit}"
+        )
+    return commit
+
+
 def write_run_files(
     run_dir: Path, task, run: dict, trace_lines: list[str], *,
     suite_hash: str, repeat: int, harness_commit: str, hands_commit: str,
-    locale: str,
+    deskmind_python: str, locale: str,
 ) -> None:
+    environment = {
+        "harness_commit": harness_commit,
+        "hands_commit": hands_commit,
+        "deskmind_python": deskmind_python,
+        "locale": locale,
+    }
+    run["environment"] = environment
     manifest = {
         "run_id": run["run_id"], "task_id": task.id, "fixture": task.fixture,
         "suite": "diag", "suite_version": SUITE_VERSION, "suite_hash": suite_hash,
         "repeat": repeat,
-        "environment": {
-            "harness_commit": harness_commit, "hands_commit": hands_commit,
-            "locale": locale,
-        },
+        "environment": environment,
     }
     (run_dir / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -276,6 +287,10 @@ def main(argv=None):
     parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--hands-command", default="hands")
+    parser.add_argument(
+        "--deskmind-python",
+        help="Python from the venv containing the pinned DeskMind Hands/Bench packages",
+    )
     parser.add_argument("--runs-dir", type=Path, default=ROOT / "runs/bench/deskmind/muselet")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
@@ -310,16 +325,20 @@ def main(argv=None):
                           "score": f"deskmind-bench score {args.runs_dir} --suite-version {SUITE_VERSION} --out {args.runs_dir}/score.json",
                           "table": f"deskmind-bench table {args.runs_dir}/score.json"}, ensure_ascii=False, indent=2))
         return 0
+    if not args.deskmind_python:
+        parser.error("--deskmind-python is required for live runs")
     if sys.platform != "darwin":
         parser.error("live DeskMind Bench replay requires macOS, Accessibility permissions, and a running brain server")
     _require_zh_hans()
     binary = shutil.which(args.hands_command) or args.hands_command
-    installed_commit = _installed_hands_commit(binary)
-    if installed_commit != HANDS_COMMIT:
-        parser.error(
-            f"DeskMind Bench {SUITE_VERSION} requires deskmind-hands {HANDS_COMMIT}; "
-            f"found {installed_commit}"
-        )
+    deskmind_python = shutil.which(args.deskmind_python)
+    if not deskmind_python:
+        parser.error(f"DeskMind Python not found: {args.deskmind_python}")
+    deskmind_python = os.path.abspath(deskmind_python)
+    try:
+        installed_commit = _check_hands_commit(deskmind_python)
+    except RuntimeError as exc:
+        parser.error(str(exc))
     fixtures = args.bench_dir / "fixtures"
     args.runs_dir.mkdir(parents=True, exist_ok=True)
     for task in tasks:
@@ -396,7 +415,7 @@ def main(argv=None):
                 run_dir, task, run, trace_lines,
                 suite_hash=suite_hash(args.task_set), repeat=repeat,
                 harness_commit=harness_commit, hands_commit=installed_commit,
-                locale="zh-Hans",
+                deskmind_python=deskmind_python, locale="zh-Hans",
             )
             print(json.dumps({"run_id": run_id, "task_id": task.id, "state": state,
                               "strict": grade_result.strict, "run_dir": str(run_dir)})

@@ -32,7 +32,8 @@ def test_writer_records_external_scorer_metadata(tmp_path):
     write_run_files(
         run_dir, Task, run, ['{"t":"step","n":1,"kind":"done"}\n'],
         suite_hash=SUITE_HASH, repeat=1, harness_commit="bench-fixture",
-        hands_commit=HANDS_COMMIT, locale="zh-Hans",
+        hands_commit=HANDS_COMMIT, deskmind_python="/venv/bin/python",
+        locale="zh-Hans",
     )
     manifest = json.loads((run_dir / "manifest.json").read_text())
     assert manifest["suite_version"] == SUITE_VERSION
@@ -40,9 +41,12 @@ def test_writer_records_external_scorer_metadata(tmp_path):
     assert manifest["environment"] == {
         "harness_commit": "bench-fixture",
         "hands_commit": HANDS_COMMIT,
+        "deskmind_python": "/venv/bin/python",
         "locale": "zh-Hans",
     }
-    assert json.loads((run_dir / "run.json").read_text()) == run
+    run_record = json.loads((run_dir / "run.json").read_text())
+    assert run_record == run
+    assert run_record["environment"] == manifest["environment"]
     assert (run_dir / "trace.jsonl").read_text() == '{"t":"step","n":1,"kind":"done"}\n'
 
 

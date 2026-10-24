@@ -92,8 +92,8 @@ mkdir -p runs/deskmind/brain-0.8b-runs runs/deskmind/brain-4b-runs runs/deskmind
 (cd runs/deskmind/muselet-shim-runs && \
   DESKMIND_RUNS_DIR=. $DM/dm-venv/bin/deskmind-bench run --set diag --repeats 3 --url http://127.0.0.1:8793 --label muselet-shim --out ../muselet-shim.json)
 # 6d Muselet's own loop (terminal A: brain as in 4b)
-uv run --project ml python bench/deskmind/run_muselet.py --repeats 3 --port 8765 --hands-command "$HANDS_BIN" \
-  --bench-dir "$DM/bench"
+uv run --project ml python bench/deskmind/run_muselet.py --repeats 3 --port 8765 \
+  --hands-command "$HANDS_BIN" --deskmind-python "$DM/dm-venv/bin/python" --bench-dir "$DM/bench"
 # 6e Regrade everything with the same scorer and suite version
 for r in brain-0.8b brain-4b muselet-shim; do
   (cd runs/deskmind/$r-runs && \
