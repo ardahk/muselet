@@ -1,5 +1,6 @@
 import AppKit
 import CoreGraphics
+import HandsKit
 
 /// Global hold-to-talk on Right Option via a listen-only CGEventTap
 /// (flagsChanged keycode 61 + the device-dependent right-alt bit), plus Esc.
@@ -79,6 +80,10 @@ final class PushToTalkMonitor {
     }
 
     private func handle(type: CGEventType, event: CGEvent) {
+        // Ignore input HandsKit synthesized (tagged eventSourceUserData):
+        // the agent's own `keys esc` must not cancel its task, and its
+        // keystrokes must not abort a recording as a ⌥ chord.
+        if (type == .keyDown || type == .flagsChanged) && SyntheticEvent.isTagged(event) { return }
         switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
             ensureEnabled()
