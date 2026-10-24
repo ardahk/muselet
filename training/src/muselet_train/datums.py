@@ -54,7 +54,7 @@ def route_items(run: str, teacher_files: tuple[str, ...] = (), stats: dict | Non
         if dropped is not None:
             dropped.add(r["utterance"])
 
-    for r in _load(run, "route_dedup.jsonl"):
+    for r in _load(run, "route_train.jsonl") + _load(run, "route_val.jsonl"):
         t = scored.get((r["utterance"], r["src"]))
         if t and t.get("context") != r["context"]:
             t = None
