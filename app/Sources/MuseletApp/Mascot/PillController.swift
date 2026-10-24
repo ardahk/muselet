@@ -59,13 +59,16 @@ final class HoverHostingView<Content: View>: NSHostingView<Content> {
 /// The capsule under the mascot: shown while the pointer is over the
 /// mascot or the pill, while listening, and while typing.
 final class PillController {
+    static let hoverDwell: TimeInterval = 1.0
+    static let hideGrace: TimeInterval = 0.6
+
     let state = PillState()
     private let model: AppModel
     private let panel = PillPanel()
+    private let dwell: HoverDwell
     private var host: HoverHostingView<PillView>!
     private weak var parent: NSWindow?
     private var bag = Set<AnyCancellable>()
-    private var hoverMascot = false
     private var hoverPill = false
     private var hideWork: DispatchWorkItem?
     private var typingCtx: PendingCtx?
@@ -73,9 +76,10 @@ final class PillController {
     var onMic: (() -> Void)?
     var onTyped: ((String, PendingCtx) -> Void)?
 
-    init(model: AppModel, parent: NSWindow) {
+    init(model: AppModel, parent: NSWindow, scheduler: DelayScheduler = MainQueueScheduler()) {
         self.model = model
         self.parent = parent
+        dwell = HoverDwell(dwell: Self.hoverDwell, scheduler: scheduler)
         host = HoverHostingView(rootView: makeView())
         host.sizingOptions = [.intrinsicContentSize]
         host.wantsLayer = true
@@ -85,6 +89,7 @@ final class PillController {
             self?.update()
         }
         panel.contentView = host
+        dwell.onChange = { [weak self] in self?.update() }
         host.postsFrameChangedNotifications = true
         NotificationCenter.default.publisher(for: NSView.frameDidChangeNotification, object: host)
             .sink { [weak self] _ in self?.layout() }.store(in: &bag)
@@ -103,11 +108,15 @@ final class PillController {
     }
 
     func mascotHover(_ h: Bool) {
-        hoverMascot = h
+        dwell.set(h)
         update()
     }
 
-    private var wantsShow: Bool { hoverMascot || hoverPill || model.isRecording || state.typing }
+    private var wantsShow: Bool {
+        PillPolicy.wantsShow(mascotSettled: dwell.settled, mascotHovering: dwell.hovering,
+                             pillShown: state.shown, pillHover: hoverPill,
+                             recording: model.isRecording, typing: state.typing)
+    }
 
     func update() {
         hideWork?.cancel()
@@ -121,7 +130,7 @@ final class PillController {
             self.hide()
         }
         hideWork = w
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: w)
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.hideGrace, execute: w)
     }
 
     private func show() {
