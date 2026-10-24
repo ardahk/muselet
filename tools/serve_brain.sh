@@ -10,7 +10,8 @@
 #   retrieval = 1 BM25-retrieved solved example from the v2-tune bank (RETRIEVAL_K=0|1|2): mean holdout pass .570 -> .642
 #             (k=0 / k=1, v1-ho, v1-ho2, v2-ho), TTFT +44..72 ms; k=2 same gain but fails the +150 ms TTFT gate
 #             (pre-registered rule; cloud/handoff/notes/retrieval_eval.md)
-# think = planner thinking budget THINK=N tokens (default 0, off until the Mac matrix passes the ship rule); THINK_ON=all|retry, THINK_SAMPLER=greedy|qwen; ESCALATE inherits it
+#   think   = planner thinking budget THINK=N tokens (default 0 = off until the Mac matrix passes the ship rule;
+#             evals/planner_think_report.py); THINK_ON=all|retry, THINK_SAMPLER=greedy|qwen; ESCALATE inherits it
 #   ESCALATE=1 adds Qwen3.6-35B-A3B as the escalation planner (~19 GB resident; off by default)
 # Usage: PORT=... ROUTER=... ARGS_MODEL=... PLANNER=... TAU=... RETRIEVAL_K=... THINK=... THINK_ON=... THINK_SAMPLER=... ESCALATE=... tools/serve_brain.sh [extra brain serve flags]
 set -euo pipefail

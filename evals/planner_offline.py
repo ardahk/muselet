@@ -31,8 +31,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "ml" / "src"))
 
-from brain.planner import sample_logits
-
 S = []  # scenarios
 
 
@@ -646,6 +644,7 @@ class Runner:
 
 
 def sample(logits, cfg, rng) -> int:
+    from brain.planner import sample_logits
     return sample_logits(logits, cfg.temp, cfg.top_p, cfg.top_k, rng)
 
 
