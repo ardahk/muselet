@@ -2254,7 +2254,10 @@ function run() {
                 return {"status": "failed",
                         "error": f"expect failed: {vres.get('observed', '?')}",
                         "res": res}
-        return {"status": "ok", "res": res, "expect_ok": bool(exp)}
+        return {
+            "status": "ok", "res": res, "expect_ok": bool(exp),
+            "self_verified": method == "skill" and res.get("ok") is True
+            and not res.get("error")}
 
     # script confirmation policy (evals-safety-2)
     _SCRIPT_BLOCK = re.compile(
@@ -2411,8 +2414,22 @@ function run() {
         fail_streak, prev_fail_key = 0, None
         noop_press_key, noop_press_count = None, 0
         last_exp_ok = False
+        last_exp_source = None
         planner, escalated = self.planner, False
         self._active_planner = planner
+
+        def update_last_evidence(action, result, verify_mode):
+            nonlocal last_exp_ok, last_exp_source
+            if not verify_mode:
+                last_exp_ok = bool(result.get("expect_ok"))
+                last_exp_source = "expect" if last_exp_ok else None
+            elif action["op"] not in ("wait", "confirm", "ask"):
+                expect_ok = bool(result.get("expect_ok"))
+                skill_ok = bool(result.get("self_verified"))
+                last_exp_ok = expect_ok or skill_ok
+                last_exp_source = (
+                    "expect" if expect_ok else "skill" if skill_ok else None)
+
         for turn in range(12):
             if time.perf_counter() - t_start > 60:
                 break
@@ -2421,6 +2438,7 @@ function run() {
                 callable(getattr(planner, "decide", None)))
             if not verify_mode:
                 last_exp_ok = False
+                last_exp_source = None
             if next_obs is not None:
                 obs = next_obs
                 next_obs = None
@@ -2546,8 +2564,7 @@ function run() {
                             cancel.set()      # done ends the batch's execution
                         else:
                             n_executed += 1
-                            if verify_mode or a["op"] not in ("wait", "confirm"):
-                                last_exp_ok = bool(r.get("expect_ok"))
+                            update_last_evidence(a, r, verify_mode)
                             if r["status"] != "ok":
                                 failed = True
                                 cancel.set()
@@ -2597,8 +2614,7 @@ function run() {
                     done_action = a
                 else:
                     n_executed += 1
-                    if verify_mode or a["op"] not in ("wait", "confirm"):
-                        last_exp_ok = bool(r.get("expect_ok"))
+                    update_last_evidence(a, r, verify_mode)
                     if r["status"] != "ok":
                         failed = True
                         res_status = ("terminal_failure"
@@ -2643,10 +2659,11 @@ function run() {
                 verification_obs = None
                 verifier_unavailable = False
                 if verify_mode:
-                    if n_executed == 0 and prev_expect_ok:
+                    if last_exp_ok:
                         trace["decisions"].append({"planner.verify": {
-                            "method": "expect", "p_yes": None,
-                            "ms": 0.0, "result": True}})
+                            "method": "expect",
+                            "source": last_exp_source or "expect",
+                            "p_yes": None, "ms": 0.0, "result": True}})
                         accepted = True
                     elif n_executed == 0 and done_action and \
                             done_action.get("expect"):
@@ -2664,12 +2681,13 @@ function run() {
                         accepted = bool(vres.get("ok", False))
                         observed = vres.get("observed", "?")
                         trace["decisions"].append({"planner.verify": {
-                            "method": "expect", "p_yes": None,
-                            "ms": round(verify_ms, 1), "result": accepted}})
+                            "method": "expect", "source": "done_expect",
+                            "p_yes": None, "ms": round(verify_ms, 1),
+                            "result": accepted}})
                         self.tracer.stage("planner.verify", verify_ms)
                         if not accepted:
                             verification_missing = f"expect failed: {observed}"
-                    elif n_executed == 0:
+                    else:
                         accepted, p_yes, verification_obs, \
                             verification_missing = await self._verify_done(
                                 goal, actions_log, trace)
@@ -2677,10 +2695,9 @@ function run() {
                             return "awaiting_user"
                         if p_yes is None:
                             verifier_unavailable = True
-                            accepted = obs_fresh and (
+                            accepted = n_executed == 0 and obs_fresh and (
                                 not prev_had_failure or done_rejected)
-                    if not accepted and not verifier_unavailable and \
-                            n_executed == 0:
+                    if not accepted and not verifier_unavailable:
                         why = (
                             f"verification failed: {verification_missing}")
                         batch_log.append(self._batch_line(

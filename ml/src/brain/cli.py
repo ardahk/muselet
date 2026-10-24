@@ -4,7 +4,6 @@ brain trace-stats — p50/p95 latency report over runs/traces."""
 
 import argparse
 import asyncio
-import inspect
 import json
 import os
 import sys
@@ -361,20 +360,10 @@ def run_cmd(args, ap):
         am = _resolve_model(args.args_model) if args.args_model else None
         em = args.planner_escalate_model
         em = _resolve_model(em) if em and em.lower() != "none" else None
-        serve_kwargs = {"args_model": am, "escalate_model": em,
-                        "grounder": grounder_cfg(args)}
-        try:
-            params = inspect.signature(serve).parameters.values()
-            accepts_verify_done = any(
-                param.name == "verify_done" or
-                param.kind == inspect.Parameter.VAR_KEYWORD
-                for param in params)
-        except (TypeError, ValueError):
-            accepts_verify_done = True
-        if accepts_verify_done:
-            serve_kwargs["verify_done"] = args.verify_done == "on"
-        asyncio.run(serve(args.port, m, args.planner_model,
-                          planner_opts(args), **serve_kwargs))
+        asyncio.run(serve(
+            args.port, m, args.planner_model, planner_opts(args),
+            args_model=am, escalate_model=em, grounder=grounder_cfg(args),
+            verify_done=args.verify_done == "on"))
     elif args.cmd == "eval-route":
         eval_route(args.model, args.cases, args.out,
                    tau=getattr(args, "tau", 0.55), args_model=args.args_model)

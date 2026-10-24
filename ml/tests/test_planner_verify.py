@@ -48,7 +48,8 @@ def test_previous_expect_evidence_accepts_done_without_model(tmp_path):
     assert planner.decide_calls == []
     assert orch.server.uis[-1] == "success"
     assert _decisions(trace, "planner.verify")[-1] == {
-        "method": "expect", "p_yes": None, "ms": 0.0, "result": True}
+        "method": "expect", "source": "expect", "p_yes": None,
+        "ms": 0.0, "result": True}
 
 
 def test_model_no_replans_and_model_yes_accepts_done(tmp_path):
@@ -68,13 +69,65 @@ def test_model_no_replans_and_model_yes_accepts_done(tmp_path):
 def test_wait_does_not_clear_last_consequential_expect(tmp_path):
     orch, planner = _orch(
         tmp_path,
-        [['press #1', 'expect appears "Saved"'], ["wait 10"],
+        [['press #1', 'expect appears "Saved"'], ["wait 300"],
          ['done "Saved"']])
     trace = trace_for(orch)
 
     assert run(orch._planner_loop("save the file", trace)) == "ok"
     assert planner.decide_calls == []
-    assert _decisions(trace, "planner.verify")[-1]["method"] == "expect"
+    assert _decisions(trace, "planner.verify")[-1] == {
+        "method": "expect", "source": "expect", "p_yes": None,
+        "ms": 0.0, "result": True}
+
+
+def test_self_verified_skill_evidence_accepts_done(tmp_path):
+    orch, planner = _orch(
+        tmp_path, [["skill mute on=true"], ['done "Muted"']])
+    trace = trace_for(orch)
+
+    assert run(orch._planner_loop("mute", trace)) == "ok"
+    assert planner.decide_calls == []
+    assert _decisions(trace, "planner.verify")[-1] == {
+        "method": "expect", "source": "skill", "p_yes": None,
+        "ms": 0.0, "result": True}
+
+
+def test_self_verified_skill_off_preserves_legacy_done_rule(tmp_path):
+    orch, planner = _orch(
+        tmp_path, [["skill mute on=true"], ['done "Muted"']])
+    orch.verify_done = False
+    trace = trace_for(orch)
+
+    assert run(orch._planner_loop("mute", trace)) == "ok"
+    assert planner.decide_calls == []
+    assert not _decisions(trace, "planner.verify")
+
+
+def test_mixed_batch_expect_evidence_accepts_done(tmp_path):
+    orch, planner = _orch(
+        tmp_path,
+        [['press #1', 'expect appears "Saved"', 'done "Saved"']])
+    trace = trace_for(orch)
+
+    assert run(orch._planner_loop("save the file", trace)) == "ok"
+    assert planner.decide_calls == []
+    assert _decisions(trace, "planner.verify")[-1] == {
+        "method": "expect", "source": "expect", "p_yes": None,
+        "ms": 0.0, "result": True}
+
+
+def test_mixed_batch_model_no_replans(tmp_path):
+    orch, planner = _orch(
+        tmp_path,
+        [['press #1', 'done "Saved"'], ['done "Saved"']],
+        [0.2, 0.9])
+    trace = trace_for(orch)
+
+    assert run(orch._planner_loop("save the file", trace)) == "ok"
+    assert [entry["p_yes"] for entry in _decisions(
+        trace, "planner.verify")] == [0.2, 0.9]
+    assert "verification failed: the save dialog is still open" in \
+        "\n".join(planner.user_msgs[1]["last_batch"])
 
 
 def test_verification_recovery_budget_ends_with_honest_failure(tmp_path):
@@ -203,6 +256,7 @@ def test_done_expect_passes_without_model_verification(tmp_path):
             if method == "verify"] == [
                 {"expect": 'appears "Saved"'}]
     assert _decisions(trace, "planner.verify")[-1]["method"] == "expect"
+    assert _decisions(trace, "planner.verify")[-1]["source"] == "done_expect"
 
 
 def test_done_expect_failure_replans_with_failure_in_history(tmp_path):
@@ -218,6 +272,7 @@ def test_done_expect_failure_replans_with_failure_in_history(tmp_path):
     assert "verification failed: expect failed: not visible" in \
         "\n".join(planner.user_msgs[1]["last_batch"])
     assert planner.decide_calls == []
+    assert _decisions(trace, "planner.verify")[-1]["source"] == "done_expect"
 
 
 def test_verify_done_off_keeps_legacy_done_acceptance(tmp_path):
