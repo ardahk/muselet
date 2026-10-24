@@ -1,4 +1,18 @@
-# brain lane digest — pass 32 (2026-10-24T14:33Z)
+# brain lane digest — pass 33 (2026-10-24T16:22Z)
+
+Pass 33: main c949565 adds two builder briefs only (cloud/builder_comms.md, cloud/builder_appui.md); wip/local 4ec066f == main.
+No brain-lane code changes; every open finding stands (P0 0, P1 5, P2 7). No new findings.
+- Comms brief vs current main (note, no new finding; the brief already dispatches the fix): the "sent to literal handle arda"
+  incident is consistent with main. send_message is risk=confirm (catalog.json:89) and the brain does confirm, but the summary is
+  built from the raw `to` (orchestrator.py:1140-1147@c949565: `Text arda: "..."?`), and HandsKit passes `to` straight to the
+  Messages script (Skills.swift:618-622@c949565) with no contact resolution. So a "yes" to that confirm sends to a raw name.
+  When cloud/comms lands, check that the planner `skill send_message` path (orchestrator.py:1248-1256) also goes through
+  contacts_search, not only the routed-skill path (orchestrator.py:2167).
+- cloud/decisions e125c13 (training/decisions full run, outside lane): full datums now render via
+  GenericRenderer("Qwen/Qwen3.5-4B") + render_question; render.py itself is unchanged since c08a96d (target position checked in
+  pass 20). Report: decontam kept 301/2,224 code states (no counting/multi-hop/long-policy) - family skew, lead's call.
+
+## Pass 32 (2026-10-24T14:33Z)
 
 Pass 32: main 5292608 (AGENTS.md only: it2 has 0 real DeskMind Bench overlaps after the CJK-aware gate) and wip/local a02959b
 (== main). No brain-lane changes; every open finding stands (P0 0, P1 5, P2 7). No new findings.
