@@ -29,7 +29,8 @@ def route_v1_items() -> list[D.RouteItem]:
     for ln in (REPO_ROOT / "evals" / "route_v1.jsonl").read_text().splitlines():
         if ln.strip():
             r = json.loads(ln)
-            ctx = {k: v for k, v in r["ctx"].items() if k in CTX_KEYS}
+            ctx = {k: ({"yes": True, "no": False}.get(v, v) if k in ("selection", "online") else v)
+                   for k, v in r["ctx"].items() if k in CTX_KEYS}
             out.append(D.RouteItem(r["utterance"], ctx, r["label"], {r["label"]: 1.0}, "eval"))
     return out
 
