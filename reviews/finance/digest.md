@@ -1,4 +1,4 @@
-# finance digest (pass 15, 2026-10-24T09:30Z; no lane code changes; pitch-2 finance/advisor bubbles verified)
+# finance digest (pass 16, 2026-10-24T09:40Z; no lane changes since pass 13)
 Open P0/P1: none.
 
 Open P2: finance-23 (advisor doc-by-path; now degrades to 'skipped Numbers'), finance-25 (4 s Numbers table poll on cold open), finance-24 (merchant prefix over-match), finance-15 (single filers / 401k-HSA-checking as taxable), finance-17 (numbers written as words pass the phrasing filter).
