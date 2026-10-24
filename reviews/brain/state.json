@@ -1,10 +1,10 @@
 {
- "pass": 28,
- "ts": "2026-10-24T12:25:00Z",
+ "pass": 29,
+ "ts": "2026-10-24T12:32:00Z",
  "branches": {
-  "main": "fbd5aa0",
-  "wip/local": "2f26223",
-  "cloud/data-pipeline": "735686f",
+  "main": "b625ceb",
+  "wip/local": "49f808f",
+  "cloud/data-pipeline": "512cce0",
   "cloud/fixtures-docs": "4bf2291",
   "cloud/finance": "529e9ff",
   "cloud/finance-2": "dfaf785",

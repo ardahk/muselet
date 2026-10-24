@@ -1,4 +1,10 @@
-# brain lane digest — pass 28 (2026-10-24T12:25Z)
+# brain lane digest — pass 29 (2026-10-24T12:32Z)
+
+Pass 29: main b625ceb (merged cloud/pitch-4: claims.md contamination disclosures; review_pulse spend-guard state) and wip/local
+49f808f (= main); no brain-lane changes, every open finding stands. cloud/data-pipeline 512cce0: decontam compares CJK by
+characters, never matches evals that are empty after norm (training/, outside lane). No new findings.
+
+## Pass 28 (2026-10-24T12:25Z)
 
 Pass 28: main fbd5aa0 (AGENTS.md only: competitor benchmarks only with routers whose overlap check is 0 for that set) and
 wip/local 2f26223 (= main); ml/, evals/, prompts/, tools/ unchanged, so every open finding stands as below. cloud/data-pipeline
