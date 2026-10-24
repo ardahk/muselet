@@ -85,10 +85,10 @@
 {"utterance": "add a cross dissolve between the first two clips", "ctx": {"app": "Premiere Pro"}, "label": "MULTI_STEP"}
 {"utterance": "rename all the screenshots on my desktop by date", "ctx": {"app": "Finder"}, "label": "MULTI_STEP"}
 {"utterance": "reply to sam's last email and say thanks", "ctx": {"app": "Mail"}, "label": "MULTI_STEP"}
-{"utterance": "sort every transaction in my budget sheet into categories", "ctx": {"app": "Numbers"}, "label": "MULTI_STEP"}
+{"utterance": "sort every transaction in my budget sheet into categories", "ctx": {"app": "Numbers"}, "label": "finance_review", "args": {"task": "categorize"}}
 {"utterance": "add up the receipts in my downloads into the expense sheet", "ctx": {"app": "Finder"}, "label": "MULTI_STEP"}
 {"utterance": "build a bar chart of what i spent each month", "ctx": {"app": "Numbers"}, "label": "MULTI_STEP"}
-{"utterance": "flag any duplicate charges in my bank statement", "ctx": {"app": "Numbers"}, "label": "MULTI_STEP"}
+{"utterance": "flag any duplicate charges in my bank statement", "ctx": {"app": "Numbers"}, "label": "finance_review", "args": {"task": "duplicates"}}
 {"utterance": "fill the total column with a sum formula", "ctx": {"app": "Numbers"}, "label": "MULTI_STEP"}
 {"utterance": "compare this month's spending to last month and tell me what went up", "ctx": {"app": "Numbers"}, "label": "MULTI_STEP"}
 {"utterance": "find a cheap flight to new york next weekend", "ctx": {"app": "Google Chrome"}, "label": "MULTI_STEP"}
@@ -126,3 +126,15 @@
 {"utterance": "whats my battery at", "ctx": {"app": "Finder"}, "label": "battery_status"}
 {"utterance": "lock in a meeting with priya on monday at ten", "ctx": {"app": "Finder"}, "label": "create_event"}
 {"utterance": "search the web for mlx quantization", "ctx": {"app": "Finder"}, "label": "web_search", "args": {"query": "mlx quantization"}}
+{"utterance": "kill bluetooth", "ctx": {"app": "Finder"}, "label": "bluetooth", "args": {"on": false}}
+{"utterance": "turn my bluetooth back on", "ctx": {"app": "Music"}, "label": "bluetooth", "args": {"on": true}}
+{"utterance": "connect my airpods", "ctx": {"app": "Music"}, "label": "MULTI_STEP"}
+{"utterance": "lock it up i'm stepping away", "ctx": {"app": "Slack"}, "label": "lock_screen"}
+{"utterance": "secure my screen", "ctx": {"app": "Finder"}, "label": "lock_screen"}
+{"utterance": "get rid of everything in the trash for good", "ctx": {"app": "Finder"}, "label": "empty_trash"}
+{"utterance": "go through my october statement and tell me where my money went", "ctx": {"app": "Numbers"}, "label": "finance_review"}
+{"utterance": "did i get charged twice for anything this month", "ctx": {"app": "Finder"}, "label": "finance_review", "args": {"task": "duplicates"}}
+{"utterance": "line up my receipts against the bank charges", "ctx": {"app": "Numbers"}, "label": "finance_review", "args": {"task": "receipts"}}
+{"utterance": "am i blowing my budget anywhere", "ctx": {"app": "Safari"}, "label": "finance_review", "args": {"task": "over_budget"}}
+{"utterance": "get me ready for the patel review tomorrow", "ctx": {"app": "Calendar"}, "label": "advisor_prep", "args": {"client": "Patel"}}
+{"utterance": "pull together a brief for my call with the nguyens", "ctx": {"app": "Mail"}, "label": "advisor_prep"}

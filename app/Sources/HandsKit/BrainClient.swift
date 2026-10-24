@@ -65,7 +65,9 @@ public final class BrainClient: NSObject, URLSessionWebSocketDelegate {
         waitingForOutcome = true
         uttSeq += 1
         let text = pendingUtterances.removeFirst()
-        send(["t": "utterance", "id": "u\(uttSeq)", "text": text, "final": true])
+        // Capture ctx at send time (AGENTS.md contract).
+        send(["t": "utterance", "id": "u\(uttSeq)", "text": text,
+              "final": true, "ctx": UtteranceCtx.capture()])
     }
 
     private func receive() {

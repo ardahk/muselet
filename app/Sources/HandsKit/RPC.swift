@@ -11,7 +11,12 @@ public final class RPCHandler {
         didSet { hands.delegate = delegate }
     }
 
-    public init() {}
+    public init() {
+        // Warm the AppleScript runner off the hot path (first compile ~9 s).
+        DispatchQueue.global(qos: .utility).async { [skills] in
+            skills.warmUp()
+        }
+    }
 
     /// Returns (ok, result-dict-or-nil, error-string-or-nil).
     public func handle(method: String, params: [String: Any]) -> (Bool, Any?, String?) {

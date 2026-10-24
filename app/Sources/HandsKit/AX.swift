@@ -31,11 +31,14 @@ public protocol Element: AnyObject {
     func isSettable(_ name: String) -> Bool
     /// Fetch a single attribute on demand (used sparingly, e.g. menu bar).
     func copySingleAttr(_ name: String) -> Any?
+    /// Identity token for session bookkeeping (CFHash for AXUIElement).
+    var stableId: Int { get }
 }
 
 public extension Element {
     func setMessagingTimeout(_ seconds: Float) {}
     func copySingleAttr(_ name: String) -> Any? { nil }
+    var stableId: Int { ObjectIdentifier(self).hashValue }
 }
 
 private let kAttrNames: [String] = [
@@ -49,6 +52,10 @@ public final class AXNode: Element {
     public let el: AXUIElement
     private var timeoutSet = false
     public init(_ el: AXUIElement) { self.el = el }
+
+    /// AXUIElement identity: stable for the same underlying element across
+    /// calls; used as the window-session key (survives title changes).
+    public var stableId: Int { Int(CFHash(el)) }
 
     public func setMessagingTimeout(_ seconds: Float) {
         AXUIElementSetMessagingTimeout(el, seconds)

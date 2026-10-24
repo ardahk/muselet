@@ -45,11 +45,15 @@ def script_needs_confirm(lang: str, code: str) -> bool:
 
 class Orchestrator:
     def __init__(self, server, catalog: Catalog | None = None,
-                 tracer: Tracer | None = None):
+                 tracer: Tracer | None = None, engine=None, tau: float = 0.55):
         self.server = server
         self.catalog = catalog or Catalog.load()
         self.tracer = tracer or Tracer()
+        self.engine = engine
+        self.tau = tau
         self._last_epoch = None
+        self._ctx = {"app": "none", "focused": "none", "selection": False,
+                     "last_action": "none"}
 
     # ---------- v0 router ----------
 
@@ -98,25 +102,33 @@ class Orchestrator:
 
     # ---------- utterance ----------
 
-    async def handle_utterance(self, text: str) -> dict:
+    async def handle_utterance(self, text: str, ctx: dict | None = None) -> dict:
         t0 = time.perf_counter()
         trace = self.tracer.begin(text)
+        # utterance-frame ctx wins (app/focused/selection/online)
+        if ctx:
+            for k in ("app", "focused", "selection", "online"):
+                if k in ctx:
+                    self._ctx[k] = ctx[k]
         outcome = "ok"
         try:
             await self.server.ui("thinking")
-            plan = self.route(text)
-            trace["decisions"].append({"router": plan})
-            if plan["kind"] == "skill":
-                outcome = await self.execute_actions(
-                    [{"op": "skill", "name": plan["name"],
-                      "args": plan["args"]}])
-            elif plan["kind"] == "batch":
-                outcome = await self.execute_actions(plan["actions"])
+            if self.engine is not None:
+                outcome = await self._engine_route(text, trace)
             else:
-                await self._observe()
-                await self.server.say("I can't do that yet")
-                await self.server.ui("confused")
-                outcome = "fallback"
+                plan = self.route(text)
+                trace["decisions"].append({"router": plan})
+                if plan["kind"] == "skill":
+                    outcome = await self.execute_actions(
+                        [{"op": "skill", "name": plan["name"],
+                          "args": plan["args"]}])
+                elif plan["kind"] == "batch":
+                    outcome = await self.execute_actions(plan["actions"])
+                else:
+                    await self._observe()
+                    await self.server.say("I can't do that yet")
+                    await self.server.ui("confused")
+                    outcome = "fallback"
             self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
             return {"outcome": outcome}
         except asyncio.CancelledError:
@@ -125,6 +137,147 @@ class Orchestrator:
             raise
         finally:
             self.tracer.finish(outcome)
+
+    # ---------- engine path ----------
+
+    async def _engine_route(self, text: str, trace: dict) -> str:
+        res = self.engine.route(text, self._ctx)
+        top5 = sorted(res.probs.items(), key=lambda kv: -kv[1])[:5]
+        trace["decisions"].append({"route_probs": top5, "p_top": res.p_top,
+                                   "route_ms": res.ms.get("route_ms")})
+        label = res.top
+        if res.p_top < self.tau:
+            a, b = top5[0][0], top5[1][0]
+            await self.server.say(
+                f"Did you mean {self._human(a)} or {self._human(b)}?")
+            await self.server.ui("confused")
+            return "awaiting_user"
+        if label == "MULTI_STEP":
+            await self.server.say("Multi-step tasks are coming soon")
+            await self.server.ui("confused")
+            return "fallback"
+        if label == "REFUSE":
+            await self.server.say("Sorry, I can't do that")
+            await self.server.ui("confused")
+            return "failed"
+        if label == "ANSWER":
+            await self.server.say("I'll answer that soon")
+            await self.server.ui("confused")
+            return "fallback"
+        if label == "ASK":
+            return await self._engine_ask(text, trace, top5)
+        # a skill: extract args then execute
+        t_args = time.perf_counter()
+        ext = self.engine.args(label, text, self._ctx)
+        trace["decisions"].append({"args_ms": ext["ms"].get("args_ms"),
+                                   "raw": ext.get("_raw")})
+        if "missing" in ext:
+            await self.server.say(f"What {ext['missing']} should I use?")
+            await self.server.ui("confused")
+            return "awaiting_user"
+        raw_args = {k: v for k, v in ext.items()
+                    if k not in ("ms", "_raw", "missing")}
+        # last_action in the training format, from raw ARGS strings
+        # (e.g. 'open_app app=Safari', 'start_timer duration="10 minutes"')
+        parts = " ".join(
+            f'{k}="{v}"' if isinstance(v, str) and " " in v else f"{k}={v}"
+            for k, v in raw_args.items())
+        args = self._coerce_args(label, raw_args)
+        out = await self.execute_actions(
+            [{"op": "skill", "name": label, "args": args}])
+        if out == "ok":
+            self._ctx["last_action"] = f"{label} {parts}".strip()
+            self.engine.last_action = self._ctx["last_action"]
+        return out
+
+    @staticmethod
+    def _human(name: str) -> str:
+        """'change_volume' -> 'change volume'; specials -> plain words."""
+        return {"MULTI_STEP": "a multi-step task", "ASK": "a clarifying question",
+                "REFUSE": "a refusal", "ANSWER": "a spoken answer"}.get(
+                    name, name.replace("_", " "))
+
+    async def _engine_ask(self, text: str, trace: dict, top5) -> str:
+        # nearest skill below the special options
+        skill = next((n for n, _ in top5 if self.catalog.get(n)), None)
+        if skill:
+            ext = self.engine.args(skill, text, self._ctx)
+            if "missing" in ext:
+                await self.server.say(f"What {ext['missing']} should I use?")
+                await self.server.ui("confused")
+                return "awaiting_user"
+        await self.server.say("What did you mean?")
+        await self.server.ui("confused")
+        return "awaiting_user"
+
+    @staticmethod
+    def _coerce_typed(typ: str, v, a: dict):
+        """Coerce an extracted arg to its catalog type. None = uncoercible."""
+        from . import decision as _d
+        if typ == "datetime" and isinstance(v, str):
+            return _d.parse_datetime(v) or v
+        if typ == "duration" and isinstance(v, str):
+            sec = _d.parse_duration(v)
+            return sec if sec is not None else v
+        if typ == "int":
+            n = _d.normalize_level(v)
+            return n if n is not None else (int(v) if str(v).lstrip("+-").isdigit() else None)
+        if typ == "float":
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                return None
+        if typ == "bool":
+            if isinstance(v, bool):
+                return v
+            s = str(v).strip().lower()
+            if s in ("true", "yes", "on", "1"):
+                return True
+            if s in ("false", "no", "off", "0"):
+                return False
+            return None
+        if typ == "enum" and a.get("values"):
+            s = str(v).strip().lower()
+            for opt in a["values"]:
+                if str(opt).lower() == s:
+                    return opt
+            return str(v)   # leave; catalog.validate_args catches bad enum
+        return v
+
+    def _coerce_args(self, name: str, args: dict) -> dict:
+        """datetime/duration by code; catalog-typed coercion (SPEC 1.4)."""
+        from . import decision as _d
+        spec = self.catalog.get(name) or {}
+        out = {}
+        for a in spec.get("args", []):
+            key, typ = a.get("name"), a.get("type")
+            if key not in args:
+                continue
+            v = args[key]
+            if key == "level":
+                n = _d.normalize_level(v)
+                out[key] = n if n is not None else v
+            elif key == "delta":
+                n = _d.normalize_delta(v)
+                out[key] = n if n is not None else v
+            else:
+                c = self._coerce_typed(typ, v, a)
+                out[key] = c if c is not None else v
+        # zero-shot fallback: model echoed e.g. 'set_volume=30' — if no known
+        # arg was emitted and the skill has exactly one required arg, use it.
+        if not out and args:
+            req = [a for a in spec.get("args", []) if a.get("required")]
+            if len(req) == 1:
+                v = next(iter(args.values()))
+                typ = req[0].get("type")
+                from . import decision as _d
+                if typ == "datetime":
+                    out[req[0]["name"]] = _d.parse_datetime(str(v)) or v
+                elif typ == "duration":
+                    out[req[0]["name"]] = _d.parse_duration(str(v)) or v
+                else:
+                    out[req[0]["name"]] = v
+        return out
 
     # ---------- execution ----------
 
@@ -261,7 +414,7 @@ class Orchestrator:
         t = time.perf_counter()
         try:
             res = await self.server.rpc(
-                "skill", {"name": name, "args": args}, timeout=30)
+                "skill", {"name": name, "args": args}, timeout=45)
         except RuntimeError as e:
             self.tracer.rpc("skill", {"name": name, "args": args},
                             {"error": str(e)}, (time.perf_counter() - t) * 1000)

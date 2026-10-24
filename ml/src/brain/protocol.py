@@ -23,8 +23,12 @@ def hello(screens: list) -> dict:
     return {"t": "hello", "screens": screens}
 
 
-def utterance(uid: str, text: str, final: bool = True) -> dict:
-    return {"t": "utterance", "id": uid, "text": text, "final": final}
+def utterance(uid: str, text: str, final: bool = True,
+              ctx: dict | None = None) -> dict:
+    m = {"t": "utterance", "id": uid, "text": text, "final": final}
+    if ctx is not None:
+        m["ctx"] = ctx
+    return m
 
 
 def rpc(rid: str, method: str, params: dict) -> dict:

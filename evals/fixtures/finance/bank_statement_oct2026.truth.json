@@ -14,27 +14,27 @@
     },
     {
       "row": 4,
-      "category": "Shopping"
+      "category": "Groceries"
     },
     {
       "row": 5,
-      "category": "Transport"
+      "category": "Dining"
     },
     {
       "row": 6,
-      "category": "Dining"
-    },
-    {
-      "row": 7,
       "category": "Transport"
     },
     {
+      "row": 7,
+      "category": "Shopping"
+    },
+    {
       "row": 8,
-      "category": "Dining"
+      "category": "Groceries"
     },
     {
       "row": 9,
-      "category": "Groceries"
+      "category": "Dining"
     },
     {
       "row": 10,
@@ -42,39 +42,39 @@
     },
     {
       "row": 11,
-      "category": "Dining"
+      "category": "Transport"
     },
     {
       "row": 12,
-      "category": "Transport"
+      "category": "Groceries"
     },
     {
       "row": 13,
-      "category": "Transport"
+      "category": "Dining"
     },
     {
       "row": 14,
-      "category": "Groceries"
+      "category": "Dining"
     },
     {
       "row": 15,
-      "category": "Dining"
+      "category": "Transport"
     },
     {
       "row": 16,
-      "category": "Groceries"
+      "category": "Transport"
     },
     {
       "row": 17,
-      "category": "Dining"
+      "category": "Health"
     },
     {
       "row": 18,
-      "category": "Groceries"
+      "category": "Transport"
     },
     {
       "row": 19,
-      "category": "Dining"
+      "category": "Transport"
     },
     {
       "row": 20,
@@ -82,7 +82,7 @@
     },
     {
       "row": 21,
-      "category": "Groceries"
+      "category": "Dining"
     },
     {
       "row": 22,
@@ -90,15 +90,15 @@
     },
     {
       "row": 23,
-      "category": "Groceries"
+      "category": "Dining"
     },
     {
       "row": 24,
-      "category": "Groceries"
+      "category": "Dining"
     },
     {
       "row": 25,
-      "category": "Dining"
+      "category": "Transport"
     },
     {
       "row": 26,
@@ -106,11 +106,11 @@
     },
     {
       "row": 27,
-      "category": "Transport"
+      "category": "Subscriptions"
     },
     {
       "row": 28,
-      "category": "Dining"
+      "category": "Groceries"
     },
     {
       "row": 29,
@@ -122,35 +122,35 @@
     },
     {
       "row": 31,
-      "category": "Dining"
+      "category": "Groceries"
     },
     {
       "row": 32,
-      "category": "Transport"
+      "category": "Groceries"
     },
     {
       "row": 33,
-      "category": "Dining"
+      "category": "Groceries"
     },
     {
       "row": 34,
-      "category": "Subscriptions"
+      "category": "Groceries"
     },
     {
       "row": 35,
-      "category": "Shopping"
-    },
-    {
-      "row": 36,
-      "category": "Dining"
-    },
-    {
-      "row": 37,
       "category": "Transport"
     },
     {
+      "row": 36,
+      "category": "Shopping"
+    },
+    {
+      "row": 37,
+      "category": "Shopping"
+    },
+    {
       "row": 38,
-      "category": "Groceries"
+      "category": "Dining"
     },
     {
       "row": 39,
@@ -158,19 +158,19 @@
     },
     {
       "row": 40,
-      "category": "Transport"
-    },
-    {
-      "row": 41,
-      "category": "Shopping"
-    },
-    {
-      "row": 42,
       "category": "Dining"
     },
     {
+      "row": 41,
+      "category": "Income"
+    },
+    {
+      "row": 42,
+      "category": "Groceries"
+    },
+    {
       "row": 43,
-      "category": "Transport"
+      "category": "Dining"
     },
     {
       "row": 44,
@@ -178,23 +178,23 @@
     },
     {
       "row": 45,
-      "category": "Dining"
-    },
-    {
-      "row": 46,
-      "category": "Income"
-    },
-    {
-      "row": 47,
-      "category": "Groceries"
-    },
-    {
-      "row": 48,
       "category": "Transport"
     },
     {
+      "row": 46,
+      "category": "Dining"
+    },
+    {
+      "row": 47,
+      "category": "Dining"
+    },
+    {
+      "row": 48,
+      "category": "Dining"
+    },
+    {
       "row": 49,
-      "category": "Shopping"
+      "category": "Dining"
     },
     {
       "row": 50,
@@ -202,27 +202,27 @@
     },
     {
       "row": 51,
-      "category": "Dining"
-    },
-    {
-      "row": 52,
       "category": "Transport"
     },
     {
+      "row": 52,
+      "category": "Subscriptions"
+    },
+    {
       "row": 53,
-      "category": "Groceries"
+      "category": "Subscriptions"
     },
     {
       "row": 54,
-      "category": "Groceries"
+      "category": "Shopping"
     },
     {
       "row": 55,
-      "category": "Health"
+      "category": "Income"
     },
     {
       "row": 56,
-      "category": "Health"
+      "category": "Groceries"
     },
     {
       "row": 57,
@@ -230,47 +230,47 @@
     },
     {
       "row": 58,
-      "category": "Groceries"
-    },
-    {
-      "row": 59,
-      "category": "Transport"
-    },
-    {
-      "row": 60,
-      "category": "Groceries"
-    },
-    {
-      "row": 61,
-      "category": "Subscriptions"
-    },
-    {
-      "row": 62,
-      "category": "Subscriptions"
-    },
-    {
-      "row": 63,
-      "category": "Shopping"
-    },
-    {
-      "row": 64,
       "category": "Dining"
     },
     {
-      "row": 65,
-      "category": "Income"
+      "row": 59,
+      "category": "Dining"
     },
     {
-      "row": 66,
-      "category": "Health"
+      "row": 60,
+      "category": "Dining"
     },
     {
-      "row": 67,
+      "row": 61,
       "category": "Transport"
     },
     {
+      "row": 62,
+      "category": "Transport"
+    },
+    {
+      "row": 63,
+      "category": "Transport"
+    },
+    {
+      "row": 64,
+      "category": "Transport"
+    },
+    {
+      "row": 65,
+      "category": "Shopping"
+    },
+    {
+      "row": 66,
+      "category": "Shopping"
+    },
+    {
+      "row": 67,
+      "category": "Shopping"
+    },
+    {
       "row": 68,
-      "category": "Groceries"
+      "category": "Dining"
     },
     {
       "row": 69,
@@ -278,27 +278,27 @@
     },
     {
       "row": 70,
-      "category": "Health"
+      "category": "Dining"
     },
     {
       "row": 71,
-      "category": "Groceries"
+      "category": "Transport"
     },
     {
       "row": 72,
-      "category": "Shopping"
+      "category": "Groceries"
     },
     {
       "row": 73,
-      "category": "Shopping"
+      "category": "Groceries"
     },
     {
       "row": 74,
-      "category": "Transport"
+      "category": "Dining"
     },
     {
       "row": 75,
-      "category": "Transport"
+      "category": "Dining"
     },
     {
       "row": 76,
@@ -306,15 +306,15 @@
     },
     {
       "row": 77,
-      "category": "Dining"
+      "category": "Utilities"
     },
     {
       "row": 78,
-      "category": "Shopping"
+      "category": "Groceries"
     },
     {
       "row": 79,
-      "category": "Shopping"
+      "category": "Dining"
     },
     {
       "row": 80,
@@ -322,7 +322,7 @@
     },
     {
       "row": 81,
-      "category": "Health"
+      "category": "Transport"
     },
     {
       "row": 82,
@@ -330,35 +330,35 @@
     },
     {
       "row": 83,
-      "category": "Dining"
+      "category": "Transport"
     },
     {
       "row": 84,
-      "category": "Health"
-    },
-    {
-      "row": 85,
-      "category": "Groceries"
-    },
-    {
-      "row": 86,
-      "category": "Utilities"
-    },
-    {
-      "row": 87,
-      "category": "Groceries"
-    },
-    {
-      "row": 88,
-      "category": "Groceries"
-    },
-    {
-      "row": 89,
       "category": "Subscriptions"
     },
     {
-      "row": 90,
+      "row": 85,
       "category": "Shopping"
+    },
+    {
+      "row": 86,
+      "category": "Dining"
+    },
+    {
+      "row": 87,
+      "category": "Dining"
+    },
+    {
+      "row": 88,
+      "category": "Dining"
+    },
+    {
+      "row": 89,
+      "category": "Dining"
+    },
+    {
+      "row": 90,
+      "category": "Dining"
     },
     {
       "row": 91,
@@ -366,23 +366,23 @@
     },
     {
       "row": 92,
-      "category": "Shopping"
-    },
-    {
-      "row": 93,
-      "category": "Health"
-    },
-    {
-      "row": 94,
       "category": "Dining"
     },
     {
+      "row": 93,
+      "category": "Shopping"
+    },
+    {
+      "row": 94,
+      "category": "Groceries"
+    },
+    {
       "row": 95,
-      "category": "Transport"
+      "category": "Groceries"
     },
     {
       "row": 96,
-      "category": "Transport"
+      "category": "Groceries"
     },
     {
       "row": 97,
@@ -390,23 +390,23 @@
     },
     {
       "row": 98,
-      "category": "Groceries"
+      "category": "Dining"
     },
     {
       "row": 99,
-      "category": "Groceries"
+      "category": "Dining"
     },
     {
       "row": 100,
-      "category": "Transport"
+      "category": "Dining"
     },
     {
       "row": 101,
-      "category": "Health"
+      "category": "Dining"
     },
     {
       "row": 102,
-      "category": "Health"
+      "category": "Groceries"
     },
     {
       "row": 103,
@@ -414,19 +414,19 @@
     },
     {
       "row": 104,
-      "category": "Dining"
-    },
-    {
-      "row": 105,
       "category": "Groceries"
     },
     {
-      "row": 106,
+      "row": 105,
       "category": "Shopping"
     },
     {
+      "row": 106,
+      "category": "Dining"
+    },
+    {
       "row": 107,
-      "category": "Transport"
+      "category": "Health"
     },
     {
       "row": 108,
@@ -434,35 +434,35 @@
     },
     {
       "row": 109,
-      "category": "Utilities"
+      "category": "Dining"
     },
     {
       "row": 110,
-      "category": "Groceries"
+      "category": "Dining"
     },
     {
       "row": 111,
-      "category": "Dining"
+      "category": "Health"
     },
     {
       "row": 112,
-      "category": "Groceries"
+      "category": "Utilities"
     },
     {
       "row": 113,
-      "category": "Transport"
+      "category": "Groceries"
     },
     {
       "row": 114,
-      "category": "Dining"
+      "category": "Transport"
     },
     {
       "row": 115,
-      "category": "Dining"
+      "category": "Transport"
     },
     {
       "row": 116,
-      "category": "Dining"
+      "category": "Groceries"
     },
     {
       "row": 117,
@@ -470,7 +470,7 @@
     },
     {
       "row": 118,
-      "category": "Groceries"
+      "category": "Dining"
     },
     {
       "row": 119,
@@ -478,38 +478,38 @@
     },
     {
       "row": 120,
-      "category": "Groceries"
+      "category": "Shopping"
     }
   ],
   "duplicates": [
     [
-      26,
-      27
+      18,
+      19
     ],
     [
-      72,
-      73
+      66,
+      67
     ]
   ],
   "outliers": [
-    90
+    85
   ],
   "refunds": [
-    106
+    105
   ],
   "category_spend": {
-    "Rent": 1650.0,
-    "Groceries": 1238.07,
-    "Dining": 831.97,
-    "Transport": 717.93,
-    "Shopping": 1955.33,
-    "Subscriptions": 50.47,
-    "Utilities": 146.31,
-    "Health": 295.25
+    "Rent": 1625.0,
+    "Groceries": 298.7,
+    "Dining": 347.21,
+    "Transport": 121.06,
+    "Shopping": 1480.34,
+    "Subscriptions": 42.97,
+    "Utilities": 149.07,
+    "Health": 47.91
   },
   "total_income": 4845.0,
-  "total_spend": 6885.33,
-  "net": -2040.33,
+  "total_spend": 4112.26,
+  "net": 732.74,
   "opening_balance": 3120.55,
-  "closing_balance": 1080.22
+  "closing_balance": 3853.29
 }

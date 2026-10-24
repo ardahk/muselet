@@ -90,14 +90,16 @@ public enum Walker {
     }
 
     /// Extra label fallbacks for elements whose batch attrs gave "".
-    static func fallbackLabel(for el: Element, role: String) -> String {
+    /// Reuses `a` (already fetched) and reads at most 6 children.
+    static func fallbackLabel(for el: Element, role: String,
+                              attrs a: ElAttrs) -> String {
         // AXIdentifier if it looks human-readable.
         if let ident = el.copySingleAttr("AXIdentifier") as? String,
            !ident.isEmpty, !ident.hasPrefix("_NS:"), !ident.hasPrefix("_") {
             return ident
         }
-        // First AXImage / AXStaticText child's title or description.
-        for child in el.copyAttrs().children {
+        // First AXImage / AXStaticText child's title or description (<=6 kids).
+        for child in a.children.prefix(6) {
             let ca = child.copyAttrs()
             if ca.role == "AXImage" || ca.role == "AXStaticText" {
                 if let t = ca.title, !t.isEmpty { return t }
@@ -143,7 +145,7 @@ public enum Walker {
                 if let role = kRoleMap[axRole] {
                     var label = label(of: a, role: role)
                     if label.isEmpty && !clipped {
-                        label = fallbackLabel(for: el, role: role)
+                        label = fallbackLabel(for: el, role: role, attrs: a)
                     }
                     let emit = kLabelOnlyRoles.contains(role) ? !label.isEmpty : true
                     if emit {
@@ -399,9 +401,10 @@ public final class Hands {
         }
         if records.count > maxNodes { records = Array(records.prefix(maxNodes)) }
 
-        // Window session: same app+window keeps stable refs; a change
-        // restarts numbering and replaces the diff with the full text.
-        let key = "\(pid)|\(window)"
+        // Window session: same app+window ELEMENT keeps stable refs (titles
+        // may change); a different window restarts numbering and replaces
+        // the diff with the full text.
+        let key = "\(pid)|\(roots.first?.stableId ?? 0)"
         if key != sessionKey {
             sessionKey = key
             nextRef = 1
