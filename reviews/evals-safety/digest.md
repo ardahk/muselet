@@ -17,3 +17,6 @@ Pass 21 checked, nothing material: brain-5 pathfind (a single resolved path for 
 - Export main's rows with --reader dedup and decontam them (-26).
 - Fix the guard latch, and cap tokens in the Tinker bench backend (-23, -28).
 - Qualify claims.md:66: 12/43 live cases are trace-graded (-24).
+
+
+Pass 24 (main 26ff05b, wip 2c79363, data-pipeline eae3b7e, decisions 91a62c2, hobby-gaps 861b991): no new findings. brain-5 merge + argfix kill/cut=off verified (mute polarity kept). it2 H9 ARGS gate is on val ARGS (ok). decisions teacher gate goes through BudgetLedger (ok). All open P1s unchanged.
