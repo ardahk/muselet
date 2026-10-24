@@ -3694,10 +3694,10 @@ function run() {
     CLOCK_HINT_DELAY_S = 3.0
 
     async def _clock_hint(self, result) -> None:
-        """Once per brain session: the timer fell back to Muselet because
-        the Clock shortcut is missing -> point at Settings. Said after the
-        timer reply has been read, unless a new request started meanwhile."""
+        """Once per brain session: a Muselet fallback lacked the Clock start
+        shortcut -> point at Settings after the reply, unless a new request started."""
         if self._clock_hint_said or not isinstance(result, dict) or \
+                result.get("backend") != "muselet" or \
                 result.get("fallback_reason") != "shortcut_missing":
             return
         self._clock_hint_said = True
