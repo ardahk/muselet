@@ -394,6 +394,7 @@ class Orchestrator:
         self.tau = tau
         self.planner = None
         self.planner_escalate = None    # opt-in bigger planner (loop guard)
+        self.escalate_opts = None
         self._escalate_lock = asyncio.Lock()
         self._escalate_desired = False
         self.escalate_model = "mlx-community/Qwen3.6-35B-A3B-4bit"
@@ -2231,7 +2232,8 @@ function run() {
                 from .planner import worker
                 planner = await worker().submit_async(
                     loader, self.escalate_model, self.engine,
-                    ESCALATE_OPTS, tag="planner-escalate")
+                    self.escalate_opts or ESCALATE_OPTS,
+                    tag="planner-escalate")
             except Exception as e:
                 return {"loaded": False, "reason": str(e)[:200]}
             if not self._escalate_desired:
@@ -2471,6 +2473,9 @@ function run() {
                 "ttft_ms": round(info["ttft_ms"], 1),
                 "decode_tok_s": round(info["decode_tok_s"], 1),
                 "tokens": info["tokens"]})
+            if info.get("think"):
+                trace["decisions"].append({
+                    "planner.think": {"turn": turn, **info["think"]}})
             if skipped:
                 trace["decisions"].append({"skipped_lines": skipped})
                 batch_log.append(f"ignored {len(skipped)} non-action lines")
