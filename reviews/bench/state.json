@@ -1,11 +1,11 @@
 {
-  "pass": 9,
-  "ts": "2026-10-24T08:00:00Z",
+  "pass": 10,
+  "ts": "2026-10-24T08:10:00Z",
   "branches": {
-    "main": "4a74659",
-    "wip/local": "85c73ed",
-    "cloud/bench": "c3ca0b3",
-    "cloud/data-pipeline": "9c526b1",
+    "main": "76a03c1",
+    "wip/local": "34ddf5f",
+    "cloud/bench": "6e7cd09",
+    "cloud/data-pipeline": "0f3df7f",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
     "cloud/fixtures-docs": "4bf2291",
@@ -13,7 +13,10 @@
     "cloud/advisor-2": "0a65f75",
     "cloud/pitch": "ad1b058",
     "cloud/grounding": "3441ee8",
-    "cloud/brain-2": "741465c"
+    "cloud/brain-2": "741465c",
+    "cloud/advisor-3": "ca93147",
+    "cloud/brain-3": "14a3f52",
+    "cloud/finance-3": "31be399"
   },
-  "notes": "pass9 (PULSE 07:38:34Z): bench-4/5/7 resolved on cloud/bench@c3ca0b3 (bench/tests 50 passed, 2 skipped). main merged grounding (grounder.py identical to cloud/grounding@3441ee8). data-pipeline 9c526b1 no lane changes. bench-11/12/14/15 unchanged."
+  "notes": "pass10 (PULSE 07:53:48Z): cloud/bench@6e7cd09 bench/tests 61 passed, 2 skipped. b83f55b drops expect_outcome='ok' from Muselet replay cases, so both systems' strict pass = final-state check (HobbyLM worker strict = final_grade.passed); symmetric, false_done still counted. run_muselet.py now checks the Hands pin via --deskmind-python. grounding files on cloud/bench came in via the main merge (identical). main/wip/advisor-3/brain-3/finance-3/data-pipeline: no lane-file changes. No status changes."
 }

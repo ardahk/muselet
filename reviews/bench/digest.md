@@ -1,7 +1,7 @@
-# bench digest — pass 9 (PULSE, 2026-10-24T08:00Z)
+# bench digest — pass 10 (PULSE, 2026-10-24T08:10Z)
 
 P0: 0. Open P1: 1. Open P2: 3. Resolved this pass: bench-4 (diag-v27 + Hands pin enforced), bench-5 (parent-clocked HobbyLM worker), bench-7 (local-calendar preflight + invite guards).
-Reviewed: main@4a74659, wip/local@85c73ed, cloud/bench@c3ca0b3, cloud/data-pipeline@9c526b1, cloud/grounding@3441ee8 (merged to main).
+Reviewed: main@76a03c1, wip/local@34ddf5f, cloud/bench@6e7cd09 (61 tests pass), cloud/data-pipeline@0f3df7f, cloud/grounding@3441ee8, advisor-3/brain-3/finance-3 (no lane files). Note: both systems' replay pass is now final-state only, so the `completed` metric equals `pass_final_state` for both.
 
 ## Open P0/P1
 1. bench-14: Nothing dedups training data against ScreenSpot-Pro/OSWorld-G before grounding training. Becomes P0 once Phase-4 data is built. (training/src/muselet_train/decontam.py)
