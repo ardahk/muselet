@@ -1,6 +1,6 @@
 # brain digest — pass 12 (2026-10-24T08:25:00Z)
 
-Heads: main 76a03c1 / wip/local 34ddf5f (no ml/ changes since pass 9: planner prompt + Swift only), cloud/brain-3 14a3f52, cloud/advisor-3 ca93147, cloud/finance-3 31be399, cloud/bench 6e7cd09 (merge of main only), cloud/data-pipeline 0f3df7f (parity_300 export).
+Heads: main 280715d / wip/local 38768f3 (ml/ unchanged since pass 9), cloud/brain-3 14a3f52, cloud/advisor-3 ca93147, cloud/finance-3 31be399, cloud/bench 6e7cd09, cloud/data-pipeline 1d65818.
 All product suites pass on brain-3, advisor-3 and finance-3 (test_decision.py real-model test skipped: Linux CPU).
 
 Pass 12: main 280715d / wip/local 38768f3 changed AGENTS.md (new HandsKit result fields, live-test safety) and Swift only; data-pipeline 1d65818 is training eval only. No ml/ changes. New: brain-19. Standing decision 'reviewed PRs that pass tests may be merged' applies to cloud/brain-3: its suites pass, but none of its tests cover brain-16/17/18.
