@@ -1,10 +1,10 @@
 {
-  "pass": 7,
-  "ts": "2026-10-24T06:47:00Z",
+  "pass": 8,
+  "ts": "2026-10-24T07:07:00Z",
   "last_reviewed": {
     "main": "c2d2988",
     "wip/local": "d5d2d7d",
-    "cloud/data-pipeline": "153a01c",
+    "cloud/data-pipeline": "8f0b9bc",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "f4ae461",
     "cloud/fixtures-docs": "4bf2291",
