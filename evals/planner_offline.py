@@ -539,7 +539,7 @@ class Runner:
     def __init__(self, model: str, system_extra: str | None):
         from brain.catalog import Catalog
         from brain.planner import Planner
-        self.p = Planner(model, Catalog.load())
+        self.p = Planner(model, Catalog.load(), few_shot=None)   # the harness controls the system prompt exactly
         if system_extra:
             self.p.system += "\n\n" + system_extra
         tok = self.p.tokenizer
