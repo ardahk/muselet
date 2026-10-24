@@ -97,6 +97,8 @@ App -> brain:
 - `{"t":"cancel"}`
 - `{"t":"rpc_result","id":"r1","ok":true,"result":{...}}` or `{"t":"rpc_result","id":"r1","ok":false,"error":"..."}`
 - `{"t":"confirm_reply","id":"c1","yes":true}`
+- `{"t":"config","escalate_planner":true}` (Settings › Models; sent on change and after every hello). The brain
+  replies `{"t":"config_ack","escalate_planner":true,"loaded":true,"reason":"..."}` (`reason` when not loaded).
 
 Brain -> app:
 - `{"t":"rpc","id":"r1","method":"<observe|act|skill|screenshot|verify|apps>","params":{...}}`

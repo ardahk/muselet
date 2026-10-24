@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Web pages through AX: turn on browsers' / Electron apps' web trees
         // when they become frontmost (Chrome needs ~2 s after the switch).
         WebAX.watchActivations()
+        RequestCtx.startTracking()
 
         overlays = OverlayController()
         ghost = GhostCursor(overlays: overlays)
@@ -58,6 +59,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // talks, so the skill RPC doesn't pay the AX read.
         voice.onPressBegan = { [weak self] in self?.rpc.skillTargets.prefetch() }
         mascot.onConfirmReply = { [weak self] yes in self?.replyConfirm(yes: yes) }
+        mascot.pill.onMic = { [weak self] in self?.voice.toggleListening() }
+        mascot.pill.onTyped = { [weak self] text, ctx in self?.voice.sendTyped(text, ctx: ctx) }
 
         permissionWatcher.onChange = { [weak self] _ in self?.voice.startHotkey() }
         permissionWatcher.refreshNow()
@@ -124,6 +127,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let m = mascotState.flatMap(MascotMood.init(rawValue:)) {
                 if !(self.model.isRecording && m != .listening) { self.model.mood = m }
             }
+            if let b = bubble { self.model.noteReply(b) }
+            if let m = mascotState.flatMap(MascotMood.init(rawValue:)) { self.model.noteMood(m) }
             if let b = bubble, !b.isEmpty, self.model.pendingConfirm == nil, !self.model.isRecording {
                 self.mascot.showBubble(b, style: .say)
             }
@@ -136,6 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         brain.onSay = { [weak self] text in
             guard let self, !text.isEmpty else { return }
             self.model.log(.say, text)
+            self.model.noteReply(text)
             if !self.model.isRecording && self.model.pendingConfirm == nil {
                 self.mascot.showBubble(text, style: .say)
             }
@@ -158,6 +164,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // restored without the confirm afterwards (pendingConfirm is nil).
             if !self.model.isRecording { self.mascot.clearConfirmBubble() }
         }
+        brain.onOpen = { [weak self] in self?.sendPlannerConfig() }
+        brain.onConfigAck = { [weak self] ack in
+            guard let self else { return }
+            self.model.configAck = ack
+            self.model.log(.system, "config_ack: 35B planner fallback \(ack.summary)", ok: ack.ok)
+        }
         brain.onRPC = { [weak self] method, summary, ms, ok in
             self?.model.log(.rpc, summary, ms: ms, ok: ok)
         }
@@ -168,6 +180,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.model.mood = .confused
             self.mascot.showBubble(VoiceController.offlineHint, style: .hint)
         }
+    }
+
+    /// Settings › Models: sent on change and on every (re)connect.
+    private func sendPlannerConfig() {
+        model.configAck = nil
+        brain.sendConfig(PlannerSettings.frame)
     }
 
     // MARK: timers
@@ -221,6 +239,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         a.reconnect = { [weak self] in self?.brain.reconnectNow() }
+        a.runExample = { [weak self] text in self?.voice.sendTyped(text, ctx: RequestCtx.capture()) }
+        a.setEscalatePlanner = { [weak self] on in
+            guard let self else { return }
+            PlannerSettings.escalate = on
+            self.model.escalatePlanner = PlannerSettings.escalate
+            self.sendPlannerConfig()
+        }
         a.resetMascot = { [weak self] in self?.mascot.resetPosition() }
         a.panelVisible = { [weak self] visible in
             guard let self else { return }

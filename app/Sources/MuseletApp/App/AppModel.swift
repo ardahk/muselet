@@ -90,6 +90,13 @@ struct LatencyChip: Equatable {
     let text: String
 }
 
+/// The panel's "last request" card: the brain's latest reply and outcome.
+struct LastResult: Equatable {
+    enum Outcome { case working, done, failed }
+    var text: String?
+    var outcome: Outcome
+}
+
 /// Single source of truth for UI state. Main-thread only.
 final class AppModel: ObservableObject {
     static let shared = AppModel()
@@ -116,6 +123,33 @@ final class AppModel: ObservableObject {
     /// Fan-out for the high-rate mic level so SwiftUI isn't invalidated
     /// for the mascot (which renders with Core Animation).
     let levelSubject = PassthroughSubject<Float, Never>()
+
+    @Published var lastRequest: String?
+    @Published var lastResult: LastResult?
+    /// Settings › Models (persisted by PlannerSettings) and the brain's config_ack.
+    @Published var escalatePlanner = PlannerSettings.escalate
+    @Published var configAck: ConfigAck?
+
+    func noteRequest(_ text: String) {
+        lastRequest = text
+        lastResult = LastResult(text: nil, outcome: .working)
+    }
+
+    func noteReply(_ text: String) {
+        guard lastRequest != nil, !text.isEmpty else { return }
+        lastResult = LastResult(text: text, outcome: lastResult?.outcome ?? .working)
+    }
+
+    func noteMood(_ m: MascotMood) {
+        guard var r = lastResult, r.outcome == .working else { return }
+        switch m {
+        case .success: r.outcome = .done
+        case .confused: r.outcome = .failed
+        case .idle where r.text != nil: r.outcome = .done
+        default: return
+        }
+        lastResult = r
+    }
 
     private init() {}
 

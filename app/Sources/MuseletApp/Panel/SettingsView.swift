@@ -1,0 +1,166 @@
+import AppKit
+import HandsKit
+import SwiftUI
+
+/// Settings page (behind the gear): Permissions, Models, Voice, Debug.
+struct SettingsView: View {
+    @ObservedObject var model: AppModel
+    private let actions = AppActions.shared
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                permissions
+                if PlannerSettings.supported { models }
+                voice
+                debug
+            }
+            .padding(.bottom, 2)
+        }
+        .scrollIndicators(.automatic)
+        .frame(height: 470)
+    }
+
+    // MARK: sections
+
+    private var permissions: some View {
+        Card(title: "Permissions") {
+            VStack(spacing: 6) {
+                ForEach(PermissionKind.allCases) { k in
+                    PermissionRow(kind: k, state: model.permissions[k]) { actions.requestPermission(k) }
+                }
+                AutomationRow(statuses: model.automation) { actions.requestAutomation($0) }
+            }
+        }
+    }
+
+    private var models: some View {
+        Card(title: "Models") {
+            VStack(alignment: .leading, spacing: 6) {
+                Toggle(isOn: Binding(get: { model.escalatePlanner },
+                                     set: { actions.setEscalatePlanner($0) })) {
+                    Text("Use 35B planner fallback (needs ≥ 48 GB RAM)").font(.system(size: 12.5))
+                }
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                HStack(spacing: 6) {
+                    Image(systemName: ackSymbol).foregroundStyle(ackColor).font(.system(size: 11))
+                    Text(ackText).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(2)
+                    Spacer()
+                    Text("\(PlannerSettings.memoryGB) GB").font(.system(size: 10.5)).foregroundStyle(.tertiary)
+                        .monospacedDigit()
+                }
+            }
+        }
+    }
+
+    private var ackText: String {
+        if let a = model.configAck { return "Brain: \(a.summary)" }
+        return model.brainStatus == .connected ? "Brain: waiting for reply…" : "Sent when the brain connects"
+    }
+
+    private var ackSymbol: String {
+        guard let a = model.configAck else { return "clock" }
+        return a.ok ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
+    }
+
+    private var ackColor: Color {
+        guard let a = model.configAck else { return .secondary }
+        return a.ok ? .green : .orange
+    }
+
+    private var voice: some View {
+        Card(title: "Voice") {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: "cpu").foregroundStyle(.secondary).frame(width: 18)
+                    Text(model.sttEngine).font(.system(size: 12)).lineLimit(1)
+                    Spacer()
+                    sttBadge
+                }
+                HStack(spacing: 8) {
+                    Image(systemName: "keyboard").foregroundStyle(.secondary).frame(width: 18)
+                    Text(model.pushToTalkActive ? "Right ⌥ hotkey active" : "Hotkey needs Input Monitoring")
+                        .font(.system(size: 12))
+                        .foregroundStyle(model.pushToTalkActive ? Color.primary : Color.orange)
+                    Spacer()
+                }
+                if case .downloading(let f, let phase) = model.sttState {
+                    VStack(alignment: .leading, spacing: 3) {
+                        ProgressView(value: f).progressViewStyle(.linear).tint(Brand.tintColor)
+                        Text("\(phase) · \(Int(f * 100))%").font(.system(size: 10.5))
+                            .foregroundStyle(.secondary).monospacedDigit()
+                    }
+                } else if case .loading(let phase) = model.sttState {
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.mini)
+                        Text(phase).font(.system(size: 10.5)).foregroundStyle(.secondary)
+                    }
+                } else if case .failed(let e) = model.sttState {
+                    Text(e).font(.system(size: 10.5)).foregroundStyle(.red).lineLimit(2)
+                }
+                if let ms = model.lastSTTms {
+                    HStack(spacing: 8) {
+                        Image(systemName: "stopwatch").foregroundStyle(.secondary).frame(width: 18)
+                        Text("Last release → text").font(.system(size: 12)).foregroundStyle(.secondary)
+                        Spacer()
+                        Text("\(Int(ms.rounded())) ms").font(.system(size: 12, weight: .medium)).monospacedDigit()
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var sttBadge: some View {
+        switch model.sttState {
+        case .ready: Badge(text: "ready", color: .green)
+        case .failed: Badge(text: "failed", color: .red)
+        case .downloading: Badge(text: "downloading", color: .orange)
+        case .loading: Badge(text: "loading", color: .orange)
+        case .idle: Badge(text: "idle", color: .secondary)
+        }
+    }
+
+    private var debug: some View {
+        Card(title: "Debug", accessory: {
+            if !model.activity.isEmpty {
+                Button("Clear") { model.activity.removeAll() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+        }) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Text(model.brainStatus.title).font(.system(size: 11, weight: .medium))
+                    Text(model.brainStatus.detail).font(.system(size: 11)).foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                if model.activity.isEmpty {
+                    Text("No activity yet.")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, minHeight: 50)
+                } else {
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 5) {
+                            ForEach(model.activity) { e in ActivityRow(entry: e) }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .frame(height: 160)
+                }
+                HStack(spacing: 6) {
+                    Button { actions.reconnect() } label: { Label("Reconnect", systemImage: "arrow.clockwise") }
+                    Button { actions.resetMascot() } label: { Label("Reset mascot", systemImage: "figure.wave") }
+                    Spacer()
+                    Button { NSApp.terminate(nil) } label: { Label("Quit", systemImage: "power") }
+                        .keyboardShortcut("q")
+                }
+                .buttonStyle(.glass)
+                .controlSize(.small)
+                .labelStyle(.titleAndIcon)
+            }
+        }
+    }
+}

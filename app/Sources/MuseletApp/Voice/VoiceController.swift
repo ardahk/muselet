@@ -133,9 +133,9 @@ final class VoiceController {
 
     // MARK: push-to-talk
 
-    private func pressBegan() {
+    private func pressBegan(at explicitKeyDown: CFTimeInterval? = nil) {
         guard !model.isRecording else { return }
-        let keyDown = ptt.pressEventTime > 0 ? ptt.pressEventTime : CACurrentMediaTime()
+        let keyDown = explicitKeyDown ?? (ptt.pressEventTime > 0 ? ptt.pressEventTime : CACurrentMediaTime())
         mascot?.wake()
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .notDetermined:
@@ -303,6 +303,7 @@ final class VoiceController {
             return
         }
         model.log(.utterance, text)
+        model.noteRequest(text)
         guard let brain else {
             model.mood = .confused
             mascot?.showBubble(Self.offlineHint, style: .hint)
@@ -350,6 +351,28 @@ final class VoiceController {
         case .failed(let e): return "Speech engine failed: \(e)"
         default: return "Speech model is still loading…"
         }
+    }
+
+    // MARK: pill (click to talk, typed requests)
+
+    /// Mascot pill mic button: first click starts listening, second click sends.
+    func toggleListening() {
+        if model.isRecording { pressEnded() } else { pressBegan(at: CACurrentMediaTime()) }
+    }
+
+    /// Typed request (pill text field, panel example): the same final
+    /// utterance frame as voice; `ctx` was captured before Muselet took focus.
+    func sendTyped(_ raw: String, ctx: PendingCtx) {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, !model.isRecording else { return }
+        mascot?.wake()
+        counter += 1
+        let id = "t\(counter)-\(Int(Date().timeIntervalSince1970) % 100_000)"
+        currentID = id
+        pressCtx = ctx
+        confirmAtPress = model.pendingConfirm?.id
+        model.mood = .thinking
+        handleFinal(text, id: id)
     }
 
     // MARK: cancel paths
