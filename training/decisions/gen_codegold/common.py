@@ -95,6 +95,18 @@ def integer_score(rng: random.Random, value: int, *, metric: str = "The result")
     return amount_score(rng, Decimal(value), places=0, prefix="", metric=metric)
 
 
+def _nice_steps(low: Decimal, high: Decimal) -> list[Decimal]:
+    steps = []
+    for exponent in range(-2, 9):
+        for mantissa in (1, 2, 5, 25):
+            step = Decimal(mantissa) * Decimal(10) ** exponent
+            if mantissa == 25:
+                step = step / 10
+            if low <= step <= high and step >= Decimal("0.01"):
+                steps.append(step.normalize())
+    return sorted(set(steps))
+
+
 def round_bands(
     value: Decimal,
     unit: str,
@@ -102,70 +114,83 @@ def round_bands(
     rng: random.Random,
     levels: tuple[int, int] = (3, 6),
     boundary_rate: float = 0.15,
+    metric: str = "The result",
+    allow_negative: bool = False,
 ) -> tuple[list[str], int]:
+    """Contiguous score bands whose edges are multiples of one round step.
+
+    Edges never depend on the value except through the step choice: the gold band is
+    floor(value / step) and the grid offset places it at a uniformly drawn level.
+    Non-boundary values sit at least 2% of |value| (and 10% of a step) from every edge,
+    relaxed to 0.2% (and 2% of a step), then to any non-zero gap, for values that sit
+    just off a round number;
+    boundary items put the value exactly on the gold band's lower edge.
+    """
     if not step_choices or any(step <= 0 for step in step_choices):
         raise ValueError("step_choices must contain positive steps")
     if levels[0] < 2 or levels[1] < levels[0]:
         raise ValueError("levels must be an increasing range of at least two levels")
     if not 0 <= boundary_rate <= 1:
         raise ValueError("boundary_rate must be between zero and one")
-
-    step = rng.choice(step_choices)
-    count = rng.randint(*levels)
-    boundary = rng.random() < boundary_rate and count > 1
-    if boundary:
-        gold_index = rng.randrange(1, count)
-        below_count = gold_index - 1
-        above_count = count - gold_index - 1
-        lower_margin = max(step, (abs(value) * Decimal("0.03") / step).to_integral_value(
-            rounding=ROUND_CEILING) * step)
-        lower_edge = ((value - lower_margin) / step).to_integral_value(
-            rounding=ROUND_FLOOR) * step
-        upper_edge = ((value + lower_margin) / step).to_integral_value(
-            rounding=ROUND_CEILING) * step
-        below = []
-        edge = lower_edge
-        for _ in range(below_count):
-            below.append(edge)
-            edge -= step * rng.randint(1, 3)
-        above = []
-        edge = upper_edge
-        for _ in range(above_count):
-            above.append(edge)
-            edge += step * rng.randint(1, 3)
-        cuts = sorted([*below, value, *above])
-    else:
-        if count == 1:
-            gold_index = 0
+    value = Decimal(value)
+    magnitude = abs(value)
+    for attempt in range(400):
+        strict = attempt < 150
+        count = rng.randint(*levels)
+        gold_index = rng.randrange(count)
+        if magnitude == 0:
+            candidates = sorted(step_choices)
         else:
-            gold_weights = [1 / count]
-            remainder = 1 / count - boundary_rate / (count - 1)
-            gold_weights.extend([remainder] * (count - 1))
-            gold_index = rng.choices(range(count), weights=gold_weights, k=1)[0]
-        margin = max(step, (abs(value) * Decimal("0.03") / step).to_integral_value(
-            rounding=ROUND_CEILING) * step)
-        below_edge = ((value - margin) / step).to_integral_value(rounding=ROUND_FLOOR) * step
-        above_edge = ((value + margin) / step).to_integral_value(rounding=ROUND_CEILING) * step
-        below = []
-        edge = below_edge
-        for _ in range(gold_index):
-            below.append(edge)
-            edge -= step * rng.randint(1, 3)
-        above = []
-        edge = above_edge
-        for _ in range(count - gold_index - 1):
-            above.append(edge)
-            edge += step * rng.randint(1, 3)
-        cuts = sorted([*below, *above])
+            high = magnitude / 2
+            if not allow_negative and gold_index and value > 0:
+                high = min(high, value / gold_index)
+            candidates = _nice_steps(magnitude * Decimal("0.03"), high)
+        if not candidates:
+            continue
+        if magnitude == 0 and not allow_negative:
+            step = rng.choice(candidates)
+            gold_index = 0
+            edges = [step * index for index in range(1, count)]
+            break
+        want_boundary = gold_index > 0 and rng.random() < boundary_rate
+        usable = []
+        for step in candidates:
+            position = value / step
+            offset = position - position.to_integral_value(rounding=ROUND_FLOOR)
+            distance = min(offset, 1 - offset) * step
+            if want_boundary:
+                if offset == 0:
+                    usable.append(step)
+            elif offset != 0 and distance >= (
+                max(magnitude * Decimal("0.02"), step / 10)
+                if strict
+                else max(magnitude * Decimal("0.002"), step / 50)
+                if attempt < 300
+                else Decimal("0")
+            ):
+                usable.append(step)
+        if not usable and not strict and gold_index > 0:
+            usable = [step for step in candidates if (value / step) % 1 == 0]
+        if not usable:
+            continue
+        step = rng.choice(usable)
+        gold_lower = (value / step).to_integral_value(rounding=ROUND_FLOOR) * step
+        edges = [gold_lower + step * (index - gold_index) for index in range(1, count)]
+        if not allow_negative and edges[0] <= 0:
+            continue
+        break
+    else:
+        raise ValueError(f"could not build round bands for {value}")
 
-    precision = min(
-        2, max(0, -step.as_tuple().exponent, -value.as_tuple().exponent)
-    )
+    exponent = -step.normalize().as_tuple().exponent
+    precision = min(2, max(0, exponent))
+    if unit == "$" and precision == 1:
+        precision = 2
 
     def render(number: Decimal) -> str:
         text = f"{number:,.{precision}f}"
         if unit == "$":
-            return f"${text}"
+            return f"-${text[1:]}" if text.startswith("-") else f"${text}"
         if unit == "%":
             return f"{text}%"
         return f"{text} {unit}".strip()
@@ -173,12 +198,12 @@ def round_bands(
     criteria = []
     for index in range(count):
         if index == 0:
-            criteria.append(f"The result is less than {render(cuts[0])}.")
+            criteria.append(f"{metric} is less than {render(edges[0])}.")
         elif index == count - 1:
-            criteria.append(f"The result is at least {render(cuts[-1])}.")
+            criteria.append(f"{metric} is at least {render(edges[-1])}.")
         else:
             criteria.append(
-                f"The result is at least {render(cuts[index - 1])} but less than {render(cuts[index])}."
+                f"{metric} is at least {render(edges[index - 1])} but less than {render(edges[index])}."
             )
     return criteria, gold_index
 

@@ -48,7 +48,10 @@ def test_generators_validate_schema_and_independent_gold(family):
             elif kind == "score":
                 assert 3 <= len(criteria) <= 6
                 assert record["gold"][qid] in {str(i) for i in range(len(criteria))}
-                if family == "cg_counting":
+                if family in {
+                    "cg_counting", "cg_multi_hop", "cg_numeric",
+                    "cg_temporal", "cg_probability", "cg_trap",
+                }:
                     assert all("less than" in band.lower() for band in criteria[:-1])
                     assert "at least" in criteria[-1].lower()
                 else:
@@ -100,3 +103,30 @@ def test_word_level_distance_is_bounded():
     assert _within_one(("alpha", "beta"), ("alpha", "gamma"))
     assert _within_one(("alpha", "beta"), ("alpha", "beta", "gamma"))
     assert not _within_one(("alpha", "beta"), ("gamma", "delta"))
+
+
+@pytest.mark.parametrize("family", ["cg_temporal", "cg_probability", "cg_trap"])
+def test_rebuilt_family_notes_are_mistake_derived(family):
+    rng = random.Random(12_345 + FAMILIES.index(family))
+    included = correct = 0
+    for _ in range(2_000):
+        record = GENERATORS[family](rng, rng.randint(2, 5))
+        note = record["_meta"]["staff_note"]
+        included += note["included"]
+        correct += bool(note["included"] and note["correct"])
+        assert MODULES[family].verify_rendered(record)
+    assert 0.60 <= included / 2_000 <= 0.70
+    assert 0.25 <= correct / included <= 0.35
+
+
+def test_each_trap_type_is_decisive_in_generated_records():
+    rng = random.Random(31_415)
+    deciding = Counter()
+    totals = Counter()
+    for _ in range(3_000):
+        record = GENERATORS["cg_trap"](rng, rng.randint(2, 5))
+        trap_type = record["_meta"]["trap_type"]
+        totals[trap_type] += 1
+        deciding[trap_type] += bool(record["_meta"]["facts"]["case"]["decisive"])
+    assert set(totals) == {"negation", "source_precedence", "irrelevant_number"}
+    assert all(deciding[kind] / totals[kind] >= 0.20 for kind in totals)

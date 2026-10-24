@@ -5,8 +5,8 @@ import io
 import random
 import re
 from collections import defaultdict
-from datetime import date, timedelta
-from decimal import Decimal
+from datetime import date, datetime, time, timedelta
+from decimal import Decimal, InvalidOperation
 
 from ..common import choice_options, finish_record, key_for_value, round_bands, score_level_for
 
@@ -19,87 +19,147 @@ GROUPS = (
     "payroll_ops", "records_scanning", "safety_training", "site_cleaning",
     "translation", "travel_desk",
 )
-ACTIVE_GROUPS = ("courier_ops", "lab_operations", "travel_desk", "records_scanning")
 DISPLAY_TO_GROUP = {group.replace("_", " ").title(): group for group in GROUPS}
-MISTAKES = {
-    "posting status": "the posting-status check (counting void entries)",
-    "reporting window": "the reporting-window check (including a late entry)",
-    "service group": "the approved-group check (including another service group)",
-    "minimum amount": "the minimum-amount check (including a below-floor entry)",
-    "duplicate upload": "duplicate resolution (counting the later upload)",
-    "linked reversal": "the reversal check (keeping a reversed original)",
-}
-MISTAKE_COMMENTS = {
-    "posting status": "I counted void entries as payable transactions.",
-    "reporting window": "I kept a posted transaction dated after period close.",
-    "service group": "I included a transaction from an unapproved service group.",
-    "minimum amount": "I kept an entry below the minimum dollar amount.",
-    "duplicate upload": "I counted a later upload for a transaction already listed.",
-    "linked reversal": "I left the original transaction in after its later reversal.",
-}
+MISTAKES = (
+    "posting status", "reporting window", "service group",
+    "minimum amount", "duplicate upload", "linked reversal",
+)
+DISQUALIFIERS = ("posting status", "reporting window", "minimum amount")
 
 
 def _display(group: str) -> str:
     return group.replace("_", " ").title()
 
 
-def _calculate(rows, start, end, minimum, included_groups, *, dropped=frozenset()):
-    reversed_transactions = {
+def _new_reference(rng: random.Random, used: set[str], prefix: str = "TX") -> str:
+    while True:
+        reference = f"{prefix}-{rng.randint(100000, 999999)}"
+        if reference not in used:
+            used.add(reference)
+            return reference
+
+
+def _random_amount(
+    rng: random.Random,
+    used: set[Decimal],
+    low_cents: int,
+    high_cents: int,
+) -> Decimal:
+    for _ in range(500):
+        value = Decimal(rng.randint(low_cents, high_cents)) / Decimal(100)
+        if value not in used:
+            used.add(value)
+            return value
+    raise ValueError("unable to sample a distinct ledger amount")
+
+
+def _random_day(rng: random.Random, start: date, end: date) -> date:
+    return start + timedelta(days=rng.randint(0, (end - start).days))
+
+
+def _random_received(rng: random.Random, day: date) -> datetime:
+    return datetime.combine(
+        day,
+        time(hour=rng.randint(7, 18), minute=rng.choice((0, 7, 13, 22, 31, 46, 54))),
+    )
+
+
+def _row(
+    rng: random.Random,
+    used_references: set[str],
+    *,
+    day: date,
+    status: str,
+    group: str,
+    amount: Decimal,
+    trap_kind: str | None = None,
+    transaction: str | None = None,
+    received: datetime | None = None,
+    reverses: str = "",
+) -> dict:
+    return {
+        "record": "",
+        "transaction": transaction or _new_reference(rng, used_references),
+        "date": day.isoformat(),
+        "received": (received or _random_received(rng, day)).isoformat(sep=" ", timespec="minutes"),
+        "status": status,
+        "group": group,
+        "amount": f"{amount:.2f}",
+        "reverses": reverses,
+        "work_order": "",
+        "trap_kind": trap_kind,
+    }
+
+
+def _eligible_rows(
+    rows,
+    start: date,
+    end: date,
+    minimum: Decimal,
+    included_groups: set[str],
+    *,
+    dropped: str | None = None,
+) -> list[dict]:
+    reversal_targets = {
         row["reverses"] for row in rows
         if row["status"] == "reversal" and row["reverses"]
     }
-    seen = set()
+    candidates = [
+        row for row in rows
+        if row["status"] == "posted" or dropped == "posting status" and row["status"] == "void"
+    ]
+    if dropped != "duplicate upload":
+        first_uploads = {}
+        for row in sorted(candidates, key=lambda item: (item["received"], item["record"])):
+            first_uploads.setdefault(row["transaction"], row)
+        candidates = list(first_uploads.values())
+
     eligible = []
-    for row in rows:
-        if row["status"] == "reversal":
+    for row in candidates:
+        if dropped != "linked reversal" and row["transaction"] in reversal_targets:
             continue
-        if "posting status" not in dropped and row["status"] != "posted":
+        row_date = date.fromisoformat(row["date"])
+        if dropped != "reporting window" and not start <= row_date <= end:
             continue
-        transaction = row["transaction"]
-        if "duplicate upload" not in dropped:
-            if transaction in seen:
-                continue
-            seen.add(transaction)
-        if "linked reversal" not in dropped and transaction in reversed_transactions:
+        if dropped != "service group" and row["group"] not in included_groups:
             continue
-        day = date.fromisoformat(row["date"])
-        if "reporting window" not in dropped and not start <= day <= end:
-            continue
-        if "service group" not in dropped and row["group"] not in included_groups:
-            continue
-        if "minimum amount" not in dropped and Decimal(row["amount"]) < minimum:
+        if dropped != "minimum amount" and Decimal(row["amount"]) < minimum:
             continue
         eligible.append(row)
     return eligible
 
 
-def _sum(rows):
+def _sum(rows) -> Decimal:
     return sum((Decimal(row["amount"]) for row in rows), Decimal("0"))
 
 
-def _totals(rows):
+def _group_totals(rows) -> dict[str, Decimal]:
     totals = defaultdict(lambda: Decimal("0"))
     for row in rows:
         totals[row["group"]] += Decimal(row["amount"])
     return totals
 
 
-def _largest_group(rows, included_groups):
-    totals = _totals(rows)
-    return min(included_groups, key=lambda group: (-totals[group], _display(group)))
+def _largest_group(rows, groups: set[str]) -> str:
+    totals = _group_totals(rows)
+    return min(groups, key=lambda group: (-totals[group], _display(group)))
 
 
-def _render_csv(rows):
+def _render_export(rows) -> str:
+    columns = (
+        "Record", "Transaction reference", "Service date", "Received at",
+        "Posting status", "Service group", "Amount (USD)", "Reverses",
+        "Work order",
+    )
     stream = io.StringIO()
-    columns = ("Record", "Transaction reference", "Date", "Posting status",
-               "Service group", "Amount (USD)", "Reverses", "Work order")
     writer = csv.DictWriter(stream, fieldnames=columns, lineterminator="\n")
     writer.writeheader()
     for row in rows:
         writer.writerow({
-            "Record": row["row"],
+            "Record": row["record"],
             "Transaction reference": row["transaction"],
-            "Date": row["date"],
+            "Service date": row["date"],
+            "Received at": row["received"],
             "Posting status": row["status"].title(),
             "Service group": _display(row["group"]),
             "Amount (USD)": row["amount"],
@@ -109,358 +169,529 @@ def _render_csv(rows):
     return stream.getvalue().rstrip()
 
 
-def _read_export(state):
-    start_line = next(line for line in state.splitlines() if line.startswith("Review window: "))
-    start_text, end_text = start_line.removeprefix("Review window: ").removesuffix(" (inclusive)").split(" through ")
+def _read_export(state: str):
+    lines = state.splitlines()
+    window = next(line for line in lines if line.startswith("Review window: "))
+    start_text, end_text = window.removeprefix("Review window: ").removesuffix(
+        " (inclusive)"
+    ).split(" through ")
     start, end = date.fromisoformat(start_text), date.fromisoformat(end_text)
-    minimum = Decimal(next(line for line in state.splitlines()
-                           if line.startswith("Minimum eligible amount: ")).split("$", 1)[1])
+    minimum_line = next(line for line in lines if line.startswith("Minimum eligible amount: "))
+    minimum = Decimal(re.search(r"\$([\d,]+\.\d{2})", minimum_line).group(1).replace(",", ""))
+    groups_line = next(line for line in lines if line.startswith("Eligible service groups: "))
     included = {
         DISPLAY_TO_GROUP[name.strip()]
-        for name in next(line for line in state.splitlines()
-                         if line.startswith("Eligible service groups: ")).split(": ", 1)[1].split(", ")
+        for name in groups_line.split(": ", 1)[1].split(", ")
     }
-    cap = Decimal(next(line for line in state.splitlines()
-                       if line.startswith("Review cap: ")).split("$", 1)[1].replace(",", ""))
+    cap_line = next(line for line in lines if line.startswith("Review cap: "))
+    cap = Decimal(re.search(r"\$([\d,]+\.\d{2})", cap_line).group(1).replace(",", ""))
     raw = state.split("LEDGER EXPORT\n", 1)[1].split("\nEND EXPORT", 1)[0]
     rows = []
-    for record in csv.DictReader(io.StringIO(raw)):
+    for exported in csv.DictReader(io.StringIO(raw)):
         rows.append({
-            "row": record["Record"],
-            "transaction": record["Transaction reference"],
-            "date": record["Date"],
-            "status": record["Posting status"].lower(),
-            "group": DISPLAY_TO_GROUP[record["Service group"]],
-            "amount": record["Amount (USD)"],
-            "reverses": "" if record["Reverses"] == "—" else record["Reverses"],
+            "record": exported["Record"],
+            "transaction": exported["Transaction reference"],
+            "date": exported["Service date"],
+            "received": exported["Received at"],
+            "status": exported["Posting status"].lower(),
+            "group": DISPLAY_TO_GROUP[exported["Service group"]],
+            "amount": exported["Amount (USD)"],
+            "reverses": "" if exported["Reverses"] == "—" else exported["Reverses"],
         })
     return rows, start, end, minimum, included, cap
 
 
+def _option_key(stem: str, value, places: int = 0) -> str:
+    return key_for_value(stem, value, places=places if isinstance(value, Decimal) else 0)
+
+
+def _choice_spec(stem, answer_value, alternatives, describe, *, places=0):
+    answer = _option_key(stem, answer_value, places)
+    options = {answer: describe(answer_value)}
+    provenance = {answer: "correct"}
+    for value, mistake in alternatives:
+        key = _option_key(stem, value, places)
+        if key != answer and key not in options:
+            options[key] = describe(value)
+            provenance[key] = mistake
+    if len(options) < 2:
+        raise ValueError(f"{stem} has no distinct computed distractor")
+    return answer, options, provenance
+
+
+def _cap_relation(amount: Decimal, cap: Decimal) -> str:
+    if amount > cap:
+        return "over"
+    if amount < cap:
+        return "under"
+    return "right at"
+
+
 def verify_rendered(record: dict) -> bool:
     try:
-        state = record["state"]
-        rows, start, end, minimum, included, cap = _read_export(state)
+        rows, start, end, minimum, included, cap = _read_export(record["state"])
         reversed_references = {
             row["reverses"] for row in rows
             if row["status"] == "reversal" and row["reverses"]
         }
 
-        def reparse(ignore=None):
-            seen_references = set()
-            selected = []
+        def reparse(ignore: str | None = None) -> list[dict]:
+            eligible_uploads = []
             for row in rows:
-                if row["status"] == "reversal":
-                    continue
                 if row["status"] != "posted" and not (
                     ignore == "posting status" and row["status"] == "void"
                 ):
                     continue
+                eligible_uploads.append(row)
+            if ignore != "duplicate upload":
+                earliest = {}
+                for row in eligible_uploads:
+                    current = earliest.get(row["transaction"])
+                    if current is None or row["received"] < current["received"]:
+                        earliest[row["transaction"]] = row
+                eligible_uploads = list(earliest.values())
+
+            result = []
+            for row in eligible_uploads:
                 reference = row["transaction"]
-                if ignore != "duplicate upload":
-                    if reference in seen_references:
-                        continue
-                    seen_references.add(reference)
                 if ignore != "linked reversal" and reference in reversed_references:
                     continue
-                day = date.fromisoformat(row["date"])
-                if ignore != "reporting window" and not start <= day <= end:
+                service_day = date.fromisoformat(row["date"])
+                if ignore != "reporting window" and not (start <= service_day <= end):
                     continue
                 if ignore != "service group" and row["group"] not in included:
                     continue
                 if ignore != "minimum amount" and Decimal(row["amount"]) < minimum:
                     continue
-                selected.append(row)
-            return selected
+                result.append(row)
+            return result
 
         eligible = reparse()
-        total = _sum(eligible)
-        group_totals = _totals(eligible)
-        largest = _largest_group(eligible, included)
-        unreversed = reparse("linked reversal")
-        reversal_amount = _sum(unreversed) - total
-        below_minimum = reparse("minimum amount")
-        below_minimum_amount = _sum(below_minimum) - total
-        note_lines = [line for line in state.splitlines()
-                      if line.startswith("Message from Mira, finance review:")]
-        if len(note_lines) > 1:
-            return False
-        note_meta = record.get("_meta", {}).get("staff_note", {})
-        if bool(note_lines) != bool(note_meta.get("included")):
-            return False
-        if note_lines:
-            note_line = note_lines[0]
-            match = re.search(r"\$([\d,]+\.\d{2})", note_line)
-            if match is None:
-                return False
-            claimed = Decimal(match.group(1).replace(",", ""))
-            if "Applying the posted-status" in note_line:
-                note_expected = total
-            else:
-                mistake = next((rule for rule, phrase in MISTAKE_COMMENTS.items()
-                                if phrase in note_line), None)
-                if mistake is None:
-                    return False
-                note_expected = _sum(reparse(mistake))
-            if claimed != note_expected or note_meta.get("correct") != (claimed == total):
-                return False
+        total = sum((Decimal(row["amount"]) for row in eligible), Decimal("0"))
+        reversed_total = sum(
+            (Decimal(row["amount"]) for row in reparse("linked reversal")), Decimal("0")
+        ) - total
+        below_minimum_total = sum(
+            (Decimal(row["amount"]) for row in reparse("minimum amount")), Decimal("0")
+        ) - total
+        totals = defaultdict(lambda: Decimal("0"))
+        group_counts = defaultdict(int)
+        for row in eligible:
+            totals[row["group"]] += Decimal(row["amount"])
+            group_counts[row["group"]] += 1
+        largest = min(included, key=lambda group: (-totals[group], _display(group)))
+
         for qid, question in record["questions"].items():
-            instructions = question["instructions"].lower()
-            kind = question["type"]
-            if instructions.startswith("how many eligible ledger transactions"):
-                expected = key_for_value("result", len(eligible))
-                if expected not in question["criteria"] or record["gold"][qid] != expected:
+            instructions = question["instructions"]
+            answer = record["gold"][qid]
+            if instructions == "How many eligible transactions remain in the ledger?":
+                expected = key_for_value("eligible_count", len(eligible))
+                if answer != expected:
                     return False
-            elif instructions.startswith("how many eligible transactions belong to "):
-                group_name = instructions.split("belong to ", 1)[1].split(" group", 1)[0]
-                group_name = group_name.removeprefix("the ").title()
+            elif instructions == "Which band contains the eligible total after linked reversals?":
+                if answer != score_level_for(total, question["criteria"]):
+                    return False
+            elif instructions.startswith("Does the eligible total meet or exceed the review cap of $"):
+                if answer != ("true" if total >= cap else "false"):
+                    return False
+            elif instructions.startswith("Does the eligible total strictly exceed the review cap of $"):
+                if answer != ("true" if total > cap else "false"):
+                    return False
+            elif instructions.startswith("What is the eligible transaction count for "):
+                group_name = instructions.removeprefix(
+                    "What is the eligible transaction count for "
+                ).removesuffix("?")
                 group = DISPLAY_TO_GROUP[group_name]
-                count = sum(row["group"] == group for row in eligible)
-                expected = key_for_value("result", count)
-                if expected not in question["criteria"] or record["gold"][qid] != expected:
+                if answer != key_for_value("group_count", group_counts[group]):
                     return False
-            elif instructions.startswith("which group has the highest filtered ledger total"):
-                expected = f"group_{largest}"
-                if expected not in question["criteria"] or record["gold"][qid] != expected:
+            elif instructions == "Which group has the highest filtered ledger total?":
+                if answer != key_for_value("group", largest):
                     return False
-            elif instructions.startswith("does the filtered ledger total exceed the cap"):
-                if record["gold"][qid] != ("true" if total > cap else "false"):
+            elif instructions == "Which band contains the amount removed by linked reversals?":
+                if answer != score_level_for(reversed_total, question["criteria"]):
                     return False
-            elif instructions.startswith("is the eligible transaction count at least "):
-                threshold = int(instructions.rsplit(" ", 1)[1].rstrip("?"))
-                if record["gold"][qid] != ("true" if len(eligible) >= threshold else "false"):
-                    return False
-            elif instructions.startswith("does the filtered total exceed the comparison amount"):
-                threshold = Decimal(instructions.rsplit("$", 1)[1].rstrip("?").replace(",", ""))
-                if record["gold"][qid] != ("true" if total > threshold else "false"):
-                    return False
-            elif instructions.startswith("which band contains the sum of eligible ledger amounts"):
-                if kind != "score" or record["gold"][qid] != score_level_for(total, question["criteria"]):
-                    return False
-            elif instructions.startswith("which band contains the amount removed by reversal notices"):
-                if kind != "score" or record["gold"][qid] != score_level_for(reversal_amount, question["criteria"]):
-                    return False
-            elif instructions.startswith("which band contains the amount below the minimum"):
-                if kind != "score" or record["gold"][qid] != score_level_for(below_minimum_amount, question["criteria"]):
+            elif instructions == "Which band contains charges below the minimum amount?":
+                if answer != score_level_for(below_minimum_total, question["criteria"]):
                     return False
             else:
                 return False
-        return True
-    except (IndexError, ValueError, KeyError, ArithmeticError, StopIteration):
+
+        note_match = re.search(
+            r"Mira \(finance\): I get \$([\d,]+\.\d{2}) for the eligible total, "
+            r"so we're (over|under|right at) the cap\.",
+            record["state"],
+        )
+        note_meta = record["_meta"]["staff_note"]
+        if note_meta["included"] != bool(note_match):
+            return False
+        if note_match:
+            note_amount = Decimal(note_match.group(1).replace(",", ""))
+            note_claim = note_match.group(2)
+            is_correct = note_amount == total and note_claim == _cap_relation(total, cap)
+            if note_meta["correct"] is not is_correct:
+                return False
+    except (ValueError, KeyError, IndexError, StopIteration, InvalidOperation, AttributeError):
         return False
-
-
-def _choice(answer, answer_description, alternatives):
-    options = {key_for_value("result", answer): answer_description}
-    for value, mistake_description in alternatives:
-        if value != answer:
-            options.setdefault(key_for_value("result", value), mistake_description)
-    return key_for_value("result", answer), options
+    return True
 
 
 def generate(rng: random.Random, n_questions: int) -> dict:
     if not 2 <= n_questions <= 5:
         raise ValueError("n_questions must be between 2 and 5")
-    row_count = rng.randint(25, 60)
-    start = date(2027, rng.randint(1, 9), rng.randint(2, 20))
-    end = start + timedelta(days=rng.randint(8, 24))
-    minimum = Decimal(rng.choice(("18.00", "25.00", "32.00", "41.00")))
-    included = set(rng.sample(ACTIVE_GROUPS, 3))
+    start = date(2027, rng.randint(1, 9), 1)
+    end = start + timedelta(days=29)
+    minimum = Decimal(rng.choice(("100.00", "125.00", "150.00", "200.00")))
+    row_count = rng.randint(50, 60)
+    group_count = rng.randint(5, 9)
+    all_groups = rng.sample(list(GROUPS), group_count)
+    included_count = rng.randint(3, min(6, group_count - 1))
+    included = set(rng.sample(all_groups, included_count))
+    maximum_base_count = min(
+        31, int(row_count * 0.70) - included_count - 3
+    )
+    base_count = rng.randint(max(4, included_count), maximum_base_count)
+    used_references: set[str] = set()
+    used_amounts: set[Decimal] = set()
     rows = []
-    for index, group in enumerate(sorted(included, key=_display)):
-        amount = Decimal(220 + index * 130 + rng.randint(0, 60))
-        rows.append({
-            "row": f"L{len(rows) + 1:03d}", "transaction": f"TX-{rng.randint(10000, 99999)}",
-            "date": (start + timedelta(days=rng.randint(0, (end - start).days))).isoformat(),
-            "status": "posted", "group": group, "amount": f"{amount:.2f}", "reverses": "",
-        })
-    base_rows = list(rows)
-    for base in base_rows:
-        duplicate = dict(base)
-        duplicate.update(
-            row="L-DUP", amount=f"{Decimal(base['amount']) + Decimal('500.00'):.2f}"
+
+    base_rows = []
+    included_order = sorted(included, key=_display)
+    for index in range(base_count):
+        group = included_order[index] if index < included_count else rng.choice(included_order)
+        day = _random_day(rng, start, end)
+        amount = _random_amount(
+            rng, used_amounts, int(minimum * 100), 85_000
         )
-        rows.append(duplicate)
-    for group in sorted(included, key=_display):
-        rows.extend((
-            {
-                "row": "L-VOID", "transaction": f"TX-{rng.randint(10000, 99999)}",
-                "date": start.isoformat(), "status": "void", "group": group,
-                "amount": "990.00", "reverses": "",
-            },
-            {
-                "row": "L-LATE", "transaction": f"TX-{rng.randint(10000, 99999)}",
-                "date": (end + timedelta(days=2)).isoformat(), "status": "posted",
-                "group": group, "amount": "1120.00", "reverses": "",
-            },
-            {
-                "row": "L-LOW", "transaction": f"TX-{rng.randint(10000, 99999)}",
-                "date": start.isoformat(), "status": "posted", "group": group,
-                "amount": f"{minimum - Decimal('2.00'):.2f}", "reverses": "",
-            },
+        base_rows.append(_row(
+            rng, used_references, day=day, status="posted", group=group, amount=amount,
         ))
-    excluded_group = next(group for group in GROUPS if group not in included)
-    excluded_row = {
-        "row": "L-OTHER", "transaction": f"TX-{rng.randint(10000, 99999)}",
-        "date": start.isoformat(), "status": "posted", "group": excluded_group,
-        "amount": "12400.00", "reverses": "",
-    }
-    rows.append(excluded_row)
-    rows.append({
-        "row": "L-REV", "transaction": f"RV-{rng.randint(10000, 99999)}",
-        "date": (end + timedelta(days=3)).isoformat(), "status": "reversal",
-        "group": rows[0]["group"], "amount": "0.00", "reverses": rows[0]["transaction"],
-    })
+    rows.extend(base_rows)
+
+    reversed_base = rng.choice(base_rows)
+    duplicate_sources = rng.sample(
+        [row for row in base_rows if row is not reversed_base], 2
+    )
+    for original in duplicate_sources:
+        original_received = datetime.fromisoformat(original["received"])
+        duplicate_day = date.fromisoformat(original["date"]) + timedelta(
+            days=rng.randint(-3, 3)
+        )
+        duplicate_day = min(end, max(start, duplicate_day))
+        duplicate_amount = (
+            Decimal(original["amount"])
+            if rng.random() < 0.5
+            else _random_amount(rng, used_amounts, int(minimum * 100), 85_000)
+        )
+        rows.append(_row(
+            rng, used_references, day=duplicate_day, status="posted",
+            group=original["group"], amount=duplicate_amount,
+            trap_kind="duplicate upload", transaction=original["transaction"],
+            received=original_received + timedelta(minutes=rng.randint(5, 2_880)),
+        ))
+
+    group_traps = list(DISQUALIFIERS)
+    group_traps.extend(
+        rng.choice(DISQUALIFIERS) for _ in range(included_count - len(group_traps))
+    )
+    rng.shuffle(group_traps)
+    for group, mistake in zip(included_order, group_traps):
+        if mistake == "posting status":
+            day, status = _random_day(rng, start, end), "void"
+            amount = _random_amount(rng, used_amounts, int(minimum * 100), 85_000)
+            trap_kind = "voided entry"
+        elif mistake == "reporting window":
+            day = end + timedelta(days=rng.randint(1, 18))
+            status = "posted"
+            amount = _random_amount(rng, used_amounts, int(minimum * 100), 85_000)
+            trap_kind = "late entry"
+        else:
+            day, status = _random_day(rng, start, end), "posted"
+            amount = _random_amount(
+                rng, used_amounts, 500, int(minimum * 100) - 1
+            )
+            trap_kind = "below-floor entry"
+        rows.append(_row(
+            rng, used_references, day=day, status=status, group=group,
+            amount=amount, trap_kind=trap_kind,
+        ))
+
+    reversed_day = end + timedelta(days=rng.randint(1, 18))
+    rows.append(_row(
+        rng, used_references, day=reversed_day, status="reversal",
+        group=reversed_base["group"], amount=-Decimal(reversed_base["amount"]),
+        trap_kind="cross-window reversal", reverses=reversed_base["transaction"],
+    ))
+
+    included_row_count = sum(row["group"] in included for row in rows)
+    minimum_included_rows = (row_count * 40 + 99) // 100
+    maximum_included_rows = row_count * 70 // 100
+    target_included_rows = rng.randint(
+        max(minimum_included_rows, included_row_count), maximum_included_rows
+    )
+    while included_row_count < target_included_rows:
+        group = rng.choice(included_order)
+        mistake = rng.choice(DISQUALIFIERS)
+        if mistake == "posting status":
+            day, status = _random_day(rng, start, end), "void"
+            amount = _random_amount(rng, used_amounts, int(minimum * 100), 85_000)
+            trap_kind = "voided audit entry"
+        elif mistake == "reporting window":
+            day = end + timedelta(days=rng.randint(1, 18))
+            status = "posted"
+            amount = _random_amount(rng, used_amounts, int(minimum * 100), 85_000)
+            trap_kind = "late audit entry"
+        else:
+            day, status = _random_day(rng, start, end), "posted"
+            amount = _random_amount(rng, used_amounts, 500, int(minimum * 100) - 1)
+            trap_kind = "below-floor audit entry"
+        rows.append(_row(
+            rng, used_references, day=day, status=status, group=group,
+            amount=amount, trap_kind=trap_kind,
+        ))
+        included_row_count += 1
+
+    excluded_groups = [group for group in all_groups if group not in included]
+    excluded_amount = sum((Decimal(row["amount"]) for row in base_rows), Decimal("0")) + Decimal("1000")
+    while excluded_amount in used_amounts:
+        excluded_amount += Decimal("1000")
+    used_amounts.add(excluded_amount)
+    rows.append(_row(
+        rng, used_references, day=_random_day(rng, start, end), status="posted",
+        group=excluded_groups[0], amount=excluded_amount,
+        trap_kind="unapproved service group",
+    ))
+    for group in excluded_groups[1:]:
+        amount = _random_amount(rng, used_amounts, 10_000, 85_000)
+        rows.append(_row(
+            rng, used_references, day=_random_day(rng, start, end), status="posted",
+            group=group, amount=amount, trap_kind="unapproved service group",
+        ))
     while len(rows) < row_count:
-        group = rng.choice(GROUPS)
-        status = rng.choices(("posted", "void"), weights=(0.78, 0.22))[0]
-        day = start + timedelta(days=rng.randint(-3, (end - start).days + 3))
-        rows.append({
-            "row": f"L{len(rows) + 1:03d}", "transaction": f"TX-{rng.randint(10000, 99999)}",
-            "date": day.isoformat(), "status": status, "group": group,
-            "amount": f"{rng.randint(10, 920)}.00", "reverses": "",
-        })
-    for index, row in enumerate(rows, 1):
-        row["row"] = f"L{index:03d}"
-        row["work_order"] = f"Service log {rng.randint(1400, 9899)} — {rng.choice(('vehicle repair', 'equipment check', 'site visit', 'courier run'))}"
+        group = rng.choice(excluded_groups)
+        amount = _random_amount(rng, used_amounts, 500, 85_000)
+        rows.append(_row(
+            rng, used_references, day=_random_day(rng, start, end),
+            status=rng.choice(("posted", "void")), group=group, amount=amount,
+            trap_kind="unapproved service group",
+        ))
 
-    eligible = _calculate(rows, start, end, minimum, included)
+    rng.shuffle(rows)
+    for index, row in enumerate(rows, start=1):
+        row["record"] = f"L{index:03d}"
+        row["work_order"] = (
+            f"Service log {rng.randint(1400, 9899)} — "
+            f"{rng.choice(('vehicle repair', 'equipment check', 'site visit', 'courier run', 'supply delivery'))}"
+        )
+
+    eligible = _eligible_rows(rows, start, end, minimum, included)
     total = _sum(eligible)
-    largest = _largest_group(eligible, included)
-    unreversed = _calculate(rows, start, end, minimum, included, dropped={"linked reversal"})
-    reversal_amount = _sum(unreversed) - total
-    below_minimum = _calculate(rows, start, end, minimum, included, dropped={"minimum amount"})
-    below_minimum_amount = _sum(below_minimum) - total
     count = len(eligible)
-    count_is_at_least = bool(rng.randrange(2))
-    count_threshold = max(1, count if count_is_at_least else count + 1)
-    total_exceeds_amount = bool(rng.randrange(2))
-    amount_threshold = total - Decimal("25.00") if total_exceeds_amount else total + Decimal("25.00")
-    cap_exceeded = bool(rng.randrange(2))
-    cap = total - Decimal("25.00") if cap_exceeded else total + Decimal("25.00")
+    comparison = rng.choice(("at least", "strictly greater than"))
+    if rng.random() < 0.15:
+        cap = total
+    else:
+        cap = total - Decimal("25.00") if rng.random() < 0.53 else total + Decimal("25.00")
+    group_counts = defaultdict(int)
+    for row in eligible:
+        group_counts[row["group"]] += 1
+    chosen_group = rng.choice(included_order)
+    largest = _largest_group(eligible, included)
+    reversed_amount = _sum(
+        _eligible_rows(
+            rows, start, end, minimum, included, dropped="linked reversal"
+        )
+    ) - total
+    below_minimum_amount = _sum(
+        _eligible_rows(
+            rows, start, end, minimum, included, dropped="minimum amount"
+        )
+    ) - total
 
-    error_results = {
-        mistake: _calculate(rows, start, end, minimum, included, dropped={mistake})
+    mistake_rows = {
+        mistake: _eligible_rows(
+            rows, start, end, minimum, included, dropped=mistake
+        )
         for mistake in MISTAKES
     }
-    correct_count = count
-    count_alternatives = [
-        (len(result), mistake) for mistake, result in error_results.items()
-    ]
-    count_answer, count_options = _choice(
-        correct_count,
-        f"{correct_count} ledger transactions satisfy the complete review rules.",
-        [(value, f"{value} transactions if the review omits {MISTAKES[mistake]}.")
-         for value, mistake in count_alternatives],
-    )
-    group = rng.choice(sorted(included))
-    group_count = sum(row["group"] == group for row in eligible)
-    group_alternatives = []
-    for mistake, result in error_results.items():
-        group_alternatives.append((
-            sum(row["group"] == group for row in result),
-            f"the review omits {MISTAKES[mistake]}",
-        ))
-    group_answer, group_options = _choice(
-        group_count,
-        f"{group_count} eligible transactions belong to {_display(group)}.",
-        [(value, f"{value} transactions if {mistake}.") for value, mistake in group_alternatives],
-    )
-    largest_alternatives = [
-        (f"group_{_largest_group(result, GROUPS if mistake == 'service group' else included)}", mistake)
-        for mistake, result in error_results.items()
-    ]
-    largest_options = {
-        f"group_{largest}": f"{_display(largest)} has the highest total after applying every rule."
-    }
-    for key, mistake in largest_alternatives:
-        if key != f"group_{largest}":
-            largest_options.setdefault(
-                key, f"{_display(key.removeprefix('group_'))} leads if the review omits {MISTAKES[mistake]}."
-            )
-    bands_sum, score_sum = round_bands(
-        total, "$", [Decimal("5"), Decimal("10"), Decimal("25"), Decimal("50"), Decimal("100")], rng
-    )
-    bands_reversals, score_reversals = round_bands(
-        reversal_amount, "$", [Decimal("5"), Decimal("10"), Decimal("25"), Decimal("50")], rng
-    )
-    bands_floor, score_floor = round_bands(
-        below_minimum_amount, "$", [Decimal("5"), Decimal("10"), Decimal("25")], rng
-    )
-    score_sum, score_reversals, score_floor = map(str, (score_sum, score_reversals, score_floor))
+    question_pool = []
 
-    pool = [
-        ("choice", "How many eligible ledger transactions remain after applying every review rule?",
-         count_answer, count_options),
-        ("score", "Which band contains the sum of eligible ledger amounts after linked reversals?",
-         score_sum, bands_sum),
-        ("noul", f"Does the filtered ledger total exceed the cap of ${cap:,.2f}?",
-         "true" if cap_exceeded else "false",
-         {"false": "The filtered total is at or below the review cap.",
-          "true": "The filtered total is strictly above the review cap."}),
-        ("choice", f"How many eligible transactions belong to the {_display(group)} group?",
-         group_answer, group_options),
-        ("choice", "Which group has the highest filtered ledger total?",
-         f"group_{largest}", largest_options),
-        ("score", "Which band contains the amount removed by reversal notices?",
-         score_reversals, bands_reversals),
-        ("noul", f"Is the eligible transaction count at least {count_threshold}?",
-         "true" if count_is_at_least else "false",
-         {"false": f"The eligible transaction count is below {count_threshold}.",
-          "true": f"The eligible transaction count is at least {count_threshold}."}),
-        ("noul", f"Does the filtered total exceed the comparison amount of ${amount_threshold:,.2f}?",
-         "true" if total_exceeds_amount else "false",
-         {"false": "The filtered total does not exceed the comparison amount.",
-          "true": "The filtered total is greater than the comparison amount."}),
-        ("score", "Which band contains the amount below the minimum eligible threshold?",
-         score_floor, bands_floor),
+    answer, options, origins = _choice_spec(
+        "eligible_count", count,
+        [(len(result), mistake) for mistake, result in mistake_rows.items()],
+        lambda value: f"The eligible transaction count is {value}.",
+    )
+    question_pool.append({
+        "quantity": "eligible_transaction_count",
+        "spec": (
+            "choice", "How many eligible transactions remain in the ledger?",
+            answer, options,
+        ),
+        "provenance": origins,
+    })
+
+    total_bands, total_level = round_bands(
+        total, "$", [Decimal("5"), Decimal("10"), Decimal("25"), Decimal("50"),
+                     Decimal("100"), Decimal("250"), Decimal("500"), Decimal("1000")],
+        rng, metric="The eligible total",
+    )
+    total_question = {
+        "quantity": "eligible_total",
+        "spec": (
+            "score", "Which band contains the eligible total after linked reversals?",
+            str(total_level), total_bands,
+        ),
+        "provenance": {},
+    }
+    cap_question = {
+        "quantity": "eligible_total",
+        "spec": (
+            "noul",
+            (
+                f"Does the eligible total meet or exceed the review cap of ${cap:,.2f}?"
+                if comparison == "at least"
+                else f"Does the eligible total strictly exceed the review cap of ${cap:,.2f}?"
+            ),
+            "true" if (total >= cap if comparison == "at least" else total > cap) else "false",
+            {
+                "false": "The eligible total satisfies the cap comparison: No.",
+                "true": "The eligible total satisfies the cap comparison: Yes.",
+            },
+        ),
+        "provenance": {},
+    }
+    question_pool.append(rng.choices((total_question, cap_question), weights=(2, 3), k=1)[0])
+
+    answer, options, origins = _choice_spec(
+        "group_count", group_counts[chosen_group],
+        [
+            (sum(row["group"] == chosen_group for row in result), mistake)
+            for mistake, result in mistake_rows.items()
+        ],
+        lambda value: f"The eligible transaction count for {_display(chosen_group)} is {value}.",
+    )
+    question_pool.append({
+        "quantity": f"transaction_count_for_{chosen_group}",
+        "spec": (
+            "choice",
+            f"What is the eligible transaction count for {_display(chosen_group)}?",
+            answer, options,
+        ),
+        "provenance": origins,
+    })
+
+    largest_alternatives = [
+        (
+            _largest_group(
+                result,
+                set(all_groups) if mistake == "service group" else included,
+            ),
+            mistake,
+        )
+        for mistake, result in mistake_rows.items()
     ]
-    specs = rng.sample(pool, n_questions)
+    answer, options, origins = _choice_spec(
+        "group", largest, largest_alternatives,
+        lambda value: f"{_display(value)} has the highest filtered total.",
+    )
+    question_pool.append({
+        "quantity": "largest_filtered_group",
+        "spec": (
+            "choice", "Which group has the highest filtered ledger total?",
+            answer, options,
+        ),
+        "provenance": origins,
+    })
+
+    reversal_bands, reversal_level = round_bands(
+        reversed_amount, "$", [Decimal("5"), Decimal("10"), Decimal("25"),
+                               Decimal("50"), Decimal("100"), Decimal("250")],
+        rng, metric="The reversed amount",
+    )
+    question_pool.append({
+        "quantity": "reversed_amount",
+        "spec": (
+            "score", "Which band contains the amount removed by linked reversals?",
+            str(reversal_level), reversal_bands,
+        ),
+        "provenance": {},
+    })
+
+    below_bands, below_level = round_bands(
+        below_minimum_amount, "$", [Decimal("5"), Decimal("10"), Decimal("25"),
+                                    Decimal("50"), Decimal("100"), Decimal("250")],
+        rng, metric="The amount of charges below the minimum",
+    )
+    question_pool.append({
+        "quantity": "below_minimum_charges",
+        "spec": (
+            "score", "Which band contains charges below the minimum amount?",
+            str(below_level), below_bands,
+        ),
+        "provenance": {},
+    })
+    selected = rng.sample(question_pool, n_questions)
+    specs = [item["spec"] for item in selected]
+
+    note = None
+    note_mistake = None
+    if rng.random() < 0.65:
+        if rng.random() < 0.30:
+            note_amount = total
+            is_correct = True
+        else:
+            note_mistake = rng.choice(MISTAKES)
+            note_amount = _sum(mistake_rows[note_mistake])
+            is_correct = False
+        note_text = (
+            f"Mira (finance): I get ${note_amount:,.2f} for the eligible total, "
+            f"so we're {_cap_relation(note_amount, cap)} the cap."
+        )
+        note = (note_text, is_correct)
+
     state = (
         f"RECONCILIATION EXPORT — {rng.choice(('Regional Services', 'Claims Processing', 'Field Operations'))}\n"
         f"Review window: {start.isoformat()} through {end.isoformat()} (inclusive)\n"
         f"Minimum eligible amount: ${minimum:.2f}\n"
-        f"Eligible service groups: {', '.join(_display(name) for name in sorted(included, key=_display))}\n"
+        f"Eligible service groups: {', '.join(_display(name) for name in included_order)}\n"
         f"Review cap: ${cap:,.2f}\n\n"
-        "Review instructions: Count posted entries only. Among posted entries, retain the first upload for each "
-        "transaction reference; a later upload with that reference is a duplicate. The review window includes both "
-        "printed dates. Only the listed service groups and amounts at or above the minimum qualify. A reversal "
-        "notice cancels its linked transaction even when the notice date falls outside the reporting window. "
-        "For equal group totals, the alphabetically earlier group name ranks first.\n\n"
-        "Batch memo: The export includes operational rows from several service desks. Amounts are in US dollars. "
-        "Some notices were entered after the monthly close, and the ledger retains voided entries for audit history. "
-        "Use the posting status and transaction reference columns rather than the upload order or the dashboard subtotal.\n\n"
-        "Supporting reference: Work-order numbers link each charge to a service ticket. A late reversal is filed "
-        "under the transaction it corrects, not under the accounting period in which the notice arrived.\n\n"
-        "LEDGER EXPORT\n" + _render_csv(rows) + "\nEND EXPORT"
+        f"Cap comparison: eligible total must be {comparison} the review cap.\n\n"
+        "Review instructions: Count posted entries only. For each transaction reference, keep the entry with "
+        "the earliest received time; later uploads are duplicate records. The review window includes both "
+        "printed service dates. Only the listed service groups and amounts at or above the minimum qualify. "
+        "A reversal notice cancels the referenced posting even when the notice date falls outside the review "
+        "window. If group totals tie, the alphabetically earlier group name ranks first.\n\n"
+        "Operations memo: The export combines routine service charges, audit entries, and late-filed notices. "
+        "Amounts are in US dollars. A dashboard subtotal was prepared before this review window was applied, "
+        "so the printed subtotal is not a payable amount. Received time is recorded separately from the "
+        "service date to preserve the upload history.\n\n"
+        "LEDGER EXPORT\n" + _render_export(rows) + "\nEND EXPORT"
     )
-    include_note = rng.random() < 0.65
-    if not include_note:
-        note = None
-        note_mistake = None
-    elif rng.random() < 0.30:
-        note_text = (
-            f"Message from Mira, finance review: Applying the posted-status, duplicate, window, service-group, "
-            f"amount, and reversal rules leaves an eligible total of ${total:,.2f}."
-        )
-        note = (note_text, True)
-        note_mistake = None
-    else:
-        note_mistake = rng.choice(tuple(MISTAKES))
-        mistaken_total = _sum(error_results[note_mistake])
-        note_text = (
-            f"Message from Mira, finance review: {MISTAKE_COMMENTS[note_mistake]} "
-            f"This gives an eligible total of ${mistaken_total:,.2f}."
-        )
-        note = (note_text, False)
-    return finish_record(
+    record = finish_record(
         rng, "cg_counting", "reconciled_service_ledger", state, specs,
-        facts={"rows": rows, "window_start": start.isoformat(), "window_end": end.isoformat(),
-               "minimum_amount": str(minimum), "included_groups": sorted(included),
-               "review_cap": str(cap)},
-        traps=["status_filter", "inclusive_window", "group_filter", "minimum_amount",
-               "duplicate_reference", "cross_window_reversal"],
+        facts={
+            "rows": rows,
+            "window_start": start.isoformat(),
+            "window_end": end.isoformat(),
+            "minimum_amount": str(minimum),
+            "included_groups": sorted(included),
+            "review_cap": str(cap),
+            "cap_comparison": comparison,
+        },
+        traps=list(MISTAKES),
         note=note,
-        intermediate_values=[f"eligible total {total}", f"eligible transactions {count}",
-                             f"note mistake {note_mistake}"],
     )
+    record["_meta"]["quantity_kinds"] = {
+        f"q{index}": item["quantity"] for index, item in enumerate(selected, start=1)
+    }
+    record["_meta"]["option_provenance"] = {
+        f"q{index}": {
+            key: origin for key, origin in item["provenance"].items()
+            if key in record["questions"][f"q{index}"]["criteria"]
+        }
+        for index, item in enumerate(selected, start=1) if item["provenance"]
+    }
+    record["_meta"]["trap_rows"] = [
+        row["record"] for row in rows if row["trap_kind"] is not None
+    ]
+    record["_meta"]["note_mistake"] = note_mistake
+    return record
