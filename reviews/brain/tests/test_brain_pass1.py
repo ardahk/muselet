@@ -115,3 +115,34 @@ def test_brain5_engine_does_not_block_event_loop():
         await tk
         return max(lag)
     assert asyncio.run(main()) < 0.2, "receive loop starved while the model runs"
+
+
+# ---------------- pass 3 ----------------
+
+def _orch():
+    from brain.orchestrator import Orchestrator
+    o = Orchestrator.__new__(Orchestrator)
+    o.catalog = Catalog.load()
+    return o
+
+
+@pytest.mark.parametrize("code", [
+    'tell application "Safari" to get (do JavaScript '
+    '"document.querySelector(\'#place-order\').click()" in document 1)',
+    'tell application "System Events" to tell process "Safari"\n'
+    'get name of window 1\nclick button "Place Order" of window 1\nend tell',
+    'tell application "System Events" to tell process "Finder" to get '
+    '(perform action "AXPress" of button "Empty" of window 1)',
+    'tell application "Finder" to open file "x.command" of desktop',
+])
+def test_brain9_side_effect_scripts_need_confirm(code):
+    assert _orch().script_needs_confirm("applescript", code)
+
+
+@pytest.mark.parametrize("utt,on", [
+    ("turn the sound back on", False),     # unmute
+    ("turn the sound off", True),          # mute
+    ("unmute, I'm on a call", False),
+])
+def test_brain10_mute_polarity(utt, on):
+    assert _orch()._coerce_args("mute", {"on": on}, utterance=utt)["on"] is on
