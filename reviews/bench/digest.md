@@ -1,4 +1,4 @@
-# bench digest — pass 28 (2026-10-24T12:25Z, main@fbd5aa0)
+# bench digest — pass 29 (2026-10-24T12:40Z, main@b625ceb)
 
 P0: 0 | open P1: 6 | open P2: 3
 
@@ -10,7 +10,7 @@ P0: 0 | open P1: 6 | open P2: 3
 5. bench-15 — Grounding subset in pitch/claims.md not reproducible (--limit is a sorted prefix; no stratified sampler committed; ±6.7 pt at n=200) — `bench/grounding/run_screenspot.py` (main)
 6. bench-14 — No ScreenSpot-Pro/OSWorld-G decontamination for grounding training data — `training/src/muselet_train/decontam.py` (branch-only)
 
-Open P2: bench-22 (CJK stripped by decontam norm; it2 has 0 CJK rows so no current impact), bench-12 (chunked choice probabilities), bench-19 (claims.md quotes consumed holdout-1, n=14, overlapping CIs; use holdout2 + CI).
+Open P2: bench-22 (route evalcheck fixed on data-pipeline@512cce0; only the decisions decontam tokenizer still drops CJK), bench-12 (chunked choice probabilities), bench-19 (claims.md quotes consumed holdout-1, n=14, overlapping CIs; use holdout2 + CI).
 
 ## Highest-leverage next moves
 - hobby-gaps is merged: forward HobbyLM's recorded timers to its grade (bench-20; the Muselet side now uses the timers RPC) and give both systems the same Calculator start state (bench-21).
@@ -18,4 +18,4 @@ Open P2: bench-22 (CJK stripped by decontam norm; it2 has 0 CJK rows so no curre
 - Accept only --backend mlx results for Muselet headlines (bench-11).
 - Build the ScreenSpot-Pro/OSWorld-G manifest before any grounding data generation (bench-14).
 - Commit the stratified ScreenSpot-Pro sampler + sample IDs and report CIs before the grounding numbers go in the pitch (bench-15).
-- Make decontam/evalcheck normalization Unicode-aware before any CJK training data (bench-22).
+- Reuse the CJK-aware norm in training/decisions/decontam.py (bench-22).
