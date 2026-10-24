@@ -14,7 +14,13 @@ def _engine():
     eng = D.DecisionEngine.__new__(D.DecisionEngine)
     eng.catalog = Catalog.load()
     eng.last_action = "none"
-    eng._online_ts, eng._online = time.time(), True
+    rr = D.RouteRenderer.__new__(D.RouteRenderer)   # no tokenizer needed
+    rr._options = D.catalog_options(eng.catalog)
+    eng.rr = rr
+
+    class _P:
+        value = True
+    eng._probe = _P()
     return eng
 
 
