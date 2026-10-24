@@ -1,28 +1,33 @@
-# planner lane — pass 50 (main 18c139f, wip 719907a, planner-lora 79f0a97)
+# planner lane — pass 51 (main 0b83c3b, wip e4f4331)
 
 Open P0: none.
 
 Open P1 (ranked):
+- planner-44: Think ship picks qwen sampler on a one-task edge, +0.85 s p50/step (cloud/handoff/notes/planner_think_eval.md)
 - planner-43: Planner LoRA dev split is random by id, so templated siblings leak (training/planner_lora/common.py on main)
 - planner-42: architect-27 asks every Premiere command again, even after a planner confirm (ml/src/brain/orchestrator.py on cloud/safety-architect27)
-0. planner-40: planner-verify accepts done after any successful skill, skipping the model check (ml/src/brain/orchestrator.py on cloud/planner-verify)
+0. planner-40: done accepted after any skill that returned ok, skipping the model check (ml/src/brain/orchestrator.py, now on main)
 2. planner-31: Rule 14 'expect focused' (no ref) is rejected by HandsKit before acting (prompts/planner_system.md)
 3. planner-38: Planner LoRA trained without few-shot/retrieval, but served with both by default (training/planner_lora/common.py, tools/serve_brain.sh)
 4. planner-15: read-only Numbers scripts still trigger CONFIRM (ml/src/brain/orchestrator.py). Not fixed by w9.
 5. planner-32: open_folder catalog lacks 'view', so demo 1 goes through the planner (skills/catalog.json)
-6. planner-28: compose_text types model text with no sendgate (ml/src/brain/tools/compose_text.py). Exposure grows with it3.
 8. planner-29: v2 bench goals near-duplicate the few-shot examples (evals/planner_v2_*)
 9. planner-6: premiere_command unimplemented; catalog args mismatch the UXP bridge (app/Sources/HandsKit/Skills.swift)
 
 Highest-leverage next moves:
+- When THINK ships in serve_brain, use t512 greedy rather than qwen: same accuracy within one task, -0.85 s p50 and -2.1 s p95 per step (planner-44).
 - LoRA (now on main): use v2-holdout/live as the ship number, measured on the mlx4 export under the exact serve flags. Treat dev_pass 0.98 as in-distribution and don't quote it (planner-43, planner-38).
 - architect-27: ask only for export (maybe the cut too), and let a planner confirm count, so demo 4 doesn't ask 3-6 times (planner-42).
-- Merge safety-planner28 (fixes planner-28).
-- planner-verify: before merging, drop the skill-ok = done-evidence rule (planner-40). Keep the decide-based verify, which also takes care of most of planner-33.
+- planner-verify is on main: drop the skill-ok = done-evidence rule (planner-40). Keep the decide-based verify, which also takes care of most of planner-33.
 - Before any LoRA ship call, evaluate the adapter under the exact serve flags (few-shot, RETRIEVAL_K, THINK), or serve it with `--planner-fewshot none` and RETRIEVAL_K=0 (planner-38).
 - W9 is merged (planner-30/24 fixed). Next, narrow `\[` to JXA computed keys and drop `\\`, `set .* to` and `format` for Numbers reads (planner-37, planner-15), or the demo-3 planner path will ask for confirmation on reads.
 - brain-9: pick the browser from 'in/using X' context, not the first mention (planner-41).
 - Add `view` to open_folder in catalog.json and to the prompt example (planner-32). Fix rule 14 to say `expect focused #<ref>` (planner-31).
+
+Pass 51 notes:
+- main 0b83c3b merged planner-verify (#54, VERIFY_DONE on by default) and planner-28 (#66). planner-28 is resolved; planner-40 and planner-33's remainder are now on main.
+- The think eval (822d7b7) ships t512 + qwen. Think clearly helps over t0: pooled 0.64 vs about 0.51 for the 4b t0 k=1 baseline. The qwen-vs-greedy choice is noise (planner-44). serve_brain still defaults to THINK=0.
+- The memory and memory-lt changes since last pass are only main merges. brain-9 merged main; planner-41 is still open.
 
 Pass 50 notes:
 - main 18c139f merged brain-27 (#59), bench-28 (#60), brain-38 (#62), brain-12 (#63), brain-18 (#64), planner-think (#56), live-cases (#57) and planner-lora (#48). The lane diffs match what I reviewed on those branches in passes 46-48.
@@ -93,7 +98,6 @@ Pass 35: no new findings. brain-7 (#25), report (#22) and native-research (#23) 
 
 ## Pass 34 notes
 
-Pass 34: 1 new P1 (planner-28: compose_text types generated multi-line text into the focused field with no sendgate or confirm). brain-7 also adds: a sign-in gate that blocks typing values the user never said into email/password fields (good, matches rule 16); a login-page hint for the planner; a spoken site-name to URL table; and set_escalation, which loads or unloads the 35B planner with a 48 GB and memory_level>=40 guard (matches AGENTS). app-ui adds config frames that are acked via server tasks; no issues. native-research, report, decisions and data-pipeline don't touch this lane. Open findings on main are unchanged.
 
 ## Pass 33 notes
 
