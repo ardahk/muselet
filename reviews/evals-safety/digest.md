@@ -1,18 +1,20 @@
-# evals-safety digest, pass 3 (2026-10-24T05:40:05Z)
+# evals-safety digest, pass 4 (2026-10-24T05:57:14Z)
 
 ## Open P0/P1 (ranked)
-1. evals-safety-2 P0: script confirm regex misses rm -rf, doShellScript, Terminal do script (ml/src/brain/orchestrator.py)
-2. evals-safety-11 P1: done is trusted, not verified; rule 13 exists only in prompt (ml/src/brain/orchestrator.py)
-3. evals-safety-5 P1: confirmed=true arg skips confirm; confirm text omits recipient/body (ml/src/brain/catalog.py, orchestrator.py)
-4. evals-safety-6 P1: brain-side confirm for Send/Delete presses still missing (ml/src/brain/orchestrator.py)
-5. evals-safety-10 P1: HobbyLM decontam path is checked silently; decontam not wired into the pipeline (training/src/muselet_train/decontam.py)
-6. evals-safety-4 P1: 'no' string is truthy, so #20 still renders online=yes; no tau gating metric (ml/src/brain/decision.py)
+1. evals-safety-2 P0: script allowlist still lets System Events click, Safari do JavaScript/open location, and raw «event» run unconfirmed (ml/src/brain/orchestrator.py)
+2. evals-safety-14 P1: bool 'on' regex override inverts mute and 'off and back on' (ml/src/brain/orchestrator.py)
+3. evals-safety-15 P1: evals/external uses 'text' key, so decontam/dedup crash with KeyError (training/src/muselet_train/decontam.py)
+4. evals-safety-16 P1: HobbyLM frozen task files gitignored, baseline not reproducible (.gitignore, bench/hobbylm/)
+5. evals-safety-11 P1: done is still not final-state verified (ml/src/brain/orchestrator.py)
+6. evals-safety-6 P1: `type ... enter` in Messages/Slack composers and System Events clicks skip confirm (ml/src/brain/orchestrator.py)
+7. evals-safety-10 P1: HobbyLM decontam path read without checking it exists; decontam not in the pipeline (training/src/muselet_train/decontam.py)
+8. evals-safety-4 P1: 'no' string is truthy, so case #20 renders online=yes (ml/src/brain/decision.py)
 
-Resolved this pass: -1 (eval leak), -3 (args coercion), -9 (SyntaxError), -7 (finance realism).
-Checked and clean: cloud/finance fixtures recomputed independently (totals, categories, dups [[18,19],[66,67]], outlier [85], refund [105], budget, receipts 1-8 all match; regeneration byte-identical). The finance engine reproduces every key; its BERKELEY BOWL ask is intended and tested. Its 90 tests pass on Linux. numbers_script escapes every string with q().
+Resolved this pass: -5 (self-confirm and confirm text).
+Checked and clean: advisor Henderson truth recomputed independently (totals, allocation, rebalance, TLH and wash sale, cash, Roth, donation all match; regeneration byte-identical 8/8). finance@529e9ff TAX REFUND change is fine. Finance and advisor tests pass (113 on wip), bench tests pass (8 + 1 skip). JevBench/typed_decisions score invalid answers as wrong and record --limit. No secret-like strings in new commits.
 
 ## Highest-leverage next moves
-- Replace the script blocklist with an allowlist and strip `confirmed` from model args. These are the last unconfirmed-destructive paths.
-- Enforce verified `done` in the executor before any success-rate number is published.
-- Make `python -m muselet_train.decontam` a required step in the pipeline, and assert the HobbyLM path exists and the eval counts are > 0.
-- Add a weekend key to the finance truth, and parse 'yes'/'no' ctx strings in RouteRenderer.
+- Remove System Events from the script read allowlist and block `click|do JavaScript|open location|«event`.
+- Limit the `on` override to wifi/bluetooth/dark_mode, or drop it; mute is inverted today.
+- Un-ignore bench/hobbylm/upstream/data and read `text` or `utterance` in decontam/dedup before merging cloud/bench.
+- Freeze route_v1 at 128 cases and put the catalog-v2 cases in route_v2.
