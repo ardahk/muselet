@@ -1,4 +1,4 @@
-# hands — digest (pass 5, main e78f143 / wip/local e0bdc65; cloud/* touch no app/ product files)
+# hands — digest (pass 5 + self-poll 06:40Z: main c2d2988, wip/local d5d2d7d; no new app/ changes)
 
 Resolved this pass: hands-2, hands-3, hands-7, hands-11 (all in main e78f143). Earlier: hands-1, 4, 5, 6, 8, 9.
 
