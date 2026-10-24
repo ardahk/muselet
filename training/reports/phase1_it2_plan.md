@@ -34,3 +34,9 @@ Decontam additionally drops items of <= 5 tokens within token edit distance 1 of
 | H6 | find_file/open_file and create_reminder/create_event contrasts help both | find_file and create_reminder val acc >= 0.85 |
 | H7 | Control: set_volume / change_volume data unchanged | both >= 0.85 val acc (no regression) |
 | H8 | Overall | val top-1 > main-final; val ECE <= 0.03; ARGS EM >= 0.87 |
+
+Addendum (after the Mac ARGS finding, before the it2 relaunch; ARGS datums now weight only answer + `<|im_end|>`):
+
+| # | Hypothesis | Confirmed if (Tinker sampler, exact `DecisionEngine.args` rendering, val ARGS) |
+|---|---|---|
+| H9 | Weighting the empty think block (prefilled at runtime) caused the trained model to mis-start ARGS; answer-only weighting removes it | runtime ARGS EM >= main-final's (0.864 on all 878 val ARGS); empty output on non-empty targets <= 1% |
