@@ -1,61 +1,18 @@
 # hands — digest (pass 38)
 
-Open findings were re-verified on main 2920225 in pass 15: hands-1 to 9 and 11 to 14 are resolved, and hands-15 is superseded.
-Pass 21 checks:
-- main d514300 merged HandsKit batch 5, already reviewed on wip/local 630d661/4350185. The only later Swift delta is precompiling the volume-state script and an always-present `label` in timers. The AGENTS.md batch-5 contract matches the code.
-- wip/local b63699f is identical to main.
-- cloud/brain-5 b752261 handles `not_frontmost` by reading the failure `result`. That works: RPC.swift returns r with r["error"], BrainConnection always sends `result`, and server.rpc returns it with ok=false.
-No new defects.
-Pass 38: open 1 P0, 3 P1, 4 P2.
-- P0 hands-19 (raised; now on main 7065dd3): comms merged, so send_message always calls contacts_search, which HandsKit doesn't dispatch ("unknown method"). Texting is broken on main. wip/local's new Contacts.swift and MessagesCompose.swift aren't wired into RPC.swift yet.
-- NEW P1 hands-21 (wip/local e29ea7c): build_app.sh's Info.plist has no NSContactsUsageDescription, so the first CNContactStore access will be killed by TCC.
-- NEW P2 hands-22: the brain's 5 s contacts_search timeout is shorter than the first-use permission prompt (Swift waits up to 60 s).
-- hands-18 and hands-20 are now on main (app-ui and comms merged), unchanged.
-- The wip MessagesComposer send gate looks right: it re-checks frontmost, same window and an unchanged draft, then sends one Return and reads back that the field emptied.
-- hands-10 and hands-16 are unchanged.
-Pass 37: open 0 P0, 2 P1, 3 P2. No new findings.
-- main fb2cfd0 merged cloud/bench-fix plus live-suite case edits; the changes are in bench/ and evals/ only. They add no new RPC methods to the HandsKit contract, and app/ and ml/src/brain are unchanged. wip/local 9ed6bc8 is identical to main.
-- Still open: P1 hands-18 (app-ui unchanged), P1 hands-19 (comms unchanged, HandsKit has no contacts/messages RPCs), P2 hands-20, P2 hands-16 (orchestrator.py:1078), P2 hands-10 (Act.swift:348).
-Pass 36: open 0 P0, 2 P1, 3 P2.
-- hands-17 RESOLVED on cloud/app-ui ae9ce5e: it merged main, uses main's config server code, and ConfigAck now reads `loaded`. Loaded, Off and failed-with-reason each show correctly.
-- Still open: P1 hands-18 (app-ui panel examples: runExample at AppDelegate.swift:242 is unchanged; no own-pid fallback in observe). P1 hands-19 (comms: still no HandsKit contacts_search/messages_* on any branch; comms.py unchanged since 956d4ac). P2 hands-20 (send_draft unchanged).
-- main e56582b = brain-7 + native-research merges, which I already reviewed. wip/local 73f7044 is identical to main. comms c94a407 only merges main and fixes a test fake. decisions 694c198, bench-fix, data-planner and data-route don't touch app/ or the brain protocol.
-- hands-10 (Act.swift:348) and hands-16 (orchestrator.py:1078) are unchanged.
-Pass 35: open 0 P0, 3 P1, 3 P2.
-- NEW P1 hands-19 (cloud/comms 956d4ac): send_message now goes to the contacts_search/messages_compose/messages_send RPCs, which HandsKit doesn't implement, so texting would fail with "Couldn't search your contacts". The working Swift send_message skill (Skills.swift:618) would no longer be used. Merge gate: land the HandsKit RPCs first, or fall back to the skill.
-- NEW P2 hands-20 (cloud/comms): send_draft checks the draft window before the voice confirm and doesn't re-check after it. cmd+return could go to a different browser tab.
-- hands-17 updated: brain-7's ack (no `ok`) is now on main 2bd626b, and app-ui still expects `ok`.
-- hands-18 is unchanged (cloud/app-ui afb2688 hasn't moved).
-- main cf53292 merged brain-7 (same as 13432fe, reviewed in pass 34), native-research, report and the data briefs. wip/local e14fa54 is a snapshot on main@cf53292 with no app/ changes. cloud/decisions 43abfa3 only changes decision.py (out of my lane). data-pipeline and report-2 are docs/data only.
-- hands-10 (Act.swift:348) and hands-16 (orchestrator.py:1078 on main) are still open.
-Pass 34: open 0 P0, 2 P1, 2 P2.
-- NEW P1 hands-17: cloud/app-ui and cloud/brain-7 each add `config`/`config_ack`, with incompatible acks (`ok` vs `loaded`). A successful brain-7 load shows "Not available" in the app. app-ui's server awaits config inline, which would block the receive loop during brain-7's 35B load. The two branches conflict in server.py and cli.py. LEAD DECISION: pick one schema and one semantics.
-- NEW P1 hands-18 (medium confidence): panel example prompts run with the MenuBarExtra window possibly frontmost/key. Observe has no own-pid fallback (Observe.swift:440), so the agent may act on Muselet itself. The pill typed path is correct.
-- cloud/app-ui afb2688 otherwise: HandsKit unchanged; mic-pill toggle reuses pressBegan ctx capture; typed requests keep the cancelled-confirm yes/no guard (handleFinal).
-- cloud/brain-7 13432fe: new RPCs are only `act url` (sites.fix_url) and the brain-side compose_text skill; nothing new is needed from HandsKit.
-- cloud/data-pipeline 6c1e565, cloud/decisions 184c80f, cloud/native-research fa88c22 and cloud/report dffa733: no app/ or protocol changes in my lane.
-- hands-10 (Act.swift:348) and hands-16 (orchestrator.py:988) are unchanged on main c949565.
-Pass 33: main c949565 adds two builder briefs only (cloud/builder_appui.md, cloud/builder_comms.md); there is no code yet. wip/local 4ec066f is identical to main. cloud/decisions e125c13 only touches training data. `app/` and the protocol are unchanged, and hands-10 and hands-16 are still open at the same lines.
-Things to check when these briefs land (not findings, because nothing is built yet):
-(a) The app-UI brief adds a new `config`/`config_ack` frame that is not yet in AGENTS.md, protocol.py or server.py. Check that both sides agree.
-(b) The typed-request path (the pill's keyboard button) must capture utterance ctx before the Muselet text field takes focus, or ctx.app becomes Muselet (this would undo hands-9/11). The pill and panel must not activate Muselet over the target app (hands-8 focus).
-(c) The comms brief adds a `contacts_search` RPC that HandsKit doesn't implement yet. Check that the Swift side returns `result` on errors.
-Pass 32: main 5292608 changes only one AGENTS.md line (benchmark overlap note). wip/local a02959b is identical to main. `app/` and the protocol are unchanged, and hands-10 and hands-16 are still open at the same lines.
-Pass 31: main 82d94d9 merged cloud/brain-6 (#21); orchestrator.py is identical to 780f49d, which I reviewed in pass 30. The new sendgate.py only adds browser names (Zen etc.) and makes no RPC/app changes; `app/` is unchanged. wip/local 5b3d695 is identical to main. hands-16 is now at orchestrator.py:988, and hands-10 is still at Act.swift:348.
-Pass 30: cloud/brain-6 780f49d adds send and grounded-click confirmation gates and an OCR probe. The probe sends `ocr {region:[x,y,w,h]}`, which matches RPC.swift:152-160. No defects. hands-10 and hands-16 are still open on main b625ceb.
-Pass 29: main b625ceb (spend guard, pitch-4 merge), wip/local 49f808f and cloud/data-pipeline 512cce0 have no app/ or protocol changes. hands-10 and hands-16 are still open on main.
-Pass 28: main fbd5aa0, wip/local 2f26223, cloud/data-pipeline 735686f and cloud/pitch-4 6393857 have no app/ or protocol changes (AGENTS.md benchmark policy, evalcheck, pitch). hands-10 and hands-16 are still open on main.
-Pass 27: main d7c192f, wip/local 367d450 and cloud/data-pipeline 0ce9ea6 have no app/ or protocol changes (serving config, AGENTS.md serving notes, training). hands-10 and hands-16 were re-checked on main and are still open.
-Pass 26: main 04c3930 merged grounder-wire (PR #19; orchestrator and grounder identical to afb12a6, reviewed in pass 25) and pitch-3, and added `click "<description>"` to the planner prompt. There are no app/ changes. wip/local aec8fbf is identical to main. hands-16 has moved to orchestrator.py:981.
-Pass 25: cloud/grounder-wire afb12a6 adds `click "<target>"`: window screenshot, then the Grounder with a native zoom region, then `act click {x,y}`. I checked it against HandsKit. The screenshot result keys path/width/height/origin/scale match RPC.swift:149-150. to_global = origin + px/scale matches Screenshot.swift:26 (pixels per point). act click takes global points (Act.swift:406-416) and runs the focus guard. Dangerous labels need confirmation, and screenshots are deleted after use. No defects. main 7147694, wip/local 5764a0d, pitch-3 and data-pipeline have no lane changes.
-Pass 24: wip/local 0db1681 and cloud/data-pipeline 0c1ca3d have no app/ or protocol changes. hands-10 (Act.swift:348) and hands-16 (orchestrator.py:958) were re-checked and are still open on main d502b78.
-Pass 23: main d502b78 merged cloud/hobby-gaps (PR #16). Its orchestrator is identical to hobby-gaps 156556e (calculator, volume and brightness routing reviewed in passes 17-18), so hands-16 is now on main. There are no app/ changes. wip/local c7c04ce is identical to main.
-Pass 22: main 26ff05b merged cloud/brain-5 (its orchestrator is identical to b752261, reviewed in pass 21) plus argfix and the route parity reference. There are no app/ changes. wip/local 2c79363 is identical to main. hobby-gaps 861b991 only merges main; its app/ is identical to d514300. cloud/decisions and cloud/data-pipeline are outside the lane.
+Reviewed: main 7065dd3 (merged cloud/comms 6885b7c and cloud/app-ui e150506, plus a live-suite grader fix and the brain-8 brief) and wip/local e29ea7c (adds HandsKit Contacts.swift and MessagesCompose.swift). Other branches haven't moved since pass 37.
 
-## Open P0/P1 (ranked)
-None.
+Open: 1 P0, 3 P1, 4 P2. Static analysis only; no macOS runtime on this VM.
 
-## Highest-leverage next moves
-- hands-16 (P2, now on main 04c3930:981): the calculator path should use one `type` act (keystroke_app is on main) instead of one `keys` act per character, which costs at least 120 ms of settle per character.
-- hands-10 (P2): cap the act ghost-cursor lead at Act.swift:348 (main 26ff05b) with `min(lead, cursor_lead_ms/1000)`.
-- Not filed: `appears` still matches substrings and counts other already-open windows of the same app.
+- P0 hands-19 (raised from P1; now on main): send_message always calls `contacts_search` (comms.py:369), but RPC.swift has no case for it and returns "unknown method" (RPC.swift:205-206). Texting is broken on main. wip/local's Contacts.swift and MessagesComposer aren't dispatched from RPC.swift yet.
+- P1 hands-21 (new, wip/local): the Info.plist that build_app.sh generates has no NSContactsUsageDescription, so the first CNContactStore access will be killed by TCC.
+- P1 hands-18 (now on main): panel example prompts may act on Muselet itself (AppDelegate.swift:242; observe has no own-pid fallback).
+- P2 hands-22 (new): the brain's 5 s contacts_search timeout is shorter than the first-use permission prompt (Swift waits up to 60 s).
+- P2 hands-20 (now on main): send_draft doesn't re-check the draft window after the confirm.
+- P2 hands-16: the calculator types one keystroke per RPC.
+- P2 hands-10: act ignores cursor_lead_ms (Act.swift:348).
+- Not filed: `appears` matches substrings and counts other windows of the same app.
+
+Checked and fine: the wip MessagesComposer.send gate re-checks frontmost, same window and an unchanged draft, posts one Return, then reads back that the field emptied. Compose fills the field through AX and never sends keystrokes, and it verifies the recipient. Error replies carry `result`.
+
+Lead decision: wire the three comms RPCs into RPC.swift and add NSContactsUsageDescription before the demo. Otherwise texting on main fails, or crashes the app once the RPCs are wired.
