@@ -1,9 +1,9 @@
 {
-  "pass": 30,
-  "ts": "2026-10-24T12:50:00Z",
+  "pass": 31,
+  "ts": "2026-10-24T13:05:00Z",
   "branches": {
-    "main": "b625ceb",
-    "wip/local": "49f808f",
+    "main": "82d94d9",
+    "wip/local": "5b3d695",
     "cloud/bench": "f584cb2",
     "cloud/data-pipeline": "512cce0",
     "cloud/decisions": "6d395df",
@@ -27,5 +27,5 @@
     "cloud/pitch-4": "6393857",
     "cloud/brain-6": "780f49d"
   },
-  "notes": "pass30: only new cloud/brain-6 780f49d (send gate + grounded-click OCR safety gate in orchestrator.py, sendgate.py, tests). No lane files; grounder.py and run_screenspot.py unchanged, so grounding bench parity holds. All open findings unchanged (no lane commits on main/data-pipeline/decisions)."
+  "notes": "pass31: main 82d94d9 = brain-6 merge (#21, reviewed pass 30) + sendgate browser list (82d94d9). No lane files on main or wip/local. All open findings unchanged."
 }
