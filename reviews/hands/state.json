@@ -1,8 +1,8 @@
 {
- "pass": 43,
+ "pass": 44,
  "last_reviewed": {
-  "main": "3772f7c",
-  "wip/local": "8fcf55f",
+  "main": "2a2c2a9",
+  "wip/local": "4f963a7",
   "cloud/data-pipeline": "830ba35",
   "cloud/finance": "529e9ff",
   "cloud/finance-2": "dfaf785",
@@ -47,6 +47,8 @@
   "cloud/mascot-animal-handoff": "3aa6bd0",
   "cloud/planner-demos-handoff": "e5e9903",
   "cloud/planner-retrieval-handoff": "f728b79",
-  "cloud/w9-safety": "d5fe82b"
+  "cloud/w9-safety": "50a3b25",
+  "cloud/memory": "4b519b1",
+  "cloud/memory-eval": "c05944e"
  }
 }
