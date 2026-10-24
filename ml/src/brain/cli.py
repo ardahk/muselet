@@ -46,8 +46,28 @@ async def _stdin_lines():
             yield line
 
 
+def planner_opts(args) -> dict:
+    """Planner decoding/prompt knobs from `brain serve` flags."""
+    fs = args.planner_fewshot
+    opts = {"constrain": args.planner_constrain,
+            "done_alone": args.planner_done_alone,
+            "few_shot": None if fs is None or fs.lower() == "none" else fs,
+            "history": args.planner_history}
+    if opts["constrain"] is None:      # Planner's PLANNER_CONSTRAIN_DEFAULT
+        del opts["constrain"]
+    return opts
+
+
+def make_planner(pmodel: str, engine=None, opts: dict | None = None):
+    from .planner import Planner
+    planner = Planner(pmodel, Catalog.load(), engine=engine, **(opts or {}))
+    print(f"[planner] {pmodel} {planner.settings()}", flush=True)
+    return planner
+
+
 async def serve(port: int = 8765, model: str | None = None,
-                planner_model: str | None = None):
+                planner_model: str | None = None,
+                planner_kw: dict | None = None):
     server = BrainServer(port=port)
     await server.start()
     engine = None
@@ -58,9 +78,7 @@ async def serve(port: int = 8765, model: str | None = None,
     planner = None
     pmodel = _resolve_model(planner_model)
     if pmodel:
-        from .planner import Planner
-        planner = Planner(pmodel, Catalog.load(), engine=engine)
-        print(f"[planner] {pmodel}", flush=True)
+        planner = make_planner(pmodel, engine, planner_kw)
     orch = Orchestrator(server, Catalog.load(), Tracer(), engine=engine)
     orch.planner = planner
 
@@ -204,6 +222,11 @@ def eval_route(model: str, cases_path: str, out_dir: str = "runs/evals",
 
 
 def main():
+    args, ap = build_parser()
+    run_cmd(args, ap)
+
+
+def build_parser(argv=None):
     ap = argparse.ArgumentParser(prog="brain")
     sub = ap.add_subparsers(dest="cmd")
     s = sub.add_parser("serve", help="run the WS server + stdin REPL")
@@ -214,6 +237,15 @@ def main():
     s.add_argument("--tau", type=float, default=0.55)
     s.add_argument("--planner-model", default=None,
                    help="planner model; default: cached Qwen3.5-4B-4bit")
+    s.add_argument("--planner-constrain", action=argparse.BooleanOptionalAction,
+                   default=None, help="line-start DSL op constraint "
+                   "(default: planner.PLANNER_CONSTRAIN_DEFAULT)")
+    s.add_argument("--planner-done-alone", action=argparse.BooleanOptionalAction,
+                   default=True, help="block `done` after an action line")
+    s.add_argument("--planner-fewshot", default="prompts/planner_fewshot.md",
+                   metavar="PATH|none", help="few-shot examples in the cached prefix")
+    s.add_argument("--planner-history", default="marked",
+                   choices=["marked", "dsl", "repr"], help="Last batch line format")
     e = sub.add_parser("eval-route", help="eval the router on a JSONL cases file")
     e.add_argument("--model", default=None)
     e.add_argument("--cases", required=True)
@@ -225,7 +257,10 @@ def main():
     t.add_argument("--path", default="runs/traces",
                    help="trace dir or .jsonl file")
     t.add_argument("--json", action="store_true", help="print JSON")
-    args = ap.parse_args()
+    return ap.parse_args(argv), ap
+
+
+def run_cmd(args, ap):
     if args.cmd == "trace-stats":
         from . import tracestats
         rep = tracestats.stats(tracestats.load(args.path, args.since))
@@ -233,7 +268,7 @@ def main():
               else tracestats.format_report(rep))
     elif args.cmd == "serve":
         m = _resolve_model(args.model)
-        asyncio.run(serve(args.port, m, args.planner_model))
+        asyncio.run(serve(args.port, m, args.planner_model, planner_opts(args)))
     elif args.cmd == "eval-route":
         eval_route(args.model, args.cases, args.out,
                    tau=getattr(args, "tau", 0.55))
