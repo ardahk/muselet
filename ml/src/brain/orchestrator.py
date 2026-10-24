@@ -903,8 +903,7 @@ class Orchestrator:
         return out
 
     async def _app_names(self) -> list[str]:
-        """running + installed app names from the `apps` RPC, cached 60 s
-        (a failed RPC is cached too: aliases still work)."""
+        """Running + installed app names from the `apps` RPC, cached 60 s."""
         now = time.time()
         if self._apps and now - self._apps[0] < APPS_TTL_S:
             return self._apps[1]
@@ -916,9 +915,10 @@ class Orchestrator:
                 [a.get("name") if isinstance(a, dict) else a
                  for a in res.get("installed") or []]
         except Exception:
-            pass
+            self._apps = None
+            return []
         names = [n for n in dict.fromkeys(names) if isinstance(n, str) and n]
-        self._apps = (now, names)
+        self._apps = (now, names) if isinstance(res.get("installed"), list) else None
         return names
 
     @staticmethod
@@ -930,6 +930,34 @@ class Orchestrator:
             if key:
                 out.add(key)
         return out
+
+    _NATIVE_APP_ALIASES = {
+        "zoom": {"zoom.us"},
+        "teams": {"microsoftteams", "microsoftteamsclassic"},
+        "microsoftteams": {"teams", "microsoftteamsclassic"},
+        "outlook": {"microsoftoutlook"},
+        "telegram": {"telegramlite"},
+        "discord": {"discordptb", "discordcanary"},
+        "wechat": {"weixin"},
+    }
+
+    async def _site_for_app(self, app: str, text: str) -> tuple[str, str] | None:
+        key = normalize_name(app)
+        site = (key, SITES[key]) if key in SITES else None
+        if not self._browser_name(app):
+            site = site or match_name(app)
+        site = site or match_name(text)
+        if not site:
+            return None
+        if re.search(r"\b(?:website|site|go\s+to|navigate)\b|"
+                     r"\b[\w-]+\.(?:com|org|net|io|us|app|so|ai|tv|edu)\b|"
+                     r"\bdot\s+(?:com|org|net)\b", text or app, re.IGNORECASE):
+            return site
+        installed = self._installed_app_keys(await self._app_names())
+        if self._apps is None:
+            return None
+        keys = {key, site[0]} | self._NATIVE_APP_ALIASES.get(site[0], set())
+        return None if installed & keys else site
 
     @staticmethod
     def _browser_name(value: str) -> str | None:
@@ -969,18 +997,11 @@ class Orchestrator:
             return label, args
         args = dict(args)
         app = str(args.get("app") or "").strip()
-        site = None
-        app_key = normalize_name(app)
-        if app_key in SITES:
-            site = (app_key, SITES[app_key])
-        elif (found := match_name(text)) is not None:
-            site = found
+        site = await self._site_for_app(app, text)
         if site:
             name, host = site
-            installed = self._installed_app_keys(await self._app_names())
-            if name not in installed and normalize_name(app) not in installed:
-                trace["site_switch"] = [name, host]
-                return "open_url", {"url": fix_url(host)}
+            trace["site_switch"] = [name, host]
+            return "open_url", {"url": fix_url(host)}
         browser = self._browser_name(app)
         if browser and not self._goal_mentions_browser(text, browser):
             found = match_name(text)
@@ -1778,19 +1799,13 @@ function run() {
         if op == "open":
             value = str(a.get("app") or a.get("name") or
                         a.get("target") or "").strip()
-            site = None
-            key = normalize_name(value)
-            if key in SITES:
-                site = (key, SITES[key])
-            elif (found := match_name(value)) is not None:
-                site = found
+            goal = self._current_goal or self._utterance
+            site = await self._site_for_app(value, goal)
             if site:
-                installed = self._installed_app_keys(await self._app_names())
-                if site[0] not in installed and key not in installed:
-                    a = {"op": "url", "url": fix_url(site[1])}
-                    op = "url"
-                    if self.tracer.current is not None:
-                        self.tracer.current["site_switch"] = [site[0], site[1]]
+                a = {"op": "url", "url": fix_url(site[1])}
+                op = "url"
+                if self.tracer.current is not None:
+                    self.tracer.current["site_switch"] = [site[0], site[1]]
             browser = self._browser_name(value)
             goal = self._current_goal or self._utterance
             if browser and not self._goal_mentions_browser(goal, browser):
@@ -2757,17 +2772,14 @@ function run() {
             elif op == "open":
                 a = dict(a)
                 value = str(a.get("app") or a.get("name") or "").strip()
-                key = normalize_name(value)
-                site = (key, SITES[key]) if key in SITES else None
+                goal = self._current_goal or self._utterance
+                site = await self._site_for_app(value, goal)
                 if site:
-                    installed = self._installed_app_keys(
-                        await self._app_names())
-                    if site[0] not in installed and key not in installed:
-                        a = {"op": "url", "url": fix_url(site[1])}
-                        op = "url"
-                        if self.tracer.current is not None:
-                            self.tracer.current["site_switch"] = [
-                                site[0], site[1]]
+                    a = {"op": "url", "url": fix_url(site[1])}
+                    op = "url"
+                    if self.tracer.current is not None:
+                        self.tracer.current["site_switch"] = [
+                            site[0], site[1]]
                 browser = self._browser_name(value)
                 goal = self._current_goal or self._utterance
                 if browser and not self._goal_mentions_browser(goal, browser):
