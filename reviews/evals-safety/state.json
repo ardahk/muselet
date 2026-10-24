@@ -1,9 +1,9 @@
 {
-  "pass": 43,
-  "ts": "2026-10-24T20:53:00Z",
+  "pass": 44,
+  "ts": "2026-10-24T21:08:37Z",
   "last_reviewed": {
-    "main": "27ebd13",
-    "wip/local": "4585ce4",
+    "main": "3876f3a",
+    "wip/local": "3cfa06d",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -38,7 +38,7 @@
     "cloud/brain-8": "4546d09",
     "cloud/planner-demos": "9008990",
     "cloud/clock-timers": "d060b5a",
-    "cloud/comms-2": "265c86d",
+    "cloud/comms-2": "c65ee70",
     "cloud/mascot-animal": "238db23",
     "cloud/planner-retrieval": "9786fa4"
   },
