@@ -12,8 +12,13 @@ import XCTest
 final class MockPoster: EventPosting {
     var posted: [String] = []
     var typed: [String] = []
+    /// Keystroke-app typing (Calculator) and media keys, recorded only.
+    var keystrokes: [String] = []
+    var mediaKeys: [String] = []
     func post(_ combo: KeyCombo) { posted.append(Combo.describe(combo)) }
     func typeText(_ text: String) { typed.append(text) }
+    func typeKeystrokes(_ text: String) { keystrokes.append(text) }
+    func postMediaKey(_ key: MediaKey) { mediaKeys.append(key.name) }
 }
 
 final class MockApps: AppControlling {
@@ -21,6 +26,8 @@ final class MockApps: AppControlling {
     var activateSucceeds: Bool
     var activated: [pid_t] = []
     var running: [RunningAppInfo]
+    /// Lock screen up (screen_locked guard).
+    var locked = false
 
     init(frontmost: pid_t = 1, activateSucceeds: Bool = true, running: [RunningAppInfo] = []) {
         self.frontmost = frontmost
@@ -28,6 +35,7 @@ final class MockApps: AppControlling {
         self.running = running
     }
 
+    func screenLocked() -> Bool { locked }
     func frontmostPid() -> pid_t { frontmost }
     func activate(pid: pid_t) -> Bool {
         activated.append(pid)

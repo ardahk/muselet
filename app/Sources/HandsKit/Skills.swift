@@ -283,6 +283,8 @@ public final class Skills {
     var openAppTimeout: TimeInterval = 1.5
     var openTimeout: TimeInterval = 3.0
     var launchPollInterval: TimeInterval = 0.03
+    /// Re-activate an opened app that isn't frontmost yet this often.
+    var launchReactivateInterval: TimeInterval = 0.4
     var viewPollInterval: TimeInterval = 0.1
     /// Folder display name (Finder window title); tests stub it.
     var displayNameOverride: ((String) -> String)?
@@ -414,13 +416,27 @@ public final class Skills {
             let now = read ?? on
             return ["on": now, "dark": now]
         case "set_brightness":
-            let lvl = max(0, min(100, try intArg(a, "level")))
+            // `level` (absolute) wins; else `delta` relative to the current level.
+            var r: [String: Any] = [:]
+            let lvl: Int
+            if a["level"] != nil {
+                lvl = max(0, min(100, try intArg(a, "level")))
+            } else {
+                let d = try intArg(a, "delta")
+                guard let cur = hooks.brightnessGet().map({ Int(($0 * 100).rounded()) }) else {
+                    throw HandsError.notImplemented("set_brightness delta (brightness unreadable)")
+                }
+                lvl = Self.brightnessTarget(current: cur, delta: d)
+                r["previous"] = cur
+                r["delta"] = d
+            }
             guard hooks.brightnessSet(Float(lvl) / 100.0) else {
                 throw HandsError.notImplemented("set_brightness (DisplayServices unavailable)")
             }
             usleep(30_000)
             let read = hooks.brightnessGet().map { Int(($0 * 100).rounded()) }
-            return ["level": read ?? lvl]
+            r["level"] = read ?? lvl
+            return r
         case "wifi":
             let on = try boolArg(a, "on")
             try setWifi(on)
@@ -458,8 +474,7 @@ public final class Skills {
 
         // ---- apps ----
         case "open_app":
-            try openAppNamed(try strArg(a, "app"))
-            return ["app": a["app"]!]
+            return try openApp(named: try strArg(a, "app"))
         case "quit_app":
             let app = try strArg(a, "app")
             guard let r = runningApp(app) else {
@@ -482,32 +497,36 @@ public final class Skills {
             guard let u = URL(string: s) else {
                 throw HandsError.invalidParams("bad url")
             }
-            NSWorkspace.shared.open(u)
-            return ["url": s]
+            return try openInBrowser(u, extra: ["url": s])
         case "web_search":
             let q = try strArg(a, "query")
-            let enc = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q
-            guard let u = URL(string: "https://www.google.com/search?q=\(enc)") else {
+            // Strict: "AT&T", "c++", "a=b" stay part of the query value.
+            guard let u = URL(string: "https://www.google.com/search?q=\(pctStrict(q))") else {
                 throw HandsError.invalidParams("bad query")
             }
-            NSWorkspace.shared.open(u)
-            return ["query": q]
+            return try openInBrowser(u, extra: ["query": q])
 
         // ---- files ----
         case "open_folder":
             let p = PathAlias.resolve(try strArg(a, "path"))
+            // Validate the view before anything opens.
+            var view: FinderView?
+            if let v = a["view"] as? String, !v.isEmpty {
+                guard let fv = FinderView.parse(v) else {
+                    throw HandsError.invalidParams("open_folder: view must be list|icons|columns|gallery")
+                }
+                view = fv
+            }
             guard FileManager.default.fileExists(atPath: p) else {
                 throw HandsError.skillFailed("no such folder: \(p)")
             }
-            NSWorkspace.shared.open(URL(fileURLWithPath: p))
-            return ["path": p]
+            return try openFolder(path: p, view: view)
         case "open_file":
             let p = PathAlias.resolve(try strArg(a, "path"))
             guard FileManager.default.fileExists(atPath: p) else {
                 throw HandsError.skillFailed("no such file: \(p)")
             }
-            NSWorkspace.shared.open(URL(fileURLWithPath: p))
-            return ["path": p]
+            return try openFile(path: p)
         case "new_folder":
             let parent = PathAlias.resolve(try strArg(a, "parent"))
             let name = try strArg(a, "name")
@@ -558,14 +577,10 @@ public final class Skills {
         // ---- media ----
         case "media_control":
             let action = try strArg(a, "action")
-            let key: Int32
-            switch action {
-            case "play", "pause", "toggle": key = 16
-            case "next": key = 17
-            case "previous": key = 18
-            default: throw HandsError.invalidParams("media action \(action)")
+            guard let key = MediaKey.forMediaAction(action) else {
+                throw HandsError.invalidParams("media action \(action)")
             }
-            postMediaKey(key)
+            events.postMediaKey(key)
             return ["action": action]
         case "play_music":
             let q = try strArg(a, "query")
@@ -575,18 +590,25 @@ public final class Skills {
         // ---- input ----
         case "type_text":
             // Types to the keyboard focus of the frontmost app; refuse when
-            // nothing there takes text (never "ok" while typing into nothing).
+            // nothing there takes text (never "ok" while typing into nothing),
+            // and never into the lock screen. A keystroke app (Calculator)
+            // gets key presses.
             let text = try strArg(a, "text")
+            if apps.screenLocked() { throw HandsError.screenLocked }
             let pid = apps.frontmostPid()
             let info = apps.app(pid: pid)
             let chk = TextTarget.check(app: axApp(pid), appName: info?.name ?? apps.name(pid: pid),
                                        bundleId: info?.bundleId)
             guard chk.ok else { throw HandsError.noTextTarget(observed: chk.observed) }
-            if let t = chk.focusTarget {
-                _ = t.setAttr(kAXFocusedAttribute, true)
-                usleep(30_000)
+            if chk.via == TextTarget.keystrokeVia {
+                events.typeKeystrokes(TextTarget.keystrokeText(text))
+            } else {
+                if let t = chk.focusTarget {
+                    _ = t.setAttr(kAXFocusedAttribute, true)
+                    usleep(30_000)
+                }
+                events.typeText(text)
             }
-            events.typeText(text)
             return ["typed": text.count, "target": chk.via ?? "focused", "observed": chk.observed]
         case "copy_selection":
             Combo.post(try Combo.parse("cmd+c"))
@@ -770,33 +792,21 @@ public final class Skills {
     }
 
     private func startTimer(seconds: Double, label: String?) -> [String: Any] {
-        let id = "timer-\(UUID().uuidString.prefix(8))"
-        let firesAt = Date().addingTimeInterval(seconds)
         let hooks = self.hooks
-        let t = DispatchSource.makeTimerSource(queue: timerQueue)
-        // Wall clock: keeps counting across system sleep, like a kitchen timer.
-        t.schedule(wallDeadline: .now() + seconds, leeway: .milliseconds(20))
-        t.setEventHandler { [weak self, weak t, weak delegate = self.delegate] in
+        let info = timers.start(seconds: seconds, label: label) { [weak self, weak delegate = self.delegate] _ in
             hooks.playSound("Glass")
             hooks.notify("Timer done", label ?? "Your \(Self.humanDuration(seconds)) timer is up.")
             (self?.delegate ?? delegate)?.handsTimerFired(label: label)
-            t?.cancel()
-            if let self {
-                self.timerLock.lock()
-                self.timers.removeValue(forKey: id)
-                self.timerLock.unlock()
-            }
         }
-        timerLock.lock()
-        timers[id] = t
-        timerLock.unlock()
-        t.resume()
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime]
-        var r: [String: Any] = ["fires_at": iso.string(from: firesAt), "seconds": seconds,
-                                "timer_id": id]
+        var r: [String: Any] = ["fires_at": TimerRegistry.isoString(info.firesAt), "seconds": seconds,
+                                "timer_id": info.id]
         if let label { r["label"] = label }
         return r
+    }
+
+    /// `set_brightness delta`: current + delta, clamped to 0...100.
+    static func brightnessTarget(current: Int, delta: Int) -> Int {
+        max(0, min(100, current + delta))
     }
 
     static func humanDuration(_ s: Double) -> String {
@@ -1017,23 +1027,6 @@ public final class Skills {
              "end": fmt.string(from: $0.endDate), "location": $0.location ?? ""]
         }
         return ["events": events, "count": events.count]
-    }
-
-    // MARK: media keys
-
-    private func postMediaKey(_ key: Int32) {
-        // data1 = key<<16 | state<<8 where 0xA=down, 0xB=up
-        func ev(_ down: Bool) -> NSEvent? {
-            let flags = down ? 0xA00 : 0xB00
-            let state = down ? 0xA : 0xB
-            return NSEvent.otherEvent(
-                with: .systemDefined, location: .zero,
-                modifierFlags: NSEvent.ModifierFlags(rawValue: UInt(flags)),
-                timestamp: 0, windowNumber: 0, context: nil,
-                subtype: 8, data1: (Int(key) << 16) | (state << 8), data2: -1)
-        }
-        if let d = ev(true)?.cgEvent { SyntheticEvent.post(d) }
-        if let u = ev(false)?.cgEvent { SyntheticEvent.post(u) }
     }
 }
 

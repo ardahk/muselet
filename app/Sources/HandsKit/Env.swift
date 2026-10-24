@@ -35,6 +35,8 @@ public protocol EventPosting: AnyObject {
     /// Type `text` as key presses (virtual key + unicode) for keystroke-
     /// driven apps such as Calculator. Default: `typeText`.
     func typeKeystrokes(_ text: String)
+    /// Press a media key (system-defined event, down + up).
+    func postMediaKey(_ key: MediaKey)
 }
 
 public extension EventPosting {
@@ -47,6 +49,7 @@ public final class CGEventPoster: EventPosting {
     public func post(_ combo: KeyCombo) { Combo.post(combo) }
     public func typeText(_ text: String) { Events.typeText(text) }
     public func typeKeystrokes(_ text: String) { Events.typeKeystrokes(text) }
+    public func postMediaKey(_ key: MediaKey) { key.post() }
 }
 
 // MARK: - Session state

@@ -17,8 +17,8 @@ public enum HandsError: Error, CustomStringConvertible {
     /// Nothing that accepts text has the keyboard focus (`observed` says
     /// which app/window/element is focused); nothing was typed.
     case noTextTarget(observed: String)
-    /// The screen is locked (loginwindow has the keyboard): synthetic keys,
-    /// typing and clicks would land in the lock screen, so none are posted.
+    /// The screen is locked (the lock screen has the keyboard): synthetic
+    /// keys, typing and clicks would land in it, so none are posted.
     case screenLocked
     /// The action ran but its read-back says it didn't take effect: `code`
     /// is the error (e.g. `not_frontmost`), `result` what was observed
@@ -29,7 +29,7 @@ public enum HandsError: Error, CustomStringConvertible {
     public var observed: String? {
         switch self {
         case .noTextTarget(let o): return o
-        case .screenLocked: return "screen locked (loginwindow is frontmost)"
+        case .screenLocked: return "the screen is locked"
         case .verifyFailed(_, let o, _): return o
         default: return nil
         }
@@ -663,9 +663,10 @@ extension Hands {
                 after = cur
             }
         }
-        if let b = before?["level"] { r["level_before"] = b }
-        if let a = after?["level"] { r["level"] = a }
-        if let m = after?["muted"] { r["muted"] = m }
+        // .base: plain Int / Bool for JSON.
+        if let b = before?["level"] { r["level_before"] = b.base }
+        if let a = after?["level"] { r["level"] = a.base }
+        if let m = after?["muted"] { r["muted"] = m.base }
         r["changed"] = after != before
         return r
     }

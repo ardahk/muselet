@@ -31,11 +31,9 @@ public final class WorkspaceLauncher: Launching {
     public init() {}
 
     public func openApp(named name: String) throws -> (pid: pid_t, launched: Bool) {
-        let wasRunning = NSWorkspace.shared.runningApplications.contains {
-            ($0.localizedName ?? "").localizedCaseInsensitiveCompare(name) == .orderedSame
-        }
+        let before = Set(NSWorkspace.shared.runningApplications.map(\.processIdentifier))
         let pid = try openAppNamed(name)
-        return (pid, !wasRunning)
+        return (pid, pid > 0 && !before.contains(pid))
     }
 
     public func defaultApp(for url: URL) -> LaunchTarget? {
@@ -133,12 +131,12 @@ extension Skills {
 
     /// Poll (<= `timeout`) until the app (`pid`, else the running app with
     /// `bundleId`) is frontmost and its front window title satisfies `done`
-    /// (nil when it has no window). Re-activates it every `reactivate`
-    /// seconds while another app is frontmost (cooperative activation may
-    /// ignore the launch's own request).
+    /// (nil when it has no window). Re-activates it every
+    /// `launchReactivateInterval` while another app is frontmost
+    /// (cooperative activation may ignore the launch's own request).
     func waitForeground(pid inPid: pid_t, bundleId: String?, timeout: TimeInterval,
-                        reactivate: TimeInterval = 0.4,
                         done: (String?) -> Bool) -> ForegroundWait {
+        let reactivate = launchReactivateInterval
         let start = Date()
         let end = start.addingTimeInterval(timeout)
         var nextActivate = start.addingTimeInterval(reactivate)
@@ -274,7 +272,7 @@ extension Skills {
             return t.localizedCaseInsensitiveContains(file)
                 || (!stem.isEmpty && t.localizedCaseInsensitiveContains(stem))
         }
-        var r: [String: Any] = ["path": p, "app": app.name,
+        let r: [String: Any] = ["path": p, "app": app.name,
                                 "frontmost": apps.name(pid: apps.frontmostPid()),
                                 "window_title": w.title ?? "", "title_matches": w.done]
         guard w.front else {

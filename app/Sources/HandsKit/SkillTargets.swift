@@ -174,14 +174,20 @@ public final class SkillTargets {
         case "open_url":
             guard let u = s("url") else { return nil }
             return URL(string: u.contains("://") ? u : "https://" + u)?.host ?? u
-        case "set_volume", "set_brightness": return s("level").map { "\($0)%" }
-        case "change_volume": return s("delta").map { $0.hasPrefix("-") ? $0 : "+\($0)" }
+        case "set_volume": return s("level").map { "\($0)%" }
+        case "set_brightness": return s("level").map { "\($0)%" } ?? s("delta").map(signed)
+        case "change_volume": return s("delta").map(signed)
         case "mute", "dark_mode", "wifi", "bluetooth":
             guard let on = args["on"] else { return nil }
             let b = (on as? Bool) ?? ["true", "1", "on", "yes"].contains("\(on)".lowercased())
             return b ? "On" : "Off"
         default: return nil
         }
+    }
+
+    /// "10" -> "+10"; "-10" / "+10" unchanged.
+    static func signed(_ d: String) -> String {
+        d.hasPrefix("-") || d.hasPrefix("+") ? d : "+\(d)"
     }
 
     static func appName(fromPath p: String) -> String {

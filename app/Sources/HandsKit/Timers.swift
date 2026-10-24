@@ -90,7 +90,13 @@ public final class TimerRegistry {
         return entries.removeValue(forKey: id)
     }
 
+    /// Serializes "read the list + report it", so reports arrive in the
+    /// order the lists were read (a fire racing a start can't leave a
+    /// stale snapshot last).
+    private let changeLock = NSLock()
+
     private func changed() {
+        changeLock.lock(); defer { changeLock.unlock() }
         onChange?(list())
     }
 
@@ -98,9 +104,10 @@ public final class TimerRegistry {
     /// `minutes` = whole minutes left, rounded up ("about 7 minutes left");
     /// `left_s` = seconds left (1 decimal, never negative).
     public static func dict(_ i: Info, now: Date = Date()) -> [String: Any] {
-        let left = max(0, i.firesAt.timeIntervalSince(now))
+        // Minutes from the reported (0.1 s) value: 540.0000001 s is 9 minutes.
+        let left = max(0, i.firesAt.timeIntervalSince(now)).rounded(to: 1)
         var d: [String: Any] = [
-            "id": i.id, "total_s": i.total.rounded(to: 1), "left_s": left.rounded(to: 1),
+            "id": i.id, "total_s": i.total.rounded(to: 1), "left_s": left,
             "minutes": Int((left / 60).rounded(.up)), "fires_at": isoString(i.firesAt),
         ]
         if let l = i.label { d["label"] = l }
@@ -125,14 +132,24 @@ public enum TimerSnapshot {
 
     private static let writeQueue = DispatchQueue(label: "hands.timers.snapshot", qos: .utility)
 
-    /// Write this process's timers (async, in order); no timers -> remove the file.
+    /// Write this process's timers (async, in order); no timers -> remove the
+    /// file. `gc`: also remove the files of processes that are gone.
     public static func write(_ timers: [TimerRegistry.Info], pid: pid_t = getpid(),
                              process: String = ProcessInfo.processInfo.processName,
-                             directory dir: URL = directory) {
+                             directory dir: URL = directory, gc: Bool = true) {
         writeQueue.async {
+            let fm = FileManager.default
+            if gc, let files = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+                for f in files where f.pathExtension == "json" {
+                    if let other = Int32(f.deletingPathExtension().lastPathComponent),
+                       other != pid, !processAlive(other) {
+                        try? fm.removeItem(at: f)
+                    }
+                }
+            }
             let file = dir.appendingPathComponent("\(pid).json")
             if timers.isEmpty {
-                try? FileManager.default.removeItem(at: file)
+                try? fm.removeItem(at: file)
                 return
             }
             let body: [String: Any] = [
@@ -146,7 +163,7 @@ public enum TimerSnapshot {
                 },
             ]
             guard let data = try? JSONSerialization.data(withJSONObject: body) else { return }
-            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
             try? data.write(to: file, options: .atomic)
         }
     }
@@ -154,10 +171,13 @@ public enum TimerSnapshot {
     /// Wait for queued writes (tests).
     static func flush() { writeQueue.sync {} }
 
+    /// The process exists (EPERM: someone else's, still alive).
+    public static func processAlive(_ pid: pid_t) -> Bool { kill(pid, 0) == 0 || errno == EPERM }
+
     /// Timers of live processes, soonest first, in the RPC wire form plus
     /// `pid` / `process`. Files of dead processes and past timers are skipped.
     public static func read(directory dir: URL = directory, now: Date = Date(),
-                            isAlive: (pid_t) -> Bool = { kill($0, 0) == 0 || errno == EPERM }) -> [[String: Any]] {
+                            isAlive: (pid_t) -> Bool = processAlive) -> [[String: Any]] {
         let fm = FileManager.default
         guard let files = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else { return [] }
         var out: [(Date, [String: Any])] = []
