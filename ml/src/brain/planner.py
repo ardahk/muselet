@@ -281,6 +281,7 @@ class Planner:
             self.plan_bank = PlanBank(load_bank(retrieval_bank))
         self.last_retrieval = {"ids": [], "ms": 0.0}
         self._constraint = None
+        self._decider = None
         if engine is not None and engine.model_path == model_path:
             self.model, self.tokenizer = engine.model, engine.tokenizer
             self.body, self.lm_head = engine.body, engine.lm_head
@@ -328,6 +329,13 @@ class Planner:
         eng = self.engine or DecisionEngine.__new__(DecisionEngine)
         eng.catalog = self.catalog
         return DecisionEngine.arg_signature(eng, name)
+
+    def decide(self, state: str, question: dict) -> dict[str, float]:
+        """One System-1 decision (decision API) on the planner's weights; run via worker()."""
+        if self._decider is None:
+            from .generic_decide import GenericMLXDecider
+            self._decider = GenericMLXDecider.inline(self.model, self.model_path)
+        return self._decider.decide(state, question)
 
     # ---------- rendering ----------
 
