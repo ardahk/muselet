@@ -132,7 +132,10 @@ actions, results, per-stage latencies, final verification. Traces feed evals, fa
   reviewers use `--no-secrets`). Reviewer sessions are listed in `runs/reviewers.json`; findings live on
   `origin/review/<lane>` in `reviews/<lane>/{findings.jsonl,digest.md}`.
 - Review heartbeat: `nohup tools/review_pulse.sh >> runs/review_pulse.log 2>&1 &` (snapshots local work to
-  `wip/local` via `tools/push_wip.sh` and pulses reviewers when branches move).
+  `wip/local` via `tools/push_wip.sh` and pulses reviewers when branches move; also logs Tinker spend to
+  `runs/tinker_spend.jsonl` and sends the training session a pause/stop at $60 / $135). Add a reviewer lane:
+  `tools/add_reviewer.sh <lane> cloud/review/<lane>.md`.
+- Tinker spend: `python3 tools/tinker_spend.py` (billing data lags by up to a few hours).
 
 ## Conventions
 - Pin dependency versions; prefer releases at least 7 days old.
