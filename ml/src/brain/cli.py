@@ -301,7 +301,8 @@ def build_parser(argv=None):
                    choices=["marked", "dsl", "repr"], help="Last batch line format")
     s.add_argument("--planner-retrieval-k", type=int, choices=(0, 1, 2), default=0)
     s.add_argument("--planner-retrieval-bank", default="v2-tune",
-                   metavar="v2-tune|hf[:REPO[:FILE]]|PATH")
+                   metavar="v2-tune|hf[:REPO[:FILE]][@REV]|PATH",
+                   help="HF bank defaults to bank.jsonl.gz; append @REV to pin a dataset revision")
     s.add_argument("--grounder-model", default="eyes-4b", metavar="NAME[=PATH]|none",
                    help="grounder adapter for `click \"<target>\"` (brain.grounder.ADAPTERS, e.g. "
                         "eyes-4b, ui-venus-1.5-8b; name=path for local weights); loaded on first use")

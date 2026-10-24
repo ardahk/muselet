@@ -72,6 +72,10 @@ def test_planner_retrieval_layout_keeps_examples_after_cached_prefix(monkeypatch
 def test_planner_retrieval_flags_load_bank_only_when_enabled(monkeypatch, capsys):
     args, _ = cli.build_parser(["serve"])
     assert not ({"retrieval_k", "retrieval_bank"} & cli.planner_opts(args).keys())
+    with pytest.raises(SystemExit):
+        cli.build_parser(["serve", "--help"])
+    help_text = capsys.readouterr().out
+    assert "@REV" in help_text and "bank.jsonl.gz" in help_text
     seen = {}
 
     def fake_load(spec):

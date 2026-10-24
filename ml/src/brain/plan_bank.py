@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import json
 import math
 import re
@@ -124,10 +125,10 @@ def from_v2_scenarios(path=ROOT / "evals" / "planner_scenarios_v2.jsonl") -> lis
                 break
             chosen.add(index)
             room -= 1
-        for index, _, _ in elements:
+        for index, _, line in elements:
             if room <= 0:
                 break
-            if index not in chosen:
+            if index not in chosen and not _is_window_chrome(line):
                 chosen.add(index)
                 room -= 1
         obs_lines = [line for index, line in enumerate(content_lines) if index in chosen]
@@ -146,12 +147,29 @@ def from_v2_scenarios(path=ROOT / "evals" / "planner_scenarios_v2.jsonl") -> lis
     return demos
 
 
+def _is_window_chrome(line: str) -> bool:
+    return bool(re.match(
+        r'^#\d+\s+button\s+"(?:close button|minimize button|full screen button|zoom button)"',
+        line,
+    ))
+
+
 def load_jsonl(path) -> list[Demo]:
     demos = []
-    for line_number, line in enumerate(Path(path).read_text().splitlines(), 1):
+    path = Path(path)
+    if path.suffix == ".gz":
+        with gzip.open(path, "rt", encoding="utf-8") as f:
+            lines = f.read().splitlines()
+    else:
+        lines = path.read_text().splitlines()
+    for line_number, line in enumerate(lines, 1):
         if not line.strip():
             continue
         row = json.loads(line)
+        if "obs_header" not in row and "header" in row:
+            row["obs_header"] = row["header"]
+        if isinstance(row.get("batch"), str):
+            row["batch"] = row["batch"].split("\n")
         missing = [name for name in REQUIRED_FIELDS if name not in row]
         if missing:
             raise ValueError(f"line {line_number}: missing required field(s): {', '.join(missing)}")
@@ -235,12 +253,18 @@ def _filter_demos(demos: list[Demo], denied=None) -> tuple[list[Demo], dict[str,
 def load_bank(spec: str = "v2-tune") -> list[Demo]:
     if spec == "v2-tune":
         demos = from_v2_scenarios()
-    elif spec == "hf" or spec.startswith("hf:"):
-        parts = spec.split(":", 2)
+    elif spec == "hf" or spec.startswith(("hf:", "hf@")):
+        hf_spec, separator, revision = spec.rpartition("@")
+        if not separator:
+            hf_spec, revision = spec, None
+        parts = hf_spec.split(":", 2)
         repo = parts[1] if len(parts) > 1 and parts[1] else "jonsnov/muselet-planner-demos-v1"
-        filename = parts[2] if len(parts) > 2 and parts[2] else "bank.jsonl"
+        filename = parts[2] if len(parts) > 2 and parts[2] else "bank.jsonl.gz"
         from huggingface_hub import hf_hub_download
-        downloaded = hf_hub_download(repo_id=repo, filename=filename, repo_type="dataset")
+        download_args = {"repo_id": repo, "filename": filename, "repo_type": "dataset"}
+        if revision:
+            download_args["revision"] = revision
+        downloaded = hf_hub_download(**download_args)
         demos = load_jsonl(downloaded)
     else:
         demos = load_jsonl(spec)

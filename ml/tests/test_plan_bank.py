@@ -1,4 +1,6 @@
+import gzip
 import json
+import os
 import re
 import sys
 from dataclasses import asdict
@@ -20,6 +22,7 @@ from brain.plan_bank import (
     load_bank,
     load_jsonl,
     normalize,
+    from_v2_scenarios,
     render_block,
     render_demo,
     tokenize,
@@ -77,9 +80,27 @@ def test_jsonl_round_trip_and_missing_required_field(tmp_path):
 def test_hf_loader_downloads_then_applies_denylist(monkeypatch, tmp_path):
     import huggingface_hub
 
-    path = tmp_path / "bank.jsonl"
-    path.write_text(json.dumps(asdict(_demo("a clean unique task", id="hf-clean"))) + "\n"
-                    + json.dumps(asdict(_demo("turn wifi on", id="hf-leak"))) + "\n")
+    path = tmp_path / "bank.jsonl.gz"
+    clean = {
+        "id": "hf-clean",
+        "goal": "zorb quasar activate a clean unique task",
+        "app": "Finder",
+        "category": "single_step",
+        "family": "navigation",
+        "header": 'app: Finder | window: "Desktop"',
+        "batch": 'script shell """\nprintf "hello"\n"""\nwait 10',
+        "text": "ignored text field",
+        "tokens": ["ignored", "tokens"],
+    }
+    leaked = {
+        **clean,
+        "id": "hf-leak",
+        "goal": "turn wifi on",
+        "batch": "press #1",
+    }
+    with gzip.open(path, "wt", encoding="utf-8") as f:
+        f.write(json.dumps(clean) + "\n")
+        f.write(json.dumps(leaked) + "\n")
     seen = {}
 
     def download(**kwargs):
@@ -87,10 +108,75 @@ def test_hf_loader_downloads_then_applies_denylist(monkeypatch, tmp_path):
         return str(path)
 
     monkeypatch.setattr(huggingface_hub, "hf_hub_download", download)
-    bank = load_bank("hf:org/repo:custom.jsonl")
+    bank = load_bank("hf:org/repo:bank.jsonl.gz@9453ff6")
     assert [demo.id for demo in bank] == ["hf-clean"]
-    assert seen == {"repo_id": "org/repo", "filename": "custom.jsonl", "repo_type": "dataset"}
+    assert seen == {
+        "repo_id": "org/repo",
+        "filename": "bank.jsonl.gz",
+        "repo_type": "dataset",
+        "revision": "9453ff6",
+    }
+    assert bank[0].obs_header == clean["header"]
+    assert bank[0].batch == clean["batch"].split("\n")
+    assert render_demo(bank[0]).endswith("Reply:\n" + clean["batch"])
     assert load_bank.last_dropped["total"] == 1
+
+
+@pytest.mark.skipif(not os.environ.get("HF_TOKEN"), reason="HF_TOKEN is not configured")
+def test_live_hf_bank_is_loaded_and_denylist_filtered():
+    import huggingface_hub
+
+    try:
+        huggingface_hub.hf_hub_download(
+            repo_id="jonsnov/muselet-planner-demos-v1",
+            filename="bank.jsonl.gz",
+            repo_type="dataset",
+            revision="9453ff6",
+        )
+    except Exception as exc:
+        pytest.skip(f"HF dataset download unavailable ({type(exc).__name__})")
+
+    demos = load_bank("hf@9453ff6")
+    print(f"hf@9453ff6 bank retained={len(demos)} dropped={load_bank.last_dropped}")
+    assert len(demos) > 1000
+    ids, goals = denylist()
+    denied_goals = set(goals)
+    assert all(
+        (not demo.id or demo.id not in ids)
+        and normalize(demo.goal) not in denied_goals
+        and not any(is_leak(demo.goal, goal) for goal in goals)
+        for demo in demos
+    )
+
+
+def test_v2_filler_skips_unreferenced_window_chrome(tmp_path):
+    path = tmp_path / "scenarios.jsonl"
+    row = {
+        "id": "v2-test-chrome",
+        "split": "v2-tune",
+        "goal": "save a document",
+        "category": "single_step",
+        "observation": "\n".join([
+            'app: Pages | window: "Document"',
+            '#1 button "close button"',
+            '#2 button "minimize button"',
+            '#3 button "full screen button"',
+            '#4 button "zoom button"',
+            '#5 button "Save"',
+            '#6 button "zoom button"',
+            '#7 text "Document"',
+        ]),
+        "gold": [["press #1", "press #5", "press #6"]],
+    }
+    path.write_text(json.dumps(row) + "\n")
+
+    demo = from_v2_scenarios(path)[0]
+    assert demo.obs_lines == [
+        '#1 button "close button"',
+        '#5 button "Save"',
+        '#6 button "zoom button"',
+        '#7 text "Document"',
+    ]
 
 
 def test_denylist_covers_every_frozen_source_and_filters_synthetic_demos():
