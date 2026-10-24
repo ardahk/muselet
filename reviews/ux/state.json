@@ -1,9 +1,9 @@
 {
-  "pass": 16,
-  "ts": "2026-10-24T09:40:00Z",
+  "pass": 17,
+  "ts": "2026-10-24T09:55:00Z",
   "last_reviewed": {
-    "main": "28dc259",
-    "wip/local": "e1701a3",
+    "main": "758a017",
+    "wip/local": "a3f82f1",
     "cloud/data-pipeline": "80cb13f",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -19,8 +19,8 @@
     "cloud/finance-3": "31be399",
     "cloud/decisions": "3a865a0",
     "cloud/pitch-2": "3303678",
-    "cloud/brain-4": "3aca368",
-    "cloud/hobby-gaps": "14ff59b"
+    "cloud/brain-4": "dfb66a3",
+    "cloud/hobby-gaps": "929b931"
   },
-  "notes": "pass 16: main 28dc259 has no lane change (planner bench holdout). wip matches main. brain-4 (relative volume rel_delta, history formats, harness_reject replan): no UX defect found; it keeps 'Volume up/down'. hobby-gaps: ux-16, ux-17. data-pipeline: no lane edits since merge-base."
+  "notes": "pass 17: main 758a017 (pitch-2 merge, live runner, bench grader) has no lane edits; wip matches main. brain-4 dfb66a3 (opt-in planner escalation, dsl history default) has no UX change. hobby-gaps 929b931 partly fixes ux-17 (acting UI); ux-16 unchanged."
 }
