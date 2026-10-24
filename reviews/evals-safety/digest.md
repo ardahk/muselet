@@ -1,9 +1,9 @@
-# evals-safety digest — pass 53 (main@18c139f)
+# evals-safety digest — pass 54 (main@0b83c3b)
 
-Open: P0 0, P1 8, P2 11.
+Open: P0 0, P1 9, P2 11.
 
 ## Open P0/P1 (ranked)
-0. **-46 (P1):** new live_t2 cases are missing from every decontam gate; the gates hard-code live_t1. (now on main 18c139f)
+0. **-46 (P1):** new live_t2 cases are missing from every decontam gate; the gates hard-code live_t1. (on main 0b83c3b, still unfixed)
 1. **-39 (P1):** the finance rules miss BERKELEY BOWL, so Groceries comes out 203.61 vs the key's 298.70 without the model. (`ml/src/brain/finance/categorize.py`)
 2. **-43 (P1):** the decisions trainers have no month-to-date gate. Month-to-date is ~$142 against the $148 stop. (`training/decisions/*.py`)
 3. **-36 (P1):** v2 clobbering accept rules can be retrieved at k=1, and the offline eval runs at k=0. (`evals/planner_scenarios_v2.jsonl`)
@@ -13,6 +13,7 @@ Open: P0 0, P1 8, P2 11.
 7. **-11 (P1):** done is model-claimed; planner-verify is a self-judge. (`ml/src/brain/orchestrator.py`)
 
 ## Next moves
+0. Planner think: prefer t512 greedy, or seed-repeat qwen; don't select on holdout (-47).
 1. Add BERKELEY BOWL to the Groceries rules, plus a no-model fixture==truth test (-39).
 2. Port the planner-lora month-to-date guard to the decisions trainers before any approval (-43).
 3. Relabel route_v1 case 87 and re-quote it2 on clean (-42).
