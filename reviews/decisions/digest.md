@@ -1,9 +1,9 @@
-# decisions — digest (pass 28)
+# decisions — digest (pass 29)
 
-Heads: main dae4b26 (brain-8 merged; 2 live_t1 cases now manual), data-pipeline f6354d6 (it3 merge, tau fitted on val per model; argmax and tuned on route_v2/route_v1_clean), planner-demos 9008990 (eval gate added, decisions-28 resolved), wip/local 972081d (HANDOFF.md repeats .913/.658/19/22 without caveats).
+Heads: main 27ebd13 (HANDOFF.md merged), cloud/decisions b78d778 (FULL run dec-full-lr2e4 trained, 347 steps; no report), data-pipeline 34aff30, planner-retrieval 9786fa4 (v2-tune gold is the default bank, decisions-29 P2).
 
 ## Open P0/P1
-1. decisions-26 P1 LR pilot (2 Tinker runs) with no hypothesis, data revision, cost or metrics committed — reports/checkpoints.jsonl
+1. decisions-26 P1 LR pilot + FULL run (dec-full-lr2e4) with no hypothesis, data revision, cost or metrics committed — reports/checkpoints.jsonl
 2. decisions-14 P1 live_t1 T1 19/22 quoted while live_t1 was the brain-5 tuning set — pitch/claims.md:17,67
 3. decisions-25 P1 data-decisions brief targets a code-gold gap already closed — cloud/builder_data_decisions.md:8-9
 4. decisions-17 P1 noul 37.6% true; score levels 4-5 = 1.9% of score gold
