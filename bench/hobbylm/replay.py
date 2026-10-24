@@ -710,8 +710,8 @@ sys.path.insert(0, {str(args.hobby_dir)!r})
 from bench.hobbylm import replay as replay
 import hobbymac_run as helper
 from bench.hobbylm.calendar_safety import BENCH_CALENDAR
-helper.ROOT = {str(args.hobby_root)!r}
-helper.WORK = {str(args.work_dir)!r}
+helper.ROOT = Path({str(args.hobby_root)!r})
+helper.WORK = Path({str(args.work_dir)!r})
 helper.TEST_CAL = BENCH_CALENDAR
 kind = {kind!r}
 before = json.loads(base64.b64decode({encoded!r}).decode())
@@ -766,13 +766,14 @@ def _hobby_restore_script(args, start, current, trace):
     }, ensure_ascii=False, default=str).encode()).decode()
     python = f"""
 import base64, json, sys
+from pathlib import Path
 sys.path.insert(0, {str(ROOT)!r})
 sys.path.insert(0, {str(args.hobby_dir)!r})
 from bench.hobbylm import replay
 import hobbymac_run as helper
 from bench.hobbylm.calendar_safety import BENCH_CALENDAR
-helper.ROOT = {str(args.hobby_root)!r}
-helper.WORK = {str(args.work_dir)!r}
+helper.ROOT = Path({str(args.hobby_root)!r})
+helper.WORK = Path({str(args.work_dir)!r})
 helper.TEST_CAL = BENCH_CALENDAR
 payload = json.loads(base64.b64decode({encoded!r}).decode())
 replay._restore(helper, payload["start"], payload["trace"], payload["current"])
@@ -1275,6 +1276,8 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Non
                     "frames": result.get("frames", []),
                     "first_action_method": first_action.get("method"),
                     **session,
+                    **{key: result[key] for key in ("skip_reason", "error")
+                       if result.get(key)},
                     **({"calc_setup": "calculator_open_cleared"}
                        if task["kind"] == "calc" else {}),
                     **({
