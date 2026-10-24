@@ -3,6 +3,7 @@
   uv run --project ml python evals/planner_v2_run.py --v2-set v2-tune --model mlx-community/Qwen3.5-4B-4bit \
       --tag v2tune-base4b --constrain --done-alone --history dsl --system-extra prompts/planner_fewshot.md
   uv run --project ml python evals/planner_v2_run.py --v2-set v2-holdout --regrade <tag>
+  uv run --project ml python evals/planner_v2_run.py --v2-set v2-tune --retrieval-k 1 --tag v2tune-ret1 --model <path>
 All other flags are planner_offline.py's; --set is fixed to `tune` internally (its scenario list is replaced).
 Never tune on v2-holdout.
 """

@@ -536,10 +536,13 @@ def runtime_repr(line: str) -> str:
 
 
 class Runner:
-    def __init__(self, model: str, system_extra: str | None):
+    def __init__(self, model: str, system_extra: str | None,
+                 retrieval_k: int = 0, retrieval_bank: str = "v2-tune"):
         from brain.catalog import Catalog
         from brain.planner import Planner
-        self.p = Planner(model, Catalog.load(), few_shot=None)   # the harness controls the system prompt exactly
+        self.p = Planner(model, Catalog.load(), few_shot=None,
+                         retrieval_k=retrieval_k, retrieval_bank=retrieval_bank)
+        self.retrieval_k, self.retrieval_bank = retrieval_k, retrieval_bank
         if system_extra:
             self.p.system += "\n\n" + system_extra
         tok = self.p.tokenizer
@@ -563,13 +566,14 @@ class Runner:
             self.constraint = OpConstraint(self.tok, done_alone=cfg.done_alone)
         last = history(s["last_batch"], cfg.history)
         msgs = [Message(role="system", content=p.system),
-                Message(role="user", content=p.user_message(s["goal"], s["observation"], last, None,
+                Message(role="user", content=p.user_content(s["goal"], s["observation"], last, None,
                                                             s["script_output"])),
                 Message(role="assistant", content=SENTINEL)]
         toks = p._render_msgs(msgs)
         acut = p._content_cut(toks, SENTINEL)
         cache = copy.deepcopy(p._cache)
         cur = mx.array([toks[p._cut:acut]])
+        retrieval_ms = p.last_retrieval["ms"]
         t0 = time.perf_counter()
         ttft, n, buf, lines, cutter = None, 0, "", [], BatchCutter()
         in_script, script = False, []
@@ -619,8 +623,10 @@ class Runner:
         elif tail and not cutter.done and (o := cutter.push(tail)):
             lines.append(o)
         dt = (time.perf_counter() - t0) * 1000
-        return {"lines": lines, "ttft_ms": ttft or dt, "plan_ms": dt, "tokens": n,
-                "decode_tok_s": n / max(dt - (ttft or 0), 1) * 1000}
+        return {"lines": lines, "ttft_ms": (ttft or dt) + retrieval_ms, "plan_ms": dt,
+                "tokens": n, "decode_tok_s": n / max(dt - (ttft or 0), 1) * 1000,
+                "retrieved": p.last_retrieval["ids"], "retrieval_ms": retrieval_ms,
+                "prompt_tokens": acut, "dynamic_tokens": acut - p._cut}
 
 
 def sample(logits, cfg, rng) -> int:
@@ -708,7 +714,20 @@ def summarize(tag, model, knobs, rows) -> dict:
     for t in sorted({t for row in rows for t in row["tags"]}):
         sub = [row for row in rows if t in row["tags"]]
         by_tag[t] = round(sum(row["pass"] for row in sub) / len(sub), 3)
-    return {"tag": tag, "model": model, "knobs": knobs, "n": n,
+    knobs = dict(knobs)
+    knobs.setdefault("retrieval_k", 0)
+    knobs.setdefault("retrieval_bank", "v2-tune")
+    optional = {
+        "ttft_ms_mean": (statistics.mean, 1),
+        "prompt_tokens_mean": (statistics.mean, 1),
+        "dynamic_tokens_mean": (statistics.mean, 1),
+        "retrieval_ms_p50": (statistics.median, 1),
+    }
+    diagnostics = {}
+    for key, (aggregate, digits) in optional.items():
+        values = [row[key] for row in rows if key in row]
+        diagnostics[key] = round(aggregate(values), digits) if values else None
+    return {"tag": tag, "model": model, "knobs": knobs, "n": n, **diagnostics,
             "pass": round(sum(x["pass"] for x in rows) / n, 3),
             "strict_pass": round(sum(x["strict_pass"] for x in rows) / n, 3),
             "valid": round(sum(x["valid"] for x in rows) / n, 3),
@@ -738,7 +757,7 @@ def regrade(tags):
               f"skipped={s['skipped_lines_mean']}")
 
 
-def main():
+def build_parser():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model")
     ap.add_argument("--tag")
@@ -754,7 +773,14 @@ def main():
     ap.add_argument("--only", help="comma-separated scenario ids")
     ap.add_argument("--set", choices=("tune", "holdout", "holdout2"), default="tune",
                     help="holdout = scenarios written after the knob sweep (never tune on them)")
+    ap.add_argument("--retrieval-k", type=int, choices=(0, 1, 2), default=0)
+    ap.add_argument("--retrieval-bank", default="v2-tune")
     ap.add_argument("--list", action="store_true")
+    return ap
+
+
+def main():
+    ap = build_parser()
     a = ap.parse_args()
     if a.set == "holdout":
         S[:] = HOLDOUT
@@ -770,7 +796,8 @@ def main():
     if not (a.model and a.tag):
         ap.error("--model and --tag are required")
     scen = [s for s in S if not a.only or s["id"] in a.only.split(",")]
-    r = Runner(a.model, "\n\n".join(Path(f).read_text() for f in a.system_extra) if a.system_extra else None)
+    r = Runner(a.model, "\n\n".join(Path(f).read_text() for f in a.system_extra) if a.system_extra else None,
+               retrieval_k=a.retrieval_k, retrieval_bank=a.retrieval_bank)
     r.turn(scen[0], argparse.Namespace(**vars(a), seed=0))      # warm-up (prefix cache + kernels), not scored
     rows = []
     for seed in range(a.seeds if a.temp > 0 else 1):
@@ -779,13 +806,15 @@ def main():
             out = r.turn(s, cfg)
             g = grade(s, out["lines"])
             rows.append({"id": s["id"], "tags": s["tags"], "seed": seed, **g, **{k: out[k] for k in
-                         ("ttft_ms", "plan_ms", "tokens", "decode_tok_s")}, "lines": out["lines"]})
+                         ("ttft_ms", "plan_ms", "tokens", "decode_tok_s", "retrieved", "retrieval_ms",
+                          "prompt_tokens", "dynamic_tokens")}, "lines": out["lines"]})
+            retrieved = f" ret={','.join(out['retrieved'])}" if a.retrieval_k > 0 else ""
             print(f"{'PASS' if g['pass'] else 'fail'} {s['id']:28} first={g['first'][:70]!r}"
                   f"{'' if g['valid'] else ' INVALID'}{' REJECT' if g['rejected'] else ''}"
-                  f"{'' if g['confirm_ok'] else ' NO-CONFIRM'}  {out['plan_ms']:.0f}ms", flush=True)
+                  f"{'' if g['confirm_ok'] else ' NO-CONFIRM'}  {out['plan_ms']:.0f}ms{retrieved}", flush=True)
     summary = summarize(a.tag, a.model, {k: getattr(a, k) for k in
                         ("constrain", "done_alone", "temp", "top_p", "top_k", "seeds", "history",
-                         "system_extra")}, rows)
+                         "system_extra", "retrieval_k", "retrieval_bank")}, rows)
     out_dir = ROOT / "runs" / "planner_offline"
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / f"{a.tag}.json").write_text(json.dumps({"summary": summary, "rows": rows}, indent=1))

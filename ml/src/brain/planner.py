@@ -221,12 +221,21 @@ class Planner:
 
     def __init__(self, model_path: str, catalog, engine: DecisionEngine | None = None,
                  constrain: bool = PLANNER_CONSTRAIN_DEFAULT, done_alone: bool = True,
-                 few_shot: str | None = FEWSHOT_PATH, history: str = "dsl"):
+                 few_shot: str | None = FEWSHOT_PATH, history: str = "dsl",
+                 retrieval_k: int = 0, retrieval_bank: str = "v2-tune"):
         if history not in HISTORY_FORMATS:
             raise ValueError(f"history must be one of {HISTORY_FORMATS}")
+        if retrieval_k not in (0, 1, 2):
+            raise ValueError("retrieval_k must be 0, 1, or 2")
         self.model_path = model_path
         self.constrain, self.done_alone = constrain, done_alone
         self.few_shot, self.history = few_shot, history
+        self.retrieval_k, self.retrieval_bank = retrieval_k, retrieval_bank
+        self.plan_bank = None
+        if retrieval_k > 0:
+            from .plan_bank import PlanBank, load_bank
+            self.plan_bank = PlanBank(load_bank(retrieval_bank))
+        self.last_retrieval = {"ids": [], "ms": 0.0}
         self._constraint = None
         if engine is not None and engine.model_path == model_path:
             self.model, self.tokenizer = engine.model, engine.tokenizer
@@ -255,8 +264,12 @@ class Planner:
         return self._constraint if self.constrain else None
 
     def settings(self) -> str:
-        return (f"constrain={self.constrain} done_alone={self.done_alone} "
-                f"few_shot={self.few_shot or 'none'} history={self.history}")
+        result = (f"constrain={self.constrain} done_alone={self.done_alone} "
+                  f"few_shot={self.few_shot or 'none'} history={self.history} "
+                  f"retrieval_k={self.retrieval_k}")
+        if self.retrieval_k > 0:
+            result += f" retrieval_bank={self.retrieval_bank}"
+        return result
 
     def _arg_sig_for(self, name):
         eng = self.engine or DecisionEngine.__new__(DecisionEngine)
@@ -310,6 +323,24 @@ class Planner:
             parts.extend(last_batch)
         return "\n".join(parts)
 
+    def retrieval_block(self, goal: str, observation: str) -> str:
+        from .plan_bank import render_block
+
+        started = time.perf_counter()
+        demos = self.plan_bank.retrieve(goal, observation, self.retrieval_k) if self.plan_bank else []
+        ids = [demo.id or demo.goal for demo in demos]
+        block = render_block(demos)
+        self.last_retrieval = {"ids": ids, "ms": (time.perf_counter() - started) * 1000}
+        return block
+
+    def user_content(self, goal: str, observation: str,
+                     last_batch: list[str] | None,
+                     hint: str | None = None,
+                     script_output: str | None = None,
+                     login_page: bool = False) -> str:
+        return self.retrieval_block(goal, observation) + self.user_message(
+            goal, observation, last_batch, hint, script_output, login_page)
+
     # ---------- streaming decode (runs on the MLX worker thread) ----------
 
     def plan(self, goal: str, observation: str, last_batch,
@@ -324,7 +355,7 @@ class Planner:
         if self._cache is None:
             self._build_cache()
         msgs = [Message(role="system", content=self.system),
-                Message(role="user", content=self.user_message(
+                Message(role="user", content=self.user_content(
                     goal, observation, last_batch, hint, script_output,
                     login_page)),
                 Message(role="assistant", content=SENTINEL)]
@@ -405,7 +436,9 @@ class Planner:
         dt = (time.perf_counter() - t0) * 1000
         return {"lines": lines, "ttft_ms": ttft or dt,
                 "decode_tok_s": n_decoded / max(dt - (ttft or 0), 1) * 1000,
-                "tokens": n_decoded, "plan_ms": dt}
+                "tokens": n_decoded, "plan_ms": dt,
+                "retrieved": self.last_retrieval["ids"], "prompt_tokens": acut,
+                "dynamic_tokens": acut - self._cut}
 
     def generate(self, system: str, user: str, max_tokens: int = 48,
                  stop_at_newline: bool = True) -> str:
