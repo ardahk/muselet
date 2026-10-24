@@ -1,9 +1,9 @@
 {
-  "pass": 41,
-  "ts": "2026-10-24T21:05Z",
+  "pass": 42,
+  "ts": "2026-10-24T21:15Z",
   "branches": {
-    "main": "27ebd13",
-    "wip/local": "4585ce4",
+    "main": "3876f3a",
+    "wip/local": "3cfa06d",
     "cloud/bench": "f584cb2",
     "cloud/data-pipeline": "34aff30",
     "cloud/decisions": "b78d778",
@@ -38,7 +38,7 @@
     "cloud/brain-8": "4546d09",
     "cloud/planner-demos": "9008990",
     "cloud/clock-timers": "d060b5a",
-    "cloud/comms-2": "265c86d",
+    "cloud/comms-2": "c65ee70",
     "cloud/mascot-animal": "238db23",
     "cloud/planner-retrieval": "9786fa4"
   },
