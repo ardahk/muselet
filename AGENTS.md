@@ -143,6 +143,10 @@ actions, results, per-stage latencies, final verification. Traces feed evals, fa
   `runs/tinker_spend.jsonl` and sends the training session a pause/stop at $60 / $135). Add a reviewer lane:
   `tools/add_reviewer.sh <lane> cloud/review/<lane>.md`.
 - Tinker spend: `python3 tools/tinker_spend.py` (billing data lags by up to a few hours).
+- Local memory budget (the dev Mac is also the user's machine; it once ran out of memory): one main brain
+  (:8765) plus at most ONE extra model process at a time; check `sysctl -n kern.memorystatus_level` >= 40 before
+  loading a model; run model benchmarks sequentially and kill each process after its run; prefer cloud sessions for
+  anything that doesn't need macOS. `nohup tools/mem_guard.sh &` kills agent benchmark processes below 25% free.
 
 ## Conventions
 - Pin dependency versions; prefer releases at least 7 days old.
