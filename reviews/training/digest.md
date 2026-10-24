@@ -1,24 +1,23 @@
-# training review digest: pass 16
-_heads: cloud/data-pipeline 70b7d1b (iteration 2: ask_rule, finance_check, it2 top-ups, hypotheses); main bb494af (router_check, decisions builder brief); bench f584cb2 and wip/local c85a000 have nothing in my lane_
+# training lane digest — pass 17 (main 2920225, cloud/data-pipeline 5371185)
+
+Open: 1 P0, 9 P1, 8 P2. Resolved this pass: training-11 (UtteranceCtx.swift:68-118@2920225 reports Finder item selection).
+"branch-only" = code lives only on cloud/data-pipeline (PR #2, still unmerged into main).
 
 ## Open P0/P1 (ranked)
-- **training-23** [P0] The main run was trained and evaluated on the stale pre-fix route_dedup.jsonl. It is acknowledged and v2it2 is planned; the external-decontam status of the stale file is still unanswered, and router_check runs main (`training/reports/phase1_it2_plan.md`).
-- **training-5** [P1] Two Tinker spenders now share about $81 of headroom; both use per-run guards and billing lags (`cloud/builder_decisions.md`, `train.py`).
-- **training-26** [P1] ask_rule relabels unclear-referent ASK ("send it to him") as a concrete skill (`training/src/muselet_train/ask_rule.py:67-74`).
-- **training-27** [P1] Iteration 2 tunes data against route_v1, so it is no longer held-out (`training/reports/phase1_it2_plan.md:24-31`).
-- **training-28** [P1] media_control and premiere_command conflict on the same playback words in Premiere (`training/src/muselet_train/contexts.py:55-65`).
-- **training-24** [P1] The router almost never ASKs; a fix is in progress (`datums.py`).
-- **training-25** [P1] media_control, dark_mode and find_file are weak; top-ups are in progress (`gen.py`).
-- **training-14** [P1] main has catalog v2 but 36-option parity samples (`training/artifacts/route_render_samples.jsonl`).
-- **training-8** [P1] No per-label 15% A1 STOP gate (`adjudicate.py`).
-- **training-15** [P1] The teacher subset skews the label prior (`teacher.py`).
-- **training-11** [P1] Finder selection semantics (`contexts.py`).
-
-Open P2: training-9, -10, -12, -13, -18, -19, -20, -22.
+1. training-23 P0 — Main router trained/evaluated on stale pre-fix route data — main checkpoint (`evals/router_check.py:10`); new `datums_export.py --route-source dedup` can republish the stale rows for multi-task replay (branch-only code)
+2. training-5 P1 — Shared Tinker cap ($81 headroom), lagging billing, per-run-only guard — `tools/tinker_spend.py`, `cloud/builder_decisions.md:57-58`; cloud/decisions@3a865a0 now has a Tinker backend
+3. training-27 P1 — route_v1 tuned against but quoted as accuracy — `pitch/claims.md:13@2920225`, `training/reports/phase1_it2_plan.md`
+4. training-14 P1 — Main parity reference still 36 options; parity test xfails while pitch claims byte-identical — `training/artifacts/route_render_samples.jsonl`
+5. training-26 P1 — ASK rule treats pronoun values as concrete (fresh repro @5371185) — `training/src/muselet_train/ask_rule.py` (branch-only)
+6. training-28 P1 — media_control sampled in Premiere Pro 7.9% — `training/src/muselet_train/contexts.py` (branch-only)
+7. training-24 P1 — Router almost never ASKs (val 0/3) — `training/src/muselet_train/datums.py` (branch-only fix, not run)
+8. training-25 P1 — Weak per-label val (media_control 32%, dark_mode 68%) — `training/reports/phase1_main.md`
+9. training-8 P1 — No per-label 15% adjudication stop gate — `training/src/muselet_train/adjudicate.py` (branch-only)
+10. training-15 P1 — Teacher subset skew / hard-soft mixing — `training/src/muselet_train/teacher.py` (branch-only)
 
 ## Highest-leverage next moves
-1. Before launching v2it2: treat pronoun values as missing in ask_rule.verdict (training-26) and keep media_control out of Premiere (training-28), since both are one-line changes.
-2. Freeze a fresh held-out route set and confirm H1-H8 on val; quote route_v1 as dev from now on (training-27).
-3. Set one shared ledger: each worker's --max-usd is at most 150 minus billed minus every unbilled estimate from both workers (training-5).
-4. Don't quote main's route_v1 numbers or router_check tau; re-run router_check on the v2it2 parity file (training-23).
-5. Report decontam counts for v2it2, including the it2 top-ups, in the it2 report (training-10).
+- Merge PR #2's 41-option `route_render_samples.jsonl` (+ trainer) so main's parity test stops xfailing before the pitch claim ships.
+- Before v2it2: fix pronoun ASK verdicts and block media_control in Premiere, then retrain from route_train/route_val (~$29) with `--pin-split-from`.
+- Never export `--route-source dedup` for training; any decisions multi-task replay must use the split-based datums.
+- One shared spend ledger for both Tinker workers: per-run cap = 150 − billed − unbilled estimates of both.
+- Make a fresh held-out route set (or relabel route_v1 as dev) before quoting `{{route_acc}}`.
