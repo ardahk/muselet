@@ -10,6 +10,7 @@ import ast
 import math
 import operator
 import re
+from dataclasses import dataclass
 
 _ONES = {"zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
          "six": 6, "seven": 7, "eight": 8, "nine": 9}
@@ -21,6 +22,13 @@ _TENS = {"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60,
 _SCALES = {"thousand": 1_000, "million": 1_000_000, "billion": 1_000_000_000}
 _NUMWORDS = set(_ONES) | set(_TEENS) | set(_TENS) | set(_SCALES) | {"hundred"}
 _DIGITS = re.compile(r"^\d+(?:\.\d+)?$")
+
+
+@dataclass(frozen=True)
+class CalcResult:
+    answer: str
+    value: float | None
+    expr: str | None
 
 
 def _kind(w: str) -> str | None:
@@ -237,6 +245,50 @@ _SPOKEN_OP = {"+": "plus", "-": "minus", "*": "times", "/": "divided by",
               "**": "to the power of"}
 
 
+def _simple_expression(s: str) -> str | None:
+    expression = s
+    for pattern, replacement in _OP_WORDS:
+        expression = re.sub(pattern, replacement, expression)
+    expression = re.sub(r"\s+", " ", expression).strip()
+    match = re.fullmatch(r"(\d+(?:\.\d+)?)\s*([+\-*/])\s*(\d+(?:\.\d+)?)",
+                         expression)
+    return f"{match.group(1)}{match.group(2)}{match.group(3)}" if match else None
+
+
+def _problem_expression(s: str) -> str | None:
+    if _simple_expression(s):
+        return None
+    numbers = re.findall(r"(?<![\w.])\d+(?:\.\d+)?(?![\w.])", s)
+    if re.search(r"\bcost of (?:one|1)\b", s) and len(numbers) >= 2:
+        return f"{numbers[1]}/{numbers[0]}"
+    if len(numbers) != 2:
+        return None
+    first, second = numbers
+    if re.search(r"\b(?:change|ate)\b", s):
+        return f"{first}-{second}"
+    if re.search(r"\bhow much less\b", s):
+        return f"{second}-{first}"
+    if re.search(r"\b(?:bigger|larger|greater) than\b", s):
+        return f"{first}-{second}"
+    if re.search(r"\b(?:off|short of|out of|from|change|remain|remaining|left|ate)\b", s):
+        return f"{second}-{first}"
+    if re.search(r"\bgo into\b", s):
+        return f"{second}/{first}"
+    if re.search(r"\b(?:shared by|equal shares?|each pays|cost of one|speed)\b", s):
+        return f"{first}/{second}" if "cost of one" not in s else f"{second}/{first}"
+    if re.search(r"\bper hour\b.*\bstayed\b|\beach\b.*\btotal weight\b", s):
+        return f"{first}*{second}"
+    op_text = s
+    for pattern, replacement in _OP_WORDS:
+        op_text = re.sub(pattern, replacement, op_text)
+    op = re.search(r"[+*/]|(?<!\d)-", op_text)
+    if op:
+        return f"{first}{op.group(0)}{second}"
+    if re.search(r"\btotal\b", s) and re.search(r"\beach\b", s):
+        return f"{first}*{second}"
+    return None
+
+
 def _eval(node):
     if isinstance(node, ast.Expression):
         return _eval(node.body)
@@ -257,6 +309,9 @@ def _eval(node):
 
 def arithmetic(s: str) -> str | None:
     """Digits-only text with op words -> 'x times y is z'."""
+    problem = _problem_expression(s)
+    if problem:
+        return arithmetic(problem)
     m = re.match(rf"^(?:the )?square root of {NUM}$", s)
     if m:
         v = float(m.group(1))
@@ -376,9 +431,63 @@ def conversion(s: str) -> str | None:
     return None
 
 
-def answer(text: str) -> str | None:
-    """Exact spoken answer, or None (fall back to the model)."""
-    s, money = normalize(text)
+def _strip_calculator_phrasing(text: str) -> str:
+    text = re.sub(
+        r"\b(?:on|in|with|using)\s+(?:the\s+)?calculator(?:\s+app)?\b",
+        " ", text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"\buse\s+(?:the\s+)?calculator(?:\s+app)?\s+(?:to|and)\b",
+        " ", text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"\bopen\s+(?:the\s+)?calculator(?:\s+app)?\s+and\b",
+        " ", text, flags=re.IGNORECASE)
+    return re.sub(r"\b(?:the\s+)?calculator(?:\s+app)?\b", " ", text,
+                  flags=re.IGNORECASE)
+
+
+def _colloquial_numbers(text: str) -> str:
+    ones = "|".join(word for word in _ONES if word != "zero")
+    tens = "|".join(_TENS)
+    text = re.sub(r"\bhalf a dozen\b", "six", text, flags=re.IGNORECASE)
+    text = re.sub(r"\ba dozen\b", "twelve", text, flags=re.IGNORECASE)
+    pattern = re.compile(rf"\b({ones})\s+({tens})(?:\s+({ones}))?\b",
+                         re.IGNORECASE)
+
+    def replace(match):
+        first = _ONES[match.group(1).lower()]
+        tens_value = _TENS[match.group(2).lower()]
+        last = _ONES[match.group(3).lower()] if match.group(3) else 0
+        return str(first * 100 + tens_value + last)
+
+    return pattern.sub(replace, text)
+
+
+def _numeric_answer(answer: str) -> float | None:
+    matches = re.findall(r"(?<![A-Za-z])[-−]?\$?\d[\d,]*(?:\.\d+)?", answer)
+    if not matches:
+        return None
+    try:
+        return float(matches[-1].replace("$", "").replace(",", "").replace("−", "-"))
+    except ValueError:
+        return None
+
+
+def result(text: str) -> CalcResult | None:
+    """Return the spoken answer with its numeric value and keyable expression."""
+    source = _strip_calculator_phrasing(text)
+    power_source = _TAIL.sub("", _FILLER.sub("", source, count=1)).strip()
+    power = re.fullmatch(
+        r"(\d+(?:\.\d+)?)\s+to the power of\s+(\d+)", power_source,
+        flags=re.IGNORECASE)
+    if power:
+        base, exponent = map(float, power.groups())
+        value = base ** exponent
+        return CalcResult(
+            f"{_fmt_num(base)} to the power of {_fmt_num(exponent)} is {_fmt_num(value)}",
+            value, None)
+    if not re.search(r"\$|\bdollars?\b|\bbucks?\b|\btip\b", source, re.I):
+        source = _colloquial_numbers(source)
+    s, money = normalize(source)
     s = _FILLER.sub("", s, count=1)
     s = _TAIL.sub("", s).strip()
     s = re.sub(r"^(?:the )?(?:answer to |result of )", "", s)
@@ -388,5 +497,15 @@ def answer(text: str) -> str | None:
                lambda: arithmetic(s)):
         out = fn()
         if out:
-            return out
+            value = _numeric_answer(out)
+            return CalcResult(out, value,
+                              _simple_expression(s) if value is not None else None)
+    return None
+
+
+def answer(text: str) -> str | None:
+    """Exact spoken answer, or None (fall back to the model)."""
+    parsed = result(text)
+    if parsed is not None:
+        return parsed.answer
     return None

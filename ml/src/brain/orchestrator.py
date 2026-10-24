@@ -6,6 +6,7 @@ Everything is traced and the app gets ui/say messages.
 
 import asyncio
 import logging
+import math
 import os
 import re
 import threading
@@ -203,6 +204,26 @@ class Orchestrator:
         """Return a plan: {"kind": "skill"|"batch"|"fallback", ...}."""
         t = text.strip().lower()
 
+        if not re.search(r"\d", calc.normalize(text)[0]):
+            bright_up = bool(re.search(r"\b(brighter|brighten|up|increase|raise|higher|more)\b", t))
+            bright_down = bool(re.search(r"\b(dimmer|dim|darker|down|decrease|lower|less|reduce)\b", t))
+            bright_context = re.search(r"\b(brightness|screen|display)\b", t)
+            if bright_up != bright_down and bright_context:
+                return {"kind": "skill", "name": "set_brightness",
+                        "args": {"delta": 15 if bright_up else -15}}
+            volume_up = bool(re.search(r"\b(louder|up|increase|raise|higher)\b", t))
+            volume_down = bool(re.search(r"\b(quieter|softer|down|lower|decrease|reduce)\b", t))
+            if volume_up != volume_down:
+                from .decision import normalize_delta
+                magnitude = re.search(r"\b(a bit|a little|a lot|bit|little|lot|way)\b", t)
+                delta = normalize_delta(
+                    magnitude.group(1) if magnitude else "",
+                    "down" if volume_down else "up")
+                if delta is None:
+                    delta = 10 if volume_up else -10
+                return {"kind": "skill", "name": "change_volume",
+                        "args": {"delta": delta}}
+
         if "volume" in t:
             rest = t[t.index("volume") + len("volume"):]
             for tok in re.split(r"[\s,.]+", rest):
@@ -272,6 +293,13 @@ class Orchestrator:
                 self._pending_task = None
                 outcome = await self._planner_loop(
                     goal, trace, answer=text)
+            elif (calc_result := calc.result(text)) is not None:
+                calculator = calc_result.value is not None and (
+                    str(self._ctx.get("app", "")).casefold() == "calculator"
+                    or re.search(r"\bcalculator\b", text, re.IGNORECASE) is not None
+                )
+                outcome = await self._deliver_calc(
+                    calc_result, trace, calculator=calculator)
             elif self.engine is not None:
                 outcome = await self._engine_route(text, trace)
             else:
@@ -283,10 +311,9 @@ class Orchestrator:
                           "args": plan["args"]}])
                 elif plan["kind"] == "batch":
                     outcome = await self.execute_actions(plan["actions"])
-                elif (ans := calc.answer(text)) is not None:
-                    trace["decisions"].append({"calc": ans})
-                    await self.server.say(ans)
-                    await self._end_ui("success")
+                elif (parsed := calc.result(text)) is not None:
+                    outcome = await self._deliver_calc(
+                        parsed, trace, calculator=False)
                 else:
                     await self._observe()
                     await self.server.say("I can't do that yet")
@@ -395,8 +422,13 @@ class Orchestrator:
         return await self._run_skill(label, raw_args, text, trace)
 
     def _missing(self, name: str, args: dict) -> list[str]:
-        return [a["name"] for a in (self.catalog.get(name) or {}).get("args", [])
-                if a.get("required") and args.get(a["name"]) in (None, "")]
+        spec = self.catalog.get(name) or {}
+        missing = [a["name"] for a in spec.get("args", [])
+                   if a.get("required") and args.get(a["name"]) in (None, "")]
+        one_of = spec.get("require_one_of", [])
+        if one_of and not any(args.get(key) not in (None, "") for key in one_of):
+            missing.append(one_of[0])
+        return missing
 
     async def _run_skill(self, label: str, raw_args: dict, text: str,
                          trace: dict) -> str:
@@ -405,6 +437,24 @@ class Orchestrator:
         if to and self.catalog.get(to) and (lvl := abs_level(text)) is not None:
             trace["decisions"].append({"abs_switch": [label, to, lvl]})
             label, raw_args = to, {"level": lvl}
+        if not re.search(r"\d", calc.normalize(text)[0]) and abs_level(text) is None:
+            lower = text.casefold()
+            if label in ("set_brightness", "change_brightness"):
+                up = bool(re.search(r"\b(brighter|brighten|up|increase|raise|higher|more)\b", lower))
+                down = bool(re.search(r"\b(dimmer|dim|darker|down|decrease|lower|less|reduce)\b", lower))
+                if up != down and "delta" not in raw_args:
+                    raw_args = {**raw_args, "delta": 15 if up else -15}
+            elif label in ("set_volume", "change_volume"):
+                up = bool(re.search(r"\b(louder|up|increase|raise|higher)\b", lower))
+                down = bool(re.search(r"\b(quieter|softer|down|lower|decrease|reduce)\b", lower))
+                if up != down and "delta" not in raw_args:
+                    from .decision import normalize_delta
+                    magnitude = re.search(r"\b(a bit|a little|a lot|bit|little|lot|way)\b", lower)
+                    delta = normalize_delta(
+                        magnitude.group(1) if magnitude else "",
+                        "down" if down else "up")
+                    raw_args = {**raw_args, "delta": delta if delta is not None else (10 if up else -10)}
+                    label = "change_volume"
         spec = self.catalog.get(label) or {}
         raw_args = slots.fill_defaults(label, raw_args, text)
         for a in spec.get("args", []):
@@ -622,12 +672,14 @@ class Orchestrator:
         return res, (ext if gen == self._spec_gen else None)
 
     async def _answer(self, text: str, trace: dict) -> str:
-        ans = calc.answer(text)      # exact by code: never ask the model
-        if ans is not None:
-            trace["decisions"].append({"calc": ans})
-            await self.server.say(ans)
-            await self._end_ui("success")
-            return "ok"
+        parsed = calc.result(text)      # exact by code: never ask the model
+        if parsed is not None:
+            calculator = parsed.value is not None and (
+                str(self._ctx.get("app", "")).casefold() == "calculator"
+                or re.search(r"\bcalculator\b", text, re.IGNORECASE) is not None
+            )
+            return await self._deliver_calc(
+                parsed, trace, calculator=calculator)
         if self.planner is not None:
             from .planner import worker
             ans = await worker().submit_async(
@@ -639,6 +691,105 @@ class Orchestrator:
             await self.server.say("I'll answer that soon")
         await self._end_ui("success")
         return "ok"
+
+    async def _deliver_calc(self, parsed, trace: dict, *,
+                            calculator: bool) -> str:
+        target = "calculator" if calculator else "bubble"
+        trace["decisions"].append({
+            "calc": parsed.answer,
+            "calc_target": target,
+        })
+        if not calculator or parsed.value is None:
+            await self.server.say(parsed.answer)
+            await self._end_ui("success")
+            return "ok"
+
+        readback = None
+        matched = False
+        try:
+            source = parsed.expr or format(parsed.value, ".12g")
+            if parsed.expr is None and parsed.value < 0:
+                source = f"0-{format(abs(parsed.value), '.12g')}"
+            actions = [
+                {"op": "open", "app": "Calculator"},
+                {"op": "keys", "combo": "esc"},
+                *(
+                    {"op": "keys", "combo": key}
+                    for key in self._calculator_keys(source + "=")
+                ),
+            ]
+            for action in actions:
+                await self._calculator_act(action)
+            code = self._calculator_readback_script()
+            if self.script_needs_confirm("jxa", code):
+                raise RuntimeError("calculator read-back requires confirmation")
+            result = await self._calculator_act(
+                {"op": "script", "lang": "jxa", "code": code},
+                return_result=True)
+            readback = self._readback_text(result)
+            normalized = re.sub(r"[\s,]", "", str(readback)).replace("\u2212", "-")
+            match = re.search(r"[-+]?\d+(?:\.\d+)?", normalized)
+            if match:
+                matched = math.isclose(
+                    float(match.group(0)), parsed.value, rel_tol=1e-9)
+        except Exception:
+            matched = False
+        trace["calc_readback"] = readback
+        await self.server.say(parsed.answer)
+        await self._end_ui("success" if matched else "confused")
+        return "ok" if matched else "failed"
+
+    @staticmethod
+    def _calculator_keys(text: str) -> list[str]:
+        return [
+            "shift+=" if char == "+" else "shift+8" if char == "*" else char
+            for char in text
+        ]
+
+    @staticmethod
+    def _calculator_readback_script() -> str:
+        return '''
+var se = Application("System Events");
+var process = se.processes.byName("Calculator");
+var window = process.windows[0];
+var input = window.uiElements().find(function (node) {
+  return node.role() === "AXScrollArea" && node.description() === "Input";
+});
+var get = input.uiElements().find(function (node) {
+  return node.role() === "AXStaticText";
+}).value();
+return get;
+'''
+
+    @staticmethod
+    def _readback_text(result) -> str:
+        if isinstance(result, dict):
+            for key in ("output", "value", "stdout", "result"):
+                if key in result:
+                    value = result[key]
+                    if isinstance(value, dict):
+                        return Orchestrator._readback_text(value)
+                    if value is not None:
+                        return str(value)
+        return str(result) if result is not None else ""
+
+    async def _calculator_act(self, params: dict, *, return_result=False):
+        if self._last_epoch is not None:
+            params["epoch"] = self._last_epoch
+        started = time.perf_counter()
+        try:
+            result = await self.server.rpc("act", params, timeout=15)
+        except RuntimeError as exc:
+            self.tracer.rpc("act", params, {"error": str(exc)},
+                            (time.perf_counter() - started) * 1000)
+            raise
+        self.tracer.rpc("act", params, self._trace_res(result),
+                        (time.perf_counter() - started) * 1000)
+        if result.get("epoch"):
+            self._last_epoch = result["epoch"]
+        if not result.get("ok", False):
+            raise RuntimeError(str(result.get("error", "calculator act failed")))
+        return result if return_result else True
 
     def _label_of(self, ref: int | None) -> str:
         if ref is None or not self._last_obs:
@@ -1440,8 +1591,13 @@ class Orchestrator:
         self.tracer.rpc("skill", {"name": name, "args": args},
                         self._trace_res(res), (time.perf_counter() - t) * 1000)
         if not res.get("ok", False):
-            return await self._fail(res.get("error", "?"), replies.fail_text(
-                name, args, str(res.get("error", ""))))
+            friendly = (
+                "I can't change brightness by steps yet"
+                if name in ("set_brightness", "change_brightness")
+                and "delta" in args
+                else replies.fail_text(name, args, str(res.get("error", "")))
+            )
+            return await self._fail(res.get("error", "?"), friendly)
         reply = replies.success_text(name, args, res.get("result"))
         if self._collect is not None:
             self._collect.append(reply)

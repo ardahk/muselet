@@ -61,6 +61,11 @@ class Catalog:
         for a in spec.get("args", []):
             if a.get("required") and a["name"] not in out:
                 raise CatalogError(f"{name}: missing required arg {a['name']!r}")
+        one_of = spec.get("require_one_of", [])
+        if one_of and not any(key in out and out[key] not in (None, "")
+                              for key in one_of):
+            raise CatalogError(
+                f"{name}: requires one of {', '.join(one_of)}")
         return out
 
     @staticmethod
