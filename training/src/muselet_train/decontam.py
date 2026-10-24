@@ -35,9 +35,10 @@ def _j(a: set, b: set) -> float:
 
 
 class Feats:
-    __slots__ = ("text", "toks", "c5", "b2", "g8")
+    __slots__ = ("text", "toks", "c5", "b2", "g8", "src")
 
-    def __init__(self, text: str):
+    def __init__(self, text: str, src: str = ""):
+        self.src = src
         self.text = norm(text)
         self.toks = self.text.split()
         self.c5 = _ngrams(self.text, 5) or {self.text}
@@ -45,17 +46,20 @@ class Feats:
         self.g8 = _ngrams(self.toks, 8) if len(self.toks) >= 12 else set()
 
 
-def eval_utterances() -> list[str]:
-    out = [json.loads(ln)["utterance"] for p in sorted((REPO / "evals").glob("**/*.jsonl"))
+def eval_utterances() -> list[tuple[str, str]]:
+    """(source, utterance) for every repo eval JSONL (route_v1, live_t1, ...) and the HobbyLM frozen tests."""
+    out = [(p.stem, json.loads(ln)["utterance"]) for p in sorted((REPO / "evals").glob("**/*.jsonl"))
            for ln in p.read_text().splitlines() if ln.strip()]
     for p in sorted(HOBBY.glob("*.tsv")):
-        out += [row[2] for row in csv.reader(p.open(), delimiter="\t") if len(row) > 2 and row[2].strip()]
+        out += [("hobbylm/" + p.stem, row[2]) for row in csv.reader(p.open(), delimiter="\t")
+                if len(row) > 2 and row[2].strip()]
     return out
 
 
 class Index:
-    def __init__(self, texts: list[str]):
-        self.evals = [Feats(t) for t in texts if norm(t)]
+    def __init__(self, texts: list[str] | list[tuple[str, str]]):
+        pairs = [t if isinstance(t, tuple) else ("", t) for t in texts]
+        self.evals = [Feats(t, src) for src, t in pairs if norm(t)]
         self.exact = {e.text: e for e in self.evals}
         self.by_c5 = collections.defaultdict(list)
         for i, e in enumerate(self.evals):
@@ -81,24 +85,27 @@ class Index:
 def run(run_name: str, seed: int) -> dict:
     idx = Index(eval_utterances())
     d = DATA / run_name
-    rep = {"eval_utterances": len(idx.evals), "dropped": {}, "pairs": []}
+    rep = {"eval_utterances": dict(collections.Counter(e.src for e in idx.evals)), "dropped": {},
+           "dropped_by_eval_source": {}, "pairs": []}
     pairs = []
     for name, lab_key in (("route", "label"), ("args", "skill")):
         src = d / f"{name}.pre_decontam.jsonl"
         if not src.exists():
             (d / f"{name}.jsonl").rename(src)
         rows = [json.loads(ln) for ln in src.read_text().splitlines() if ln.strip()]
-        kept, drop = [], collections.Counter()
+        kept, drop, by_src = [], collections.Counter(), collections.Counter()
         for r in rows:
             m = idx.match(r["utterance"])
             if m:
                 drop[r[lab_key]] += 1
+                by_src[m[1].src] += 1
                 pairs.append({"set": name, "label": r[lab_key], "rule": m[0], "train": r["utterance"],
-                              "eval": m[1].text})
+                              "eval": m[1].text, "eval_source": m[1].src})
             else:
                 kept.append(r)
         (d / f"{name}.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in kept))
         rep["dropped"][name] = dict(sorted(drop.items()))
+        rep["dropped_by_eval_source"][name] = dict(sorted(by_src.items()))
         rep[f"{name}_in"], rep[f"{name}_kept"] = len(rows), len(kept)
     rep["pairs"] = random.Random(seed).sample(pairs, min(10, len(pairs)))
     (d / "decontam.json").write_text(json.dumps(rep, indent=1, ensure_ascii=False))
