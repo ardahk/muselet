@@ -1,11 +1,12 @@
 {
- "pass": 2,
+ "pass": 3,
  "reviewed": {
-  "main": "10793e0",
-  "wip/local": "1d7cc07",
+  "main": "dec310b",
+  "wip/local": "cbc4879",
   "cloud/fixtures-docs": "4bf2291",
-  "cloud/data-pipeline": "4cbb74a",
-  "cloud/finance": "f098120"
- },
- "recheck": "planner-1..8 still open at wip/local 1d7cc07 / main 10793e0 (dsl.py, catalog.py, MULTI_STEP, confirm paths unchanged)"
+  "cloud/data-pipeline": "8c7c023",
+  "cloud/finance": "529e9ff",
+  "cloud/advisor": "9432c30",
+  "cloud/bench": "8429245"
+ }
 }
