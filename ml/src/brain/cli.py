@@ -102,7 +102,8 @@ async def serve(port: int = 8765, model: str | None = None,
                 planner_kw: dict | None = None,
                 args_model: str | None = None,
                 escalate_model: str | None = None,
-                grounder: dict | None = None):
+                grounder: dict | None = None,
+                verify_done: bool = True):
     server = BrainServer(port=port)
     await server.start()
     engine = None
@@ -117,6 +118,9 @@ async def serve(port: int = 8765, model: str | None = None,
         planner = make_planner(pmodel, engine, planner_kw)
     orch = Orchestrator(server, Catalog.load(), Tracer(), engine=engine)
     orch.planner = planner
+    orch.verify_done = verify_done
+    print(f"[planner] verify_done={'on' if verify_done else 'off'}",
+          flush=True)
     esc = {**ESCALATE_OPTS, **{k: v for k, v in (planner_kw or {}).items()
                                if k.startswith("think_")}}
     orch.escalate_opts = esc
@@ -301,6 +305,8 @@ def build_parser(argv=None):
                    help="model for ARGS; default: same as --model")
     s.add_argument("--planner-model", default=None,
                    help="planner model; default: cached Qwen3.5-4B-4bit")
+    s.add_argument("--verify-done", choices=("on", "off"), default="on",
+                   help="verify planner done (expect or model check) + bounded recovery; off = old behaviour")
     s.add_argument("--planner-constrain", action=argparse.BooleanOptionalAction,
                    default=None, help="line-start DSL op constraint "
                    "(default: planner.PLANNER_CONSTRAIN_DEFAULT)")
@@ -354,9 +360,10 @@ def run_cmd(args, ap):
         am = _resolve_model(args.args_model) if args.args_model else None
         em = args.planner_escalate_model
         em = _resolve_model(em) if em and em.lower() != "none" else None
-        asyncio.run(serve(args.port, m, args.planner_model, planner_opts(args),
-                          args_model=am, escalate_model=em,
-                          grounder=grounder_cfg(args)))
+        asyncio.run(serve(
+            args.port, m, args.planner_model, planner_opts(args),
+            args_model=am, escalate_model=em, grounder=grounder_cfg(args),
+            verify_done=args.verify_done == "on"))
     elif args.cmd == "eval-route":
         eval_route(args.model, args.cases, args.out,
                    tau=getattr(args, "tau", 0.55), args_model=args.args_model)
