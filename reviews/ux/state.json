@@ -1,10 +1,10 @@
 {
-  "pass": 19,
-  "ts": "2026-10-24T10:25:00Z",
+  "pass": 20,
+  "ts": "2026-10-24T10:40:00Z",
   "last_reviewed": {
-    "main": "758a017",
-    "wip/local": "4350185",
-    "cloud/data-pipeline": "8881d38",
+    "main": "d514300",
+    "wip/local": "b63699f",
+    "cloud/data-pipeline": "f13aa6d",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
@@ -21,7 +21,7 @@
     "cloud/pitch-2": "3303678",
     "cloud/brain-4": "dfb66a3",
     "cloud/hobby-gaps": "929b931",
-    "cloud/brain-5": "003d1bb"
+    "cloud/brain-5": "b752261"
   },
-  "notes": "pass 19: wip 4350185 adds relative set_brightness with a read-back, timers RPCs, media keys, and a PushToTalkMonitor filter that ignores any tagged synthetic event (good: agent keys can't cancel the recording). It partly fixes ux-16 on the app side. data-pipeline has no lane edits."
+  "notes": "pass 20: main d514300 merges brain-4 (reviewed in passes 16-17) and HandsKit batch 5 (wip 4350185, reviewed in pass 19); wip b63699f matches main for lane files. brain-5 5cef455 adds a not_frontmost failure ('Opened it, but it didn't come to the front', 9 words; terminal, so no replan loop). ux-18 still open. data-pipeline has no lane edits."
 }
