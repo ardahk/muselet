@@ -1,6 +1,6 @@
 {
-  "pass": 28,
-  "ts": "2026-10-24T12:32:00Z",
+  "pass": 29,
+  "ts": "2026-10-24T12:50:00Z",
   "last_reviewed": {
     "main": "b625ceb",
     "wip/local": "49f808f",
@@ -24,7 +24,8 @@
     "cloud/brain-5": "b752261",
     "cloud/grounder-wire": "afb12a6",
     "cloud/pitch-3": "e203181",
-    "cloud/pitch-4": "6393857"
+    "cloud/pitch-4": "6393857",
+    "cloud/brain-6": "780f49d"
   },
-  "notes": "pass 28: main b625ceb (pitch-4 merge, spend guard) has no lane edits; wip matches main; data-pipeline has no lane edits. 8 P2s open on main."
+  "notes": "pass 29: only brain-6 moved (send gate via _enter_sends, grounded-click safety gate with OCR probe). It widens ux-19 (a second unguarded ask_confirm at 1419). main b625ceb and wip 49f808f are unchanged."
 }
