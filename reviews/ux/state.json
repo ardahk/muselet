@@ -1,10 +1,10 @@
 {
-  "pass": 11,
-  "ts": "2026-10-24T08:32:00Z",
+  "pass": 12,
+  "ts": "2026-10-24T08:48:00Z",
   "last_reviewed": {
     "main": "280715d",
     "wip/local": "38768f3",
-    "cloud/data-pipeline": "1d65818",
+    "cloud/data-pipeline": "a6b229a",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
@@ -18,5 +18,5 @@
     "cloud/advisor-3": "ca93147",
     "cloud/finance-3": "31be399"
   },
-  "notes": "pass 11: only cloud/bench moved; its lane diff comes from the merge of main 280715d (already reviewed). No new findings."
+  "notes": "pass 12: only cloud/data-pipeline moved (training reports and dedup inputs); no lane edits, no new findings."
 }
