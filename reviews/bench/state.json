@@ -1,10 +1,10 @@
 {
-  "pass": 12,
-  "ts": "2026-10-24T08:25:00Z",
+  "pass": 13,
+  "ts": "2026-10-24T08:40:00Z",
   "branches": {
     "main": "280715d",
     "wip/local": "38768f3",
-    "cloud/bench": "6e7cd09",
+    "cloud/bench": "2c57d7f",
     "cloud/data-pipeline": "1d65818",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
@@ -18,5 +18,5 @@
     "cloud/brain-3": "14a3f52",
     "cloud/finance-3": "31be399"
   },
-  "notes": "pass12 (PULSE 08:15:38Z): no lane-file changes (data-pipeline eval_route, HandsKit, live_t1 teardowns, AGENTS live-test safety rule). Checked bench against the new LIVE-TEST SAFETY rule: harness/core.py:343-349 skips on failed precondition; HobbyLM teardown (replay.py:495-507 / upstream hobbymac_run.py:260-267) quits only apps not running before the case, closes only extra Finder windows; DeskMind runner closes only its own workspace TextEdit docs (run_muselet.py:128). No new findings."
+  "notes": "pass13 (PULSE 08:30:51Z): cloud/bench@2c57d7f adds the document-safety guard (harness/documents.py, test_document_safety.py); bench/tests 118 passed, 2 skipped. New bench-16 (per-run skips -> different denominators). Other branches unchanged."
 }
