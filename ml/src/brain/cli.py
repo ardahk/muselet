@@ -92,7 +92,9 @@ async def serve(port: int = 8765, model: str | None = None,
                 planner_kw: dict | None = None,
                 args_model: str | None = None,
                 escalate_model: str | None = None,
-                grounder: dict | None = None):
+                grounder: dict | None = None,
+                memory_enabled: bool = True,
+                memory_llm: bool = True):
     server = BrainServer(port=port)
     await server.start()
     engine = None
@@ -107,6 +109,8 @@ async def serve(port: int = 8765, model: str | None = None,
         planner = make_planner(pmodel, engine, planner_kw)
     orch = Orchestrator(server, Catalog.load(), Tracer(), engine=engine)
     orch.planner = planner
+    orch.memory_enabled = memory_enabled
+    orch.memory_llm = memory_llm
     orch.escalate_model = escalate_model or \
         "mlx-community/Qwen3.6-35B-A3B-4bit"
     if grounder is not None:
@@ -280,6 +284,10 @@ def build_parser(argv=None):
     sub = ap.add_subparsers(dest="cmd")
     s = sub.add_parser("serve", help="run the WS server + stdin REPL")
     s.add_argument("--port", type=int, default=8765)
+    s.add_argument("--memory", action=argparse.BooleanOptionalAction,
+                   default=True, help="enable short-term working memory")
+    s.add_argument("--memory-llm", action=argparse.BooleanOptionalAction,
+                   default=True, help="allow guarded LLM follow-up rewrites")
     s.add_argument("--model", default=None,
                    help="model path/repo; 'none' = regex fallback; "
                         "default: 4B-4bit if cached else 0.8B-4bit")
@@ -337,9 +345,14 @@ def run_cmd(args, ap):
         am = _resolve_model(args.args_model) if args.args_model else None
         em = args.planner_escalate_model
         em = _resolve_model(em) if em and em.lower() != "none" else None
+        memory_kw = {}
+        if not args.memory:
+            memory_kw["memory_enabled"] = False
+        if not args.memory_llm:
+            memory_kw["memory_llm"] = False
         asyncio.run(serve(args.port, m, args.planner_model, planner_opts(args),
                           args_model=am, escalate_model=em,
-                          grounder=grounder_cfg(args)))
+                          grounder=grounder_cfg(args), **memory_kw))
     elif args.cmd == "eval-route":
         eval_route(args.model, args.cases, args.out,
                    tau=getattr(args, "tau", 0.55), args_model=args.args_model)

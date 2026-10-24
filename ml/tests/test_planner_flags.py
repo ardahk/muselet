@@ -279,9 +279,33 @@ def test_logged_action_drops_expect_and_marked_line_parses(tmp_path):
 
 def test_cli_defaults():
     args, _ = cli.build_parser(["serve"])
+    assert args.memory is True
+    assert args.memory_llm is True
     assert cli.planner_opts(args) == {"done_alone": True,
                                       "few_shot": "prompts/planner_fewshot.md",
                                       "history": "dsl"}
+
+
+def test_cli_memory_flags_and_planner_recent_prompt():
+    args, _ = cli.build_parser(["serve", "--no-memory", "--no-memory-llm"])
+    assert args.memory is False
+    assert args.memory_llm is False
+
+    p = _planner()
+    baseline = p.user_message("goal", "observation", None)
+    assert baseline == 'Goal: "goal"\nobservation'
+    assert p.user_message("goal", "observation", None, recent=None) == baseline
+    assert p.user_message(
+        "goal", "observation", None, hint="Open Safari",
+        recent=["open Safari ok"]
+    ) == ('Goal: "goal"\nHint: likely Open Safari\nRecent:\nopen Safari ok\n'
+          'observation')
+
+
+def test_planner_complete_greedy_stops_at_newline():
+    p = _planner(["press", " #1", "\n", "The"])
+    p._rewrite_cut, p._rewrite_cache = 1, []
+    assert p.complete("prompt", max_tokens=40) == "press #1"
 
 
 def test_cli_flags_parse():
@@ -328,6 +352,20 @@ def test_serve_cmd_passes_planner_opts(monkeypatch):
                                    "--no-planner-constrain"]))
     assert got == {"constrain": False, "done_alone": True,
                    "few_shot": "prompts/planner_fewshot.md", "history": "dsl"}
+
+
+def test_serve_cmd_passes_memory_toggles(monkeypatch):
+    got = {}
+
+    async def fake_serve(*args, **kwargs):
+        got.update(kwargs)
+
+    monkeypatch.setattr(cli, "serve", fake_serve)
+    monkeypatch.setattr(cli, "_resolve_model", lambda m: "m")
+    cli.run_cmd(*cli.build_parser([
+        "serve", "--no-memory", "--no-memory-llm"]))
+    assert got["memory_enabled"] is False
+    assert got["memory_llm"] is False
 
 
 # ---------- brain-16: relative volume never becomes an absolute level ----------

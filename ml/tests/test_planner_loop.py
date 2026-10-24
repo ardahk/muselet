@@ -10,6 +10,7 @@ import types
 import pytest
 from brain import protocol
 from brain.catalog import Catalog
+from brain.memory import WorkingMemory
 from brain.orchestrator import Orchestrator
 from brain.server import BrainServer
 from brain.traces import Tracer
@@ -29,13 +30,13 @@ class FakePlanner:
         self.finished_emitting = asyncio.Event() if False else None
 
     def plan(self, goal, observation, last_batch, lines_out, loop,
-             cancel, hint=None, script_output=None):
+             cancel, hint=None, script_output=None, recent=None):
         idx = min(self.calls, len(self.turns) - 1)
         self.calls += 1
         self.user_msgs.append({
             "goal": goal, "obs": observation,
             "last_batch": last_batch, "hint": hint,
-            "script_output": script_output})
+            "script_output": script_output, "recent": recent})
         self.cancelled = cancel
         for line in self.turns[idx]:
             if cancel.is_set():
@@ -114,6 +115,29 @@ def test_done_alone_after_clean_batch(tmp_path):
     assert run(go()) == "ok"
     assert any(m.get("t") == "ui" and m.get("mascot") == "success"
                for m in hands.messages)
+
+
+def test_planner_loop_passes_recent_memory(tmp_path):
+    hands = FakeHands()
+    planner = FakePlanner([["press #1"], ['done "finished"']])
+    server, orch = _mk(0, planner, hands)
+    orch.memory = WorkingMemory()
+    orch.memory.record(
+        "open Wikipedia", "open https://en.wikipedia.org/", "open_url",
+        {"url": "https://en.wikipedia.org/"}, True, {"app": "Zen"},
+        t=time.time())
+    orch.tracer = Tracer(tmp_path / "traces")
+
+    async def go():
+        server.port = 9907
+        await _up(server, hands, orch, 9907)
+        out = await orch._planner_loop("do it", trace_for(orch))
+        await hands.close()
+        await server.close()
+        return out
+
+    assert run(go()) == "ok"
+    assert planner.user_msgs[0]["recent"] == orch.memory.recent_lines(5)
 
 
 def test_done_mixed_rejected(tmp_path):
