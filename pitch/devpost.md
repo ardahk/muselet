@@ -16,7 +16,8 @@ it acts, and the Mac does the thing.
 - **Instant commands** ("volume 30", "dark mode", "turn off Wi-Fi"): one on-device forward pass picks the skill (52 ms p50
   on our earlier r2 router); first action p50 193 ms in our live suite.
 - **Anything else** ("open Safari, search flights to Tokyo"): a local planner reads the macOS accessibility tree,
-  streams small action batches, and starts acting before it finishes thinking. Steps carry `expect` checks against
+  streams small action batches, and starts acting before it finishes thinking. For chained tasks we choose
+  intelligence over latency: a step may take a few seconds (ship gate: per-step p50 <= 3 s) if that raises the pass rate. Steps carry `expect` checks against
   the live accessibility tree.
 - **Messages and Gmail**: "text Sam I'll be there in ten" fills the message and waits for a spoken yes; "draft a
   reply in Gmail" reads the open email and leaves a draft.
@@ -68,7 +69,7 @@ it acts, and the Mac does the thing.
 
 ## What we learned
 Speed comes from not generating: one forward pass for routing, deterministic code for anything with a right
-answer, and a planner only for the long tail. Trust comes from checks you can read:
+answer, and a planner, allowed to think, only for chained tasks where getting it right matters more than milliseconds. Trust comes from checks you can read:
 `expect` predicates against the live UI while it runs, and final-state grading in our evals.
 
 ## What's next

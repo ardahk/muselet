@@ -1,8 +1,8 @@
 """System-2 planner: streams DSL action batches from a 4B-class model on ONE
 dedicated MLX worker thread shared by every model call (route, args, plan).
 
-Rendering: same qwen3_5 tinker-cookbook renderer + empty think block; the
-static catalog system prompt is prefix-cached once and deep-copied per call.
+Rendering: same qwen3_5 tinker-cookbook renderer; optional bounded thinking
+fills the empty think block. The static catalog prefix is cached once.
 """
 
 import asyncio
@@ -19,6 +19,7 @@ import mlx_lm
 import numpy as np
 from tinker_cookbook.renderers import Message
 
+from .catalog import Catalog
 from .decision import DecisionEngine, _OnlineProbe, split_model  # noqa: F401
 from .dsl import action_line
 
@@ -26,6 +27,12 @@ PROMPT_PATH = Path(__file__).resolve().parents[3] / "prompts" / "planner_system.
 TERMINAL_OPS = {"ask", "confirm", "done", "refuse"}
 MAX_TOKENS = 320   # room for multi-line script blocks
 SENTINEL = "SENTINELMARKER9Z"
+THINK_ON = ("all", "retry")
+THINK_SAMPLERS = {"greedy": None, "qwen": {"temp": 0.6, "top_p": 0.95, "top_k": 20}}
+THINK_NGRAM = 12
+THINK_REPEATS = 3
+THINK_TRACE_CHARS = 400
+RETRY_RE = re.compile(r"(?:->\s*|^\[)(?:failed|confirmed|cancelled|yes|no)\b")
 
 # ---------- shared MLX worker (single thread, FIFO) ----------
 
@@ -117,6 +124,31 @@ def runtime_repr(line: str) -> str:
     return f"{a['op']} " + " ".join(f"{k}={v}" for k, v in a.items() if k != "op") + f"-> {res}"
 
 
+def is_retry(goal: str, last_batch) -> bool:
+    return '\nUser answer: "' in goal or any(
+        RETRY_RE.search(line) for line in (last_batch or ()))
+
+
+def sample_logits(logits, temp: float, top_p: float, top_k: int, rng) -> int:
+    if temp <= 0:
+        return int(np.argmax(logits))
+    z = logits / temp
+    if top_k > 0:
+        kth = np.partition(z, -top_k)[-top_k]
+        z = np.where(z < kth, -np.inf, z)
+    z = z - np.max(z)
+    pr = np.exp(z)
+    pr /= pr.sum()
+    if top_p < 1:
+        idx = np.argsort(-pr)
+        c = np.cumsum(pr[idx])
+        keep = idx[:int(np.searchsorted(c, top_p)) + 1]
+        q = np.zeros_like(pr)
+        q[keep] = pr[keep]
+        pr = q / q.sum()
+    return int(rng.choice(len(pr), p=pr))
+
+
 def has_action(lines) -> bool:
     return any(not re.match(r"^(#|expect\b|done\b)", ln) for ln in lines)
 
@@ -133,8 +165,9 @@ class BatchCutter:
     """Streaming batch limits: <= 5 actions (a script block is one action),
     the 5th action's `expect` is kept (brain-11), a terminal op ends it."""
 
-    def __init__(self, max_actions: int = 5):
+    def __init__(self, max_actions: int = 5, skills=None):
         self.max, self.n, self.full, self.done = max_actions, 0, False, False
+        self.skills = Catalog.load().skills if skills is None else skills
 
     def push(self, line: str) -> str | None:
         """The line to emit, or None. Sets .done when the batch is over."""
@@ -143,7 +176,8 @@ class BatchCutter:
                 return None
             self.done = True
             return line if line.startswith("expect") else None
-        if not re.match(r"^(expect|#)", line) and action_line(line):
+        action = action_line(line, self.skills) or action_line(line)
+        if not re.match(r"^(expect|#)", line) and action:
             self.n += 1
             self.done = line.split()[0] in TERMINAL_OPS
             self.full = self.n >= self.max
@@ -222,15 +256,25 @@ class Planner:
     def __init__(self, model_path: str, catalog, engine: DecisionEngine | None = None,
                  constrain: bool = PLANNER_CONSTRAIN_DEFAULT, done_alone: bool = True,
                  few_shot: str | None = FEWSHOT_PATH, history: str = "dsl",
-                 retrieval_k: int = 0, retrieval_bank: str = "v2-tune"):
+                 retrieval_k: int = 0, retrieval_bank: str = "v2-tune",
+                 think_budget: int = 0, think_on: str = "all",
+                 think_sampler: str = "greedy", think_seed: int = 0):
         if history not in HISTORY_FORMATS:
             raise ValueError(f"history must be one of {HISTORY_FORMATS}")
         if retrieval_k not in (0, 1, 2):
             raise ValueError("retrieval_k must be 0, 1, or 2")
+        if think_budget < 0:
+            raise ValueError("think_budget must be non-negative")
+        if think_on not in THINK_ON:
+            raise ValueError(f"think_on must be one of {THINK_ON}")
+        if think_sampler not in THINK_SAMPLERS:
+            raise ValueError(f"think_sampler must be one of {tuple(THINK_SAMPLERS)}")
         self.model_path = model_path
         self.constrain, self.done_alone = constrain, done_alone
         self.few_shot, self.history = few_shot, history
         self.retrieval_k, self.retrieval_bank = retrieval_k, retrieval_bank
+        self.think_budget, self.think_on = think_budget, think_on
+        self.think_sampler, self.think_seed = think_sampler, think_seed
         self.plan_bank = None
         if retrieval_k > 0:
             from .plan_bank import PlanBank, load_bank
@@ -269,7 +313,14 @@ class Planner:
                   f"retrieval_k={self.retrieval_k}")
         if self.retrieval_k > 0:
             result += f" retrieval_bank={self.retrieval_bank}"
+        if self.think_budget > 0:
+            result += (f" think={self.think_budget} think_on={self.think_on} "
+                       f"think_sampler={self.think_sampler}")
         return result
+
+    def wants_think(self, goal: str, last_batch) -> bool:
+        return self.think_budget > 0 and (
+            self.think_on == "all" or is_retry(goal, last_batch))
 
     def _arg_sig_for(self, name):
         eng = self.engine or DecisionEngine.__new__(DecisionEngine)
@@ -343,6 +394,65 @@ class Planner:
 
     # ---------- streaming decode (runs on the MLX worker thread) ----------
 
+    def think(self, cache, dyn: list[int], cancel=None) -> tuple[list[int], dict]:
+        started = time.perf_counter()
+        open_tokens = self.tokenizer.encode("<think>", add_special_tokens=False)
+        close_tokens = self.tokenizer.encode("</think>", add_special_tokens=False)
+        if len(open_tokens) != 1 or len(close_tokens) != 1:
+            raise RuntimeError("think markers must each encode to one token")
+        open_id, close_id = open_tokens[0], close_tokens[0]
+        idx = next((i for i in range(len(dyn) - 1, -1, -1)
+                    if dyn[i] == open_id), None)
+        if idx is None:
+            raise RuntimeError("think start token not found")
+        nl = self.tokenizer.encode("\n", add_special_tokens=False)
+        after = self.tokenizer.encode("\n\n", add_special_tokens=False)
+        stop_ids = {self.tokenizer.eos_token_id}
+        end_tokens = self.tokenizer.encode("<" + "|im_end|>", add_special_tokens=False)
+        if len(end_tokens) == 1:
+            stop_ids.add(end_tokens[0])
+        rng = np.random.default_rng(self.think_seed)
+        sampler = THINK_SAMPLERS[self.think_sampler]
+        cur = dyn[:idx + 1] + nl
+        thought = []
+        repeats = {}
+        feed = None
+        closed = None
+
+        def close_tail():
+            text = self.tokenizer.decode(thought)
+            return ([] if text.endswith("\n") else nl) + [close_id] + after
+
+        while len(thought) < self.think_budget:
+            out = self.body(mx.array([cur]), cache=cache)
+            logits = np.array(self.lm_head(out[:, -1:, :]).astype(mx.float32)[0, 0])
+            nxt = int(np.argmax(logits)) if sampler is None else sample_logits(
+                logits, sampler["temp"], sampler["top_p"], sampler["top_k"], rng)
+            if nxt == close_id:
+                closed, feed = "model", [close_id] + after
+                break
+            if nxt in stop_ids:
+                closed, feed = "eos", close_tail()
+                break
+            thought.append(nxt)
+            cur = [nxt]
+            if len(thought) >= THINK_NGRAM:
+                ngram = tuple(thought[-THINK_NGRAM:])
+                repeats[ngram] = repeats.get(ngram, 0) + 1
+                if repeats[ngram] >= THINK_REPEATS:
+                    closed, feed = "loop", [nxt] + close_tail()
+                    break
+            if cancel is not None and cancel.is_set():
+                closed, feed = "cancel", [nxt] + close_tail()
+                break
+            if len(thought) >= self.think_budget:
+                closed, feed = "budget", [nxt] + close_tail()
+                break
+        text = self.tokenizer.decode(thought)
+        return feed, {"tokens": len(thought),
+                      "ms": round((time.perf_counter() - started) * 1000, 1),
+                      "text": text[:THINK_TRACE_CHARS], "closed": closed}
+
     def plan(self, goal: str, observation: str, last_batch,
              lines_out: asyncio.Queue, loop, cancel: threading.Event,
              hint: str | None = None,
@@ -368,10 +478,14 @@ class Planner:
             if len(t_) == 1:
                 stop_ids.add(t_[0])
         constraint = self._op_constraint()
-        cur = mx.array([toks[self._cut:acut]])
+        dyn = toks[self._cut:acut]
+        think = None
+        if self.wants_think(goal, last_batch):
+            dyn, think = self.think(cache, dyn, cancel)
+        cur = mx.array([dyn])
         buf = ""
         lines: list[str] = []
-        cutter = BatchCutter()
+        cutter = BatchCutter(skills=self.catalog.skills)
         ttft = None
         n_decoded = 0
         in_script = False      # inside a `script ... """` block
@@ -438,7 +552,8 @@ class Planner:
                 "decode_tok_s": n_decoded / max(dt - (ttft or 0), 1) * 1000,
                 "tokens": n_decoded, "plan_ms": dt,
                 "retrieved": self.last_retrieval["ids"], "prompt_tokens": acut,
-                "dynamic_tokens": acut - self._cut}
+                "dynamic_tokens": acut - self._cut, "think": think,
+                "think_tokens": think["tokens"] if think else 0}
 
     def generate(self, system: str, user: str, max_tokens: int = 48,
                  stop_at_newline: bool = True) -> str:

@@ -49,6 +49,23 @@ def _decode(raw: str | bytes) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
+async def _close_bounded(connection: Any, timeout: float = 2.0) -> None:
+    """Close a WS connection without waiting for the peer's handshake forever.
+
+    A busy brain may not answer the close handshake while it is generating;
+    slot cleanup must not wait on that, so abort the transport on timeout.
+    """
+    try:
+        await asyncio.wait_for(connection.close(), timeout)
+    except Exception:
+        transport = getattr(connection, "transport", None)
+        if transport is not None:
+            try:
+                transport.abort()
+            except Exception:
+                pass
+
+
 def _wall_time() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 
@@ -71,6 +88,9 @@ class CaseCapture:
     utterance_event: asyncio.Event = field(default_factory=asyncio.Event)
     first_action_event: asyncio.Event = field(default_factory=asyncio.Event)
     terminal_event: asyncio.Event = field(default_factory=asyncio.Event)
+    turn_budget: int | None = None
+    held_utterances: list[str | bytes] = field(default_factory=list)
+    held_event: asyncio.Event = field(default_factory=asyncio.Event)
 
     def record(self, direction: str, raw: str | bytes) -> dict[str, Any] | None:
         now = time.monotonic()
@@ -152,7 +172,7 @@ class BenchProxy:
             self._server = None
         for connection in (self._hands, self._brain):
             if connection is not None:
-                await connection.close()
+                await _close_bounded(connection)
         self._hands = None
         self._brain = None
         self._connected.clear()
@@ -253,14 +273,51 @@ class BenchProxy:
 
         for connection in (self._hands, self._brain):
             if connection is not None:
-                try:
-                    await connection.close()
-                except Exception:
-                    pass
+                await _close_bounded(connection)
         deadline = time.monotonic() + 1.0
         while not self._slot_released() and time.monotonic() < deadline:
             await asyncio.sleep(min(0.1, max(0.0, deadline - time.monotonic())))
         return self._slot_released()
+
+    def gate_turns(self) -> None:
+        """Forward one final utterance; hold later ones until `release_held_utterance`."""
+        self.capture.turn_budget = 1
+
+    def begin_turn(self, confirm_reply: bool | None) -> None:
+        capture = self.capture
+        capture.confirm_reply = confirm_reply
+        capture.utterance_monotonic = capture.utterance_wall = None
+        capture.first_action_monotonic = capture.terminal_monotonic = None
+        capture.active = False
+        for event in (capture.utterance_event, capture.first_action_event, capture.terminal_event):
+            event.clear()
+
+    async def wait_for_held_utterance(self, timeout: float = 20) -> bool:
+        try:
+            await asyncio.wait_for(self.capture.held_event.wait(), timeout)
+        except asyncio.TimeoutError:
+            return False
+        return True
+
+    async def release_held_utterance(self) -> bool:
+        capture = self.capture
+        if not capture.held_utterances:
+            capture.turn_budget = (capture.turn_budget or 0) + 1
+            return False
+        raw = capture.held_utterances.pop(0)
+        if not capture.held_utterances:
+            capture.held_event.clear()
+        if self._brain is None:
+            raise ConnectionError("brain disconnected")
+        self._mark_utterance()
+        await self._brain.send(raw)
+        return True
+
+    def _mark_utterance(self) -> None:
+        self.capture.utterance_monotonic = time.monotonic()
+        self.capture.utterance_wall = _wall_time()
+        self.capture.active = True
+        self.capture.utterance_event.set()
 
     def mark_utterance_finished(self) -> None:
         self.capture.active = False
@@ -458,7 +515,7 @@ class BenchProxy:
                 self._pending_scripts.clear()
                 self._pending_rpcs.clear()
                 if brain is not None:
-                    await brain.close()
+                    await _close_bounded(brain)
                 self._brain = None
                 self._disconnected.set()
 
@@ -497,10 +554,13 @@ class BenchProxy:
                         future.set_result(frame)
                     continue
             if frame.get("t") == "utterance" and frame.get("final", True):
-                self.capture.utterance_monotonic = time.monotonic()
-                self.capture.utterance_wall = _wall_time()
-                self.capture.active = True
-                self.capture.utterance_event.set()
+                if self.capture.turn_budget is not None:
+                    if self.capture.turn_budget <= 0:
+                        self.capture.held_utterances.append(raw)
+                        self.capture.held_event.set()
+                        continue
+                    self.capture.turn_budget -= 1
+                self._mark_utterance()
             await brain.send(raw)
 
     async def _brain_to_hands(

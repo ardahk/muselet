@@ -6,7 +6,7 @@ import re
 _COMPOSER_NAMES = (
     "Discord", "WhatsApp", "Microsoft Teams", "Teams", "Telegram", "Signal",
     "Messenger", "WeChat", "Zoom", "Skype", "Google Chat", "Messages", "Mail",
-    "Slack", "Microsoft Outlook", "Outlook",
+    "Slack", "Outlook",
 )
 _BUNDLE_IDS = {
     "com.hnc.discord", "net.whatsapp.whatsapp", "com.microsoft.teams2",
@@ -14,7 +14,6 @@ _BUNDLE_IDS = {
     "org.whispersystems.signal-desktop", "com.facebook.archon",
     "com.tencent.xinwechat", "us.zoom.xos", "com.skype.skype",
     "com.apple.mobilesms", "com.apple.mail", "com.tinyspeck.slackmacgap",
-    "com.microsoft.outlook",
 }
 _BROWSER_NAMES = (
     "Safari", "Google Chrome", "Chrome", "Arc", "Firefox", "Microsoft Edge",

@@ -8,6 +8,10 @@ Every Mac assistant either explains where the menu is, or ships your screen to a
 thing: hold Right Option, say it, and a small kitten on your desktop does it in your real apps, with a ghost cursor
 that shows where it acts. Everything runs on the Mac: speech, the models, the clicks. It works with Wi-Fi off.
 
+Two speeds, on purpose. Single commands ("volume thirty", "dark mode") are instant: one forward pass picks the skill
+and deterministic code does it. Chained tasks get a planner that is allowed to think: a few seconds per step if
+that is what it takes to get it right, checking each step against the screen before moving on.
+
 ## Slide 2 — Who it's for
 People who can't paste client data into a chatbot: a financial advisor preparing a client review, a freelancer
 reconciling receipts. They use Calendar, Finder, Numbers, Notes, Messages and Gmail today; Muselet works inside

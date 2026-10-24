@@ -39,5 +39,5 @@ only after a passing `expect` or a fresh observation (no harness-side goal check
 | HandsKit act + settle | target TBD(lead) | TBD(live latency run) | `act_ms`, `settle_ms` in traces |
 | **Release -> first action** | target TBD(lead) | 193 ms p50 / 812 ms p95 (live suite, `runs/bench/live/20261024T161427Z`) | `release_to_first_action_ms` |
 
-Multi-step: planner Qwen3.5-4B-4bit at 83 tok/s (earlier tuned config; TTFT 184.6 ms p50 on v2-holdout with k=1 retrieval, `cloud/handoff/notes/retrieval_eval.md`); first action is executed as soon as its
+Multi-step (intelligence over latency: ship gate per-step p50 <= 3 s, `AGENTS.md`): planner Qwen3.5-4B-4bit at 83 tok/s (earlier tuned config; TTFT 184.6 ms p50 on v2-holdout with k=1 retrieval, `cloud/handoff/notes/retrieval_eval.md`); first action is executed as soon as its
 line is decoded, so release -> first action is STT + route + planner prefill + one line, not a whole batch.
