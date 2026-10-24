@@ -1,6 +1,6 @@
-# decisions — digest (pass 25)
+# decisions — digest (pass 26)
 
-Heads: main fb2cfd0 (bench-fix merged; 6 live_t1 cases re-specified after the quoted run, decisions-27 P2), cloud/decisions 694c198 (LR pilot checkpoints only), data-route 42835ce (it3cand: audit 7.7% route / 15.7% ARGS noise, gate 156 -> 0 on all 13 eval sets incl. route_v2 and the ASR-noised text, $61.17/$80), data-planner ee8ae33, bench-fix 4bcf0db.
+Heads: main 7065dd3 (comms + app-ui merged; draft_email router:false; 9 live_t1 cases re-specified/re-graded after the quoted run, decisions-27 P2; brain-8 brief from live_t1 traces), cloud/decisions 694c198 (LR pilot checkpoints only), data-route 42835ce (it3cand: audit 7.7% route / 15.7% ARGS noise, gate 156 -> 0 on all 13 eval sets incl. route_v2 and the ASR-noised text, $61.17/$80), data-planner ee8ae33, bench-fix 4bcf0db.
 
 ## Open P0/P1
 1. decisions-26 P1 LR pilot (2 Tinker runs) with no hypothesis, data revision, cost or metrics committed — reports/checkpoints.jsonl
