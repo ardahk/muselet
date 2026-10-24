@@ -1,6 +1,6 @@
-# training lane digest — pass 26 (main d502b78, cloud/data-pipeline 0c1ca3d, wip/local 0db1681, cloud/decisions 6d395df, cloud/hobby-gaps 156556e)
+# training lane digest — pass 27 (main 7147694, cloud/data-pipeline 9b36081, wip/local 5764a0d, cloud/pitch-3 e203181, cloud/grounder-wire afb12a6, cloud/decisions 6d395df)
 
-Open: 1 P0, 10 P1, 12 P2. Pass 26: no new findings, none resolved. data-pipeline 0c1ca3d extends the evalcheck gate to evals/external (9 more it2b route-train drops); wip/local only touches generic_decide.py (decisions runtime).
+Open: 1 P0, 10 P1, 12 P2. Pass 27: no new findings. it2 report: non-candidate (fails evalcheck on 8 short_edit1 pairs, training-29). pitch-3 quotes router accuracy on route_v1_clean only (training-37). main/grounder-wire/wip: nothing in lane.
 
 ## Open P0/P1 (ranked)
 1. **training-23 (P0, main)** — default router r2 is a re-export of main-final, trained on stale pre-fix route data; tau .45 fitted on its stale val. evalcheck: its train data touches 37/140 route_v1 and 10/43 live_t1 cases.
