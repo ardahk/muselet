@@ -1,11 +1,11 @@
 {
-  "pass": 13,
-  "ts": "2026-10-24T08:40:00Z",
+  "pass": 14,
+  "ts": "2026-10-24T08:52:00Z",
   "branches": {
     "main": "280715d",
     "wip/local": "38768f3",
     "cloud/bench": "2c57d7f",
-    "cloud/data-pipeline": "1d65818",
+    "cloud/data-pipeline": "a6b229a",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
     "cloud/fixtures-docs": "4bf2291",
@@ -18,5 +18,5 @@
     "cloud/brain-3": "14a3f52",
     "cloud/finance-3": "31be399"
   },
-  "notes": "pass13 (PULSE 08:30:51Z): cloud/bench@2c57d7f adds the document-safety guard (harness/documents.py, test_document_safety.py); bench/tests 118 passed, 2 skipped. New bench-16 (per-run skips -> different denominators). Other branches unchanged."
+  "notes": "pass14 (PULSE 08:46:06Z): only cloud/data-pipeline moved (phase1_main report, parity_300, datums input switch). New bench-17. Other branches unchanged."
 }
