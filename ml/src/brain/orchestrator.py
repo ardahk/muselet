@@ -843,7 +843,8 @@ class Orchestrator:
             if not phrase:
                 continue
             matches = pathfind.resolve(phrase)
-            if len(matches) == 1:
+            if len(matches) == 1 and (label != "move_to_trash" or
+                                      pathfind.is_exact_match(phrase, matches[0])):
                 raw_args[key] = matches[0]
                 trace["decisions"].append({"path_resolved": matches[0]})
             elif matches:
@@ -1490,8 +1491,7 @@ function run() {
             or "this app"
 
     async def _confirm_summary(self, a: dict) -> str:
-        """<=12-word summary that names the object (recipient + first body
-        words, file name, app)."""
+        """Short summary naming the object, preserving full trash paths."""
         op = a["op"]
         if op == "confirm":
             return _cap12(str(a.get("summary") or "Continue?").strip('"'))
@@ -1511,7 +1511,7 @@ function run() {
                 if os.path.isabs(p) and (p == home or
                                          p.startswith(home + os.sep)):
                     p = "~" + p[len(home):]
-                return _cap12(f"Move {p} to Trash?")
+                return f"Move {p} to Trash?"
             if n == "empty_trash":
                 return "Empty the Trash permanently?"
             if n == "quit_app":
