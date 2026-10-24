@@ -1,22 +1,20 @@
-# ux digest — pass 13 (main bb494af: brain-3 merged, identical to the code reviewed in pass 8) / pass 11 (no lane change since pass 10) / pass 10 (main 280715d, wip/local 38768f3, cloud/brain-3 14a3f52)
+# ux digest — pass 14 (full re-verify on main 2920225)
 
-Pass 10: main landed it via 894df52 (no other lane changes). Pass 9: wip adds a native Automation onboarding row (per-app chips, Settings… when denied). It's good, but already-granted apps that aren't running show 'Grant' (ux-15).
-
-All P1s are resolved on main: copy and errors via brain-2, plus confirm_cancel, the latency chip, ghost-for-skills and listening-first via 68fa473.
-wip 34ddf5f prefetches ghost targets at key-down and skips the Dock read when the Dock auto-hides. Both are good.
-brain-3 adds the loop-guard copy ("I'm stuck on that, can you help?") and script timeout/fail copy. All of it is <= 12 words and ends with a final ui.
+All 13 P1s (ux-1 to ux-11, ux-13) are resolved on main, with file:line evidence in findings.jsonl (pass 14). No branch-only findings remain.
+Tests: test_planner_confirm_summary.py 3/3 PASS, and test_confirm_summary_names_object PASS. test_confirm_timeout_clears_app_confirm is stale: its fake ask_confirm doesn't emit confirm_cancel, and the real server.py:174 does.
+New merges since bb494af (bench harness #8, split_model, offline planner bench, prompts/) touch no ux-lane files.
 
 ## Open P0/P1
 None.
 
 ## Open P2
-- ux-15 Automation row shows 'Grant' for already-granted apps that aren't running, so onboarding never shows the green check — Panel/PanelView.swift AutomationChip
-- ux-14 After a confirm timeout, the bubble says "Okay, cancelled" and the mascot stays in thinking ~45 s — ml/src/brain/orchestrator.py cancel paths (main 76a03c1, brain-3)
-- ux-12 ask/slot-fill shows the listening mascot while the mic is off — orchestrator.py (4 sites)
+- ux-14 After a confirm timeout, the bubble says "Okay, cancelled" and the mascot stays in thinking ~45 s — ml/src/brain/orchestrator.py:716,1320,1383,1423 + AppDelegate.swift:152-160
+- ux-15 Automation row shows 'Grant' for already-granted apps that aren't running — Panel/PanelView.swift:297,362 + HandsKit/Automation.swift:85
+- ux-12 ask/slot-fill shows the listening mascot while the mic is off — orchestrator.py:525,573,711,1314
 
 ## Highest-leverage next moves
-- ux-15: give .notRunning a neutral chip and count the row as complete when nothing is denied or not determined: ~30 min.
-- ux-14: add _end_ui('idle') and "No answer, so I didn't send it." on the timeout paths, or set mood=.idle in onConfirmCancel: ~15 min.
-- ux-12: 'thinking' plus a "Hold right ⌥ to answer" hint for ask and slot-fill: ~15 min.
-- Mac rehearsal: read `listen_latency keydown_to_mood_ms` and check the ghost reaches the Dock or menu extra before the skill fires. Run once with Dock auto-hide on (no ghost target, which is fine).
-- Demo: trigger one deliberate decline ("trash my budget" → "no") to show the named confirm and the clean recovery.
+- ux-14: set model.mood = .idle in onConfirmCancel, and use "No answer, so I didn't send it." on timeouts: ~15 min.
+- ux-15: give .notRunning a neutral chip; the row is complete when nothing is denied or not determined: ~30 min.
+- ux-12: use 'thinking' plus a "Hold right ⌥ to answer" hint for ask and slot-fill: ~15 min.
+- Planner give-up copy (orchestrator.py:1112): "That didn't work" → "I couldn't finish that. Try smaller steps?": ~5 min.
+- Mac rehearsal: read the listen_latency log line and the ghost-to-Dock timing (static review only so far).

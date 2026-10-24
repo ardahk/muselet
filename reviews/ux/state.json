@@ -1,8 +1,8 @@
 {
-  "pass": 13,
-  "ts": "2026-10-24T09:05:00Z",
+  "pass": 14,
+  "ts": "2026-10-24T09:20:00Z",
   "last_reviewed": {
-    "main": "bb494af",
+    "main": "2920225",
     "wip/local": "c85a000",
     "cloud/data-pipeline": "70b7d1b",
     "cloud/fixtures-docs": "4bf2291",
@@ -18,5 +18,5 @@
     "cloud/advisor-3": "ca93147",
     "cloud/finance-3": "31be399"
   },
-  "notes": "pass 13: main merged brain-3, advisor-3 and finance-3; its orchestrator.py is identical to cloud/brain-3 14a3f52 (reviewed in pass 8). wip equals main in the lane. bench and data-pipeline have no lane edits."
+  "notes": "pass 14: full re-verify on main 2920225. All 13 P1s are resolved with line evidence; 3 P2s remain open. bb494af..2920225 has no lane edits (bench harness, split_model, planner bench, prompts). No branch-only findings remain."
 }
