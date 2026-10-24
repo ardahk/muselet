@@ -249,6 +249,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+decisions = [
+    { name = "httpx" },
+]
 tinker = [
     { name = "tinker" },
 ]
@@ -261,6 +264,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "dateparser", specifier = "==1.4.3" },
+    { name = "httpx", marker = "extra == 'decisions'", specifier = "==0.28.1" },
     { name = "huggingface-hub", extras = ["hf-xet"], specifier = ">=2.3.0" },
     { name = "mlx", specifier = "==0.32.4" },
     { name = "mlx-lm", specifier = "==0.32.2" },
@@ -271,7 +275,7 @@ requires-dist = [
     { name = "tinker-cookbook", specifier = "==0.5.7" },
     { name = "websockets", specifier = "==17.2" },
 ]
-provides-extras = ["tinker"]
+provides-extras = ["decisions", "tinker"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = "==9.1.1" }]

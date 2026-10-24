@@ -20,6 +20,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+decisions = [
+    "httpx==0.28.1",
+]
 tinker = [
     "tinker==0.34.0",
 ]
