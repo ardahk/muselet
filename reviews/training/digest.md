@@ -1,5 +1,5 @@
-# training review digest: pass 13
-_heads: main 280715d, wip/local 38768f3 (=main in lane), cloud/data-pipeline 1d65818 (eval_route + parity key fix); other cloud/* unchanged_
+# training review digest: pass 14
+_heads: main 280715d, wip/local 38768f3, cloud/data-pipeline 1d65818, bench 2c57d7f (doc-safety harness only; live_t1 utterances unchanged, so decontam is still valid); other cloud/* unchanged_
 
 ## Open P0/P1 (ranked)
 - **training-5** [P1] The billing guard lags by hours and the per-run --max-usd ignores cumulative spend, so a run can cross $150; no billed figure is recorded yet (`tools/tinker_spend.py`, `training/src/muselet_train/train.py`).
@@ -9,7 +9,7 @@ _heads: main 280715d, wip/local 38768f3 (=main in lane), cloud/data-pipeline 1d6
 - **training-15** [P1] The stratified teacher subset skews the label prior and mixes hard and soft targets (`training/src/muselet_train/teacher.py`).
 - **training-11** [P1] Finder selection=yes can't happen at runtime, but constrain() forces it for copy_selection (`training/src/muselet_train/contexts.py`).
 
-Resolved this pass: training-21. Open P2: training-9, -10 (downgraded: decontam verified in phase1_fixes.md), -12, -13, -18, -19, -20, -22 (val eval without --teacher-files drops ASK).
+Resolved in pass 13: training-21. Open P2: training-9, -10 (downgraded: decontam verified in phase1_fixes.md), -12, -13, -18, -19, -20, -22 (val eval without --teacher-files drops ASK).
 
 ## Highest-leverage next moves
 1. Before the main run on v2all (41.9K route / 27.9K ARGS before dedup), record the `tinker billing` figure and set --max-usd to at most 150 minus billed minus the estimates for unbilled runs (training-5).
