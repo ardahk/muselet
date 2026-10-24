@@ -1,10 +1,10 @@
 {
-  "pass": 22,
-  "ts": "2026-10-24T11:10:00Z",
+  "pass": 23,
+  "ts": "2026-10-24T11:22:00Z",
   "last_reviewed": {
     "main": "d502b78",
-    "wip/local": "c7c04ce",
-    "cloud/data-pipeline": "19737e1",
+    "wip/local": "0db1681",
+    "cloud/data-pipeline": "0c1ca3d",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
@@ -23,5 +23,5 @@
     "cloud/hobby-gaps": "156556e",
     "cloud/brain-5": "b752261"
   },
-  "notes": "pass 22: main d502b78 merged hobby-gaps (PR #16), so all open findings are now on main; wip matches main. decisions and data-pipeline have no lane edits."
+  "notes": "pass 23: wip 0db1681 matches main d502b78 for lane files; data-pipeline has no lane edits. 6 P2s open on main."
 }

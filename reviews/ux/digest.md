@@ -1,4 +1,4 @@
-# ux digest — pass 22 (main d502b78, wip c7c04ce) — all 6 open P2s are on main
+# ux digest — pass 23 (main d502b78, wip 0db1681) — all 6 open P2s are on main
 
 All 13 P1s (ux-1 to ux-11, ux-13) are resolved on main, with file:line evidence in findings.jsonl (pass 14). No branch-only findings remain.
 Tests: test_planner_confirm_summary.py 3/3 PASS, and test_confirm_summary_names_object PASS. test_confirm_timeout_clears_app_confirm is stale: its fake ask_confirm doesn't emit confirm_cancel, and the real server.py:174 does.
