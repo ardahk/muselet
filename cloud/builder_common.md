@@ -23,6 +23,10 @@ Read `AGENTS.md` first, then your lane brief below, then the old handoff notes i
 - **Commit and push to your branch at least hourly.** Keep a `## Handoff` section at the top of your PR body
   (state, next exact steps, artifacts with HF revisions / Tinker paths, spend, open questions), so another agent
   can resume if you stop.
+- **Need the Mac? Ask, don't work around it.** For anything that needs macOS (compile, an AX tree, how an app
+  behaves, a latency measurement, a live check), add it under `## Mac requests` in your PR body: exact commands and
+  what to report back. The lead runs it on the Mac and answers in the PR. Prefer direct native control (AX, native
+  APIs, opening the real app) over indirections (e.g. Shortcuts to reach Clock).
 - Don't merge your own PR; the lead reviews and merges. If blocked, write the question in the PR body and continue
   with the safest reasonable assumption.
 - No secrets in code, logs or PR text. Keys come from environment variables only.
