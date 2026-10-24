@@ -1,4 +1,11 @@
-# brain lane digest — pass 30 (2026-10-24T12:50Z)
+# brain lane digest — pass 31 (2026-10-24T13:05Z)
+
+Pass 31: main 82d94d9 = merged cloud/brain-6 (#21) + 82d94d9 (sendgate browser names: Zen, Zen Browser, Vivaldi, Opera, Orion);
+wip/local 5b3d695 == main. Main suite 1198 passed / 2 skipped / 1 deselected (real_model). Review repros on main: 21 failed /
+25 passed. Open: P0 0, P1 5, P2 7. brain-27 residual and brain-28 are now on main (Zen = user's default browser, so brain-28
+applies to the demo browser). No new findings.
+
+## Pass 30 (2026-10-24T12:50Z)
 
 Pass 30: main b625ceb and wip/local 49f808f unchanged. New cloud/brain-6 780f49d (2 commits on main: sendgate.py send/payment
 predicates; Enter gate via focused element/app; grounded-click gate = target words -> composer/payment context -> smallest labeled
