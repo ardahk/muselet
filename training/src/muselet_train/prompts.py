@@ -27,7 +27,11 @@ Definition: {category_definition}
 Examples: {category_examples}
 
 Return JSON: {{"items": [{{"text": "...", "nearest_skill": "<skill name or none>", "why": "<5-10 words>"}}]}}
-Rules: spoken style, 2 to 30 words, varied phrasing and topics. Make about half of them near-misses that look similar to a single skill but still belong to {category_name}. Style for this batch: {style}"""
+Rules: spoken style, 2 to 30 words, varied phrasing and topics. {near_miss} Style for this batch: {style}"""
+
+G2_NEAR_MISS = "Make about half of them near-misses that look similar to a single skill but still belong to {category_name}."
+# lead decision (step-3 gate): ASK only
+G2_NEAR_MISS_ASK = "Make about half of them near-misses: they name one skill's action but leave out a detail that skill needs (who, what, when, which file or app), so the assistant has to ask before acting."
 
 G3 = """Write {n} short spoken requests whose correct handling depends on which app is frontmost or what is selected. For each, give two contexts that lead to two different handlings.
 Skills: {skill_list_with_descriptions}

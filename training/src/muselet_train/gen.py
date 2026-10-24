@@ -19,7 +19,7 @@ from pathlib import Path
 
 from muselet_train.catalog import Option, arg_signature, options, skills
 from muselet_train.prompts import (
-    CATEGORIES, G1, G2, G3, MAC_APPS, MULTI_STEP_FOCUS, STYLES,
+    CATEGORIES, G1, G2, G2_NEAR_MISS, G2_NEAR_MISS_ASK, G3, MAC_APPS, MULTI_STEP_FOCUS, STYLES,
 )
 
 GEN_ANTHROPIC = "claude-haiku-5-5"
@@ -51,7 +51,8 @@ def g1_prompt(opt: Option, style: str, n: int = G1_N) -> str:
 
 def g2_prompt(cat: str, style: str, n: int = G2_N) -> str:
     c = CATEGORIES[cat]
-    return G2.format(skill_list_with_descriptions=skill_list(), n=n, category_name=cat,
+    near = G2_NEAR_MISS_ASK if cat == "ASK" else G2_NEAR_MISS.format(category_name=cat)
+    return G2.format(skill_list_with_descriptions=skill_list(), n=n, category_name=cat, near_miss=near,
                      category_definition=c["definition"], category_examples=c["examples"],
                      style=style)
 
@@ -60,7 +61,7 @@ def g3_prompt(n: int = G3_N) -> str:
     return G3.format(n=n, skill_list_with_descriptions=skill_list())
 
 
-def build(run: str, fraction: float, seed: int = 0) -> list[dict]:
+def build(run: str, fraction: float, seed: int = 0, skip: tuple[str, ...] = ()) -> list[dict]:
     rng = random.Random(seed)
     reqs: list[dict] = []
     for opt in skills():
@@ -82,6 +83,7 @@ def build(run: str, fraction: float, seed: int = 0) -> list[dict]:
     for j in range(calls):
         reqs.append({"id": f"g3-{j}", "kind": "g3", "label": None, "style": None,
                      "prompt": g3_prompt()})
+    reqs = [r for r in reqs if r["label"] not in skip]
     # ~30% of calls to OpenAI (cross-family diversity), deterministic
     order = list(range(len(reqs)))
     rng.shuffle(order)
@@ -249,9 +251,10 @@ def main() -> None:
     ap.add_argument("--run", required=True)
     ap.add_argument("--fraction", type=float, default=1.0)
     ap.add_argument("--wait", action="store_true")
+    ap.add_argument("--skip", nargs="*", default=[])
     a = ap.parse_args()
     if a.cmd == "build":
-        build(a.run, a.fraction)
+        build(a.run, a.fraction, skip=tuple(a.skip))
     elif a.cmd == "submit":
         submit(a.run)
     elif a.cmd == "poll":

@@ -5,7 +5,7 @@ description = "muselet cloud data + training pipeline (Tinker)"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "tinker==0.34.0",
-    # 0.5.8 (2026-10-21) is the first release that ships tinker_cookbook.recipes.decisions (required by SPEC 1.2)
+    # approved exception to the 7-day rule: 0.5.8 (2026-10-21) is the first release with tinker_cookbook.recipes.decisions
     "tinker-cookbook==0.5.8",
     # tinker-cookbook 0.5.8 requires transformers<=5.5.4
     "transformers==5.5.4",
