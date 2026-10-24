@@ -79,3 +79,19 @@ def test_missing_installed_list_does_not_allow_site_fallback():
         assert await orch._site_for_app("Slack", "open Slack") is None
         assert orch._apps is None
     asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("entry", ["planner", "execute"])
+def test_open_non_site_app_does_not_rewrite_from_goal(entry):
+    async def scenario():
+        server = FakeServer()
+        orch = Orchestrator(server)
+        orch._current_goal = "open notes and play lofi on youtube"
+        action = {"op": "open", "app": "Notes"}
+        if entry == "planner":
+            await orch._exec_one(action)
+        else:
+            await orch.execute_actions([action])
+        acts = [p for method, p in server.rpcs if method == "act"]
+        assert acts == [{"op": "open", "app": "Notes"}]
+    asyncio.run(scenario())

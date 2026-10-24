@@ -941,12 +941,14 @@ class Orchestrator:
         "wechat": {"weixin"},
     }
 
-    async def _site_for_app(self, app: str, text: str) -> tuple[str, str] | None:
+    async def _site_for_app(self, app: str, text: str, *,
+                            match_goal: bool = False) -> tuple[str, str] | None:
         key = normalize_name(app)
         site = (key, SITES[key]) if key in SITES else None
         if not self._browser_name(app):
             site = site or match_name(app)
-        site = site or match_name(text)
+        if match_goal:
+            site = site or match_name(text)
         if not site:
             return None
         if re.search(r"\b(?:website|site|go\s+to|navigate)\b|"
@@ -997,7 +999,7 @@ class Orchestrator:
             return label, args
         args = dict(args)
         app = str(args.get("app") or "").strip()
-        site = await self._site_for_app(app, text)
+        site = await self._site_for_app(app, text, match_goal=True)
         if site:
             name, host = site
             trace["site_switch"] = [name, host]
