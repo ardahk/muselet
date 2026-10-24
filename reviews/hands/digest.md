@@ -1,4 +1,4 @@
-# hands — digest (pass 5 + self-polls to 07:02Z: main c2d2988, wip/local d5d2d7d, cloud/brain-2 9f41c11)
+# hands — digest (pass 6: main c2d2988, wip/local 8874962, cloud/brain-2 9f41c11; no new app/ changes since pass 5)
 
 Resolved in pass 5: hands-2, hands-3, hands-7, hands-11 (main e78f143). Earlier: hands-1, 4, 5, 6, 8, 9.
 
