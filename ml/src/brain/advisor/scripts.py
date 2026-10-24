@@ -161,38 +161,6 @@ def notes_brief_script(prep: dict, phrasing: dict | None = None, folder: str = "
     ]) + "\n"
 
 
-CALENDAR_ID = "com.apple.iCal"
-
-
-def calendar_lookup_script(name: str, days: int = 30) -> str:
-    """Bring Calendar forward, find the earliest event in [today, today + days) whose title contains `name`,
-    show its day and return "summary<LF>start ISO<LF>end ISO" (empty string when there is none)."""
-    return "\n".join([
-        f"tell application id {q(CALENDAR_ID)}",
-        "\tactivate",
-        "\tset d0 to (current date) - (time of (current date))",
-        f"\tset d1 to d0 + {int(days)} * days",
-        "\tset best to missing value",
-        "\trepeat with c in calendars",
-        f"\t\trepeat with e in (every event of c whose summary contains {q(name)} and "
-        "start date is greater than or equal to d0 and start date is less than d1)",
-        "\t\t\tif best is missing value then",
-        "\t\t\t\tset best to contents of e",
-        "\t\t\telse if start date of e < start date of best then",
-        "\t\t\t\tset best to contents of e",
-        "\t\t\tend if",
-        "\t\tend repeat",
-        "\tend repeat",
-        "\tif best is missing value then return \"\"",
-        "\tset s to start date of best",
-        "\tswitch view to day view",
-        "\tview calendar at s",
-        "\treturn (summary of best) & linefeed & (s as «class isot» as string) & linefeed & "
-        "((end date of best) as «class isot» as string)",
-        "end tell",
-    ]) + "\n"
-
-
 def numbers_wait_script(path: str, tries: int = 100) -> str:
     """Wait (polling, <= tries x 0.1 s) until Numbers has the document whose file is `path` open."""
     return "\n".join([f"tell application id {q(NUMBERS_ID)}", *_resolve_doc(path, tries=tries),

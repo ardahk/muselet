@@ -7,8 +7,9 @@ from brain.decision import RouteResult
 
 
 class FakeServer:
-    def __init__(self, act=None, observe=None):
+    def __init__(self, act=None, observe=None, apps=None):
         self.said: list[str] = []
+        self.apps = apps or {"running": [], "installed": []}
         self.uis: list[str] = []
         self.ui_ms: list = []
         self.confirms: list[str] = []
@@ -40,6 +41,8 @@ class FakeServer:
             return self.act(params)
         if method == "verify":
             return {"ok": True, "observed": "x"}
+        if method == "apps":
+            return self.apps() if callable(self.apps) else self.apps
         return {"ok": True, "result": {}, "ms": 1}
 
     def methods(self):

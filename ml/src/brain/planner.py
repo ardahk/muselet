@@ -20,6 +20,7 @@ import numpy as np
 from tinker_cookbook.renderers import Message
 
 from .decision import DecisionEngine, _OnlineProbe, split_model  # noqa: F401
+from .dsl import action_line
 
 PROMPT_PATH = Path(__file__).resolve().parents[3] / "prompts" / "planner_system.md"
 TERMINAL_OPS = {"ask", "confirm", "done", "refuse"}
@@ -46,7 +47,7 @@ class BatchCutter:
                 return None
             self.done = True
             return line if line.startswith("expect") else None
-        if not re.match(r"^(expect|#)", line):
+        if not re.match(r"^(expect|#)", line) and action_line(line):
             self.n += 1
             self.done = line.split()[0] in TERMINAL_OPS
             self.full = self.n >= self.max

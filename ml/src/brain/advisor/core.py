@@ -111,7 +111,7 @@ def _d(s: str) -> Decimal:
     return Decimal(s.replace(",", "").replace("$", "").strip() or "0")
 
 
-def _parse_ics(text: str) -> dict:
+def parse_ics(text: str) -> dict:
     unfolded = re.sub(r"\r?\n[ \t]", "", text)
     out: dict = {}
     for line in unfolded.splitlines():
@@ -152,7 +152,7 @@ def load_household(directory: str | Path) -> Household:
     h = Household(path=p, name=profile["household"], as_of=dt.date.fromisoformat(profile["as_of"]), lots=lots,
                   activity=activity, targets=targets, profile=profile,
                   notes=notes_path.read_text() if notes_path.exists() else "",
-                  meeting=_parse_ics(ics_path.read_text()) if ics_path.exists() else {})
+                  meeting=parse_ics(ics_path.read_text()) if ics_path.exists() else {})
     for lot in lots:
         if (lot.shares * lot.price).quantize(CENT, rounding=ROUND_HALF_UP) != lot.market_value:
             h.warnings.append(f"row {lot.row}: market value != shares x price")

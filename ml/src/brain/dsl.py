@@ -20,6 +20,25 @@ predicates: title~"<t>" | focused #<r> | value #<r>="<t>" | app "<n>" | appears 
 import re
 
 MAX_BATCH = 5
+OPS = {"skill", "press", "type", "keys", "scroll", "click", "open", "url",
+       "script", "wait", "ask", "confirm", "done", "refuse", "expect"}
+_SKILLISH = re.compile(r"^[a-z][a-z0-9]*_[a-z0-9_]*(?:\s+\w+=|$)")
+
+
+def action_line(line: str, skills=None) -> str | None:
+    """A planner line as DSL, or None when it isn't an action (prose,
+    `</think>`-style tags, ``` fences, `#` notes). A line that starts with a
+    catalog skill name gets the `skill` prefix (`open_app app=X`). Without
+    `skills`, any `snake_case key=` line counts as a skill call."""
+    s = line.strip()
+    if not s or s.startswith(("#", "```", "<")):
+        return None
+    tok = s.split(None, 1)[0]
+    if tok in OPS:
+        return s
+    if skills is not None:
+        return f"skill {s}" if tok in skills else None
+    return s if _SKILLISH.match(s) else None
 
 
 class DSLError(ValueError):
@@ -166,6 +185,8 @@ def parse(text: str) -> list[dict]:
                 if "=" not in kv:
                     raise _err(f"skill arg must be key=value, got {kv!r}", lineno)
                 k, v = kv.split("=", 1)
+                if not v.startswith('"'):
+                    v = v.rstrip(",;.") or v   # `parent=~/Desktop,`
                 args[k] = _coerce(v)
             actions.append({"op": "skill", "name": toks[1], "args": args})
             continue
