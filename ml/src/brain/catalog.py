@@ -120,6 +120,9 @@ class Catalog:
                 if seconds is None:
                     raise ValueError(val)
                 return seconds
+            if t == "url":
+                from .sites import fix_url
+                return fix_url(str(val))
             return str(val)
         except CatalogError:
             raise

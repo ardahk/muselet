@@ -5,15 +5,19 @@ Everything is traced and the app gets ui/say messages.
 """
 
 import asyncio
+import gc
+import inspect
 import logging
 import math
 import os
 import re
+import subprocess
 import threading
 import time
 
 from . import argfix, calc, dsl, obsdiff, pathfind, replies, sendgate, slots
 from .catalog import Catalog, CatalogError
+from .sites import SITES, fix_url, match_name, normalize_name
 from .traces import Tracer
 
 log = logging.getLogger("brain.orchestrator")
@@ -304,6 +308,9 @@ class Orchestrator:
         self.tau = tau
         self.planner = None
         self.planner_escalate = None    # opt-in bigger planner (loop guard)
+        self.escalate_model = "mlx-community/Qwen3.6-35B-A3B-4bit"
+        self._sysctl_reader = None
+        self._escalate_loader = None
         self._active_planner = None
         self._ms_kind = None
         self._last_epoch = None
@@ -316,6 +323,8 @@ class Orchestrator:
         self._first_action_ms: float | None = None
         self._batch_confirmed = False
         self._pending_task: dict | None = None
+        self._answer_history: list[str] = []
+        self._last_action_error = None
         self._comms: dict | None = None
         self._draft: dict | None = None
         self._script_output: str | None = None
@@ -399,6 +408,9 @@ class Orchestrator:
         try:
             await self.server.ui("thinking")
             self._utterance = text
+            if not self._pending_task or \
+                    time.time() - self._pending_task["t"] >= 90:
+                self._answer_history = []
             handled_pending = False
             if self._comms and \
                     time.time() - self._comms["t"] >= slots.SLOT_TTL_S:
@@ -417,9 +429,6 @@ class Orchestrator:
                 from .tools import draft_email
                 outcome = await draft_email.send_draft(self)
                 handled_pending = True
-            elif self._slot and \
-                    time.time() - self._slot["t"] >= slots.SLOT_TTL_S:
-                self._slot = None
             if self._slot and \
                     time.time() - self._slot["t"] >= slots.SLOT_TTL_S:
                 self._slot = None
@@ -431,6 +440,7 @@ class Orchestrator:
             elif self._pending_task and \
                     time.time() - self._pending_task["t"] < 90:
                 goal = self._pending_task["goal"]
+                self._answer_history.append(text)
                 self._pending_task = None
                 outcome = await self._planner_loop(
                     goal, trace, answer=text)
@@ -601,6 +611,8 @@ class Orchestrator:
                          trace: dict, filled: str | None = None) -> str:
         """fallback table -> slot fill for still-missing args -> execute."""
         raw_args = dict(raw_args)
+        label, raw_args = await self._rewrite_app_skill(
+            label, raw_args, text, trace)
         to = _ABS_SKILL.get(label)
         if to and self.catalog.get(to) and filled != "level" and \
                 (lvl := abs_level(text)) is not None:
@@ -706,6 +718,12 @@ class Orchestrator:
             for k, v in raw_args.items())
         args = self._coerce_args(label, raw_args, utterance=text,
                                  filled=filled)
+        if label == "type_text" and not self._signin_gate(
+                args.get("text"), trace=trace, goal=text):
+            await self.server.say(
+                "Please sign in first, then tell me to continue.")
+            await self.server.ui("listening")
+            return "awaiting_user"
         if spec.get("executor") == "brain":
             out = await self._brain_tool(label, args, text)
         else:
@@ -728,12 +746,81 @@ class Orchestrator:
             res = await self.server.rpc("apps", {}, timeout=3)
             names = [a.get("name") if isinstance(a, dict) else a
                      for a in res.get("running") or []] + \
-                list(res.get("installed") or [])
-        except RuntimeError:
+                [a.get("name") if isinstance(a, dict) else a
+                 for a in res.get("installed") or []]
+        except Exception:
             pass
         names = [n for n in dict.fromkeys(names) if isinstance(n, str) and n]
         self._apps = (now, names)
         return names
+
+    @staticmethod
+    def _installed_app_keys(names: list[str]) -> set[str]:
+        out = set()
+        for name in names:
+            key = normalize_name(re.sub(
+                r"\.app$", "", str(name), flags=re.IGNORECASE))
+            if key:
+                out.add(key)
+        return out
+
+    @staticmethod
+    def _browser_name(value: str) -> str | None:
+        key = normalize_name(value)
+        browsers = {
+            "safari": "Safari", "googlechrome": "Google Chrome",
+            "chrome": "Chrome", "firefox": "Firefox", "arc": "Arc",
+            "microsoftedge": "Microsoft Edge", "edge": "Microsoft Edge",
+            "bravebrowser": "Brave Browser", "brave": "Brave Browser",
+            "zen": "Zen", "zenbrowser": "Zen Browser",
+            "opera": "Opera", "vivaldi": "Vivaldi",
+        }
+        return browsers.get(key)
+
+    @classmethod
+    def _goal_mentions_browser(cls, text: str, browser: str) -> bool:
+        key = normalize_name(browser)
+        aliases = {key}
+        aliases.update({
+            "googlechrome": {"chrome"},
+            "zenbrowser": {"zen"},
+        }.get(key, set()))
+        words = re.findall(r"[A-Za-z0-9]+", str(text or ""))
+        for start in range(len(words)):
+            joined = ""
+            for word in words[start:]:
+                joined += normalize_name(word)
+                if joined in aliases:
+                    return True
+                if len(joined) >= max(map(len, aliases)):
+                    break
+        return False
+
+    async def _rewrite_app_skill(self, label: str, args: dict,
+                                 text: str, trace: dict) -> tuple[str, dict]:
+        if label != "open_app":
+            return label, args
+        args = dict(args)
+        app = str(args.get("app") or "").strip()
+        site = None
+        app_key = normalize_name(app)
+        if app_key in SITES:
+            site = (app_key, SITES[app_key])
+        elif (found := match_name(text)) is not None:
+            site = found
+        if site:
+            name, host = site
+            installed = self._installed_app_keys(await self._app_names())
+            if name not in installed and normalize_name(app) not in installed:
+                trace["site_switch"] = [name, host]
+                return "open_url", {"url": fix_url(host)}
+        browser = self._browser_name(app)
+        if browser and not self._goal_mentions_browser(text, browser):
+            found = match_name(text)
+            url = fix_url(found[1] if found else "www.google.com")
+            trace["browser_rewrite"] = {"from": app, "url": url}
+            return "open_url", {"url": url}
+        return label, args
 
     async def _compound(self, text: str, trace: dict) -> str | None:
         """'X and then Y': route each clause on the worker; when every clause
@@ -1150,6 +1237,56 @@ function run() {
         return next((e for e in self._last_obs.get("elements", [])
                      if e.get("ref") == ref), None)
 
+    def _focused_element(self):
+        obs = self._last_obs or {}
+        element = self._element_for_ref(obs.get("focused_ref"))
+        if element is not None:
+            return element
+        focused = str(self._ctx.get("focused") or "")
+        match = re.fullmatch(r'\s*([^\s]+)\s+"(.*)"\s*', focused)
+        if match:
+            return {"role": match.group(1), "label": match.group(2)}
+        return None
+
+    _SIGNIN_FIELD = re.compile(
+        r"\b(?:e-?mail|phone|username|user\s+name|password|passcode|"
+        r"sign\s*in|sign-in|log\s*in|login)\b", re.IGNORECASE)
+
+    def _signin_target(self, ref=None):
+        return self._element_for_ref(ref) if ref is not None \
+            else self._focused_element()
+
+    def _signin_gate(self, typed: str, ref=None, trace: dict | None = None,
+                     goal: str | None = None) -> bool:
+        element = self._signin_target(ref)
+        if not element:
+            return True
+        label = str(element.get("label") or "").strip()
+        role = str(element.get("role") or "").strip()
+        if not (self._SIGNIN_FIELD.search(label) or
+                self._SIGNIN_FIELD.search(role) or
+                role.casefold() == "securetextfield"):
+            return True
+        normalized = " ".join(str(typed or "").casefold().split())
+        sources = [goal or self._current_goal, self._utterance,
+                   *self._answer_history]
+        allowed = bool(normalized) and any(
+            normalized in " ".join(str(source).casefold().split())
+            for source in sources if source)
+        if allowed:
+            return True
+        if trace is None:
+            trace = self.tracer.current
+        if trace is not None:
+            trace["signin_gate"] = label or role
+            trace.setdefault("decisions", []).append(
+                {"signin_gate": label or role})
+        self._pending_task = {
+            "goal": goal or self._current_goal or self._utterance,
+            "t": time.time(),
+        }
+        return False
+
     def _enter_sends(self, ref=None, *, observed_focus=False) -> bool:
         obs = self._last_obs or {}
         element = self._element_for_ref(
@@ -1277,6 +1414,19 @@ function run() {
             self._diff_chain = None
             a = dict(a)
             a.get("args", {}).pop("confirmed", None)   # model can't self-confirm
+            goal = self._current_goal or self._utterance
+            trace = self.tracer.current
+            label, skill_args = await self._rewrite_app_skill(
+                a["name"], a.get("args", {}), goal,
+                trace if trace is not None else {"decisions": []})
+            a["name"], a["args"] = label, skill_args
+            if label == "type_text" and not self._signin_gate(
+                    a["args"].get("text"), trace=trace, goal=goal):
+                await self.server.say(
+                    "Please sign in first, then tell me to continue.")
+                await self.server.ui("listening")
+                return {"status": "awaiting_user",
+                        "_log": f"{dsl_line}-> awaiting_user"}
             spec = self.catalog.get(a["name"]) or {}
             if a["name"] == "send_message":
                 self._take_confirm()
@@ -1372,6 +1522,14 @@ function run() {
                     self._label_of(a.get("ref"))))
                 if not needs:
                     needs = self._enter_sends(a.get("ref"))
+            if op == "type" and not self._signin_gate(
+                    a.get("text"), a.get("ref"),
+                    goal=self._current_goal or self._utterance):
+                await self.server.say(
+                    "Please sign in first, then tell me to continue.")
+                await self.server.ui("listening")
+                return {"status": "awaiting_user",
+                        "_log": f"{dsl_line}-> awaiting_user"}
             if needs and not self._take_confirm():
                 yes = await self.server.ask_confirm(
                     await self._confirm_summary(a))
@@ -1383,7 +1541,34 @@ function run() {
             r["_log"] = f"{dsl_line}-> {'ok' if r['status']=='ok' else 'failed: ' + r.get('error','?')}"
             return r
         # everything else: open, url, scroll -> act
+        if op == "open":
+            value = str(a.get("app") or a.get("name") or
+                        a.get("target") or "").strip()
+            site = None
+            key = normalize_name(value)
+            if key in SITES:
+                site = (key, SITES[key])
+            elif (found := match_name(value)) is not None:
+                site = found
+            if site:
+                installed = self._installed_app_keys(await self._app_names())
+                if site[0] not in installed and key not in installed:
+                    a = {"op": "url", "url": fix_url(site[1])}
+                    op = "url"
+                    if self.tracer.current is not None:
+                        self.tracer.current["site_switch"] = [site[0], site[1]]
+            browser = self._browser_name(value)
+            goal = self._current_goal or self._utterance
+            if browser and not self._goal_mentions_browser(goal, browser):
+                found = match_name(goal)
+                url = fix_url(found[1] if found else "www.google.com")
+                a = {"op": "url", "url": url}
+                op = "url"
+                if self.tracer.current is not None:
+                    self.tracer.current["browser_rewrite"] = {
+                        "from": value, "url": url}
         if op == "url":
+            a["url"] = fix_url(a.get("url") or "")
             self._last_url = str(a.get("url") or "")
         params = {k: v for k, v in a.items() if k != "op"}
         params["op"] = op
@@ -1620,8 +1805,10 @@ function run() {
             else:
                 self._diff_chain = None
         if not res.get("ok", False):
+            self._last_action_error = res.get("error", "?")
             return {"status": "failed",
                     "error": res.get("error", "?"), "res": res}
+        self._last_action_error = None
         # expect passthrough for every action type (incl. skill/script)
         exp = action.get("expect")
         if exp:
@@ -1681,6 +1868,62 @@ function run() {
         # and a read verb must appear (Finder reveal/open, Safari get URL...)
         return not self._READ_VERBS.search(code)
 
+    @staticmethod
+    def _read_sysctl(name: str) -> int:
+        out = subprocess.run(["sysctl", "-n", name], check=True,
+                             capture_output=True, text=True, timeout=2)
+        return int(out.stdout.strip())
+
+    async def set_escalation(self, enabled: bool) -> dict:
+        """Load or unload the optional planner without blocking the loop."""
+        enabled = bool(enabled)
+        if enabled:
+            if self.planner_escalate is not None:
+                return {"loaded": True}
+            if self.planner is None:
+                return {"loaded": False, "reason": "no planner"}
+            reader = self._sysctl_reader or self._read_sysctl
+            try:
+                memsize = int(reader("hw.memsize"))
+                if memsize < 48 * 1024 ** 3:
+                    return {"loaded": False, "reason": "needs 48 GB RAM"}
+                pressure = int(reader("kern.memorystatus_level"))
+                if pressure < 40:
+                    return {"loaded": False, "reason": "memory pressure"}
+            except Exception:
+                return {"loaded": False, "reason": "can't read memory"}
+            try:
+                from .cli import ESCALATE_OPTS, make_planner
+                loader = self._escalate_loader or make_planner
+                from .planner import worker
+                planner = await worker().submit_async(
+                    loader, self.escalate_model, self.engine,
+                    ESCALATE_OPTS, tag="planner-escalate")
+            except Exception as e:
+                return {"loaded": False, "reason": str(e)[:200]}
+            self.planner_escalate = planner
+            return {"loaded": True}
+        old = self.planner_escalate
+        self.planner_escalate = None
+        if self._active_planner is old:
+            self._active_planner = None
+        del old
+        gc.collect()
+        try:
+            import mlx.core as mx
+            clear = getattr(mx, "clear_cache", None)
+            if clear:
+                clear()
+        except Exception:
+            try:
+                from mlx_lm.models import cache
+                clear = getattr(cache, "clear_cache", None)
+                if clear:
+                    clear()
+            except Exception:
+                pass
+        return {"loaded": False}
+
     async def _planner_loop(self, text: str, trace: dict,
                             hint: str | None = None,
                             answer: str | None = None) -> str:
@@ -1695,6 +1938,8 @@ function run() {
         goal = text
         if answer:
             goal += f'\nUser answer: "{answer}"'
+        elif not self._answer_history:
+            self._answer_history = []
         self._ms_kind = "total"
         t_start = time.perf_counter()
         self._script_output = None
@@ -1705,6 +1950,7 @@ function run() {
         obs_text = ""
         diffs: list[str] | None = None
         fail_streak, prev_fail_key = 0, None
+        noop_press_key, noop_press_count = None, 0
         planner, escalated = self.planner, False
         self._active_planner = planner
         for turn in range(12):
@@ -1737,9 +1983,23 @@ function run() {
             if observation_blind(self._last_obs):
                 plan_obs = f"{obs_text}\n{BLIND_HINT}"
                 trace["decisions"].append({"blind_observation": turn})
+            login_page = bool(re.search(
+                r"\b(?:sign\s*in|sign-in|log\s*in|login|password)\b",
+                f"{self._last_obs.get('window', '') if self._last_obs else ''}\n"
+                f"{obs_text}", re.IGNORECASE))
+            plan_kwargs = {"hint": hint, "script_output": self._script_output}
+            if login_page:
+                try:
+                    params = inspect.signature(planner.plan).parameters
+                    if "login_page" in params or any(
+                            p.kind == inspect.Parameter.VAR_KEYWORD
+                            for p in params.values()):
+                        plan_kwargs["login_page"] = True
+                except (TypeError, ValueError):
+                    pass
             fut = worker().submit(
                 planner.plan, goal, plan_obs, last_batch, q, loop,
-                cancel, hint, self._script_output)
+                cancel, **plan_kwargs)
             self._script_output = None   # consumed by this turn
             self._current_goal = goal
             # stream-consume lines; execute each action once complete
@@ -1789,6 +2049,22 @@ function run() {
                         a = pending.pop(0)
                         r = await self._exec_one(a)
                         batch_log.append(r["_log"])
+                        rr = r.get("res") or {}
+                        noop = (a.get("op") == "press" and
+                                r.get("status") == "ok" and
+                                "expect" not in a and
+                                rr.get("diff_text") == "")
+                        if noop:
+                            key = _action_key(a)
+                            if key == noop_press_key:
+                                noop_press_count += 1
+                            else:
+                                noop_press_key, noop_press_count = key, 1
+                            if noop_press_count >= 3:
+                                r["status"] = "failed"
+                                r["error"] = "press made no observation change"
+                        else:
+                            noop_press_key, noop_press_count = None, 0
                         if r["status"] == "done":
                             done_seen = True
                             cancel.set()      # done ends the batch's execution
@@ -1820,6 +2096,22 @@ function run() {
                 a = pending.pop(0)
                 r = await self._exec_one(a)
                 batch_log.append(r["_log"])
+                rr = r.get("res") or {}
+                noop = (a.get("op") == "press" and
+                        r.get("status") == "ok" and
+                        "expect" not in a and
+                        rr.get("diff_text") == "")
+                if noop:
+                    key = _action_key(a)
+                    if key == noop_press_key:
+                        noop_press_count += 1
+                    else:
+                        noop_press_key, noop_press_count = key, 1
+                    if noop_press_count >= 3:
+                        r["status"] = "failed"
+                        r["error"] = "press made no observation change"
+                else:
+                    noop_press_key, noop_press_count = None, 0
                 if r["status"] == "done":
                     done_seen = True
                 else:
@@ -2137,6 +2429,37 @@ function run() {
                 await asyncio.sleep(a["ms"] / 1000)
                 continue
             # everything else goes to hands via act
+            if op == "url":
+                a = dict(a)
+                a["url"] = fix_url(a.get("url") or "")
+                self._last_url = a["url"]
+            elif op == "open":
+                a = dict(a)
+                value = str(a.get("app") or a.get("name") or "").strip()
+                key = normalize_name(value)
+                site = (key, SITES[key]) if key in SITES else None
+                if site:
+                    installed = self._installed_app_keys(
+                        await self._app_names())
+                    if site[0] not in installed and key not in installed:
+                        a = {"op": "url", "url": fix_url(site[1])}
+                        op = "url"
+                        if self.tracer.current is not None:
+                            self.tracer.current["site_switch"] = [
+                                site[0], site[1]]
+                browser = self._browser_name(value)
+                goal = self._current_goal or self._utterance
+                if browser and not self._goal_mentions_browser(goal, browser):
+                    found = match_name(goal)
+                    url = fix_url(found[1] if found else "www.google.com")
+                    a = {"op": "url", "url": url}
+                    op = "url"
+                    if self.tracer.current is not None:
+                        self.tracer.current["browser_rewrite"] = {
+                            "from": value, "url": url}
+                if op == "url":
+                    a["url"] = fix_url(a.get("url") or "")
+                    self._last_url = a["url"]
             params = {k: v for k, v in a.items() if k != "op"}
             params["op"] = op
             if self._last_epoch is not None:
@@ -2201,6 +2524,9 @@ function run() {
 
     async def _skill(self, a: dict) -> str:
         name, args = a["name"], a.get("args", {})
+        trace = self.tracer.current or {"decisions": []}
+        name, args = await self._rewrite_app_skill(
+            name, args, self._utterance, trace)
         args = slots.fill_defaults(name, args, self._utterance)
         missing = self._missing(name, args)
         if missing and self.catalog.get(name):
@@ -2224,6 +2550,12 @@ function run() {
         if synthetic_level:
             args.pop("level", None)
         args.update(code_args)
+        if name == "type_text" and not self._signin_gate(
+                args.get("text"), trace=trace, goal=self._utterance):
+            await self.server.say(
+                "Please sign in first, then tell me to continue.")
+            await self.server.ui("listening")
+            return "awaiting_user"
         validated_args = dict(args)
         spec = self.catalog.get(name) or {}
         if name == "send_message":
@@ -2296,8 +2628,11 @@ function run() {
                         if out != "ok":
                             return out
         if not res.get("ok", False):
-            return await self._fail(res.get("error", "?"), replies.fail_text(
-                name, args, str(res.get("error", ""))))
+            error = str(res.get("error", "?"))
+            self._last_action_error = error
+            return await self._fail(error, replies.fail_text(
+                name, args, error))
+        self._last_action_error = None
         self._last_skill = (name, validated_args,
                             res.get("result") or {})
         reply = replies.success_text(name, args, res.get("result"))
