@@ -5,12 +5,25 @@
   - The lead followed up on main with two commits:
     - `3876f3a`: Swift HandsKit adds `messages_people`, `contacts_search fuzzy`, and `messages_compose name`.
     - `ff1a4b6`: parser fixes for saying-first phrasings, "quick" adjectives, "tell X to Y" and assistant names; bench fakes now answer the comms RPCs.
-  - Nothing is in flight.
+  - In flight: nothing.
+  - Not started: nothing assigned to this lane.
 - **Verified on main `ff1a4b6` (Linux, fakes):**
   - `ml/tests`: 1418 passed, 55 skipped.
   - `bench/tests`: 165 passed, 2 skipped, 38 subtests passed.
   - The 2 `confirm-no-send` bench failures noted in PR #37 were fixed by the lead in `ff1a4b6`.
-- **Exact next steps:** none assigned. Live verification of the evidence table on the Mac (W5, `cloud/handoff/W5_comms.md`) is the lead's team's job.
+- **Resume steps (about 5 min):**
+  1. Clone and set up:
+     ```bash
+     gh repo clone ardahk/muselet && cd muselet
+     uv sync --project ml
+     uv pip install --python ml/.venv/bin/python mlx-cpu==0.32.4   # Linux only, no Metal
+     ```
+  2. Verify:
+     ```bash
+     uv run --no-sync --project ml python -m pytest ml/tests -q
+     uv run --no-sync --project ml python -m pytest bench/tests -q
+     ```
+- **Next steps:** none assigned. Live verification of the evidence table on the Mac (W5, `cloud/handoff/W5_comms.md`) is the lead's team's job.
 - **Artifacts:**
   - branch `cloud/comms-2` (merged), commit `c65ee70`; main at `ff1a4b6`;
   - spec: `cloud/builder_comms2.md`;
