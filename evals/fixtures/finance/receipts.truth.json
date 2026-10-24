@@ -1,0 +1,59 @@
+{
+  "receipt_01.png": {
+    "match_row": 15,
+    "status": "matched",
+    "total": 16.04,
+    "merchant": "CHIPOTLE",
+    "date": "2026-10-05"
+  },
+  "receipt_02.png": {
+    "match_row": 36,
+    "status": "matched",
+    "total": 29.5,
+    "merchant": "SWEETGREEN",
+    "date": "2026-10-12"
+  },
+  "receipt_03.png": {
+    "match_row": 60,
+    "status": "matched",
+    "total": 29.76,
+    "merchant": "TRADER JOE'S",
+    "date": "2026-10-18"
+  },
+  "receipt_04.png": {
+    "match_row": 71,
+    "status": "matched",
+    "total": 68.17,
+    "merchant": "SAFEWAY",
+    "date": "2026-10-20"
+  },
+  "receipt_05.png": {
+    "match_row": 98,
+    "status": "matched",
+    "total": 41.22,
+    "merchant": "SAFEWAY",
+    "date": "2026-10-26"
+  },
+  "receipt_06.png": {
+    "match_row": 117,
+    "status": "matched",
+    "total": 9.41,
+    "merchant": "SWEETGREEN",
+    "date": "2026-10-31"
+  },
+  "receipt_07.png": {
+    "match_row": 119,
+    "status": "amount_mismatch",
+    "total": 10.2,
+    "merchant": "BLUE BOTTLE COFFEE",
+    "date": "2026-10-31",
+    "statement_amount": 10.02
+  },
+  "receipt_08.png": {
+    "match_row": null,
+    "status": "no_match",
+    "total": 7.12,
+    "merchant": "PHILZ COFFEE",
+    "date": "2026-10-05"
+  }
+}
