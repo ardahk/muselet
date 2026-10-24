@@ -1,6 +1,6 @@
-# training lane digest — pass 25 (main d502b78, cloud/data-pipeline 19737e1, wip/local c7c04ce, cloud/decisions 6d395df, cloud/hobby-gaps 156556e)
+# training lane digest — pass 26 (main d502b78, cloud/data-pipeline 0c1ca3d, wip/local 0db1681, cloud/decisions 6d395df, cloud/hobby-gaps 156556e)
 
-Open: 1 P0, 10 P1, 12 P2. Pass 25: resolved training-35 (serve default is the fixed r2 export), training-36 (lead raised decisions cap), training-31 (hobby-gaps catalog = main); new training-37.
+Open: 1 P0, 10 P1, 12 P2. Pass 26: no new findings, none resolved. data-pipeline 0c1ca3d extends the evalcheck gate to evals/external (9 more it2b route-train drops); wip/local only touches generic_decide.py (decisions runtime).
 
 ## Open P0/P1 (ranked)
 1. **training-23 (P0, main)** — default router r2 is a re-export of main-final, trained on stale pre-fix route data; tau .45 fitted on its stale val. evalcheck: its train data touches 37/140 route_v1 and 10/43 live_t1 cases.
