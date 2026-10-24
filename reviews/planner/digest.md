@@ -1,4 +1,8 @@
-# planner lane — pass 33 (main c949565, wip 4ec066f = main in this lane, decisions e125c13)
+# planner lane — pass 34 (main c949565 unchanged; new cloud/brain-7 13432fe, app-ui afb2688)
+
+Pass 34: 1 new P1 (planner-28: compose_text types generated multi-line text into the focused field with no sendgate or confirm). brain-7 also adds: a sign-in gate that blocks typing values the user never said into email/password fields (good, matches rule 16); a login-page hint for the planner; a spoken site-name to URL table; and set_escalation, which loads or unloads the 35B planner with a 48 GB and memory_level>=40 guard (matches AGENTS). app-ui adds config frames that are acked via server tasks; no issues. native-research, report, decisions and data-pipeline don't touch this lane. Open findings on main are unchanged.
+
+## Pass 33 notes
 
 Pass 33: no lane changes; main only added briefs, and decisions e125c13 doesn't touch this lane. I re-checked the open findings on main and none has changed: planner-24 L984, planner-26 L289, planner-27 L1516, planner-25 planner.py L334, planner-6. Note for the comms-builder brief: send confirmations for contacts-first messaging and email drafting already go through sendgate.py (planner-lane safety). Keep any new messaging skills behind that gate.
 
