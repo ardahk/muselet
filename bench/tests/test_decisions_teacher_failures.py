@@ -1,4 +1,5 @@
 import asyncio
+import json
 import math
 import random
 
@@ -7,7 +8,15 @@ import pytest
 
 from training.decisions.build import CODE_FAMILIES, CODE_TEACHERS, _gate_subset, _teacher_distribution_stats
 from training.decisions.families import GENERATORS
-from training.decisions.label import ApiClient, BudgetLedger, label_item
+from training.decisions.label import ApiClient, BudgetExceeded, BudgetLedger, label_item
+
+
+def test_authoring_phase_cap_reserves_cumulative_spend(tmp_path):
+    ledger = BudgetLedger(10.0, tmp_path / "cost.jsonl", "test", cumulative_budget=57.0)
+    ledger.phase_cumulative_budget = 0.00005
+
+    with pytest.raises(BudgetExceeded, match="phase cumulative budget"):
+        ledger.reserve("gpt-5.4-nano", "x", 1)
 
 
 def test_permanent_4xx_disables_candidate_but_keeps_other_teachers(monkeypatch, tmp_path):
@@ -105,6 +114,15 @@ def test_permanent_4xx_releases_reserved_budget_and_marks_model(monkeypatch, tmp
     assert ledger.reserved == 0
     assert ledger.spent == 0
     assert client.unavailable_models["gpt-4.1-mini"]["status_code"] == 404
+
+
+def test_cumulative_budget_includes_spend_from_other_runs(tmp_path):
+    path = tmp_path / "cost.jsonl"
+    path.write_text(json.dumps({"run": "pilot", "cost_usd": 0.999}) + "\n")
+    ledger = BudgetLedger(10.0, path, "full", "full-round", cumulative_budget=1.0)
+
+    with pytest.raises(BudgetExceeded, match="cumulative budget"):
+        ledger.reserve("gpt-5.4-nano", "short prompt", 1000)
 
 
 def test_haiku_label_uses_four_samples_without_unsupported_thinking(monkeypatch, tmp_path):

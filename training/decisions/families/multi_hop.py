@@ -49,7 +49,7 @@ def generate(rng: random.Random, domain: str, n_questions: int, types: list[str]
     base_hours = plan_hours[agreements[accounts[target_account]["contract"]]["plan"]]
     possible = near_miss_values(
         answer_hours, (base_hours, *neighbors, answer_hours - 1, answer_hours + 1),
-        minimum=5, lower=1, upper=50,
+        minimum=26, lower=1, upper=50,
     )
     options = {
         f"hours_{hours}": f"The response target is {hours} hours."

@@ -27,7 +27,7 @@ def generate(rng: random.Random, domain: str, n_questions: int, types: list[str]
     discount_error = round(price * (1 - max(0, discount - 5) / 100) * (1 + fee / 100), 2)
     mistakes = (wrong_fee_base, fee_omitted, discount_omitted, discount_error)
     candidates = near_miss_values(
-        total, mistakes, minimum=5, lower=round(price * 0.7, 2), upper=round(price * 1.15, 2), step=0.25
+        total, mistakes, minimum=26, lower=round(price * 0.7, 2), upper=round(price * 1.15, 2), step=0.25
     )
     amount_options = {_key(value): f"The invoice total is ${value:.2f}." for value in candidates}
     cap = round(price * rng.choice((0.85, 0.95, 1.0, 1.05)), 2)

@@ -43,19 +43,24 @@ class BudgetExceeded(RuntimeError):
 
 
 class BudgetLedger:
-    def __init__(self, budget: float, path: Path, run: str = "default", round_id: str | None = None):
+    def __init__(self, budget: float, path: Path, run: str = "default", round_id: str | None = None,
+                 cumulative_budget: float | None = None):
         self.budget, self.path, self.run, self.round_id = budget, path, run, round_id
-        self.spent = self.reserved = 0.0
+        self.cumulative_budget = cumulative_budget
+        self.spent = self.reserved = self.cumulative_spent = 0.0
         self.lock = threading.Lock()
+        self.phase_cumulative_budget: float | None = None
         path.parent.mkdir(parents=True, exist_ok=True)
         if path.is_file():
             for line in path.read_text(encoding="utf-8").splitlines():
                 if line.strip():
                     row = json.loads(line)
+                    cost = float(row.get("cost_usd", 0.0))
+                    self.cumulative_spent += cost
                     if row.get("run", "default") == run and (
                         round_id is None or row.get("round_id") == round_id
                     ):
-                        self.spent += float(row.get("cost_usd", 0.0))
+                        self.spent += cost
 
     def reserve(self, model: str, prompt: str, output_cap: int) -> float:
         inp, out = PRICES[model]
@@ -65,6 +70,20 @@ class BudgetLedger:
             if self.spent + self.reserved + estimated > self.budget:
                 raise BudgetExceeded(
                     f"budget reserve would exceed ${self.budget:.2f} (spent ${self.spent:.4f})"
+                )
+            if self.cumulative_budget is not None and (
+                self.cumulative_spent + self.reserved + estimated > self.cumulative_budget
+            ):
+                raise BudgetExceeded(
+                    f"cumulative budget reserve would exceed ${self.cumulative_budget:.2f} "
+                    f"(spent ${self.cumulative_spent:.4f})"
+                )
+            if self.phase_cumulative_budget is not None and (
+                self.cumulative_spent + self.reserved + estimated > self.phase_cumulative_budget
+            ):
+                raise BudgetExceeded(
+                    f"phase cumulative budget reserve would exceed "
+                    f"${self.phase_cumulative_budget:.2f} (spent ${self.cumulative_spent:.4f})"
                 )
             self.reserved += estimated
         return estimated
@@ -84,10 +103,15 @@ class BudgetLedger:
         with self.lock:
             self.reserved -= estimate
             self.spent += cost
+            self.cumulative_spent += cost
             with self.path.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(row) + "\n")
             if self.spent > self.budget:
                 raise BudgetExceeded(f"actual usage exceeded hard budget: ${self.spent:.4f}")
+            if self.cumulative_budget is not None and self.cumulative_spent > self.cumulative_budget:
+                raise BudgetExceeded(
+                    f"actual cumulative usage exceeded hard budget: ${self.cumulative_spent:.4f}"
+                )
         return row
 
     def cancel(self, estimate: float):
@@ -136,31 +160,57 @@ def first_option_id(text: str, ids: list[str]) -> str | None:
 
 
 class ApiClient:
-    def __init__(self, concurrency: int = 8):
-        self.semaphore = asyncio.Semaphore(concurrency)
+    def __init__(self, concurrency: int = 32, retry_log: Path | None = None):
+        self.semaphores = {
+            "openai": asyncio.Semaphore(concurrency),
+            "anthropic": asyncio.Semaphore(concurrency),
+        }
+        self.retry_log = retry_log
         self.unavailable_models: dict[str, dict] = {}
 
     def mark_unavailable(self, model: str, status_code: int):
         self.unavailable_models[model] = {"status_code": status_code}
 
+    def _log_retry(self, provider: str, model: str, status_code: int | None, attempt: int,
+                   reason: str | None = None):
+        if self.retry_log is None:
+            return
+        self.retry_log.parent.mkdir(parents=True, exist_ok=True)
+        with self.retry_log.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps({
+                "provider": provider, "model": model, "status_code": status_code,
+                "attempt": attempt, "reason": reason,
+            }) + "\n")
+
     async def _post(self, url: str, headers: dict, body: dict):
-        async with self.semaphore:
-            for attempt in range(5):
-                try:
+        provider = "openai" if "openai.com" in url else "anthropic"
+        model = str(body.get("model", "unknown"))
+        semaphore = self.semaphores[provider]
+        for attempt in range(5):
+            try:
+                async with semaphore:
                     async with httpx.AsyncClient(timeout=120) as client:
                         response = await client.post(url, headers=headers, json=body)
                     response.raise_for_status()
                     return response.json()
-                except httpx.HTTPStatusError as exc:
-                    if exc.response.status_code not in (408, 429) and exc.response.status_code < 500:
-                        raise
-                    if attempt == 4:
-                        raise
-                    await asyncio.sleep(min(2 ** attempt, 16) + random.random())
-                except (httpx.TransportError, ValueError):
-                    if attempt == 4:
-                        raise
-                    await asyncio.sleep(min(2 ** attempt, 16) + random.random())
+            except httpx.HTTPStatusError as exc:
+                status = exc.response.status_code
+                if status not in (408, 429) and status < 500:
+                    raise
+                if attempt == 4:
+                    raise
+                self._log_retry(provider, model, status, attempt + 1)
+                try:
+                    retry_after = float(exc.response.headers.get("retry-after", 0) or 0)
+                except ValueError:
+                    retry_after = 0.0
+                delay = min(2 ** attempt, 16) + random.random()
+                await asyncio.sleep(max(delay, min(retry_after, 60)))
+            except (httpx.TransportError, ValueError) as exc:
+                if attempt == 4:
+                    raise
+                self._log_retry(provider, model, None, attempt + 1, type(exc).__name__)
+                await asyncio.sleep(min(2 ** attempt, 16) + random.random())
 
     async def generate(self, model: str, prompt: str, ledger: BudgetLedger, max_output_tokens: int = 2048,
                        role: str = "author", decision_id: str | None = None,
