@@ -1,11 +1,11 @@
 {
-  "pass": 23,
-  "ts": "2026-10-24T11:10:00Z",
+  "pass": 24,
+  "ts": "2026-10-24T11:25:00Z",
   "branches": {
     "main": "d502b78",
-    "wip/local": "c7c04ce",
+    "wip/local": "0db1681",
     "cloud/bench": "f584cb2",
-    "cloud/data-pipeline": "19737e1",
+    "cloud/data-pipeline": "0c1ca3d",
     "cloud/decisions": "6d395df",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
@@ -23,5 +23,5 @@
     "cloud/brain-4": "dfb66a3",
     "cloud/brain-5": "b752261"
   },
-  "notes": "pass23: main d502b78 merges hobby-gaps (PR #16) so bench-16/20/21 are now on main, all still open; plan() labels HobbyLM calc rows calculator_open_cleared (bench-21). New probe_session screen-lock skip is another per-run skip (bench-16). bench/tests main: 143 passed, 3 skipped, 1 failed (mlx import, env). data-pipeline 19737e1: evalcheck gate vs route_v1/live_t1 + main-final overlap report; main 8b9cd30 route_v1_clean \u2014 bench-18 partly addressed, external HobbyLM/DeskMind still unchecked. decisions 6d395df: spec amendment + mini-check tests, decontam unchanged. wip/local: no lane diff vs main. No new findings."
+  "notes": "pass24: data-pipeline 0c1ca3d adds evals/external to the evalcheck gate (future runs covered; it2b drops 9 route-train rows); main/it2 reports not regenerated -> bench-18 stays open for existing checkpoints. wip/local 0db1681: generic_decide.py moves MLX work onto one worker thread (MLX streams are thread-local); serializes requests, decisions unchanged; last_input_tokens can race under concurrent requests but that was already true and it isn't scored. main/hobby-gaps/decisions unchanged since pass 23; bench-16/20/21 still open on main@d502b78. No new findings."
 }
