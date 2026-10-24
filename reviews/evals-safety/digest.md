@@ -1,20 +1,20 @@
-# evals-safety digest — pass 35 (main@c949565)
+# evals-safety digest — pass 36 (2026-10-24T16:33:37Z, main@c949565)
 
-Open: P0 0 · P1 2 · P2 9   (resolved this pass: -6 and -30, brain-6 merged)
+Open: P0 0, P1 3, P2 9.
 
 ## Open P0/P1 (ranked)
-1. **-25** live document guard skips 9/43 cases (any Chrome/Slack/Messages window) and drops skips from the denominator; matters for the morning live runs. bench/harness/documents.py, bench/live/run_live.py.
-2. **-11** `done` accepted after a passed expect or a fresh observation; no harness final-state check (pitch already scopes this as partial).
+1. **-33 (P1, new; cloud/brain-7 13432fe vs cloud/app-ui afb2688, both unmerged):** conflicting `config`/`config_ack` contracts. app-ui's Swift reads `ok`, which brain-7 never sends, so every ack reads as a failure. brain-7 loads 35B on demand and app-ui only toggles a resident one. server.py conflicts on merge.
+2. **-25 (P1, main):** the document guard skips 9/43 live cases, and skips leave the denominator.
+3. **-11 (P1, main):** `done` is accepted with no harness goal/result check.
 
-P2: -8, -12, -20, -21, -22, -23, -24, -28, -31.
+## Next moves
+1. Settle one config/config_ack contract (with `ok` plus the actual state) before brain-7 or app-ui merges (-33).
+2. Before the morning live runs: count skips in the live pass rate, or narrow the document guard to each case's apps (-25).
+3. REPORT.md:122 and claims.md:66: add the 12/43 trace-graded caveat (-24).
+4. Report the planner on holdout-2 with the prompt SHA (-31).
 
-## Next moves (max 5)
-1. Count skips in the live denominator (report passed/43 and skipped), or narrow the document guard to the case's own apps (-25).
-2. Before the morning live runs, close other document apps on the designated Mac so the 9 guarded cases execute (-25 mitigation).
-3. Report planner holdout2 with the prompt sha (-31).
-4. Add positive state checks to the 8 trace-only live cases (-24).
-5. Leave Tinker headroom for billing lag on any large late run (-23).
-
-Pass 34: main 5292608 only updates the AGENTS.md DeskMind overlap note (0 real, CJK-aware gate), which is consistent with -32 being resolved. wip/local matches main. No code changes, so -25 and -11 stand.
-
-Pass 35: main c949565 adds briefs only. The comms brief requires contacts-first resolution and confirm "Send '<body>' to <Full Name>?" before send, and points at sendgate.py; good. decisions e125c13: generation spend is $52.89 of the $57 cap (OpenAI/Anthropic, not Tinker). Decontam is fail-closed and removed 1,925/3,673 labeled states by 13-gram; surviving code-gold has 0 counting/multi-hop/long-policy states (the report discloses this; it's an accuracy skew for the decisions model, not leakage). -25 and -11 stand (no code changes on main).
+## Checked, nothing material (pass 36)
+- data-pipeline 6c1e565: route_v2 is frozen (955 items, 0 overlap with the training pools and other evals), and evalcheck now includes route_v2, so the it3 training gate covers it.
+- decisions 184c80f/43abfa3: the trainer has an estimate-based preflight, --max-usd and a $25 acknowledgement gate. The Tinker backend still has no runtime cap (-28 unchanged).
+- brain-7: sign-in gate on typing, site/browser URL rewriting, compose_text verifies the note appears, no-op press guard. Confirm gates unchanged.
+- native-research, report: docs only (see -24 for the report).
