@@ -20,12 +20,12 @@ from huggingface_hub import HfApi
 from tinker_cookbook import weights
 
 from muselet_train import datums as D
-from muselet_train.catalog import REPO_ROOT
+from muselet_train.catalog import REPO_ROOT, render_samples_path
 from muselet_train.route_render import STUDENT_MODEL, RouteContext, render_route
 from muselet_train.teacher import chunked_decision
 
 OUT = Path("/data/export")
-SAMPLES = REPO_ROOT / "training" / "artifacts" / "route_render_samples.jsonl"
+SAMPLES = render_samples_path()
 
 
 def check_render_samples() -> int:

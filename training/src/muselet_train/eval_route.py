@@ -36,7 +36,9 @@ def route_v1_items(name: str = "route_v1") -> list[D.RouteItem]:
 
 
 async def run(tinker_path: str, items: list[D.RouteItem], conc: int = 32) -> list[dict]:
-    client = tinker.ServiceClient().create_sampling_client(model_path=tinker_path)
+    sc = tinker.ServiceClient()
+    client = sc.create_sampling_client(base_model=tinker_path[5:]) if tinker_path.startswith("base:") \
+        else sc.create_sampling_client(model_path=tinker_path)
     sem = asyncio.Semaphore(conc)
 
     async def one(it):
@@ -51,22 +53,28 @@ async def run(tinker_path: str, items: list[D.RouteItem], conc: int = 32) -> lis
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--tinker-path", required=True)
-    ap.add_argument("--set", choices=["route_v1", "route_v2", "val"], required=True)
+    ap.add_argument("--tinker-path", required=True, help="tinker://... or base:<model> for the untrained base")
+    ap.add_argument("--set", choices=["route_v1", "route_v2", "val", "items"], required=True)
     ap.add_argument("--name", required=True, help="training run name; outputs go to /data/train/<name>/")
     ap.add_argument("--run", default="v2all")
     ap.add_argument("--teacher-files", nargs="*", default=[])
+    ap.add_argument("--items", help="--set items: RouteItem jsonl (e.g. a frozen val dump), scored as pred_<--tag>")
+    ap.add_argument("--tag", default="")
     a = ap.parse_args()
-    items = route_v1_items(a.set) if a.set.startswith("route_v") else \
-        [it for it in D.route_items(a.run, tuple(a.teacher_files)) if it.split == "val"]
+    if a.set == "items":
+        items = [D.RouteItem(**json.loads(x)) for x in Path(a.items).read_text().splitlines() if x.strip()]
+    else:
+        items = route_v1_items(a.set) if a.set.startswith("route_v") else \
+            [it for it in D.route_items(a.run, tuple(a.teacher_files)) if it.split == "val"]
+    tag = a.tag or a.set
     rows = asyncio.run(run(a.tinker_path, items))
     out = OUT / a.name
     out.mkdir(parents=True, exist_ok=True)
-    (out / f"pred_{a.set}.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+    (out / f"pred_{tag}.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
     m = route_metrics([(r["label"], r["probs"]) for r in rows])
-    (out / f"eval_{a.set}.json").write_text(json.dumps(m, indent=1))
+    (out / f"eval_{tag}.json").write_text(json.dumps(m, indent=1))
     print(json.dumps({k: v for k, v in m.items() if not k.startswith("per_label")}))
-    print(Path(out / f"eval_{a.set}.json"))
+    print(Path(out / f"eval_{tag}.json"))
 
 
 if __name__ == "__main__":

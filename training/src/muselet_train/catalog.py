@@ -64,3 +64,9 @@ def _arg_sig(a: dict) -> str:
 def arg_signature(opt: Option) -> str:
     """e.g. ``level:int 0-100 required, kind:enum any|pdf optional``."""
     return ", ".join(_arg_sig(a) for a in opt.args)
+
+
+def render_samples_path(path: Path = CATALOG_PATH) -> Path:
+    """Mac render-parity samples for this catalog: v2 keeps route_render_samples.jsonl, v3+ gets a _v<N> file."""
+    v = load_catalog(path).get("version", 2)
+    return REPO_ROOT / "training" / "artifacts" / ("route_render_samples.jsonl" if v < 3 else f"route_render_samples_v{v}.jsonl")

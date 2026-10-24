@@ -6,13 +6,17 @@ import json
 import random
 from pathlib import Path
 
-from muselet_train.catalog import REPO_ROOT, options, skills
+from muselet_train.catalog import options, render_samples_path, skills
 from muselet_train.contexts import sample_context
 from muselet_train.route_render import (
-    PLACEHOLDER, PREFIX, STUDENT_MODEL, render_route, route_renderer,
+    PLACEHOLDER,
+    PREFIX,
+    STUDENT_MODEL,
+    render_route,
+    route_renderer,
 )
 
-OUT = REPO_ROOT / "training" / "artifacts" / "route_render_samples.jsonl"
+OUT = render_samples_path()
 SPECIAL_EXAMPLES = {
     "MULTI_STEP": ["open safari, search flights to tokyo and sort by price",
                    "in premiere add a cross dissolve between the first two clips",

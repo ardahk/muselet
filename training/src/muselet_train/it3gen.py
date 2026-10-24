@@ -379,12 +379,111 @@ def gate_filter(run: str) -> None:
                      ensure_ascii=False))
 
 
+IT3CAND = Path("/data/it3cand")
+
+
+def merge_it3cand(mine: str = "v3it3", out: str = "v3m",
+                  teachers: tuple[str, ...] = ("teacher_pilot_adj.jsonl", "teacher_ask_adj.jsonl", "teacher_v2_adj.jsonl")) -> None:
+    """Lead merge rules: it3cand labels win on its rows; then my v3 boundary relabel on rows it3cand did not relabel;
+    then my rows not in it3cand (normalized exact) and not dropped by it3cand; splits kept. Rows whose target is
+    one-hot go to teacher_in.jsonl for 35B soft labels."""
+    import collections
+    import gzip
+
+    from muselet_train import datums as D
+    from muselet_train.evalcheck import norm
+
+    rd = lambda f: [json.loads(x) for x in gzip.open(IT3CAND / f, "rt")]
+    cand, cargs, changes, prov = rd("route.jsonl.gz"), rd("args.jsonl.gz"), rd("changes.jsonl.gz"), rd("provenance.jsonl.gz")
+    src_of = [p["source"] for p in prov if p["file"] == "route"]
+    relabeled = {c["utterance"] for c in changes if c["kind"] == "route_relabel"}
+    dropped = {c["utterance"] for c in changes if c["kind"] in ("route_drop", "gate_drop")}
+    v3 = {x["utterance"]: x["label"] for x in map(json.loads, (GEN / mine / "v3_relabel.jsonl").read_text().splitlines())}
+    st = collections.Counter()
+    rows, seen, newlab = [], set(), {}
+    for r, src in zip(cand, src_of, strict=True):
+        lab, tgt = r["label"], r["target"]
+        if r["utterance"] not in relabeled and r["utterance"] in v3 and v3[r["utterance"]] != lab:
+            lab, tgt = v3[r["utterance"]], {v3[r["utterance"]]: 1.0}
+            newlab[r["utterance"]] = lab
+            st[f"v3_on_cand:{r['label']}->{lab}"] += 1
+        k = norm(r["utterance"])
+        if k in seen:
+            st["cand_internal_dup"] += 1
+            continue
+        seen.add(k)
+        rows.append({"utterance": r["utterance"], "context": r["context"], "label": lab, "split": r["split"],
+                     "src": f"it3cand:{src}", "merged_target": tgt})
+    st["from_cand"] = len(rows)
+    mine_items = D.route_items(mine, teachers)
+    soft = {it.utterance: it for it in mine_items if max(it.target.values()) < 0.999}
+    for r in rows:  # it3cand stores one-hot targets; restore it2's teacher blend where the label is unchanged
+        m = soft.get(r["utterance"])
+        if m and m.label == r["label"] and max(r["merged_target"].values()) >= 0.999:
+            r["merged_target"] = m.target
+            st["cand_soft_restored"] += 1
+    for it in mine_items:
+        k = norm(it.utterance)
+        if k in seen or it.utterance in dropped:
+            st["mine_dup_or_dropped"] += 1
+            continue
+        seen.add(k)
+        rows.append({"utterance": it.utterance, "context": it.context, "label": it.label, "split": it.split,
+                     "src": "mine", "merged_target": it.target})
+        st["from_mine"] += 1
+    mine_utts = {r["utterance"] for r in rows if r["src"] == "mine"}
+    args = [a for a in cargs if a["skill"] == newlab.get(a["utterance"], a["skill"])]
+    st["cand_args_dropped_v3"] = len(cargs) - len(args)
+    margs = [a for a in map(json.loads, (GEN / mine / "args.jsonl").read_text().splitlines()) if a["utterance"] in mine_utts]
+    split_of = {r["utterance"]: r["split"] for r in rows}
+    args = [{k: a[k] for k in ("skill", "utterance", "context", "target")} | {"src": a.get("src", "it3cand"),
+            "split": split_of.get(a["utterance"], a.get("split", "train"))} for a in args + margs]
+    st["args"] = len(args)
+    st["args_from_mine"] = len(margs)
+    d = GEN / out
+    d.mkdir(exist_ok=True)
+    w = lambda f, xs: (d / f).write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in xs))
+    w("route_train.jsonl", [r for r in rows if r["split"] == "train"])
+    w("route_val.jsonl", [r for r in rows if r["split"] == "val"])
+    w("args.jsonl", args)
+    # lead scope: new-intent items, v3 relabels, it3cand generated + relabeled items (the rest stays as in it2)
+    scope = lambda r: (r["src"] == "mine" or r["utterance"] in newlab or r["utterance"] in relabeled
+                       or r["src"].startswith("it3cand:gen:"))
+    need = [{k: r[k] for k in ("utterance", "context", "label", "src", "split")} for r in rows
+            if max(r["merged_target"].values()) >= 0.999 and scope(r)]
+    w("teacher_in.jsonl", need)
+    st["teacher_needed"] = len(need)
+    st["teacher_needed_by_src"] = dict(collections.Counter(r["src"].split(":")[0] + ":" + r["label"]
+                                                          for r in need if r["label"] in V3_LABELS))
+    (d / "merge.json").write_text(json.dumps(st, indent=1))
+    print(json.dumps(st | {"route": len(rows), "val": sum(r["split"] == "val" for r in rows),
+                           "by_label_new": {x: sum(r["label"] == x for r in rows) for x in V3_LABELS + ("compose_email", "ASK")}}))
+
+
+def apply_teacher(out: str = "v3m", f: str = "teacher_v3.jsonl") -> None:
+    """Replace merged_target with the 35B teacher blend (teacher.blend) for every scored row."""
+    d = GEN / out
+    t = {(x["utterance"], x["src"]): x["target"] for x in map(json.loads, (d / f).read_text().splitlines())}
+    n = 0
+    for name in ("route_train.jsonl", "route_val.jsonl"):
+        rows = [json.loads(x) for x in (d / name).read_text().splitlines()]
+        for r in rows:
+            if (r["utterance"], r["src"]) in t:
+                r["merged_target"], n = t[(r["utterance"], r["src"])], n + 1
+        (d / name).write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+    print(json.dumps({"teacher_rows": len(t), "applied": n}))
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--round", type=int, default=0)
     ap.add_argument("--run", default="v3it3")
-    ap.add_argument("stage", choices=["v2-write", "v2-judge", "v2-gate", "it3-gen", "relabel", "v3-apply", "gate-filter"])
+    ap.add_argument("stage", choices=["v2-write", "v2-judge", "v2-gate", "it3-gen", "relabel", "v3-apply", "gate-filter", "merge", "apply-teacher"])
     a = ap.parse_args()
+    if a.stage == "apply-teacher":
+        return apply_teacher()
+    if a.stage == "merge":
+        return merge_it3cand()
     if a.stage == "gate-filter":
         return gate_filter(a.run)
     if a.stage == "v3-apply":

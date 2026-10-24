@@ -67,6 +67,9 @@ def route_items(run: str, teacher_files: tuple[str, ...] = (), stats: dict | Non
         adj = (t or {}).get("adjudication") or {}
         verdict, alab = adj.get("verdict"), adj.get("label")
         label = r["label"]
+        if r.get("merged_target"):  # it3gen merge-it3cand rows: final label + target already decided
+            out.append(RouteItem(r["utterance"], r["context"], label, r["merged_target"], r.get("split", "train")))
+            continue
         if (r["utterance"], r["src"]) in v3:  # catalog-v3 boundary relabel (it3gen v3-apply): one-hot, no teacher
             st["relabeled"][f"{label}->{v3[(r['utterance'], r['src'])]}"] += 1
             label = v3[(r["utterance"], r["src"])]

@@ -96,7 +96,8 @@ def stratified(rows: list[dict], seed: int) -> list[dict]:
 
 
 async def run(run_name: str, model: str, limit: int, concurrency: int, seed: int, out_name: str,
-              labels: list[str] | None, method: str, infile: str, subset: str, phase1_spent: float) -> None:
+              labels: list[str] | None, method: str, infile: str, subset: str, phase1_spent: float,
+              cap: float = PHASE1_CAP) -> None:
     score = {"chunked": chunked_decision, "topk": topk_decision}[method]
     rows = _load(run_name, infile)
     if labels:
@@ -108,7 +109,7 @@ async def run(run_name: str, model: str, limit: int, concurrency: int, seed: int
     names = option_names()
     renders = [render_route(RouteContext(**r["context"]), r["utterance"], model=model) for r in rows]
     est = estimate(model, [len(x.tokens) for x in renders], len(names))
-    budget = min(PHASE1_CAP - phase1_spent - TRAIN_RESERVE, TEACHER_CAP)
+    budget = min(cap - phase1_spent - TRAIN_RESERVE, TEACHER_CAP)
     print(json.dumps({"items": len(rows), "model": model, "chunks": n_chunks(len(names)),
                       "prompt_tokens": sum(len(x.tokens) for x in renders), "est_usd": round(est, 2),
                       "budget_usd": round(budget, 2)}), flush=True)
@@ -145,13 +146,14 @@ def main() -> None:
     ap.add_argument("--subset", choices=["none", "stratified"], default="none")
     ap.add_argument("--phase1-spent", type=float, required=True, help="Tinker $ already spent in Phase 1")
     ap.add_argument("--labels", nargs="*")
+    ap.add_argument("--cap", type=float, default=PHASE1_CAP, help="total Tinker $ stop line (it3: 140)")
     ap.add_argument("--concurrency", type=int, default=64)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default="teacher.jsonl")
     ap.add_argument("--in", dest="infile", default="route.jsonl")
     ap.add_argument("--method", choices=["chunked", "topk"], default="chunked")
     a = ap.parse_args()
-    asyncio.run(run(a.run, a.model, a.limit, a.concurrency, a.seed, a.out, a.labels, a.method, a.infile, a.subset, a.phase1_spent))
+    asyncio.run(run(a.run, a.model, a.limit, a.concurrency, a.seed, a.out, a.labels, a.method, a.infile, a.subset, a.phase1_spent, a.cap))
 
 
 if __name__ == "__main__":
