@@ -1,0 +1,14 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Muselet//Advisor demo//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:henderson-annual-review-20261026@muselet.local
+DTSTAMP:20261001T160000Z
+DTSTART:20261026T100000
+DTEND:20261026T110000
+SUMMARY:Henderson annual review
+LOCATION:Office
+DESCRIPTION:Annual review with Mark and Elena Henderson. Client folder: ~/Documents/Clients/Henderson
+END:VEVENT
+END:VCALENDAR

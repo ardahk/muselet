@@ -1,0 +1,23 @@
+Account,Ticker,Name,Asset class,Lot date,Shares,Cost basis,Price,Market value,Unrealized G/L
+Joint taxable brokerage,VTI,Vanguard Total Stock Market ETF,US equity,2014-03-10,330,31944.00,328.50,108405.00,76461.00
+Joint taxable brokerage,VTI,Vanguard Total Stock Market ETF,US equity,2019-06-14,726,110642.40,328.50,238491.00,127848.60
+Joint taxable brokerage,VTI,Vanguard Total Stock Market ETF,US equity,2026-03-02,40,13768.00,328.50,13140.00,-628.00
+Joint taxable brokerage,VNQ,Vanguard Real Estate ETF,US equity,2022-01-03,400,43560.00,86.40,34560.00,-9000.00
+Joint taxable brokerage,AAPL,Apple Inc.,US equity,2012-09-17,120,2952.00,252.30,30276.00,27324.00
+Joint taxable brokerage,MSFT,Microsoft Corp.,US equity,2015-11-02,60,3228.00,489.60,29376.00,26148.00
+Joint taxable brokerage,MSFT,Microsoft Corp.,US equity,2024-07-15,40,18200.00,489.60,19584.00,1384.00
+Joint taxable brokerage,PLTR,Palantir Technologies Inc.,US equity,2025-10-23,100,1820.00,182.30,18230.00,16410.00
+Joint taxable brokerage,VXUS,Vanguard Total International Stock ETF,Intl equity,2017-05-08,1200,62520.00,71.20,85440.00,22920.00
+Joint taxable brokerage,VXUS,Vanguard Total International Stock ETF,Intl equity,2026-02-09,700,53480.00,71.20,49840.00,-3640.00
+Joint taxable brokerage,BND,Vanguard Total Bond Market ETF,Bonds,2013-04-15,900,63090.00,72.85,65565.00,2475.00
+Joint taxable brokerage,BND,Vanguard Total Bond Market ETF,Bonds,2021-08-02,1500,131100.00,72.85,109275.00,-21825.00
+Joint taxable brokerage,SWVXX,Schwab Value Advantage Money Fund,Cash,,57000.00,57000.00,1.00,57000.00,0.00
+Mark Traditional IRA,VTI,Vanguard Total Stock Market ETF,US equity,2016-01-19,480,50256.00,328.50,157680.00,107424.00
+Mark Traditional IRA,VTI,Vanguard Total Stock Market ETF,US equity,2026-09-30,30,9933.00,328.50,9855.00,-78.00
+Mark Traditional IRA,VXUS,Vanguard Total International Stock ETF,Intl equity,2018-02-05,2300,134320.00,71.20,163760.00,29440.00
+Mark Traditional IRA,VXUS,Vanguard Total International Stock ETF,Intl equity,2026-10-11,100,7095.00,71.20,7120.00,25.00
+Mark Traditional IRA,BND,Vanguard Total Bond Market ETF,Bonds,2016-01-19,3200,256640.00,72.85,233120.00,-23520.00
+Mark Traditional IRA,VMFXX,Vanguard Federal Money Market Fund,Cash,,18000.00,18000.00,1.00,18000.00,0.00
+Elena Roth IRA,VTI,Vanguard Total Stock Market ETF,US equity,2017-03-06,150,18195.00,328.50,49275.00,31080.00
+Elena Roth IRA,VNQ,Vanguard Real Estate ETF,US equity,2026-09-02,60,5094.00,86.40,5184.00,90.00
+Savings,HYSA,High-yield savings account,Cash,,236480.00,236480.00,1.00,236480.00,0.00
