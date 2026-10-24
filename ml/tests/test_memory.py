@@ -62,6 +62,32 @@ def test_site_search_requires_live_turn_and_browser_focus():
                    {"app": "Finder", "url": ""}, 11).changed is False
 
 
+def test_search_without_history_and_safe_bare_search_continuation():
+    fresh = WorkingMemory()
+    result = resolve("look up renewable energy", fresh,
+                     {"app": "Safari", "url": "https://news.ycombinator.com/"},
+                     1)
+    assert result.changed
+    assert result.text.startswith("open https://hn.algolia.com/?q=")
+    assert result.direct["skill"] == "open_url"
+
+    history = _memory(
+        args={"url": "https://docs.python.org/3/search.html?q=iterators"})
+    result = resolve(
+        "and generators", history,
+        {"app": "Google Chrome",
+         "url": "https://docs.python.org/3/search.html?q=iterators"},
+        11)
+    assert result.changed
+    assert "generators" in result.text
+    assert "google.com" not in result.text
+    assert resolve(
+        "open Finder", history,
+        {"app": "Google Chrome",
+         "url": "https://docs.python.org/3/search.html?q=iterators"},
+        11).changed is False
+
+
 def test_other_followups_do_not_capture_native_commands():
     wm = _memory("send_message", {"to": "Arda", "body": "secret"})
     assert resolve("turn the volume up", wm, {}, 11).changed is False
@@ -110,6 +136,14 @@ def test_again_and_undo_rules():
     assert ask.ask == "I can't undo that. What should I do?"
 
 
+def test_again_renders_actions_and_failed_turns_ask():
+    shot = _memory("take_screenshot", {"region": "window"})
+    assert resolve("once more", shot, {}, 11).text == \
+        "take a screenshot of the window"
+    failed = _memory("set_volume", {"level": 30}, ok=False)
+    assert resolve("repeat", failed, {}, 11).ask == "What should I do again?"
+
+
 def test_person_and_item_substitution_never_invent_referents():
     person = _memory("send_message",
                      {"to": "Mom", "body": "I'm late"},
@@ -117,7 +151,7 @@ def test_person_and_item_substitution_never_invent_referents():
     result = resolve("send her a message saying hi", person, {}, 11)
     assert result.changed
     assert "Mom" in result.text
-    assert person.last(11).args == {"to": "Mom"}
+    assert person.last(11).args == {"to": "Mom", "body": "I'm late"}
 
     unknown = _memory("open_url", {"url": "https://example.com"})
     unresolved = resolve("send him a message", unknown, {}, 11)
@@ -147,6 +181,49 @@ def test_refinement_and_correction():
     assert fixed.changed
     assert fixed.text == "open Safari"
     assert resolve("I meant Safari", correction, {}, 11).text == "open Safari"
+
+
+def test_person_selection_uses_all_turns_and_gender_hints():
+    wm = WorkingMemory()
+    wm.record("text Noah about the reservation",
+              "text Noah saying the reservation is confirmed",
+              "send_message",
+              {"to": "Noah", "body": "The reservation is confirmed"},
+              True, {"app": "Messages"}, t=1)
+    wm.record("make a reminder to call Priya",
+              "make a reminder to call Priya", "create_reminder",
+              {"title": "Call Priya"}, True, {"app": "Reminders"}, t=2)
+    result = resolve("send him the updated time", wm, {}, 3)
+    assert result.changed
+    assert "Noah" in result.text
+
+    ambiguous = WorkingMemory()
+    ambiguous.record("plan lunch with Evan and Isaac",
+                     "plan lunch with Evan and Isaac", "create_event",
+                     {"title": "Lunch with Evan and Isaac"}, True,
+                     {"app": "Calendar"}, t=1)
+    result = resolve("message him about the location", ambiguous, {}, 2)
+    assert not result.changed
+
+
+def test_item_referent_uses_current_app_and_parent_folder():
+    app = _memory("open_app", {"app": "Calendar"}, ctx={"app": "Calendar"})
+    assert resolve("hide it", app, {"app": "Calendar"}, 11).text == \
+        "hide Calendar"
+    folder = _memory("new_folder", {
+        "parent": "~/Documents/Trips", "name": "Receipts"})
+    assert "~/Documents/Trips/Receipts" in resolve(
+        "make another folder in there", folder, {}, 11).text
+
+
+def test_utterance_normalization_preserves_unchanged_text():
+    volume = _memory("set_volume", {"level": 35})
+    original = "uh, show me several more options"
+    result = resolve(original, volume, {}, 11)
+    assert result.text == original
+    assert not result.changed
+    assert resolve("um, agin", volume, {}, 11).text == \
+        "set the volume to 35"
 
 
 def test_refinement_only_matches_short_commands():
@@ -265,10 +342,12 @@ def test_history_privacy_atomic_save_and_compact_recent_lines(tmp_path):
     assert path.exists()
     saved = path.read_text()
     assert "TOP SECRET" not in saved
-    assert wm.turns[0].args == {"to": "Mom"}
-    assert wm.turns[1].args == {}
+    assert wm.turns[0].args["body"] == "TOP SECRET"
+    assert wm.turns[1].args["text"] == "TOP SECRET"
     assert len(wm.recent_lines(now=3)) == 2
     assert all(len(line) <= 80 for line in wm.recent_lines(now=3))
+    assert "TOP SECRET" not in "\n".join(wm.recent_lines(now=3))
+    assert "TOP SECRET" in "\n".join(wm.recent_detail_lines(now=3))
     assert wm.recent_lines(0, now=3) == []
 
     history = [{
@@ -284,8 +363,8 @@ def test_history_privacy_atomic_save_and_compact_recent_lines(tmp_path):
 
 
 def test_all_search_templates_exist_and_adapter_shape():
-    assert len(SEARCH_URLS) == 27
-    assert STATIC.count("Output:") == 6
+    assert len(SEARCH_URLS) == 30
+    assert STATIC.count("Output:") == 8
     assert STATIC.count("Output: UNCHANGED") == 2
     assert "Output: ASK:" in STATIC
     adapter = eval_adapter("open Safari", {"app": "Zen", "t": 11}, [])
