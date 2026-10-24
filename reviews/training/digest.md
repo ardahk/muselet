@@ -1,21 +1,24 @@
-# training review digest: pass 15
-_heads: cloud/data-pipeline a6b229a (main run report + parity_300 + route_items file fix); main 280715d, wip/local 38768f3, other cloud/* unchanged_
+# training review digest: pass 16
+_heads: cloud/data-pipeline 70b7d1b (iteration 2: ask_rule, finance_check, it2 top-ups, hypotheses); main bb494af (router_check, decisions builder brief); bench f584cb2 and wip/local c85a000 have nothing in my lane_
 
 ## Open P0/P1 (ranked)
-- **training-23** [P0] The main run was trained and evaluated on the stale pre-fix route_dedup.jsonl; contexts are unconstrained, and G3 and external-eval contamination are unverified (`training/src/muselet_train/datums.py:57@43ea71a`).
-- **training-24** [P1] The router almost never ASKs: 194 train items, val 0/3 (`training/reports/phase1_main.md`).
-- **training-25** [P1] Main run per-label accuracy: media_control 32%, dark_mode 68%, find_file 71% (`training/reports/phase1_main.md`).
-- **training-5** [P1] No billed spend is recorded; the billing guard lags and --max-usd is per-run only, and a retrain adds about $29 (`tools/tinker_spend.py`, `train.py`).
-- **training-14** [P1] main has catalog v2 but 36-option parity samples, so the parity test xfails while the pitch claims parity (`training/artifacts/route_render_samples.jsonl`).
-- **training-8** [P1] No per-label 15% A1 STOP gate (`training/src/muselet_train/adjudicate.py`).
-- **training-15** [P1] The stratified teacher subset skews the label prior (`training/src/muselet_train/teacher.py`).
-- **training-11** [P1] Finder selection=yes can't happen at runtime, but it's forced for copy_selection (`training/src/muselet_train/contexts.py`).
+- **training-23** [P0] The main run was trained and evaluated on the stale pre-fix route_dedup.jsonl. It is acknowledged and v2it2 is planned; the external-decontam status of the stale file is still unanswered, and router_check runs main (`training/reports/phase1_it2_plan.md`).
+- **training-5** [P1] Two Tinker spenders now share about $81 of headroom; both use per-run guards and billing lags (`cloud/builder_decisions.md`, `train.py`).
+- **training-26** [P1] ask_rule relabels unclear-referent ASK ("send it to him") as a concrete skill (`training/src/muselet_train/ask_rule.py:67-74`).
+- **training-27** [P1] Iteration 2 tunes data against route_v1, so it is no longer held-out (`training/reports/phase1_it2_plan.md:24-31`).
+- **training-28** [P1] media_control and premiere_command conflict on the same playback words in Premiere (`training/src/muselet_train/contexts.py:55-65`).
+- **training-24** [P1] The router almost never ASKs; a fix is in progress (`datums.py`).
+- **training-25** [P1] media_control, dark_mode and find_file are weak; top-ups are in progress (`gen.py`).
+- **training-14** [P1] main has catalog v2 but 36-option parity samples (`training/artifacts/route_render_samples.jsonl`).
+- **training-8** [P1] No per-label 15% A1 STOP gate (`adjudicate.py`).
+- **training-15** [P1] The teacher subset skews the label prior (`teacher.py`).
+- **training-11** [P1] Finder selection semantics (`contexts.py`).
 
-Resolved this pass: training-17 (finance_review val 1.000, n=36). Open P2: training-9, -10, -12, -13, -18, -19, -20, -22.
+Open P2: training-9, -10, -12, -13, -18, -19, -20, -22.
 
 ## Highest-leverage next moves
-1. Don't export or quote `main`. Grep the external utterances and G3 rows in /data/gen/v2all/route_dedup.jsonl, then retrain from route_train/route_val at a6b229a (about $29) (training-23).
-2. Before that retrain, read the billed spend and set --max-usd to at most 150 minus billed minus unbilled estimates (training-5).
-3. Raise surviving ASK coverage to about 2% of route items before the retrain (training-24).
-4. After the retrain, read pred_val for media_control, dark_mode and find_file and add contrast pairs (training-25); regenerate parity_300 from the new checkpoint with --teacher-files (training-22).
-5. Land the 41-option render artifact on main (training-14).
+1. Before launching v2it2: treat pronoun values as missing in ask_rule.verdict (training-26) and keep media_control out of Premiere (training-28), since both are one-line changes.
+2. Freeze a fresh held-out route set and confirm H1-H8 on val; quote route_v1 as dev from now on (training-27).
+3. Set one shared ledger: each worker's --max-usd is at most 150 minus billed minus every unbilled estimate from both workers (training-5).
+4. Don't quote main's route_v1 numbers or router_check tau; re-run router_check on the v2it2 parity file (training-23).
+5. Report decontam counts for v2it2, including the it2 top-ups, in the it2 report (training-10).
