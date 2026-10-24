@@ -466,7 +466,8 @@ class Grounder:
         which is the same pixels the native region capture returns;
       - a downscaled `shot` without `capture`: no zoom (re-cropping it adds no detail).
     `capture(region, max_pixels) -> shot dict` may be sync (`locate`) or async (`alocate`); see
-    `handskit_capture`. `screens` is the app's `hello` list (per-display backing scale).
+    `handskit_capture`. `screens` is the app's `hello` list (per-display backing scale). `offload` runs the
+    blocking model calls of `alocate` (set it to the MLX worker's `submit_async` in the brain).
     `conf` is a heuristic (agreement between stages), not a probability. Images are never retained.
     """
 
@@ -477,6 +478,7 @@ class Grounder:
         self.max_pixels = max_pixels
         self.zoom, self.zoom_frac, self.min_crop = zoom, zoom_frac, min_crop
         self.capture, self.screens, self.native_scale = capture, screens, native_scale
+        self.offload = None   # async (fn, *args) -> result for model calls in `alocate`; default asyncio.to_thread
         self.backend = backend or MLXBackend(repo or self.adapter.repo,
                                              None if repo else self.adapter.revision)
 
@@ -583,19 +585,19 @@ class Grounder:
     async def arun(self, image, instruction: str, *, hint_box: Optional[Box] = None, zoom: Optional[bool] = None,
                    shot: Optional[dict] = None) -> list[Stage]:
         import asyncio
-        stages = [await asyncio.to_thread(self.first_stage, image, instruction, hint_box)]
+        off = self.offload or asyncio.to_thread
+        stages = [await off(self.first_stage, image, instruction, hint_box)]
         plan = self.zoom_plan(stages[0], shot) if (self.zoom if zoom is None else zoom) else None
         if plan is not None:
             kind, region = plan
             if kind == "crop":
-                st = await asyncio.to_thread(self.crop_zoom, image, instruction, stages[0])
+                st = await off(self.crop_zoom, image, instruction, stages[0])
             else:
                 t0 = time.perf_counter()
                 rs = self.capture(region, self.max_pixels)
                 if hasattr(rs, "__await__"):
                     rs = await rs
-                st = await asyncio.to_thread(self.region_stage, rs, instruction, shot,
-                                             (time.perf_counter() - t0) * 1000)
+                st = await off(self.region_stage, rs, instruction, shot, (time.perf_counter() - t0) * 1000)
             if st is not None:
                 stages.append(st)
         return stages

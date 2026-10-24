@@ -271,6 +271,26 @@ def script_needs_confirm(lang: str, code: str) -> bool:
     return True
 
 
+# Apps whose UI is a canvas the AX tree can't see into (matched case-insensitively
+# as a prefix of the observed app name, so "Adobe Premiere Pro 2025" matches).
+CANVAS_APPS = ("Adobe Premiere Pro", "Final Cut Pro", "Figma", "Blender",
+               "Chess", "Minecraft", "Steam", "Roblox", "League of Legends",
+               "Hearthstone", "World of Warcraft", "Factorio", "Stardew Valley")
+BLIND_HINT = 'Accessibility tree is empty here: use click "<description>"'
+DEFAULT_GROUNDER = {"model": "eyes-4b", "repo": None, "max_pixels": 1_000_000,
+                    "zoom_frac": 0.4}
+
+
+def observation_blind(obs: dict | None) -> bool:
+    """AX can't help: no elements, or a canvas app (Premiere, Figma, games ...)."""
+    if not obs:
+        return False
+    app = (obs.get("app") or "").strip().lower()
+    if any(app.startswith(c.lower()) for c in CANVAS_APPS):
+        return True
+    return not obs.get("elements")
+
+
 class Orchestrator:
     WEB_AX_WINDOW_S = 2.2     # Chrome's web AX tree lands ~2 s after a switch
     COMPOUND_P = 0.75         # every clause must route this confidently
@@ -309,6 +329,9 @@ class Orchestrator:
         self._last_skill: tuple[str, dict, dict] | None = None
         self._compound_to_planner = False
         self._compound_parts: list[str] = []
+        self.grounder_cfg: dict | None = dict(DEFAULT_GROUNDER)   # None = off
+        self.grounder = None        # brain.grounder.Grounder, built on first use
+        self.screens: list | None = None    # app `hello` screens (backing scale)
 
     # ---------- v0 router ----------
 
@@ -1238,6 +1261,8 @@ function run() {
                 if text_out:
                     self._script_output = _headtail(str(text_out))
             return r
+        if op == "click" and a.get("target") is not None:
+            return await self._click_target(a)
         if op == "click":
             return {"status": "failed", "error": "no screenshot attached",
                     "_log": f"{dsl_line}-> failed: no screenshot attached"}
@@ -1274,6 +1299,91 @@ function run() {
         params["op"] = op
         r = await self._rpc_action("act", params, a)
         r["_log"] = f"{dsl_line}-> {'ok' if r['status']=='ok' else 'failed: ' + r.get('error','?')}"
+        return r
+
+    def _get_grounder(self):
+        """Grounder built on first use; its weights load lazily on the MLX
+        worker at the first locate (no RAM until a `click "<target>"`)."""
+        if self.grounder is None:
+            from .grounder import Grounder, handskit_capture
+            from .planner import worker
+            cfg = self.grounder_cfg
+            self.grounder = Grounder(cfg["model"], repo=cfg.get("repo"),
+                                     max_pixels=cfg["max_pixels"],
+                                     zoom=True, zoom_frac=cfg["zoom_frac"],
+                                     capture=handskit_capture(self.server.rpc))
+            self.grounder.offload = worker().submit_async
+        self.grounder.screens = self.screens
+        return self.grounder
+
+    async def _click_target(self, a: dict) -> dict:
+        """click "<target>": fresh window screenshot -> Grounder (zoom = a
+        fresh native-scale region screenshot) -> global points -> act click."""
+        from .grounder import handskit_capture, to_global
+        dsl_line = _repr_line(a)
+        target = a["target"]
+
+        def failed(why: str) -> dict:
+            return {"status": "failed", "error": why,
+                    "_log": f"{dsl_line}-> failed: {why}"}
+
+        if not self.grounder_cfg:
+            return failed("no grounder configured")
+        if self._DANGEROUS_LABEL.search(target) and not self._take_confirm():
+            yes = await self.server.ask_confirm(_cap12(f'Click "{target}"?'))
+            if not yes:
+                return {"status": "cancelled", "_log": f"{dsl_line}-> cancelled"}
+        g = self._get_grounder()
+        mp = self.grounder_cfg["max_pixels"]
+        t = time.perf_counter()
+        try:
+            shot = await self.server.rpc(
+                "screenshot", {"window": True, "max_pixels": mp}, timeout=10)
+        except RuntimeError as e:
+            self.tracer.rpc("screenshot", {"window": True}, {"error": str(e)},
+                            (time.perf_counter() - t) * 1000)
+            return failed(f"screenshot: {e}")
+        self.tracer.rpc("screenshot", {"window": True, "max_pixels": mp}, shot,
+                        (time.perf_counter() - t) * 1000)
+        if not shot or not shot.get("path") or shot.get("ok") is False:
+            return failed(f"screenshot: {(shot or {}).get('error', 'no image')}")
+        paths = [shot["path"]]
+        rpc_capture = handskit_capture(self.server.rpc)
+
+        async def capture(region, max_pixels):
+            rs = await rpc_capture(region, max_pixels)
+            if rs and rs.get("path"):
+                paths.append(rs["path"])
+            return rs
+
+        g.capture = capture
+        try:
+            pt = await g.alocate(shot["path"], target, shot=shot)
+        except Exception as e:  # noqa: BLE001 - model/IO failure is an action failure
+            log.warning("grounder failed: %r", e)
+            return failed(f"grounder: {e}")
+        finally:
+            for pth in paths:       # never keep old screenshots
+                try:
+                    os.remove(pth)
+                except OSError:
+                    pass
+        if self.tracer.current is not None:
+            self.tracer.current.setdefault("grounder", []).append(
+                {"target": target, **pt, "shot": {k: shot.get(k) for k in
+                                                  ("width", "height", "origin", "scale")},
+                 "n_shots": len(paths)})
+        if pt.get("x") is None:
+            return failed(f'target not found: "{target}"')
+        gx, gy = to_global(pt, shot)
+        act = {"op": "click", "x": round(gx, 1), "y": round(gy, 1),
+               "right": bool(a.get("right")), "double": bool(a.get("double"))}
+        if a.get("expect"):
+            act["expect"] = a["expect"]
+        r = await self._rpc_action("act", {k: v for k, v in act.items() if k != "expect"}, act)
+        r["grounded"] = {"x": act["x"], "y": act["y"], "conf": pt.get("conf"), "ms": pt.get("ms")}
+        res = "ok" if r["status"] == "ok" else "failed: " + r.get("error", "?")
+        r["_log"] = f"{dsl_line}-> {res} at {act['x']:g},{act['y']:g}"
         return r
 
     def _take_confirm(self) -> bool:
@@ -1420,8 +1530,12 @@ function run() {
             q: asyncio.Queue = asyncio.Queue()
             cancel = threading.Event()
             loop = asyncio.get_running_loop()
+            plan_obs = obs_text
+            if observation_blind(self._last_obs):
+                plan_obs = f"{obs_text}\n{BLIND_HINT}"
+                trace["decisions"].append({"blind_observation": turn})
             fut = worker().submit(
-                planner.plan, goal, obs_text, last_batch, q, loop,
+                planner.plan, goal, plan_obs, last_batch, q, loop,
                 cancel, hint, self._script_output)
             self._script_output = None   # consumed by this turn
             self._current_goal = goal
