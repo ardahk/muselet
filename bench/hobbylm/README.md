@@ -52,6 +52,12 @@ startup and uses no BrainServer monkeypatch. The shared core polls and
 evaluates the final-state grader; the agent's own outcome claim is retained
 only as `reported_success`/`false_done`.
 
+Muselet calculator trials disclose a setup choice that mirrors HobbyLM's
+harness: Calculator is opened, cleared with Escape, and verified at Display 0
+before the utterance. Timer trials grade successful `start_timer` RPC results
+captured by the proxy (or use catalogued `list_timers` when available); without
+catalogued `cancel_timers`, the record discloses that created timers remain scheduled.
+
 Event trials run only when EventKit proves `Muselet Bench` is in a local source
 and is the default for new events. Otherwise they are recorded as skipped with
 `bench calendar not local default`. `--setup-bench-calendar` creates the named

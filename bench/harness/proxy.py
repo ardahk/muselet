@@ -126,6 +126,7 @@ class BenchProxy:
         self._disconnected.set()
         self._connection_lock = asyncio.Lock()
         self._pending_scripts: dict[str, asyncio.Future] = {}
+        self._pending_rpcs: dict[str, asyncio.Future] = {}
         self._script_seq = 0
         self._allowed_confirm_skills: set[str] = set()
         self.capture = CaseCapture()
@@ -156,10 +157,11 @@ class BenchProxy:
         self._brain = None
         self._connected.clear()
         self._disconnected.set()
-        for future in self._pending_scripts.values():
+        for future in (*self._pending_scripts.values(), *self._pending_rpcs.values()):
             if not future.done():
                 future.set_exception(ConnectionError("proxy closed"))
         self._pending_scripts.clear()
+        self._pending_rpcs.clear()
 
     async def __aenter__(self) -> "BenchProxy":
         return await self.start()
@@ -313,6 +315,49 @@ class BenchProxy:
             raise RuntimeError(str(result.get("error") or reply.get("error") or "script RPC failed"))
         return result
 
+    async def run_skill(
+        self,
+        name: str,
+        args: dict[str, Any],
+        timeout: float = 20,
+        *,
+        allow_inflight: bool = False,
+    ) -> dict[str, Any]:
+        if self.capture.active and not allow_inflight:
+            raise RuntimeError("skill RPC is only allowed between utterances")
+        await self.wait_connected(timeout)
+        hands = self._hands
+        if hands is None:
+            raise ConnectionError("HandsKit client disconnected")
+        self._script_seq += 1
+        request_id = f"bench-{self._script_seq}"
+        future = asyncio.get_running_loop().create_future()
+        self._pending_rpcs[request_id] = future
+        request = {
+            "t": "rpc",
+            "id": request_id,
+            "method": "skill",
+            "params": {"name": name, "args": args},
+        }
+        self.capture.frames.append({
+            "direction": "runner_to_hands",
+            "monotonic": time.monotonic(),
+            "wall_time": _wall_time(),
+            "frame": request,
+        })
+        try:
+            await hands.send(json.dumps(request, ensure_ascii=False))
+            reply = await asyncio.wait_for(future, timeout)
+        finally:
+            self._pending_rpcs.pop(request_id, None)
+        result = reply.get("result")
+        if not isinstance(result, dict):
+            result = {}
+        result.setdefault("ok", bool(reply.get("ok")))
+        if not result["ok"]:
+            raise RuntimeError(str(result.get("error") or reply.get("error") or "skill RPC failed"))
+        return result
+
     def snapshot(self) -> dict[str, Any]:
         return self.capture.as_dict()
 
@@ -341,10 +386,11 @@ class BenchProxy:
                 self._hands = None
                 self._brain = None
                 self._disconnected.set()
-                for future in self._pending_scripts.values():
+                for future in (*self._pending_scripts.values(), *self._pending_rpcs.values()):
                     if not future.done():
                         future.set_exception(ConnectionError("HandsKit disconnected"))
                 self._pending_scripts.clear()
+                self._pending_rpcs.clear()
                 if brain is not None:
                     await brain.close()
 
@@ -376,7 +422,8 @@ class BenchProxy:
                 await brain.send(raw)
                 continue
             if frame.get("t") == "rpc_result":
-                future = self._pending_scripts.get(str(frame.get("id", "")))
+                request_id = str(frame.get("id", ""))
+                future = self._pending_scripts.get(request_id) or self._pending_rpcs.get(request_id)
                 if future is not None:
                     if not future.done():
                         future.set_result(frame)

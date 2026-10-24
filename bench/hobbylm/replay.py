@@ -42,6 +42,7 @@ from bench.hobbylm.vendor import verify_provenance
 
 DEFAULT_HOME = Path("/home/ubuntu/ext/hobbylm")
 VENDORED_UPSTREAM = HERE / "upstream"
+CATALOG_PATH = ROOT / "skills/catalog.json"
 
 
 def load_tasks(home: Path, round_name: str):
@@ -70,6 +71,8 @@ def plan(system: str, round_name: str, tasks: list[dict], repeats: int, port: in
                     "category": task["kind"],
                 })
             ],
+            **({"calc_setup": "calculator_open_cleared"}
+               if task["kind"] == "calc" else {}),
         }
         for repeat in range(1, repeats + 1)
         for task in tasks
@@ -677,6 +680,10 @@ class _HobbyRuntime(HandsRuntime):
         self.start_state = None
         self.final_state = None
         self.last_trace = None
+        self.timer_calls = []
+        self.timer_start_calls = []
+        self.timer_grading = None
+        self.timer_teardown = None
 
     async def start_scripts(self):
         await super().start_scripts()
@@ -690,7 +697,221 @@ class _HobbyRuntime(HandsRuntime):
             allow_inflight=self.proxy.capture.active,
         )
         self.final_state = json.loads(result["output"])
+        if self.task["kind"] == "timer" and self.start_state is not None:
+            await self._capture_timers(self.final_state)
         return self.final_state
+
+    async def _capture_timers(self, state):
+        calls = _timer_start_results(self.proxy.capture.frames)
+        self.timer_start_calls = calls
+        list_timers = _catalog_skill_spec("list_timers") is not None
+        self.timer_grading = (
+            "list_timers" if list_timers
+            else "proxied_start_timer_ok_results"
+        )
+        if list_timers and not self.proxy.capture.active:
+            result = await self.run_skill(
+                "list_timers", {})
+            self.timer_calls = _list_timer_results(result)
+            state["timers"] = [item["minutes"] for item in self.timer_calls]
+        else:
+            self.timer_calls = calls
+            state["timers"] = [item["minutes"] for item in calls]
+
+
+def _catalog_skill_spec(name):
+    try:
+        data = json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return next((skill for skill in data.get("skills", [])
+                 if skill.get("name") == name), None)
+
+
+def _rpc_result_value(frame):
+    value = frame.get("result")
+    if isinstance(value, list):
+        return {"timers": value}
+    if not isinstance(value, dict):
+        return {}
+    nested = value.get("result")
+    return {**value, **nested} if isinstance(nested, dict) else value
+
+
+def _timer_start_results(frames):
+    results = []
+    requests = [
+        frame["frame"] for frame in frames
+        if frame.get("direction") == "brain_to_hands"
+        and isinstance(frame.get("frame"), dict)
+        and frame["frame"].get("t") == "rpc"
+        and frame["frame"].get("method") == "skill"
+        and (frame["frame"].get("params") or {}).get("name") == "start_timer"
+    ]
+    for request in requests:
+        request_id = request.get("id")
+        response = next((
+            item["frame"] for item in frames
+            if item.get("direction") == "hands_to_brain"
+            and isinstance(item.get("frame"), dict)
+            and item["frame"].get("t") == "rpc_result"
+            and item["frame"].get("id") == request_id
+        ), None)
+        if not response or response.get("ok") is not True:
+            continue
+        value = _rpc_result_value(response)
+        args = (request.get("params") or {}).get("args") or {}
+        seconds = value.get("seconds")
+        if not isinstance(seconds, (int, float)):
+            from brain.decision import parse_duration
+            seconds = parse_duration(str(args.get("duration", "")))
+        if not isinstance(seconds, (int, float)):
+            continue
+        results.append({
+            "minutes": round(seconds / 60),
+            "seconds": seconds,
+            "timer_id": value.get("timer_id"),
+        })
+    return results
+
+
+def _list_timer_results(reply):
+    value = reply.get("result", reply) if isinstance(reply, dict) else reply
+    if isinstance(value, dict) and isinstance(value.get("result"), (dict, list)):
+        value = value["result"]
+    timers = value.get("timers", value if isinstance(value, list) else []) \
+        if isinstance(value, dict) else value
+    if not isinstance(timers, list):
+        return []
+    result = []
+    for timer in timers:
+        if isinstance(timer, (int, float)):
+            seconds = timer * 60
+            timer_id = None
+            minutes = round(timer)
+        elif isinstance(timer, dict):
+            seconds = timer.get("seconds")
+            timer_id = timer.get("timer_id", timer.get("id"))
+            if isinstance(seconds, (int, float)):
+                minutes = round(seconds / 60)
+            elif isinstance(timer.get("minutes"), (int, float)):
+                minutes = round(timer["minutes"])
+                seconds = timer["minutes"] * 60
+            else:
+                continue
+        else:
+            continue
+        result.append({"minutes": minutes, "seconds": seconds, "timer_id": timer_id})
+    return result
+
+
+async def _calculator_setup(runtime, helper, timeout_s=5.0):
+    try:
+        await runtime.run_script(
+            "applescript", 'tell application "Calculator" to activate')
+        await runtime.run_script(
+            "applescript", 'tell application "System Events" to key code 53')
+        deadline = asyncio.get_running_loop().time() + timeout_s
+        while asyncio.get_running_loop().time() < deadline:
+            remaining = deadline - asyncio.get_running_loop().time()
+            frontmost = await asyncio.wait_for(asyncio.to_thread(
+                helper.sh, "osascript", "-e",
+                'tell application "System Events" to get name of first process whose frontmost is true',
+            ), remaining)
+            if frontmost == "Calculator":
+                remaining = deadline - asyncio.get_running_loop().time()
+                display = await asyncio.wait_for(
+                    asyncio.to_thread(helper.display), max(0.001, remaining))
+            else:
+                display = None
+            if frontmost == "Calculator" and display == "0":
+                return True
+            await asyncio.sleep(min(0.1, max(0, deadline - asyncio.get_running_loop().time())))
+    except Exception:
+        return False
+    return False
+
+
+async def _prepare_calculator(runtime, helper, timeout_s=5.0):
+    await runtime.start_scripts()
+    return await _calculator_setup(runtime, helper, timeout_s=timeout_s)
+
+
+async def _calculator_case_setup(runtime, helper, timeout_s=5.0):
+    if await _prepare_calculator(runtime, helper, timeout_s=timeout_s):
+        return None
+    return {
+        "status": "skipped",
+        "strict_pass": False,
+        "skip_reason": "calc_setup_failed",
+        "calc_setup": "calculator_open_cleared",
+    }
+
+
+def _run_metadata(tasks):
+    metadata = {}
+    if any(task["kind"] == "calc" for task in tasks):
+        metadata["calc_setup"] = "calculator_open_cleared"
+    if any(task["kind"] == "timer" for task in tasks):
+        metadata["timer_grading"] = (
+            "list_timers" if _catalog_skill_spec("list_timers")
+            else "proxied_start_timer_ok_results"
+        )
+    return metadata
+
+
+def _cancel_timer_args(spec, timer_ids):
+    args = {}
+    for arg in spec.get("args", []):
+        name = arg.get("name", "")
+        if name in ("timer_ids", "ids"):
+            args[name] = timer_ids if arg.get("type") == "array" else ",".join(map(str, timer_ids))
+        elif name in ("timer_id", "id") and timer_ids:
+            args[name] = timer_ids[0]
+        elif arg.get("required"):
+            return None
+    return args
+
+
+async def _timer_teardown(runtime, result):
+    timer_ids = [
+        item["timer_id"] for item in runtime.timer_start_calls
+        if item.get("timer_id") is not None
+    ]
+    spec = _catalog_skill_spec("cancel_timers")
+    if spec is None:
+        runtime.timer_teardown = {
+            "timer_teardown": "not_cancelled_no_cancel_timers_skill",
+            "timer_ids": timer_ids,
+        }
+        return runtime.timer_teardown
+    if not timer_ids:
+        runtime.timer_teardown = {
+            "timer_teardown": "no_case_timers_to_cancel",
+            "timer_ids": [],
+        }
+        return runtime.timer_teardown
+    args = _cancel_timer_args(spec, timer_ids)
+    if args is None:
+        runtime.timer_teardown = {
+            "timer_teardown": "cancel_timers_args_unrecognized",
+            "timer_ids": timer_ids,
+        }
+        return {"ok": False, **runtime.timer_teardown}
+    try:
+        await runtime.run_skill("cancel_timers", args)
+    except Exception as exc:
+        runtime.timer_teardown = {
+            "timer_teardown": "cancel_timers_failed",
+            "timer_ids": timer_ids,
+            "error": str(exc),
+        }
+        return {"ok": False, **runtime.timer_teardown}
+    runtime.timer_teardown = {
+        "timer_teardown": "cancel_timers",
+        "timer_ids": timer_ids,
+    }
+    return runtime.timer_teardown
 
 
 def _hobby_predicates(helper, args, task):
@@ -750,11 +971,27 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Fal
                     proxy, args.hands_bin, run_root / "hands-logs", run_id,
                     helper=helper, task=task, replay_args=args, cwd=ROOT,
                 )
+                if task["kind"] == "calc":
+                    setup_skip = await _calculator_case_setup(runtime, helper)
+                    if setup_skip is not None:
+                        await runtime.stop()
+                        rec = {
+                            "id": task["id"], "kind": task["kind"],
+                            "repeat": repeat, "status": "skipped",
+                            **setup_skip,
+                        }
+                        records.append(rec)
+                        print(json.dumps(rec, ensure_ascii=False), flush=True)
+                        continue
                 grade, restore = _hobby_predicates(helper, args, task)
                 case = {
                     "id": task["id"], "kind": task["kind"], "category": task["kind"],
                     "utterance": task["text"], "timeout_s": args.timeout,
-                    "check": [grade], "teardown": [restore],
+                    "check": [grade],
+                    "teardown": (
+                        [_timer_teardown, restore]
+                        if task["kind"] == "timer" else [restore]
+                    ),
                 }
                 try:
                     result = await run_case(
@@ -802,23 +1039,50 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Fal
                     "trace": trace,
                     "frames": result.get("frames", []),
                     "first_action_method": first_action.get("method"),
-                    "grader_note": (
-                        "start_timer is currently not implemented and has no independently observable state"
-                        if task["kind"] == "timer" else None
-                    ),
+                    **({"calc_setup": "calculator_open_cleared"}
+                       if task["kind"] == "calc" else {}),
+                    **({
+        "timer_grading": runtime.timer_grading
+                        or ("list_timers" if _catalog_skill_spec("list_timers")
+                            else "proxied_start_timer_ok_results"),
+                        "timer_calls": runtime.timer_start_calls,
+                        "timer_state": runtime.timer_calls,
+                        "timer_seconds": [
+                            item.get("seconds") for item in runtime.timer_start_calls
+                        ],
+                        "timer_ids": [
+                            item.get("timer_id") for item in runtime.timer_start_calls
+                            if item.get("timer_id") is not None
+                        ],
+                        **({
+                            "timer_teardown": "not_run_skipped",
+                            "timer_ids": [],
+                        } if result.get("status") == "skipped" else
+                            runtime.timer_teardown or {
+                                "timer_teardown": "not_cancelled_no_cancel_timers_skill",
+                                "timer_ids": [],
+                            }),
+                    } if task["kind"] == "timer" else {}),
                 }
                 records.append(rec)
                 print(json.dumps(rec, ensure_ascii=False, default=str), flush=True)
     summary = report_math(records, args.repeats)
     summary["shared_harness"] = shared_report_math(records, args.repeats)
+    metadata = _run_metadata(tasks)
+    summary.update(metadata)
     payload = {
         "system": "muselet", "round": args.round, "port": args.port,
         "proxy_port": args.proxy_port,
+        "metadata": metadata,
         "first_action_method": "proxy wire timestamp from utterance frame to first act/skill RPC",
         "results": records, "summary": summary,
     }
     (run_root / "results.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, default=str) + "\n",
+        encoding="utf-8",
+    )
+    (run_root / "manifest.json").write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
     print(json.dumps(summary, ensure_ascii=False, indent=2))

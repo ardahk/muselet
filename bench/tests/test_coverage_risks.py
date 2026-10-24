@@ -12,7 +12,10 @@ def test_coverage_keeps_confirmed_gaps_and_ranks_pending_risks():
         ROOT / "skills/catalog.json",
     )
     assert "| Rank | Confirmed gap |" in report
-    assert "Calculator/arithmetic has no executable skill or route" in report
+    assert "Calculator arithmetic is handled before model routing by `calc.result`" in report
+    assert "Calculator/arithmetic has no executable skill or route" not in report
+    assert "Countdown timers have no executable start_timer implementation" not in report
+    assert "Directional brightness: brain done; HandsKit delta pending (lead's Swift batch)" in report
     assert "Native System Settings navigation is not implemented" in report
     assert "## Risks pending live evidence" in report
     assert "unverified until the Muselet live replay runs" in report
