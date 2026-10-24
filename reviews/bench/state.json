@@ -1,6 +1,6 @@
 {
-  "pass": 29,
-  "ts": "2026-10-24T12:40:00Z",
+  "pass": 30,
+  "ts": "2026-10-24T12:50:00Z",
   "branches": {
     "main": "b625ceb",
     "wip/local": "49f808f",
@@ -24,7 +24,8 @@
     "cloud/brain-5": "b752261",
     "cloud/grounder-wire": "afb12a6",
     "cloud/pitch-3": "e203181",
-    "cloud/pitch-4": "6393857"
+    "cloud/pitch-4": "6393857",
+    "cloud/brain-6": "780f49d"
   },
-  "notes": "pass29: data-pipeline 512cce0 CJK-aware norm + skip empty evals; it2 v3 re-run: DeskMind 0 real overlaps, r4 0/125 -> bench-22 narrowed to training/decisions/decontam.py (P2). main b625ceb: pitch-4 merged (#20; claims.md section 1b matches the reports) + spend-guard state (not lane). wip/local: no lane diff. bench-16/20/21/11/15/14/12/19 unchanged."
+  "notes": "pass30: only new cloud/brain-6 780f49d (send gate + grounded-click OCR safety gate in orchestrator.py, sendgate.py, tests). No lane files; grounder.py and run_screenspot.py unchanged, so grounding bench parity holds. All open findings unchanged (no lane commits on main/data-pipeline/decisions)."
 }
