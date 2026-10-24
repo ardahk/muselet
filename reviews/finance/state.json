@@ -1,15 +1,16 @@
 {
  "lane": "finance",
- "pass": 2,
- "ts": "2026-10-24T06:40:00Z",
+ "pass": 3,
+ "ts": "2026-10-24T07:20:00Z",
  "last_reviewed": {
-  "main": "10793e0",
-  "wip/local": "1d7cc07",
-  "cloud/finance": "f098120",
+  "main": "dec310b",
+  "wip/local": "cbc4879",
+  "cloud/finance": "529e9ff",
   "cloud/fixtures-docs": "4bf2291",
-  "cloud/data-pipeline": "4cbb74a",
-  "cloud/advisor": null
+  "cloud/data-pipeline": "8c7c023",
+  "cloud/advisor": "9432c30",
+  "cloud/bench": "8429245"
  },
- "next_id": 13,
- "notes": "pass 2: reviewed finance engine (cloud/finance f098120; 90 tests pass). main/wip only gained builder_advisor.md and wip fixtures equal to main's. Planner Numbers recipe is unchanged, so finance-2/3 are still open there. cloud/advisor is still not pushed. data-pipeline is outside this lane."
+ "next_id": 18,
+ "notes": "pass 3: advisor truth recomputed independently (tests/recompute_advisor.py: reconciles). The IRS MFJ 2026 brackets in tax.py (24,800/100,800/211,400/403,550/512,450/768,700) match Rev. Proc. 2025-32 page 10 (PDF sha256 e9ada115...) and IR-2025-103, so there is no tax-number P0. 23 advisor tests pass. cloud/finance 529e9ff only adds the TAX REFUND income fix; finance-9/10/11/12 are still open. bench and data-pipeline are outside this lane."
 }
