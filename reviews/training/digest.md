@@ -1,6 +1,6 @@
-# training lane digest — pass 31 (main b625ceb, cloud/data-pipeline 512cce0, wip/local 49f808f, cloud/decisions 6d395df)
+# training lane digest — pass 32 (main b625ceb, cloud/data-pipeline 512cce0, wip/local 49f808f, cloud/brain-6 780f49d, cloud/decisions 6d395df)
 
-Open: 0 P0, 10 P1, 13 P2. Pass 31: resolved training-38 (CJK per-character norm, tests 16 passed) and training-40 (pitch-4 disclosures merged). No new findings.
+Open: 0 P0, 10 P1, 13 P2. Pass 32: only cloud/brain-6 new (orchestrator send/grounded-click gates, OCR probe; no training/eval/catalog/router files). No changes to findings.
 
 ## Ranked open P0/P1
 1. training-29 P1 — short_edit1 rule mostly false positives; hard gate in train.py; blocks it2b decisions.
