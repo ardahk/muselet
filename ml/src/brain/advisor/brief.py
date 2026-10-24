@@ -7,12 +7,12 @@ import html
 import re
 from decimal import Decimal
 
-PHRASING_KEYS = ("headline", "lake_house", "charitable", "closing")
+PHRASING_KEYS = ("headline", "reserves", "charitable", "closing")
 _NUMERIC = re.compile(r"[0-9$%]")
 
 DEFAULT_PHRASING = {
     "headline": "",
-    "lake_house": "Confirm timing; the reserve stays in savings, outside the market.",
+    "reserves": "Confirm timing; the reserve stays in savings, outside the market.",
     "charitable": "Giving long-held stock instead of cash avoids the capital gain.",
     "closing": "",
 }
@@ -73,7 +73,8 @@ def _opportunity_lines(prep: dict) -> dict[str, str]:
         txt += f" Realized gain {usd(reb['realized_gain'])}."
         lines["rebalance"] = txt
     lines["cash_excess"] = (f"Savings {usd(cash['savings'])} minus {cash['months']}-month reserve "
-                            f"{usd(cash['emergency_reserve'])} minus lake house {usd(cash['lake_house_reserve'])}.")
+                            f"{usd(cash['emergency_reserve'])}"
+                            + "".join(f" minus {r['label']} {usd(r['amount'])}" for r in cash["reserves"]) + ".")
     lines["roth_conversion"] = (f"22% bracket top {usd(roth['bracket_top'])} minus taxable income "
                                 f"{usd(roth['taxable_income'])} ({roth['year']}, IRS Rev. Proc. 2025-32).")
     ok = [e for e in tlh["lots"] if e["status"] == "ok"]
@@ -109,14 +110,17 @@ def brief_markdown(prep: dict, phrasing: dict | None = None) -> str:
     out.append("")
 
     lines = _opportunity_lines(prep)
-    out.append("## Opportunities")
+    out += ["## Opportunities",
+            ("Listed by dollar size; the amounts are different kinds (trades, idle cash, tax room, losses, gains) "
+             "and are not added together.")]
     for i, o in enumerate(prep["opportunities"], start=1):
         out.append(f"{i}. **{o['title']}**: {usd(o['impact_usd'])} {o['impact_kind']}. {lines[o['key']]}")
     out.append("")
 
-    out += ["## Talking points",
-            f"- Lake house: {usd(cash['lake_house_reserve'])} down payment next spring. {ph['lake_house']}",
-            f"- Charitable giving: gift {' and '.join(_lot(c['lot']) for c in don['candidates'])} to a "
+    out.append("## Talking points")
+    out += [f"- {r['label'][:1].upper() + r['label'][1:]}: {usd(r['amount'])} kept in savings. {ph['reserves']}"
+            for r in cash["reserves"]]
+    out += [f"- Charitable giving: gift {' and '.join(_lot(c['lot']) for c in don['candidates'])} to a "
             f"donor-advised fund. {ph['charitable']}", ""]
 
     acts = []

@@ -20,7 +20,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("prep", help="compute the meeting prep (JSON with evidence + brief markdown)")
     p.add_argument("--household", required=True)
     p.add_argument("--format", choices=("json", "markdown", "html"), default="json")
-    p.add_argument("--phrasing", help="JSON object of short number-free sentences (headline, lake_house, ...)")
+    p.add_argument("--phrasing", help="JSON object of short number-free sentences (headline, reserves, ...)")
     s = sub.add_parser("script", help="print an AppleScript for the app to run")
     s.add_argument("name", choices=sorted(SCRIPTS))
     s.add_argument("--household", required=True)
