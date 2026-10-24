@@ -85,7 +85,7 @@ async def evaluate(client, val_route: list[D.RouteItem], val_args: list[dict], m
             out.append(t)
         got_rt = rend.tokenizer.decode(out).strip()
         want = " ".join(r["target"].split())
-        return " ".join(got.split()) == want, " ".join(got_rt.split()) == want, got_rt == ""
+        return " ".join(got.split()) == want, " ".join(got_rt.split()) == want, got_rt == "" and want != ""
 
     routes = await asyncio.gather(*(one_route(it) for it in val_route))
     em = await asyncio.gather(*(one_args(r) for r in val_args))
@@ -98,7 +98,7 @@ def write_report(name: str, cfg: dict, history: list[dict], ckpts: list[dict], f
                  data: dict | None = None) -> Path:
     last = history[-1] if history else {}
     lines = [f"# Phase 1 run `{name}`", "", "```json", json.dumps(cfg, indent=1), "```", "",
-             "| step | train loss | val top1 | macro-F1 | ECE | Brier | ARGS EM | ARGS EM runtime | ARGS empty runtime |",
+             "| step | train loss | val top1 | macro-F1 | ECE | Brier | ARGS EM | ARGS EM runtime | ARGS empty runtime (non-empty target) |",
              "|---|---|---|---|---|---|---|---|---|"]
     lines += [f"| {h['step']} | {h.get('train_loss', float('nan')):.4f} | {h['top1']:.3f} | {h['macro_f1']:.3f} | "
               f"{h['ece']:.3f} | {h['brier']:.3f} | {h['args_em']:.3f} | {h.get('args_em_runtime', float('nan')):.3f} | "
@@ -108,7 +108,7 @@ def write_report(name: str, cfg: dict, history: list[dict], ckpts: list[dict], f
                   f"{final['top1']:.3f}, macro-F1 {final['macro_f1']:.3f}, ECE {final['ece']:.3f}, "
                   f"Brier {final['brier']:.3f}, ARGS EM {final['args_em']:.3f}, ARGS EM with the runtime rendering "
                   f"(gate) {final.get('args_em_runtime', float('nan')):.3f}, "
-                  f"empty {final.get('args_empty_runtime', float('nan')):.3f}"]
+                  f"empty on non-empty targets {final.get('args_empty_runtime', float('nan')):.3f}"]
     src = final or last
     if src.get("per_label"):
         n = src.get("per_label_n", {})
