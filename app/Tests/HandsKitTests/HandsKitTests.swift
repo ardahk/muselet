@@ -37,7 +37,8 @@ private func rec(_ ref: Int, _ role: String, _ label: String,
                  enabled: Bool = true, selected: Bool = false, checked: Bool? = nil) -> ElementRecord {
     ElementRecord(ref: ref, role: role, label: label, value: value, enabled: enabled,
                   selected: selected, focused: false, frame: frame,
-                  checked: checked, element: MockElement(role: "AXButton"))
+                  checked: checked, inWebArea: false,
+                  element: MockElement(role: "AXButton"))
 }
 
 // MARK: - Serializer
@@ -79,22 +80,36 @@ final class DifferTests: XCTestCase {
             rec(4, "textfield", "Search", value: "h"),
             rec(7, "row", "Downloads"),
         ]
-        let new = [
-            rec(1, "button", "Back"),
-            rec(4, "textfield", "Search", value: "hel"),       // ~ value
-            rec(9, "button", "Export", frame: CGRect(x: 200, y: 10, width: 80, height: 24)), // +
+        var new = [
+            rec(0, "button", "Back"),
+            rec(0, "textfield", "Search", value: "hel"),
+            rec(0, "button", "Export", frame: CGRect(x: 200, y: 10, width: 80, height: 24)),
         ]
-        let d = Differ.diff(old: old, new: new)
-        XCTAssertTrue(d.contains("+ #9 button \"Export\""), d)
+        for i in new.indices { new[i].ref = i + 10 }
+        let provM = Differ.match(old: old, new: new)
+        // stabilized: Back->1, Search->4; Export stays fresh
+        var m: [Int: Int] = [:]
+        for i in new.indices {
+            let prov = new[i].ref
+            if let r = provM[prov] { new[i].ref = r; m[r] = r }
+        }
+        let d = Differ.diff(old: old, new: new, matched: m)
+        XCTAssertTrue(d.contains("+ #12 button \"Export\""), d)
         XCTAssertTrue(d.contains("- #7"), d)
         XCTAssertTrue(d.contains("~ #4 value=\"hel\""), d)
     }
 
     func testFrameWithin8ptMatches() {
         let old = [rec(1, "button", "A", frame: CGRect(x: 100, y: 100, width: 80, height: 24))]
-        let new = [rec(3, "button", "A", frame: CGRect(x: 105, y: 103, width: 80, height: 24))]
-        let d = Differ.diff(old: old, new: new)
-        XCTAssertEqual(d, "")
+        var new = [rec(9, "button", "A", frame: CGRect(x: 105, y: 103, width: 80, height: 24))]
+        let provM = Differ.match(old: old, new: new)
+        XCTAssertEqual(provM[9], 1)
+        var m: [Int: Int] = [:]
+        for i in new.indices {
+            let prov = new[i].ref
+            if let r = provM[prov] { new[i].ref = r; m[r] = r }
+        }
+        XCTAssertEqual(Differ.diff(old: old, new: new, matched: m), "")
     }
 }
 
@@ -213,6 +228,71 @@ final class WalkerTests: XCTestCase {
         e.attrs.help = "helptext"
         let out = Walker.walk(root: e, deadline: Date().addingTimeInterval(2))
         XCTAssertEqual(out.first?.label, "helptext")
+    }
+}
+
+// MARK: - Stable refs across epochs
+
+final class StableRefTests: XCTestCase {
+    /// Drive processObservation directly with mock roots.
+    private func observe(_ h: Hands, root: Element, window: String) -> Observation {
+        h.processObservation(roots: [root], app: "Mock", window: window,
+                             pid: 1, maxNodes: 150, diff: true,
+                             deadline: Date().addingTimeInterval(1),
+                             appEl: nil, t0: Date())
+    }
+
+    private func tree() -> MockElement {
+        MockElement(role: "AXWindow", title: "W", x: 0, y: 0, w: 800, h: 600,
+                    children: [
+                        MockElement(role: "AXButton", title: "Save", x: 10, y: 10),
+                        MockElement(role: "AXButton", title: "Cancel", x: 10, y: 40),
+                        MockElement(role: "AXTextField", title: "Name", x: 10, y: 70),
+                    ])
+    }
+
+    func testStableRefs() {
+        let h = Hands()
+        let t = tree()
+        let o1 = observe(h, root: t, window: "W")
+        XCTAssertTrue(o1.full)
+        let refs1 = Dictionary(uniqueKeysWithValues: o1.elements.map { ($0.label, $0.ref) })
+
+        // mutate: remove "Cancel", add "New", change value on "Name"
+        let t2 = tree()
+        t2.attrs.children = [
+            t2.attrs.children[0],
+            MockElement(role: "AXButton", title: "New", x: 10, y: 100),
+            t2.attrs.children[2],
+        ]
+        (t2.attrs.children[2] as! MockElement).attrs.value = "typed"
+        let o2 = observe(h, root: t2, window: "W")
+        XCTAssertFalse(o2.full)
+        let refs2 = Dictionary(uniqueKeysWithValues: o2.elements.map { ($0.label, $0.ref) })
+        XCTAssertEqual(refs2["Save"], refs1["Save"])          // stable
+        XCTAssertEqual(refs2["Name"], refs1["Name"])          // stable
+        XCTAssertNotEqual(refs2["New"], refs1["Cancel"])      // fresh ref, not reused
+        XCTAssertTrue((o2.diffText ?? "").contains("- #\(refs1["Cancel"]!)"))
+        XCTAssertTrue((o2.diffText ?? "").contains("+ #\(refs2["New"]!)"))
+    }
+
+    func testSessionChangeRestarts() {
+        let h = Hands()
+        _ = observe(h, root: tree(), window: "W1")
+        let o2 = observe(h, root: tree(), window: "W2")
+        XCTAssertTrue(o2.full)
+        XCTAssertEqual(o2.elements.first?.ref, 1)             // numbering restarts
+        XCTAssertEqual(o2.diffText, "")
+    }
+
+    func testStaleRefError() {
+        let h = Hands()
+        let o1 = observe(h, root: tree(), window: "W")
+        let anyRef = o1.elements.first!.ref
+        XCTAssertNoThrow(try h.element(ref: anyRef))
+        XCTAssertThrowsError(try h.element(ref: 9999)) { e in
+            XCTAssertTrue("\(e)".contains("stale_ref"))
+        }
     }
 }
 

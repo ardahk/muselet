@@ -4,6 +4,7 @@ Utterance -> regex rule -> skill call or DSL batch -> hands executes.
 Everything is traced and the app gets ui/say messages.
 """
 
+import asyncio
 import logging
 import re
 import time
@@ -19,12 +20,27 @@ _WORD_NUM = {"zero": 0, "five": 5, "ten": 10, "fifteen": 15, "twenty": 20,
              "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
              "hundred": 100, "max": 100, "full": 100, "half": 50}
 
+# script-lang batches that must be confirmed before running
+_DANGEROUS_SCRIPT = re.compile(
+    r"\b(delete|remove|rm\s|empty trash|send|quit|shut ?down|restart|"
+    r"log ?out|do shell script|erase|format)\b", re.I)
+
 
 def _num(tok: str) -> int | None:
     tok = tok.strip().lower()
     if tok.isdigit():
         return int(tok)
     return _WORD_NUM.get(tok)
+
+
+def script_needs_confirm(lang: str, code: str) -> bool:
+    """Brain-side script policy: shell always confirms; applescript/jxa
+    confirm when the code matches a destructive pattern."""
+    if lang == "shell":
+        return True
+    if lang in ("applescript", "jxa"):
+        return bool(_DANGEROUS_SCRIPT.search(code))
+    return True
 
 
 class Orchestrator:
@@ -91,13 +107,11 @@ class Orchestrator:
             plan = self.route(text)
             trace["decisions"].append({"router": plan})
             if plan["kind"] == "skill":
-                ok = await self.execute_actions(
+                outcome = await self.execute_actions(
                     [{"op": "skill", "name": plan["name"],
                       "args": plan["args"]}])
-                outcome = "ok" if ok else "failed"
             elif plan["kind"] == "batch":
-                ok = await self.execute_actions(plan["actions"])
-                outcome = "ok" if ok else "failed"
+                outcome = await self.execute_actions(plan["actions"])
             else:
                 await self._observe()
                 await self.server.say("I can't do that yet")
@@ -105,6 +119,10 @@ class Orchestrator:
                 outcome = "fallback"
             self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
             return {"outcome": outcome}
+        except asyncio.CancelledError:
+            outcome = "cancelled"
+            self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
+            raise
         finally:
             self.tracer.finish(outcome)
 
@@ -127,40 +145,46 @@ class Orchestrator:
 
     def _summary(self, name: str, args: dict) -> str:
         desc = (self.catalog.get(name) or {}).get("description", name)
-        kv = " ".join(f"{k}={v}" for k, v in args.items())
-        return f"{desc}" + (f" ({kv})" if kv else "")
+        return desc
 
-    async def execute_actions(self, actions: list[dict]) -> bool:
-        """Run a batch; stop at the first failed action or failed expect."""
+    async def _fail(self, raw_error: str, friendly: str = "That didn't work"):
+        await self.server.say(friendly)
+        await self.server.ui("confused")
+        return "failed"
+
+    async def execute_actions(self, actions: list[dict]) -> str:
+        """Run a batch; stop at the first failed action or failed expect.
+        Returns an outcome: ok | failed | awaiting_user | cancelled."""
         if len(actions) > dsl.MAX_BATCH:
             actions = actions[: dsl.MAX_BATCH]
         for a in actions:
             op = a["op"]
             if op == "skill":
-                ok = await self._skill(a)
-                if not ok:
-                    return False
+                r = await self._skill(a)
+                if r != "ok":
+                    return r
                 continue
-            if op in ("ask",):
+            if op == "ask":
                 await self.server.say(a["question"])
                 await self.server.ui("listening")
-                continue
+                return "awaiting_user"
             if op == "confirm":
                 yes = await self.server.ask_confirm(a["summary"])
                 if not yes:
-                    await self.server.say("Cancelled")
-                    return False
+                    await self.server.say("Okay, cancelled")
+                    return "cancelled"
                 continue
             if op == "done":
                 await self.server.say(a["summary"])
                 await self.server.ui("success")
-                return True
+                return "ok"
             if op == "refuse":
-                await self.server.say(f"I can't do that: {a['reason']}")
+                await self.server.say("Sorry, I can't do that")
                 await self.server.ui("confused")
-                return False
+                return "failed"
+            if op == "script":
+                return await self._script(a)
             if op == "wait":
-                import asyncio
                 await asyncio.sleep(a["ms"] / 1000)
                 continue
             # everything else goes to hands via act
@@ -174,27 +198,54 @@ class Orchestrator:
             except RuntimeError as e:
                 self.tracer.rpc("act", params, {"error": str(e)},
                                 (time.perf_counter() - t) * 1000)
-                await self.server.say(f"Action failed: {e}")
-                await self.server.ui("confused")
-                return False
-            self.tracer.rpc("act", params, res,
+                return await self._fail(str(e))
+            self.tracer.rpc("act", params, self._trace_res(res),
                             (time.perf_counter() - t) * 1000)
             if res.get("epoch"):
                 self._last_epoch = res["epoch"]
-            if not res.get("ok", True):
-                await self.server.say(
-                    f"Action failed: {res.get('error', '?')}")
-                await self.server.ui("confused")
-                return False
-        return True
+            if not res.get("ok", False):
+                return await self._fail(res.get("error", "act failed"))
+        return "ok"
 
-    async def _skill(self, a: dict) -> bool:
+    @staticmethod
+    def _trace_res(res) -> dict:
+        if not isinstance(res, dict):
+            return res
+        keep = {k: res[k] for k in
+                ("ok", "error", "observed", "diff_text", "expect_ok",
+                 "act_ms", "settle_ms", "epoch")
+                if k in res}
+        return keep
+
+    async def _script(self, a: dict) -> str:
+        lang, code = a["lang"], a["code"]
+        if script_needs_confirm(lang, code):
+            yes = await self.server.ask_confirm(f"Run a {lang} script?")
+            if not yes:
+                await self.server.say("Okay, cancelled")
+                return "cancelled"
+        params = {"op": "script", "lang": lang, "code": code}
+        t = time.perf_counter()
+        try:
+            res = await self.server.rpc("act", params, timeout=30)
+        except RuntimeError as e:
+            self.tracer.rpc("act", params, {"error": str(e)},
+                            (time.perf_counter() - t) * 1000)
+            return await self._fail(str(e), "Script failed")
+        self.tracer.rpc("act", params, self._trace_res(res),
+                        (time.perf_counter() - t) * 1000)
+        if not res.get("ok", False):
+            return await self._fail(res.get("error", "script failed"),
+                                  "Script failed")
+        return "ok"
+
+    async def _skill(self, a: dict) -> str:
         name, args = a["name"], a.get("args", {})
         try:
             args = self.catalog.validate_args(name, args)
         except CatalogError as e:
-            await self.server.say(str(e))
-            return False
+            await self.server.say("I'm missing some details")
+            return "failed"
         spec = self.catalog.get(name) or {}
         if spec.get("risk") == "confirm" and not args.get("confirmed"):
             await self.server.ui("thinking", self._summary(name, args))
@@ -203,8 +254,8 @@ class Orchestrator:
             except RuntimeError:
                 yes = False
             if not yes:
-                await self.server.say("Cancelled")
-                return False
+                await self.server.say("Okay, cancelled")
+                return "cancelled"
             args["confirmed"] = True
         await self.server.ui("acting")
         t = time.perf_counter()
@@ -214,15 +265,11 @@ class Orchestrator:
         except RuntimeError as e:
             self.tracer.rpc("skill", {"name": name, "args": args},
                             {"error": str(e)}, (time.perf_counter() - t) * 1000)
-            await self.server.say(f"{name} failed: {e}")
-            await self.server.ui("confused")
-            return False
-        self.tracer.rpc("skill", {"name": name, "args": args}, res,
-                        (time.perf_counter() - t) * 1000)
-        if not res.get("ok", True):
-            err = res.get("error", "?")
-            await self.server.say(f"{name} failed: {err}")
-            await self.server.ui("confused")
-            return False
+            return await self._fail(str(e), f"{name} didn't work")
+        self.tracer.rpc("skill", {"name": name, "args": args},
+                        self._trace_res(res), (time.perf_counter() - t) * 1000)
+        if not res.get("ok", False):
+            return await self._fail(res.get("error", "?"),
+                                    f"{name} didn't work")
         await self.server.ui("success")
-        return True
+        return "ok"

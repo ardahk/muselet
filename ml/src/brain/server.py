@@ -21,8 +21,10 @@ class BrainServer:
         self._pending: dict[str, asyncio.Future] = {}
         self._confirms: dict[str, asyncio.Future] = {}
         self._connected = asyncio.Event()
+        self._utterance_task: asyncio.Task | None = None
         self.on_utterance = None      # async cb(text, final)
         self.on_hello = None          # async cb(screens)
+        self.on_cancel = None         # async cb()
 
     async def start(self):
         self._server = await websockets.serve(self._handler, self.host, self.port)
@@ -41,6 +43,27 @@ class BrainServer:
 
     async def wait_connected(self, timeout: float = 30):
         await asyncio.wait_for(self._connected.wait(), timeout)
+
+    def cancel_utterance(self):
+        """Cancel the currently running utterance task, if any."""
+        if self._utterance_task and not self._utterance_task.done():
+            self._utterance_task.cancel()
+
+    def _start_utterance(self, text: str):
+        """One utterance at a time: cancel any in-flight task, then start."""
+        self.cancel_utterance()
+        if self.on_utterance is None:
+            return
+
+        async def runner():
+            try:
+                await self.on_utterance(text, True)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("utterance handler failed")
+
+        self._utterance_task = asyncio.get_running_loop().create_task(runner())
 
     async def _handler(self, ws):
         if self._ws is not None:
@@ -71,14 +94,19 @@ class BrainServer:
                     if self.on_hello:
                         await self.on_hello(msg.get("screens", []))
                 elif t == "utterance":
-                    if msg.get("final") and self.on_utterance:
-                        await self.on_utterance(msg.get("text", ""), True)
+                    # Run handling as a task so the receive loop keeps
+                    # reading rpc_result frames (avoids deadlock).
+                    if msg.get("final"):
+                        self._start_utterance(msg.get("text", ""))
                 elif t == "cancel":
-                    pass
+                    self.cancel_utterance()
+                    if self.on_cancel:
+                        await self.on_cancel()
         finally:
             log.info("app disconnected")
             self._ws = None
             self._connected.clear()
+            self.cancel_utterance()
             for f in self._pending.values():
                 if not f.done():
                     f.set_result({"t": "rpc_result", "ok": False,
@@ -91,9 +119,13 @@ class BrainServer:
             raise ConnectionError("app not connected")
         await ws.send(protocol.encode(msg))
 
-    async def rpc(self, method: str, params: dict, timeout: float = 30) -> dict:
-        """Send an rpc and await the correlated rpc_result. Returns the result
-        payload on ok, raises RuntimeError otherwise."""
+    async def rpc(self, method: str, params: dict, timeout: float = 30):
+        """Send an rpc and await the correlated rpc_result.
+
+        Returns the result payload (a dict with "ok" merged in for act/skill/
+        verify results) whenever the app produced one — including failures
+        that carry a result. Raises RuntimeError only on timeout, disconnect,
+        or a result-less error (unknown method, bad params)."""
         rid = f"r{next(self._seq)}"
         fut = asyncio.get_running_loop().create_future()
         self._pending[rid] = fut
@@ -101,10 +133,19 @@ class BrainServer:
         try:
             reply = await asyncio.wait_for(fut, timeout)
         except asyncio.TimeoutError:
-            self._pending.pop(rid, None)
             raise RuntimeError(f"rpc {method} timed out")
+        finally:
+            self._pending.pop(rid, None)
         if reply.get("ok"):
-            return reply.get("result")
+            res = reply.get("result")
+            if isinstance(res, dict):
+                res.setdefault("ok", True)
+            return res
+        if reply.get("result") is not None:
+            res = reply["result"]
+            if isinstance(res, dict):
+                res.setdefault("ok", False)
+            return res
         raise RuntimeError(reply.get("error", "rpc failed"))
 
     async def ask_confirm(self, summary: str, timeout: float = 120) -> bool:

@@ -110,7 +110,7 @@ def test_batch_execution_order(tracer):
         await server.close()
         return ok, fake
     ok, fake = run(go())
-    assert ok
+    assert ok == "ok"
     # keys (act) + skill rpc; wait/done handled brain-side; "done" ends batch
     methods = [(m["method"], m["params"].get("op", m["params"].get("name")))
                for m in fake.rpcs]
@@ -141,7 +141,7 @@ def test_stop_on_failed_expect(tracer):
         await server.close()
         return ok, fake
     ok, fake = run(go())
-    assert not ok
+    assert ok == "failed"
     assert len(fake.rpcs) == 1
     assert fake.rpcs[0]["params"]["op"] == "press"
     # the expect string is forwarded to hands
@@ -167,7 +167,7 @@ def test_confirm_flow_blocks_until_reply(tracer):
         await server.close()
         return ok, fake, elapsed
     ok, fake, elapsed = run(go())
-    assert ok
+    assert ok == "ok"
     # the confirm frame went out before the skill rpc, and the rpc waited
     kinds = [m.get("t") for m in fake.messages]
     assert kinds.index("confirm") < kinds.index("rpc")
@@ -196,7 +196,7 @@ def test_confirm_denied_cancels(tracer):
         await server.close()
         return ok, fake
     ok, fake = run(go())
-    assert not ok
+    assert ok == "cancelled"
     # confirm was asked but the skill rpc was never sent
     assert any(m.get("t") == "confirm" for m in fake.messages)
     assert not any(m["method"] == "skill" for m in fake.rpcs)
@@ -220,6 +220,70 @@ def test_utterance_routing_volume(tracer):
     assert len(skill) == 1
     assert skill[0]["params"] == {"name": "set_volume",
                                 "args": {"level": 30}}
+
+
+def test_utterance_frame_over_ws(tracer):
+    """A final utterance arriving over WS must get its rpc_results back.
+
+    On the old code (on_utterance awaited inside the receive loop) this
+    deadlocks: the handler can't read rpc_result while handling."""
+    async def go():
+        server = BrainServer(port=0)
+        await server.start()
+        fake = FakeHands()
+        await fake.connect(server.port)
+        await server.wait_connected(5)
+        orch = Orchestrator(server, Catalog.load(), tracer)
+
+        async def cb(text, final):
+            await orch.handle_utterance(text)
+        server.on_utterance = cb
+        await fake.ws.send(json.dumps(
+            protocol.utterance("u1", "set volume to 40", True)))
+        await asyncio.sleep(1.5)
+        await fake.close()
+        await server.close()
+        return fake
+    fake = run(go())
+    skill = [m for m in fake.rpcs if m["method"] == "skill"]
+    assert len(skill) == 1
+    assert skill[0]["params"]["args"]["level"] == 40
+
+
+def test_utterance_frame_cancel(tracer):
+    async def go():
+        server = BrainServer(port=0)
+        await server.start()
+        fake = FakeHands()
+        fake.confirm_delay = 10.0       # confirm blocks forever-ish
+        await fake.connect(server.port)
+        await server.wait_connected(5)
+        orch = Orchestrator(server, Catalog.load(), tracer)
+        server.on_utterance = lambda text, final: orch.handle_utterance(text)
+        await fake.ws.send(json.dumps(
+            protocol.utterance("u1", "trash file x", True)))
+        # router won't match -> fallback; use a direct batch for determinism:
+        task = asyncio.get_running_loop().create_task(
+            orch.execute_actions(
+                [{"op": "skill", "name": "move_to_trash",
+                  "args": {"path": "/tmp/x"}}]))
+        await asyncio.sleep(0.3)
+        server.cancel_utterance()   # 'cancel' frame would do the same
+        task.cancel()
+        await asyncio.sleep(0.1)
+        await fake.close()
+        await server.close()
+        return True
+    assert run(go())
+
+
+def test_script_confirm_policy():
+    from brain.orchestrator import script_needs_confirm
+    assert script_needs_confirm("shell", "echo hi")
+    assert script_needs_confirm("applescript", 'tell app "Finder" to empty trash')
+    assert script_needs_confirm("jxa", "Application('Mail').quit()")
+    assert not script_needs_confirm("applescript", 'tell app "Finder" to activate')
+    assert not script_needs_confirm("jxa", "Math.sqrt(2)")
 
 
 def test_utterance_fallback_says(tracer):

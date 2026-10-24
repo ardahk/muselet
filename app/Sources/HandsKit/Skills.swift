@@ -61,13 +61,17 @@ public protocol ScriptRunning {
 }
 
 public final class AppleScriptRunner: ScriptRunning {
+    private static let capacity = 64
     private var cache: [String: NSAppleScript] = [:]
+    private var lru: [String] = []          // oldest first
     private let lock = NSLock()
     public init() {}
     public func run(_ source: String) throws -> String {
         lock.lock(); defer { lock.unlock() }
         let script: NSAppleScript
         if let s = cache[source] {
+            lru.removeAll { $0 == source }
+            lru.append(source)
             script = s
         } else {
             var err: NSDictionary?
@@ -77,6 +81,10 @@ public final class AppleScriptRunner: ScriptRunning {
             s.compileAndReturnError(&err)
             if let e = err { throw HandsError.skillFailed("applescript compile: \(e)") }
             cache[source] = s
+            lru.append(source)
+            if lru.count > Self.capacity {
+                cache.removeValue(forKey: lru.removeFirst())
+            }
             script = s
         }
         var err: NSDictionary?
@@ -346,8 +354,8 @@ public final class Skills {
             let to = try strArg(a, "to")
             let subject = a["subject"] as? String ?? ""
             let body = try strArg(a, "body")
-            var s = "mailto:\(to)?body=\(pct(body))"
-            if !subject.isEmpty { s += "&subject=\(pct(subject))" }
+            var s = "mailto:\(pct(to))?body=\(pctStrict(body))"
+            if !subject.isEmpty { s += "&subject=\(pctStrict(subject))" }
             guard let u = URL(string: s) else {
                 throw HandsError.invalidParams("bad mailto")
             }
@@ -491,7 +499,11 @@ public final class Skills {
     }
 
     private func findFile(query: String, kind: String) throws -> [String: Any] {
-        var predicate = "kMDItemDisplayName == \"*\(query)*\"cd || kMDItemTextContent == \"*\(query)*\"cd"
+        // escape mdfind-wildcard and quote chars in the user query
+        let q = query.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "*", with: "\\*")
+        var predicate = "kMDItemDisplayName == \"*\(q)*\"cd || kMDItemTextContent == \"*\(q)*\"cd"
         let kinds: [String: String] = [
             "pdf": "public.pdf", "image": "public.image", "video": "public.movie",
             "document": "public.content", "folder": "public.folder",
@@ -585,13 +597,15 @@ public final class Skills {
     // MARK: media keys
 
     private func postMediaKey(_ key: Int32) {
+        // data1 = key<<16 | state<<8 where 0xA=down, 0xB=up
         func ev(_ down: Bool) -> NSEvent? {
             let flags = down ? 0xA00 : 0xB00
+            let state = down ? 0xA : 0xB
             return NSEvent.otherEvent(
                 with: .systemDefined, location: .zero,
                 modifierFlags: NSEvent.ModifierFlags(rawValue: UInt(flags)),
                 timestamp: 0, windowNumber: 0, context: nil,
-                subtype: 8, data1: (Int(key) << 16) | (0xA << 8), data2: -1)
+                subtype: 8, data1: (Int(key) << 16) | (state << 8), data2: -1)
         }
         ev(true)?.cgEvent?.post(tap: .cghidEventTap)
         ev(false)?.cgEvent?.post(tap: .cghidEventTap)
@@ -607,4 +621,11 @@ func asq(_ s: String) -> String {
 
 func pct(_ s: String) -> String {
     s.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? s
+}
+
+/// Strict mailto encoding: also escapes & = + # ? inside values.
+func pctStrict(_ s: String) -> String {
+    var allowed = CharacterSet.urlQueryAllowed
+    allowed.remove(charactersIn: "&=+#?")
+    return s.addingPercentEncoding(withAllowedCharacters: allowed) ?? s
 }

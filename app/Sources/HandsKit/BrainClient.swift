@@ -10,11 +10,20 @@ public final class BrainClient: NSObject, URLSessionWebSocketDelegate {
     private var task: URLSessionWebSocketTask?
     private var backoff: TimeInterval = 0.5
     private var running = true
+    private var reconnectScheduled = false
+    /// Hands is stateful — every RPC executes on this one serial queue.
+    private let handsQueue = DispatchQueue(label: "hands.serial")
+    /// Utterances queued for `hands serve --utterance`.
+    private var pendingUtterances: [String]
+    private var uttSeq = 0
+    private var waitingForOutcome = false
 
     public init(url: URL = URL(string: "ws://127.0.0.1:8765")!,
-                handler: RPCHandler = RPCHandler()) {
+                handler: RPCHandler = RPCHandler(),
+                utterances: [String] = []) {
         self.url = url
         self.handler = handler
+        self.pendingUtterances = utterances
         super.init()
         self.session = URLSession(configuration: .default, delegate: self,
                                   delegateQueue: nil)
@@ -35,6 +44,8 @@ public final class BrainClient: NSObject, URLSessionWebSocketDelegate {
         task?.resume()
         sendHello()
         receive()
+        waitingForOutcome = false
+        sendNextUtteranceIfAny()
     }
 
     private func sendHello() {
@@ -49,11 +60,20 @@ public final class BrainClient: NSObject, URLSessionWebSocketDelegate {
         send(["t": "hello", "screens": screens])
     }
 
+    private func sendNextUtteranceIfAny() {
+        guard !pendingUtterances.isEmpty, !waitingForOutcome else { return }
+        waitingForOutcome = true
+        uttSeq += 1
+        let text = pendingUtterances.removeFirst()
+        send(["t": "utterance", "id": "u\(uttSeq)", "text": text, "final": true])
+    }
+
     private func receive() {
         task?.receive { [weak self] result in
             guard let self else { return }
             switch result {
             case .success(let msg):
+                self.backoff = 0.5          // reset on successful receive
                 switch msg {
                 case .string(let s): self.onText(s)
                 case .data(let d):
@@ -77,16 +97,24 @@ public final class BrainClient: NSObject, URLSessionWebSocketDelegate {
             guard let id = obj["id"] as? String,
                   let method = obj["method"] as? String else { return }
             let params = obj["params"] as? [String: Any] ?? [:]
-            // Dispatch on a worker thread; AX calls must not stall the ws loop.
-            DispatchQueue.global().async { [weak self] in
+            // Serial hands queue: Hands is stateful, never run RPCs in parallel.
+            handsQueue.async { [weak self] in
                 guard let self else { return }
                 let (ok, result, error) = self.handler.handle(method: method, params: params)
                 var reply: [String: Any] = ["t": "rpc_result", "id": id, "ok": ok]
-                if ok, let r = result { reply["result"] = r }
+                // Always carry the result payload when the handler produced one.
+                if let r = result { reply["result"] = r }
                 if !ok { reply["error"] = error ?? "error" }
                 self.send(reply)
             }
-        case "ui", "say", "confirm":
+        case "ui":
+            // utterance finished when the mascot reports an outcome
+            if let m = obj["mascot"] as? String,
+               m == "success" || m == "confused" || m == "sleeping" {
+                waitingForOutcome = false
+                sendNextUtteranceIfAny()
+            }
+        case "say", "confirm":
             break   // headless: no UI to drive yet
         default:
             break
@@ -110,11 +138,13 @@ public final class BrainClient: NSObject, URLSessionWebSocketDelegate {
     }
 
     private func scheduleReconnect() {
-        guard running else { return }
+        guard running, !reconnectScheduled else { return }
+        reconnectScheduled = true
         let delay = min(backoff, 8)
         backoff = min(backoff * 2, 8)
         DispatchQueue.global().asyncAfter(deadline: .now() + delay) { [weak self] in
             guard let self, self.running else { return }
+            self.reconnectScheduled = false
             self.connect()
         }
     }

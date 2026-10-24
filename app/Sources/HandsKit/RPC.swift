@@ -7,6 +7,9 @@ public final class RPCHandler {
     public let hands = Hands()
     public let skills = Skills()
     public var ownBundleId: String? = Bundle.main.bundleIdentifier
+    public weak var delegate: HandsDelegate? {
+        didSet { hands.delegate = delegate }
+    }
 
     public init() {}
 
@@ -40,6 +43,7 @@ public final class RPCHandler {
                 ]
                 if let f = obs.focusedRef { r["focused_ref"] = f }
                 if let d = obs.diffText { r["diff_text"] = d }
+                if obs.full { r["full"] = true }
                 return (true, r, nil)
 
             case "act":
@@ -51,8 +55,13 @@ public final class RPCHandler {
                     return (false, nil, "missing skill name")
                 }
                 let args = params["args"] as? [String: Any] ?? [:]
+                let wait = delegate?.handsWillAct(op: name, frame: nil,
+                                                  label: nil) ?? 0
+                if wait > 0 { usleep(UInt32(min(wait, 5.0) * 1_000_000)) }
                 let r = skills.execute(name: name, args: args)
-                return (r["ok"] as? Bool ?? false, r, r["error"] as? String)
+                let ok = r["ok"] as? Bool ?? false
+                delegate?.handsDidAct(op: name, frame: nil, ok: ok)
+                return (ok, r, r["error"] as? String)
 
             case "screenshot":
                 let r = try Screenshot.captureSync(

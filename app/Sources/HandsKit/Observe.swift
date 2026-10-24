@@ -13,6 +13,7 @@ public struct ElementRecord {
     public var focused: Bool
     public var frame: CGRect
     public var checked: Bool?        // checkbox/radio state
+    public var inWebArea: Bool
     public var element: Element
 }
 
@@ -25,6 +26,7 @@ public struct Observation {
     public var elements: [ElementRecord] = []
     public var text: String = ""
     public var diffText: String?
+    public var full: Bool = false    // true when window session changed
     public var axMs: Double = 0
 }
 
@@ -56,6 +58,11 @@ let kContainerRoles: Set<String> = [
     "AXGroup", "AXScrollArea", "AXSplitGroup", "AXLayoutArea",
 ]
 
+// Scrollable containers that narrow the visible clip rect for descendants.
+let kClipRoles: Set<String> = [
+    "AXScrollArea", "AXList", "AXTable", "AXOutline", "AXWebArea",
+]
+
 // Label-carrying roles that are emitted only when they have a label.
 let kLabelOnlyRoles: Set<String> = ["text", "image"]
 
@@ -82,27 +89,62 @@ public enum Walker {
         return ""
     }
 
+    /// Extra label fallbacks for elements whose batch attrs gave "".
+    static func fallbackLabel(for el: Element, role: String) -> String {
+        // AXIdentifier if it looks human-readable.
+        if let ident = el.copySingleAttr("AXIdentifier") as? String,
+           !ident.isEmpty, !ident.hasPrefix("_NS:"), !ident.hasPrefix("_") {
+            return ident
+        }
+        // First AXImage / AXStaticText child's title or description.
+        for child in el.copyAttrs().children {
+            let ca = child.copyAttrs()
+            if ca.role == "AXImage" || ca.role == "AXStaticText" {
+                if let t = ca.title, !t.isEmpty { return t }
+                if let d = ca.desc, !d.isEmpty { return d }
+            }
+        }
+        // AXRoleDescription (e.g. "close button").
+        if let rd = el.copySingleAttr("AXRoleDescription") as? String,
+           !rd.isEmpty {
+            return rd
+        }
+        return ""
+    }
+
     /// Breadth-first walk of `root`. Emits interactive roles plus labeled
-    /// static text / images; prunes zero-size and offscreen nodes.
-    public static func walk(root: Element, deadline: Date, maxDepth: Int = 25) -> [ElementRecord] {
+    /// static text / images; prunes zero-size, offscreen, and clipped nodes.
+    /// Stops early once `interactiveCap` interactive records are collected.
+    public static func walk(root: Element, deadline: Date, maxDepth: Int = 25,
+                            interactiveCap: Int = .max) -> [ElementRecord] {
         let screens = screenUnion()
         var interactive: [ElementRecord] = []
         var labeled: [ElementRecord] = []
-        var queue: [(Element, Int)] = [(root, 0)]
+        // (element, depth, clip rect, inWebArea)
+        let rootAttrs = root.copyAttrs()
+        var queue: [(Element, Int, CGRect, Bool)] =
+            [(root, 0, rootAttrs.frame.isEmpty ? screens : rootAttrs.frame, false)]
         var qi = 0
         while qi < queue.count {
             if Date() > deadline { break }
-            let (el, depth) = queue[qi]; qi += 1
+            if interactive.count >= interactiveCap { break }
+            let (el, depth, clip, web) = queue[qi]; qi += 1
             if depth > maxDepth { continue }
             let a = el.copyAttrs()
             let axRole = a.role ?? ""
             let frame = a.frame
+            let isContainer = kContainerRoles.contains(axRole)
+            let isClipper = kClipRoles.contains(axRole)
+            let isWeb = web || axRole == "AXWebArea"
             let zeroSize = a.size.width <= 0 || a.size.height <= 0
             let offscreen = frame.width > 0 && !frame.intersects(screens)
-            let isContainer = kContainerRoles.contains(axRole)
-            if !(zeroSize || offscreen) || isContainer {
+            let clipped = depth > 0 && frame.width > 0 && !frame.intersects(clip)
+            if !(zeroSize || offscreen || clipped) || isContainer {
                 if let role = kRoleMap[axRole] {
-                    let label = label(of: a, role: role)
+                    var label = label(of: a, role: role)
+                    if label.isEmpty && !clipped {
+                        label = fallbackLabel(for: el, role: role)
+                    }
                     let emit = kLabelOnlyRoles.contains(role) ? !label.isEmpty : true
                     if emit {
                         var checked: Bool? = nil
@@ -117,21 +159,23 @@ public enum Walker {
                             ref: 0, role: role, label: label, value: scalarValue,
                             enabled: a.enabled, selected: a.selected ?? false,
                             focused: a.focused, frame: frame, checked: checked,
-                            element: el)
+                            inWebArea: isWeb, element: el)
                         if kLabelOnlyRoles.contains(role) { labeled.append(rec) }
                         else { interactive.append(rec) }
                     }
                 }
             }
-            // Traverse children: always descend into containers; for other
-            // nodes skip traversal only when the node itself was pruned.
-            if isContainer || !(zeroSize || offscreen) {
-                for c in a.children { queue.append((c, depth + 1)) }
+            // Carry clip into children: scroll-ish containers narrow it.
+            var childClip = clip
+            if isClipper && frame.width > 0 {
+                childClip = clip.isEmpty ? frame : clip.intersection(frame)
+            }
+            if isContainer || !(zeroSize || offscreen || clipped) {
+                for c in a.children { queue.append((c, depth + 1, childClip, isWeb)) }
             }
         }
-        // Interactive first, then labeled statics; assign refs in that order.
         var all = interactive + labeled
-        for i in all.indices { all[i].ref = i + 1 }
+        for i in all.indices { all[i].ref = i + 1 }   // provisional; Hands reassigns
         return all
     }
 }
@@ -164,26 +208,50 @@ public enum Serializer {
 
 public enum Differ {
     static func key(_ e: ElementRecord) -> String {
-        // Frames match within ~8pt, so quantize to 8pt cells.
         let f = e.frame
         func q(_ v: CGFloat) -> Int { Int((v / 8).rounded()) }
         return "\(e.role)|\(e.label)|\(q(f.minX)),\(q(f.minY)),\(q(f.width)),\(q(f.height))"
     }
 
-    /// Diff the previous epoch's records against the current. Returns lines:
-    /// `+ #n role "label"`, `- #n`, `~ #n value="x"`.
-    public static func diff(old: [ElementRecord], new: [ElementRecord]) -> String {
-        var oldByKey: [String: [Int]] = [:]   // key -> refs of unmatched old
+    /// Pair new records to old records: exact key match, else unique
+    /// role+label fallback (scrolled content). Returns (newRef->oldRef).
+    public static func match(old: [ElementRecord], new: [ElementRecord]) -> [Int: Int] {
+        var oldByKey: [String: [Int]] = [:]
         for e in old { oldByKey[key(e), default: []].append(e.ref) }
-        var matchedNew = Set<Int>()
-        var lines: [String] = []
-        var oldByRef = Dictionary(uniqueKeysWithValues: old.map { ($0.ref, $0) })
+        var matched: [Int: Int] = [:]
+        var usedOld = Set<Int>()
+        // pass 1: exact key
         for e in new {
             if var refs = oldByKey[key(e)], let r = refs.first {
                 refs.removeFirst()
                 if refs.isEmpty { oldByKey.removeValue(forKey: key(e)) } else { oldByKey[key(e)] = refs }
-                matchedNew.insert(e.ref)
-                let o = oldByRef[r]!
+                matched[e.ref] = r
+                usedOld.insert(r)
+            }
+        }
+        // pass 2: unique role+label fallback
+        var byRL: [String: [ElementRecord]] = [:]
+        for e in old where !usedOld.contains(e.ref) {
+            byRL["\(e.role)|\(e.label)", default: []].append(e)
+        }
+        for e in new where matched[e.ref] == nil {
+            let k = "\(e.role)|\(e.label)"
+            if let cands = byRL[k], cands.count == 1 {
+                matched[e.ref] = cands[0].ref
+                usedOld.insert(cands[0].ref)
+            }
+        }
+        return matched
+    }
+
+    /// Diff previous-epoch records vs current (refs already stabilized).
+    public static func diff(old: [ElementRecord], new: [ElementRecord],
+                            matched: [Int: Int]) -> String {
+        let oldByRef = Dictionary(uniqueKeysWithValues: old.map { ($0.ref, $0) })
+        var matchedOld = Set(matched.values)
+        var lines: [String] = []
+        for e in new {
+            if let oldRef = matched[e.ref], let o = oldByRef[oldRef] {
                 var changes: [String] = []
                 if "\(o.value ?? "")" != "\(e.value ?? "")" {
                     changes.append("value=\"\(Serializer.esc("\(e.value ?? "")"))\"")
@@ -193,13 +261,19 @@ public enum Differ {
                 }
                 if o.selected != e.selected { changes.append(e.selected ? "selected" : "unselected") }
                 if o.enabled != e.enabled { changes.append(e.enabled ? "enabled" : "disabled") }
+                // Only flag a move beyond the ~8 pt match tolerance.
+                let f = e.frame, g = o.frame
+                if abs(f.minX - g.minX) > 8 || abs(f.minY - g.minY) > 8
+                    || abs(f.width - g.width) > 8 || abs(f.height - g.height) > 8 {
+                    changes.append("moved")
+                }
                 if !changes.isEmpty { lines.append("~ #\(e.ref) \(changes.joined(separator: " "))") }
             } else {
                 lines.append("+ \(Serializer.line(e))")
             }
         }
-        for (_, refs) in oldByKey.sorted(by: { $0.value[0] < $1.value[0] }) {
-            for r in refs { lines.append("- #\(r)") }
+        for o in old where !matchedOld.contains(o.ref) {
+            lines.append("- #\(o.ref)")
         }
         return lines.joined(separator: "\n")
     }
@@ -224,14 +298,19 @@ public func isChromiumFamily(bundleId: String?, bundleURL: URL?) -> Bool {
     return false
 }
 
-/// The stateful observation/act engine. Owns epochs and element handles.
+/// The stateful observation/act engine. Owns epochs, element handles, and
+/// the per-window stable-ref session.
 public final class Hands {
     public private(set) var epoch = 0
     private var current: [Int: ElementRecord] = [:]
-    private var previous: [Int: ElementRecord] = [:]
+    private var previous: [ElementRecord] = []
     private var manualAXPids: Set<pid_t> = []
-    private var lastObservation = Observation()
-    /// pid of the app seen by the most recent observe.
+    private var sessionKey = ""
+    private var nextRef = 1
+    public weak var delegate: HandsDelegate?
+    /// Injectable script runner for the `script` op (cached NSAppleScript).
+    public var scripts: ScriptRunning = AppleScriptRunner()
+
     public private(set) var lastPid: pid_t = 0
 
     public init() {}
@@ -268,12 +347,12 @@ public final class Hands {
         let t0 = Date()
         let deadline = t0.addingTimeInterval(1.5)
         let (appEl, running) = try appElement(forAppName: appName)
-
         var obs = Observation()
         obs.app = running.localizedName ?? "?"
         obs.pid = running.processIdentifier
 
         var roots: [Element]
+        var windowEl: AXUIElement?
         switch scope {
         case "menubar":
             if let bar = appEl.copySingleAttr("AXMenuBar"),
@@ -282,7 +361,6 @@ public final class Hands {
             } else { roots = [appEl] }
         default:
             var winRef: CFTypeRef?
-            var windowEl: AXUIElement?
             if AXUIElementCopyAttributeValue(
                 (appEl as! AXNode).el, kAXFocusedWindowAttribute as CFString, &winRef) == .success,
                let w = winRef { windowEl = (w as! AXUIElement) }
@@ -290,61 +368,102 @@ public final class Hands {
                AXUIElementCopyAttributeValue(
                    (appEl as! AXNode).el, kAXMainWindowAttribute as CFString, &winRef) == .success,
                let w = winRef { windowEl = (w as! AXUIElement) }
-            if windowEl == nil, scope != "app" {
-                // fall back to app root if there is no window
-                roots = [appEl]
-            } else {
-                roots = windowEl.map { [AXNode($0)] } ?? [appEl]
-            }
             if let w = windowEl {
+                roots = [AXNode(w)]
                 var title: CFTypeRef?
                 if AXUIElementCopyAttributeValue(w, kAXTitleAttribute as CFString, &title) == .success,
                    let t = title as? String { obs.window = t }
+            } else {
+                roots = [appEl]
             }
         }
+        return processObservation(roots: roots, app: obs.app,
+                                  window: obs.window, pid: obs.pid,
+                                  maxNodes: maxNodes, diff: diff,
+                                  deadline: deadline, appEl: appEl, t0: t0)
+    }
+
+    /// Shared tail of observe(): walk, ref/session bookkeeping, serialize, diff.
+    /// Exposed for tests (mock roots).
+    func processObservation(roots: [Element], app: String, window: String,
+                            pid: pid_t, maxNodes: Int, diff: Bool,
+                            deadline: Date, appEl: Element?, t0: Date) -> Observation {
+        var obs = Observation()
+        obs.app = app; obs.window = window; obs.pid = pid
 
         var records: [ElementRecord] = []
         for r in roots {
-            records.append(contentsOf: Walker.walk(root: r, deadline: deadline))
+            records.append(contentsOf: Walker.walk(
+                root: r, deadline: deadline, interactiveCap: maxNodes * 2))
             if Date() > deadline { break }
         }
         if records.count > maxNodes { records = Array(records.prefix(maxNodes)) }
 
-        // Locate the focused element among the records.
-        var focusedRef: Int? = nil
-        var focusedEl: CFTypeRef?
-        if AXUIElementCopyAttributeValue(
-            (appEl as! AXNode).el, kAXFocusedUIElementAttribute as CFString, &focusedEl) == .success,
-           let fe = focusedEl {
-            let fnode = AXNode(fe as! AXUIElement)
-            for i in records.indices where sameElement(records[i].element, fnode) {
-                focusedRef = records[i].ref
-                records[i].focused = true
+        // Window session: same app+window keeps stable refs; a change
+        // restarts numbering and replaces the diff with the full text.
+        let key = "\(pid)|\(window)"
+        if key != sessionKey {
+            sessionKey = key
+            nextRef = 1
+            previous = []
+            obs.full = true
+        }
+
+        // Stabilize refs against the previous epoch.
+        // matched maps provisional ref -> old ref; translate to stable space.
+        let provMatched = obs.full ? [:] : Differ.match(old: previous, new: records)
+        var matched: [Int: Int] = [:]           // stableRef -> oldRef
+        for i in records.indices {
+            let prov = records[i].ref
+            if let oldRef = provMatched[prov] {
+                records[i].ref = oldRef
+                matched[oldRef] = oldRef
+            } else {
+                records[i].ref = nextRef
+                nextRef += 1
             }
+        }
+
+        // Focused element -> ref.
+        var focusedRef: Int? = nil
+        if let appEl {
+            var focusedEl: CFTypeRef?
+            if let axApp = (appEl as? AXNode)?.el,
+               AXUIElementCopyAttributeValue(axApp, kAXFocusedUIElementAttribute as CFString, &focusedEl) == .success,
+               let fe = focusedEl {
+                let fnode = AXNode(fe as! AXUIElement)
+                for i in records.indices where sameElement(records[i].element, fnode) {
+                    focusedRef = records[i].ref
+                    records[i].focused = true
+                }
+            }
+        }
+        if focusedRef == nil {
+            for i in records.indices where records[i].focused { focusedRef = records[i].ref }
         }
         obs.focusedRef = focusedRef
         obs.elements = records
 
         epoch += 1
         obs.epoch = epoch
-        previous = current
+        if diff && !obs.full {
+            obs.diffText = Differ.diff(old: previous, new: records, matched: matched)
+        } else if diff && obs.full {
+            obs.diffText = ""
+        }
+        previous = records
         current = Dictionary(uniqueKeysWithValues: records.map { ($0.ref, $0) })
         obs.text = Serializer.text(app: obs.app, window: obs.window,
                                    focusedRef: focusedRef, elements: records)
-        if diff {
-            let prevRecords = previous.sorted { $0.key < $1.key }.map { $0.value }
-            obs.diffText = Differ.diff(old: prevRecords, new: records)
-        }
         obs.axMs = Date().timeIntervalSince(t0) * 1000
-        lastObservation = obs
         lastPid = obs.pid
         return obs
     }
 
-    /// Resolve an element ref for an act call, validating the epoch.
-    public func element(ref: Int, epoch e: Int) throws -> ElementRecord {
-        guard e == epoch else { throw HandsError.staleEpoch }
-        guard let r = current[ref] else { throw HandsError.invalidParams("bad ref #\(ref)") }
+    /// Resolve an element ref for an act call. `epoch` is informational;
+    /// a missing ref is `stale_ref`.
+    public func element(ref: Int, epoch e: Int? = nil) throws -> ElementRecord {
+        guard let r = current[ref] else { throw HandsError.staleRef(ref) }
         return r
     }
 

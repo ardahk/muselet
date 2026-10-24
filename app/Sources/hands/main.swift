@@ -148,10 +148,12 @@ struct BenchObserveCmd: ParsableCommand {
 struct ServeCmd: ParsableCommand {
     static var configuration = CommandConfiguration(commandName: "serve")
     @Option(help: "Brain WebSocket URL") var url = "ws://127.0.0.1:8765"
+    @Option(help: "Utterance to send after connecting (repeatable)")
+    var utterance: [String] = []
     func run() throws {
         Permissions.requireAX()
         guard let u = URL(string: url) else { throw ValidationError("bad url") }
-        let client = BrainClient(url: u)
+        let client = BrainClient(url: u, utterances: utterance)
         client.run()
     }
 }
