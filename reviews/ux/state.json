@@ -1,17 +1,18 @@
 {
   "pass": 4,
-  "ts": "2026-10-24T06:20:00Z",
+  "ts": "2026-10-24T06:50:00Z",
   "last_reviewed": {
-    "main": "e78f143",
-    "wip/local": "e0bdc65",
+    "main": "c2d2988",
+    "wip/local": "d5d2d7d",
     "cloud/data-pipeline": "153a01c",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "f4ae461",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "ec98013",
-    "cloud/bench": "14c7eb1",
-    "cloud/pitch": "454a563"
+    "cloud/bench": "911a384",
+    "cloud/pitch": "454a563",
+    "cloud/grounding": "42310cd"
   },
-  "notes": "cloud/* have no lane edits of their own (they branch from older main). Self-polling every 20 min while the lead is offline."
+  "notes": "self-poll 1 (lead offline): main 17a2755 landed the planner loop (orchestrator ~= wip e0bdc65, 5-line delta), so ux-10/11/12 now also apply to main. cloud/bench and cloud/grounding have no lane edits."
 }

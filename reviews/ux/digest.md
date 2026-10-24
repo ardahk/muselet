@@ -1,6 +1,7 @@
-# ux digest — pass 4 (wip/local e0bdc65, main e78f143)
+# ux digest — pass 4 + self-poll 1 (wip/local d5d2d7d, main c2d2988)
 
 No cloud/* branch has lane edits of its own. Resolved: ux-5 (stale offline replay), ux-6 (ctx), ux-9 (ctx capture blocking), all on main too.
+Self-poll 1: main 17a2755 merged the System-2 planner loop, so ux-10/11/12 (and ux-1/2/3/8) now affect main as well. cloud/bench and cloud/grounding have no lane edits.
 New since pass 3: SkillHUD (native glass HUD for volume/brightness/dark/Wi-Fi/Bluetooth, honors Reduce Motion) and a timer-done bubble. Good demo polish.
 
 ## Open P0/P1 (ranked)
