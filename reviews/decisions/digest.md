@@ -1,6 +1,6 @@
-# decisions — digest (pass 27)
+# decisions — digest (pass 28)
 
-Heads: main 026aff0 (report-2, data-route, data-planner merged: live_t1 19/22 now on main), brain-8 4546d09 (live_t1-derived fixes), planner-demos 84798ec (no eval gate on demo states, decisions-28 P2), cloud/decisions 694c198.
+Heads: main dae4b26 (brain-8 merged; 2 live_t1 cases now manual), data-pipeline f6354d6 (it3 merge, tau fitted on val per model; argmax and tuned on route_v2/route_v1_clean), planner-demos 9008990 (eval gate added, decisions-28 resolved), wip/local 972081d (HANDOFF.md repeats .913/.658/19/22 without caveats).
 
 ## Open P0/P1
 1. decisions-26 P1 LR pilot (2 Tinker runs) with no hypothesis, data revision, cost or metrics committed — reports/checkpoints.jsonl

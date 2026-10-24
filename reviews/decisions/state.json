@@ -1,10 +1,10 @@
 {
- "pass": 27,
- "ts": "2026-10-24T20:30:00Z",
+ "pass": 28,
+ "ts": "2026-10-24T20:45:00Z",
  "branches": {
-  "main": "026aff0",
-  "wip/local": "98d1401",
-  "cloud/data-pipeline": "f8b721a",
+  "main": "dae4b26",
+  "wip/local": "972081d",
+  "cloud/data-pipeline": "f6354d6",
   "cloud/bench": "f584cb2",
   "cloud/pitch": "ad1b058",
   "cloud/decisions": "694c198",
@@ -26,6 +26,6 @@
   "cloud/data-planner": "ee8ae33",
   "cloud/bench-fix": "4bcf0db",
   "cloud/brain-8": "4546d09",
-  "cloud/planner-demos": "84798ec"
+  "cloud/planner-demos": "9008990"
  }
 }
