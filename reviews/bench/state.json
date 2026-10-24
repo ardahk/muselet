@@ -1,18 +1,19 @@
 {
- "pass": 4,
- "ts": "2026-10-24T06:10:48Z",
- "branches": {
-  "main": "e78f143",
-  "wip/local": "e0bdc65",
-  "cloud/bench": "14c7eb1",
-  "cloud/data-pipeline": "153a01c",
-  "cloud/finance": "529e9ff",
-  "cloud/finance-2": "f4ae461",
-  "cloud/fixtures-docs": "4bf2291",
-  "cloud/advisor": "9432c30",
-  "cloud/advisor-2": "ec98013",
-  "cloud/pitch": "454a563",
-  "cloud/grounding": null
- },
- "notes": "bench/tests at 14c7eb1: 15 passed, 1 skipped. No lane changes on main/wip/finance-2/advisor-2/pitch. Lane extended to cloud/grounding (spec cloud/builder_grounding.md@main); branch not pushed yet. Checked spec's mapping against HandsKit Screenshot.swift:194-199@e78f143: scale = img.width/src.width (post-downscale px per point), origin = src.origin in points, so global = origin + px/scale holds for region and downscaled shots."
+  "pass": 5,
+  "ts": "2026-10-24T07:05:00Z",
+  "branches": {
+    "main": "c2d2988",
+    "wip/local": "d5d2d7d",
+    "cloud/bench": "911a384",
+    "cloud/data-pipeline": "153a01c",
+    "cloud/finance": "529e9ff",
+    "cloud/finance-2": "f4ae461",
+    "cloud/fixtures-docs": "4bf2291",
+    "cloud/advisor": "9432c30",
+    "cloud/advisor-2": "ec98013",
+    "cloud/pitch": "454a563",
+    "cloud/grounding": "42310cd",
+    "cloud/brain-2": "9f41c11"
+  },
+  "notes": "pass5 (self-poll): cloud/grounding@42310cd reviewed; ml/tests/test_grounder.py 114 passed. cloud/bench@911a384 bench/tests: 30 passed, 1 skipped, 1 failed (test_coverage_risks needs bench/hobbylm/upstream checkout; env-only). main/wip/brain-2 no lane-file changes."
 }
