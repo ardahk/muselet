@@ -1,6 +1,6 @@
-# decisions — digest (pass 29)
+# decisions — digest (pass 30)
 
-Heads: main 27ebd13 (HANDOFF.md merged), cloud/decisions b78d778 (FULL run dec-full-lr2e4 trained, 347 steps; no report), data-pipeline 34aff30, planner-retrieval 9786fa4 (v2-tune gold is the default bank, decisions-29 P2).
+Heads: main 3876f3a (no lane changes since 27ebd13), cloud/decisions b78d778 (FULL run dec-full-lr2e4 trained, 347 steps; no report), data-pipeline 34aff30, planner-retrieval 9786fa4 (v2-tune gold is the default bank, decisions-29 P2).
 
 ## Open P0/P1
 1. decisions-26 P1 LR pilot + FULL run (dec-full-lr2e4) with no hypothesis, data revision, cost or metrics committed — reports/checkpoints.jsonl
