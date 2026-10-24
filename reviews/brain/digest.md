@@ -1,21 +1,22 @@
-# brain digest — pass 9 (2026-10-24T07:55:00Z)
+# brain digest — pass 10 (2026-10-24T08:05:00Z)
 
-Heads: main 4a74659 (merged PR #10 cloud/brain-2, #9 grounding, #7 finance-2, #5 advisor-2, #6 pitch), wip/local 85c73ed (ml/ == main), cloud/bench c3ca0b3, cloud/data-pipeline 9c526b1.
-All 17 product suites pass on main (test_decision.py real-model test skipped: Linux CPU). Runtime route render vs data-pipeline v2 samples: 50/50 token-identical.
-
-Resolved this pass (on main via PR #10): brain-9 (P0), brain-3, -4, -6, -10, -11, -13.
+Heads: main 76a03c1 / wip/local 34ddf5f (no ml/ changes since pass 9: planner prompt + Swift only), cloud/brain-3 14a3f52, cloud/advisor-3 ca93147, cloud/finance-3 31be399, cloud/bench 6e7cd09 (merge of main only), cloud/data-pipeline 0f3df7f (parity_300 export).
+All product suites pass on brain-3, advisor-3 and finance-3 (test_decision.py real-model test skipped: Linux CPU).
 
 ## Open P0/P1 (ranked)
-1. brain-15 (P1) Route parity gate disabled on main: stale v1 samples xfail — ml/tests/test_route_parity.py
+1. brain-16 (P1, brain-3) abs_level turns relative volume requests into near-zero absolute levels — ml/src/brain/orchestrator.py:65
+2. brain-17 (P1, brain-3) Compound check adds serial route passes before every 'and' utterance — ml/src/brain/orchestrator.py:336
+3. brain-15 (P1, main) Route parity gate disabled on main: stale v1 samples xfail — ml/tests/test_route_parity.py
 
 ## Open P2
-- brain-14 Confirm token survives harmless actions until next dangerous one — ml/src/brain/orchestrator.py:630
-- brain-8 Runtime last_action quoting differs from training — ml/src/brain/orchestrator.py:310
-- brain-12 Pending ASK captures unrelated next utterances — ml/src/brain/orchestrator.py:172
+- brain-18 BatchCutter skips bare mute/wifi/bluetooth lines; batches exceed 5 actions (brain-3) — ml/src/brain/planner.py:50
+- brain-14 Confirm token survives harmless actions — orchestrator.py
+- brain-8 last_action quoting differs from training — orchestrator.py
+- brain-12 Pending ASK captures unrelated utterances — orchestrator.py
 
 ## Highest-leverage next moves
-1. Copy v2 route_render_samples.jsonl from cloud/data-pipeline to main and make catalog mismatch a hard failure (brain-15).
-2. Bind planner `confirm` to the immediately following action; clear on any executed action (brain-14).
-3. Quote all string args in last_action like training (brain-8) — one-line change, removes a train/runtime context mismatch.
-4. Gate pending-ASK capture on System 1 routing the reply to ANSWER/none rather than a 90 s window (brain-12).
-5. Verify hybrid DeltaNet cache-snapshot exactness on the M5 (not verifiable on Linux CPU).
+1. Before merging brain-3, anchor abs_level to the clause end and reject number ranges and times (brain-16).
+2. Reorder: whole-utterance route and speculative hit first; call _compound only on MULTI_STEP or low confidence (brain-17).
+3. Copy v2 route_render_samples.jsonl to main; make a catalog mismatch a hard fail (brain-15).
+4. Pass catalog.skills into BatchCutter (brain-18); bind confirm to the next action (brain-14).
+5. Verify hybrid DeltaNet cache-snapshot exactness on the M5 (could not be verified on this Linux CPU).
