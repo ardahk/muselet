@@ -169,6 +169,239 @@ def _orch(tmp_path, model="eyes-4b", max_pixels=1_000_000, act=None):
     return o, srv, be
 
 
+class SafetyGateServer(FakeServer):
+    def __init__(self, tmp_path, *, ocr_text="Cancel", ocr_error=None):
+        super().__init__()
+        self.shot = {
+            "path": str(tmp_path / "gate-shot.png"),
+            "width": 300,
+            "height": 120,
+            "origin": [10.0, 20.0],
+            "scale": 2.0,
+            "ok": True,
+        }
+        self.ocr_text = ocr_text
+        self.ocr_error = ocr_error
+
+    def acts(self):
+        return [params for method, params in self.rpcs if method == "act"]
+
+    async def rpc(self, method, params, timeout=30):
+        if method == "screenshot":
+            self.rpcs.append((method, params))
+            return dict(self.shot)
+        if method == "ocr":
+            self.rpcs.append((method, params))
+            if self.ocr_error:
+                raise self.ocr_error
+            return {"text": self.ocr_text}
+        return await super().rpc(method, params, timeout)
+
+
+class FixedGateGrounder:
+    async def alocate(self, path, target, *, shot=None, hint_box=None):
+        return {"x": 0.0, "y": 0.0, "conf": 0.99, "ms": 0.1}
+
+
+def _safety_gate_orch(tmp_path, *, app="Finder", window="Window",
+                      elements=None, ocr_text="Cancel", ocr_error=None):
+    server = SafetyGateServer(
+        tmp_path, ocr_text=ocr_text, ocr_error=ocr_error)
+    tracer = Tracer(tmp_path / "gate-trace")
+    tracer.begin("click safely")
+    orch = Orchestrator(server, Catalog.load(), tracer)
+    orch.grounder_cfg = {"max_pixels": 1_000_000}
+    orch.grounder = FixedGateGrounder()
+    orch.screens = []
+    orch._last_obs = {
+        "app": app, "window": window, "elements": elements or [],
+    }
+    orch._ctx["app"] = app
+    return orch, server
+
+
+def _click(orch, target="the app icon"):
+    return run(orch._exec_action({
+        "op": "click", "target": target, "right": False, "double": False,
+    }))
+
+
+def test_grounded_click_send_element_confirms_smallest_label(tmp_path):
+    orch, server = _safety_gate_orch(
+        tmp_path,
+        elements=[
+            {"ref": 1, "role": "group", "label": "Toolbar",
+             "frame": [0, 0, 100, 100]},
+            {"ref": 2, "role": "button", "label": "Send",
+             "frame": [10, 20, 10, 10]},
+        ],
+    )
+
+    result = _click(orch, "the paper plane icon")
+
+    assert result["status"] == "ok"
+    assert server.confirms == ['Click "Send"?']
+    assert len(server.acts()) == 1
+    assert not any(method == "ocr" for method, _ in server.rpcs)
+    decision = orch.tracer.current["decisions"][-1]
+    assert decision["grounded_click_gate"] == "label"
+    assert decision["ms"] >= 0
+
+
+def test_grounded_click_safe_element_skips_ocr_and_confirmation(tmp_path):
+    orch, server = _safety_gate_orch(
+        tmp_path,
+        elements=[{"ref": 1, "role": "button", "label": "Bold",
+                   "frame": [10, 20, 10, 10]}],
+    )
+
+    result = _click(orch, "the formatting icon")
+
+    assert result["status"] == "ok"
+    assert server.confirms == []
+    assert not any(method == "ocr" for method, _ in server.rpcs)
+    assert orch.tracer.current["decisions"][-1]["hit"] == "Bold"
+
+
+def test_grounded_click_ocr_send_confirms_with_region_clamped_at_edge(tmp_path):
+    orch, server = _safety_gate_orch(tmp_path, ocr_text="Send")
+
+    result = _click(orch, "the app icon")
+
+    assert result["status"] == "ok"
+    assert server.confirms == ['Click "Send"?']
+    assert [params["region"] for method, params in server.rpcs
+            if method == "ocr"] == [[10.0, 20.0, 80.0, 30.0]]
+
+
+def test_grounded_click_ocr_cancel_does_not_confirm(tmp_path):
+    orch, server = _safety_gate_orch(tmp_path, ocr_text="Cancel")
+
+    result = _click(orch, "the app icon")
+
+    assert result["status"] == "ok"
+    assert server.confirms == []
+    assert any(method == "ocr" for method, _ in server.rpcs)
+
+
+def test_grounded_click_ocr_failure_confirms_and_traces_error(tmp_path):
+    orch, server = _safety_gate_orch(
+        tmp_path, ocr_error=RuntimeError("Vision unavailable"))
+
+    result = _click(orch, "the app icon")
+
+    assert result["status"] == "ok"
+    assert server.confirms == ['Click "the app icon"?']
+    decision = orch.tracer.current["decisions"][-1]
+    assert decision["grounded_click_gate"] == "ocr"
+    assert decision["error"] == "Vision unavailable"
+
+
+@pytest.mark.parametrize(("app", "window"), [
+    ("Slack", "Workspace"),
+    ("Google Chrome", "Checkout - Amazon"),
+])
+def test_grounded_click_context_confirms_neutral_target(tmp_path, app, window):
+    orch, server = _safety_gate_orch(tmp_path, app=app, window=window)
+
+    result = _click(orch, "the app icon")
+
+    assert result["status"] == "ok"
+    assert server.confirms == ['Click "the app icon"?']
+    assert not any(method == "ocr" for method, _ in server.rpcs)
+    assert orch.tracer.current["decisions"][-1]["grounded_click_gate"] == "context"
+
+
+def test_grounded_click_observed_url_confirms_payment_context(tmp_path):
+    orch, server = _safety_gate_orch(
+        tmp_path, app="Google Chrome", window="Product page")
+    orch._last_obs["url"] = "https://shop.example/payment"
+
+    result = _click(orch, "the app icon")
+
+    assert result["status"] == "ok"
+    assert server.confirms == ['Click "the app icon"?']
+    assert not any(method == "ocr" for method, _ in server.rpcs)
+
+
+def test_grounded_click_decline_prevents_act(tmp_path):
+    orch, server = _safety_gate_orch(
+        tmp_path,
+        elements=[{"ref": 1, "role": "button", "label": "Send",
+                   "frame": [10, 20, 10, 10]}],
+    )
+    server.confirm_yes = False
+
+    result = _click(orch, "the paper plane icon")
+
+    assert result["status"] == "cancelled"
+    assert server.confirms == ['Click "Send"?']
+    assert server.acts() == []
+
+
+def test_planner_confirm_covers_grounded_click_gate(tmp_path):
+    orch, server = _safety_gate_orch(
+        tmp_path,
+        elements=[{"ref": 1, "role": "button", "label": "Send",
+                   "frame": [10, 20, 10, 10]}],
+    )
+    orch._batch_confirmed = True
+
+    result = _click(orch, "the paper plane icon")
+
+    assert result["status"] == "ok"
+    assert server.confirms == []
+    assert len(server.acts()) == 1
+
+
+def test_grounded_click_dangerous_target_confirms_once(tmp_path):
+    orch, server = _safety_gate_orch(tmp_path)
+
+    result = _click(orch, "the Delete button")
+
+    assert result["status"] == "ok"
+    assert server.confirms == ['Click "the Delete button"?']
+    assert not any(method == "ocr" for method, _ in server.rpcs)
+    assert orch.tracer.current["decisions"][-1]["grounded_click_gate"] == "target"
+
+
+def test_grounded_click_uses_last_url_from_url_action(tmp_path):
+    orch, server = _safety_gate_orch(
+        tmp_path, app="Google Chrome", window="Product page")
+
+    run(orch._exec_action({
+        "op": "url", "url": "https://shop.example/checkout",
+    }))
+    result = _click(orch, "the app icon")
+
+    assert result["status"] == "ok"
+    assert orch._last_url == "https://shop.example/checkout"
+    assert server.confirms == ['Click "the app icon"?']
+    assert not any(method == "ocr" for method, _ in server.rpcs)
+
+
+def test_grounded_click_gate_latency_label_vs_instant_ocr(tmp_path):
+    orch, server = _safety_gate_orch(
+        tmp_path,
+        elements=[{"ref": 1, "role": "button", "label": "Bold",
+                   "frame": [10, 20, 10, 10]}],
+    )
+    label = run(orch._grounded_click_gate(
+        10.0, 20.0, server.shot, "the formatting icon"))
+    assert not any(method == "ocr" for method, _ in server.rpcs)
+
+    orch._last_obs["elements"] = []
+    ocr = run(orch._grounded_click_gate(
+        10.0, 20.0, server.shot, "the app icon"))
+
+    assert label["gate"] == "none" and ocr["gate"] == "none"
+    assert any(method == "ocr" for method, _ in server.rpcs)
+    assert label["ms"] >= 0 and ocr["ms"] >= 0
+    print(
+        "grounded-click gate latency: "
+        f"label={label['ms']:.2f}ms, instant fake OCR={ocr['ms']:.2f}ms")
+
+
 @pytest.mark.parametrize("model", ["eyes-4b", "ui-venus-1.5-8b", "gta1-7b"])
 def test_click_target_screenshot_locate_zoom_act(tmp_path, model):
     o, srv, be = _orch(tmp_path, model)
@@ -185,7 +418,7 @@ def test_click_target_screenshot_locate_zoom_act(tmp_path, model):
     assert "expect" not in act
     assert (act["x"], act["y"]) == pytest.approx(TARGET_G, abs=0.6)    # global points
     assert ("verify", {"expect": 'appears "Razor"'}) in srv.rpcs
-    assert srv.methods() == ["screenshot", "screenshot", "act", "verify"]
+    assert srv.methods() == ["screenshot", "screenshot", "ocr", "act", "verify"]
     assert not any(os.path.exists(p) for p in srv.shots)              # screenshots never kept
     assert r["_log"].startswith("click target=the red square") and " at " in r["_log"]
 
