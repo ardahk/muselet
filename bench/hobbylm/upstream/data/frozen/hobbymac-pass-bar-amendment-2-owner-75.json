@@ -1,0 +1,7 @@
+{
+  "written": "2026-10-20 21:32:40",
+  "by": "project owner (instruction: \"75% bar is more than enough\")",
+  "second_bar": "every skill (calc clean, device, dark, app, folder, timer, screenshot, none) >= 75%; calc also >= regex + 20 points",
+  "timing_disclosure": "set while the round-2 adapter run was in progress and before any of its results were read; AFTER the round-1 adapter had been scored on the round-2 test (71/95)",
+  "original_bar_kept": "hobbymac-pass-bar.json + amendment 1 remain the primary frozen bar and are always reported alongside"
+}

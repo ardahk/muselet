@@ -1,0 +1,14 @@
+{
+  "written": "2026-10-21, after the round-4 test arrived, before round-4 training",
+  "round4_test": "work/macos-agent/frozen/hobbymac-sealed-test-r4.tsv (125 Grok lines: round-3 structure with 30 calendar events)",
+  "pass_bar": "frozen bar + owner 75% bar, both reported (same as round 3)",
+  "training_changes_vs_round3": [
+    "emails kept exactly as written in title and person field",
+    "date-number + month next to a time (\"3 nov 10 am\"), both orders",
+    "casual event phrasing (w/, tmrw, fri, pencil in, lock in, put)",
+    "timer hours -> minutes forms (incl. word hours)",
+    "1,800 event examples",
+    "synthetic dev check now allows 48 output tokens (16 truncated EVENT lines)"
+  ],
+  "disclosure": "round-4 fixes were designed after reading round-3 failures; round-3 numbers are not re-claimed for round 4"
+}

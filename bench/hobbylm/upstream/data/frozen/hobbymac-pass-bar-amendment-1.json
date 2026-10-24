@@ -1,0 +1,16 @@
+{
+  "amends": "work/macos-agent/frozen/hobbymac-pass-bar.json (4ce15155\u2026)",
+  "written": "2026-10-20, before the sealed test set existed and before training",
+  "why": "owner asked to test every skill the helper can do; skills added: dark mode, open app, open folder, timer, screenshot",
+  "test_set": "95 Grok-written requests: calc 30, device 15, dark 6, app 10, folder 6, timer 8, screenshot 4, none 16",
+  "scoring_added": {
+    "dark/app/folder/timer/screenshot": "completed = the executed actions are exactly the one expected action, its effect is verified by the checker (dark mode setting / frontmost app / Finder front window path / recorded timer minutes / screenshot file), and the model then said DONE"
+  },
+  "pass_bar": {
+    "calc_clean_completed": ">= 90% (27/30)",
+    "calc_vs_regex": "clean completed >= regex correct + 20 points",
+    "each of device, dark, app, folder, timer, screenshot": ">= 85% completed (per skill, reported separately)",
+    "none_unknown": ">= 80% (13/16)"
+  },
+  "overall_claim": "the helper \"works\" only if every row passes; otherwise each skill is reported as pass/fail on its own"
+}

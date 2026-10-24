@@ -1,0 +1,16 @@
+{
+  "written": "2026-10-20, after the round-2 test arrived, before round-2 training",
+  "round2_test": "work/macos-agent/frozen/hobbymac-sealed-test-r2.tsv (95 new Grok lines, same structure as round 1)",
+  "pass_bar": "unchanged: hobbymac-pass-bar.json + amendment 1 (calc clean >= 90% and >= regex + 20 pts; each other skill >= 85%; none >= 80%)",
+  "training_changes_vs_round1": [
+    "number words: unhyphenated, Indian shorthand (\"one fifty\"), \"a hundred\", thousands",
+    "restored and added reversed-order phrasings",
+    "timer hours/half-hours/hr+min",
+    "meaning-based brightness/dark-mode phrasings",
+    "app vs folder contrasts, \"apple music\"",
+    "~660 near-miss refusals (skill words in out-of-scope requests)",
+    "more examples: 7,350 generated"
+  ],
+  "leakage_rule": "drop training items with word-set Jaccard >= 0.5 to any round-2 test request (round-1 test is retired and no longer filtered)",
+  "disclosed": "round-2 fixes were designed after reading round-1 failures; round-1 numbers are not re-claimed"
+}

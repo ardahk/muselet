@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://muselet.local/schemas/systemone-request.schema.json",
+  "title": "DeskMind System One request",
+  "type": "object",
+  "required": ["state", "questions"],
+  "properties": {
+    "state": true,
+    "model": {"type": "string"},
+    "questions": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/question"}
+    },
+    "request_id": {"type": ["string", "null"], "minLength": 1},
+    "session_id": {"type": ["string", "null"], "minLength": 1},
+    "step": {"type": ["integer", "null"], "minimum": 1},
+    "observation_id": {"type": ["string", "null"], "minLength": 1},
+    "state_digest": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "question": {
+      "type": "object",
+      "required": ["type", "instructions"],
+      "allOf": [
+        {
+          "if": {"properties": {"type": {"const": "choice"}}},
+          "then": {
+            "required": ["criteria"],
+            "properties": {
+              "criteria": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "minProperties": 1,
+                    "maxProperties": 255,
+                    "propertyNames": {"minLength": 1}
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 255,
+                    "items": {
+                      "type": "object",
+                      "required": ["key", "description"],
+                      "properties": {
+                        "key": {"type": "string", "minLength": 1},
+                        "description": true
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "score"}}},
+          "then": {
+            "required": ["criteria"],
+            "properties": {
+              "criteria": {"type": "array", "minItems": 2, "maxItems": 10}
+            }
+          }
+        }
+      ],
+      "properties": {
+        "type": {"enum": ["choice", "score", "noul"]},
+        "instructions": true,
+        "criteria": {
+          "oneOf": [
+            {"type": "object"},
+            {"type": "array"},
+            {"type": "string"},
+            {"type": "number"},
+            {"type": "boolean"},
+            {"type": "null"}
+          ]
+        }
+      }
+    }
+  }
+}

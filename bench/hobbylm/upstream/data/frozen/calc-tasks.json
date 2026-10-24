@@ -1,0 +1,169 @@
+{
+  "written": "2026-10-20, before any Calculator model call",
+  "experiment": "Separate, user-requested Calculator typing test (not part of the System Settings navigation result). Same harness design: HobbyLM proposes every action; harness only validates and executes; independent checker reads the display.",
+  "actions": "TYPE <keys> (only 0-9 . + - * / = ; the symbols × ÷ − are accepted as the same keys), CLEAR (Escape), DONE, UNKNOWN",
+  "completion_check": "Independent: Calculator display read directly from the Accessibility API by work/macos-agent/calc_checker (read-only) equals the expected answer as a number. Fully completed = model said DONE while the display equals the answer, within 6 proposals, no human intervention.",
+  "pass_bar": {
+    "overall_completed": ">= 80% of the 30 held-out requests (24/30)",
+    "messy_vs_regex": "on the 12 messy requests, HobbyLM completed-rate >= regex baseline correct-rate + 20 points",
+    "reported_separately": [
+      "formatting success",
+      "correct final display regardless of DONE",
+      "DONE recognition",
+      "typed only the final number (did the maths itself)"
+    ]
+  },
+  "baseline": "regex parser (backend/capability/macos_agent/calc_regex.py), written before any model call; handles digit-based \"add X and Y\", \"X plus/minus/times/divided by Y\", \"subtract X from Y\", \"multiply X by Y\", \"X less than Y\", \"take X away from Y\", \"sum of X and Y\"",
+  "dev": [
+    [
+      "add 2 and 3",
+      5
+    ],
+    [
+      "subtract 1 from 9",
+      8
+    ],
+    [
+      "4 bags of 6 sweets, how many sweets?",
+      24
+    ],
+    [
+      "ten minus four",
+      6
+    ]
+  ],
+  "held_out": {
+    "simple": [
+      [
+        "add 7 and 5",
+        12
+      ],
+      [
+        "9 plus 6",
+        15
+      ],
+      [
+        "what is 8 times 7",
+        56
+      ],
+      [
+        "20 minus 8",
+        12
+      ],
+      [
+        "81 divided by 9",
+        9
+      ],
+      [
+        "multiply 12 by 3",
+        36
+      ],
+      [
+        "sum of 14 and 29",
+        43
+      ],
+      [
+        "100 minus 37",
+        63
+      ],
+      [
+        "4.5 plus 2.5",
+        7
+      ],
+      [
+        "45 divided by 5",
+        9
+      ]
+    ],
+    "reversed": [
+      [
+        "subtract 3 from 10",
+        7
+      ],
+      [
+        "take 15 away from 40",
+        25
+      ],
+      [
+        "subtract 4 from 19",
+        15
+      ],
+      [
+        "what is 6 less than 20",
+        14
+      ],
+      [
+        "take 7 away from 50",
+        43
+      ],
+      [
+        "subtract 12 from 30",
+        18
+      ],
+      [
+        "how much bigger is 25 than 9",
+        16
+      ],
+      [
+        "what is 9 less than 31",
+        22
+      ]
+    ],
+    "messy": [
+      [
+        "I had 20 rupees and spent 7. How much is left?",
+        13
+      ],
+      [
+        "three times four",
+        12
+      ],
+      [
+        "what's double 18",
+        36
+      ],
+      [
+        "half of 18",
+        9
+      ],
+      [
+        "split 60 equally among 4 people",
+        15
+      ],
+      [
+        "I bought 3 pens at 12 each, what is the total?",
+        36
+      ],
+      [
+        "a dozen plus 5",
+        17
+      ],
+      [
+        "seven and five together",
+        12
+      ],
+      [
+        "my bill is 450 and I pay 500, how much change?",
+        50
+      ],
+      [
+        "two hundred minus fifty",
+        150
+      ],
+      [
+        "5 boxes with 8 apples each, how many apples?",
+        40
+      ],
+      [
+        "100 shared by 5",
+        20
+      ]
+    ]
+  },
+  "stop_rules": [
+    "6 proposals",
+    "same action twice after no change",
+    "TYPE containing anything outside the allowed keys (out of scope)",
+    "STOP file / Ctrl-C / Esc"
+  ]
+}

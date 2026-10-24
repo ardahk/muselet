@@ -1,0 +1,42 @@
+{
+  "frozen": "2026-10-20, after dev trials D1-D3 and offline dev checks; before any held-out trial",
+  "agent_py_sha256": "3b3e243fb913811927e8fd1ff447921703a0bcfd342175a0582e3d5cb23247f6",
+  "run_py_sha256": "c37b7e6a90e1f8f4d1899805f8da4e42a75c2d9b9a3652eec080c1c2d906dd23",
+  "prompt_format": "native",
+  "targets": "exact item names (harness maps an exact, unique, visible name back to that control)",
+  "fewshot": "labels",
+  "max_new_tokens": 16,
+  "decoding": "greedy (temperature 0, repetition penalty 1.0)",
+  "parse": "first non-empty line of the raw output only",
+  "system": "You operate the System Settings app on a Mac for the user. Each turn you see the current screen and choose exactly ONE next action.\nAllowed actions:\nOPEN System Settings  (launch the app)\nCLICK <name>  (click one listed item by its exact name)\nSCROLL DOWN  (show sidebar items further down)\nSCROLL UP  (show sidebar items further up)\nDONE  (the goal is already reached)\nUNKNOWN  (you cannot tell what to do)\nReply with the action only.",
+  "fewshot_examples": [
+    [
+      "Goal: Open System Settings and navigate to Focus.\n\nScreen:\nSystem Settings is not open.\n\nNext action:",
+      "OPEN System Settings"
+    ],
+    [
+      "Goal: Open System Settings and navigate to Sound.\n\nScreen:\nApp: System Settings\nWindow title: Sound\nSidebar (visible part):\n- General\n- Focus\n- Sound\n- Screen Time\nButtons: Back, Forward\n\nNext action:",
+      "DONE"
+    ],
+    [
+      "Goal: Open System Settings and navigate to Screen Time.\n\nScreen:\nApp: System Settings\nWindow title: General\nSidebar (visible part):\n- Screen Time\n- Sound\n- General\n- Focus\nButtons: Back, Forward\n\nNext action:",
+      "CLICK Screen Time"
+    ],
+    [
+      "Goal: Open System Settings and navigate to Focus.\n\nScreen:\nApp: System Settings\nWindow title: Sound\nSidebar (visible part):\n- General\n- Sound\n- Screen Time\n- Focus\nButtons: Back, Forward\n\nNext action:",
+      "CLICK Focus"
+    ],
+    [
+      "Goal: Open System Settings and navigate to Screen Time.\n\nScreen:\nApp: System Settings\nWindow title: Sound\nSidebar (visible part):\n- General\n- Sound\n- Focus\nButtons: Back, Forward\n\nNext action:",
+      "SCROLL DOWN"
+    ]
+  ],
+  "dev_iterations": [
+    "ids + released template: 0/10 format",
+    "ids + few-shot (3): format 10/10, copied last example",
+    "ids + varied few-shot (4): copied",
+    "names + training-native + few-shot (4): 3/5 dev decisions",
+    "added SCROLL example (5 shots): 3/7 dev decisions; frozen"
+  ],
+  "example_rendered_closed_state": "Goal: Open System Settings and navigate to <destination>.\n\nScreen:\nSystem Settings is not open.\n\nNext action:"
+}
