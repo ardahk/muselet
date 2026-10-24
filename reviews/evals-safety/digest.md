@@ -19,6 +19,8 @@ Pass 21 checked, nothing material: brain-5 pathfind (a single resolved path for 
 - Qualify claims.md:66: 12/43 live cases are trace-graded (-24).
 
 
-Pass 25 (main 26ff05b, wip 2c79363, data-pipeline eae3b7e, decisions 91a62c2, hobby-gaps 861b991): no new findings. brain-5 merge + argfix kill/cut=off verified (mute polarity kept). it2 H9 ARGS gate is on val ARGS (ok). decisions teacher gate goes through BudgetLedger (ok). All open P1s unchanged.
+Pass 26 (main 26ff05b, wip 2c79363, data-pipeline eae3b7e, decisions 91a62c2, hobby-gaps 861b991): no new findings. brain-5 merge + argfix kill/cut=off verified (mute polarity kept). it2 H9 ARGS gate is on val ARGS (ok). decisions teacher gate goes through BudgetLedger (ok). All open P1s unchanged.
 
-Pass 25 (main d502b78, wip c7c04ce, data-pipeline 19737e1, decisions 6d395df, hobby-gaps 156556e): no new findings. -26 narrowed: the decontam record exists and confirms 37/140 route_v1 + 10/43 live_t1 near-dups in main-final training. route_v1_clean (103) is on main but unused; no live_t1 clean subset; serve_brain cites full-set r2 1.000. The it2 train.py hard gate (aborts before spend) looks right. decisions amendment 3 caps cumulative generation spend at $57. -6/-11/-23/-25 unchanged.
+Pass 26 (main d502b78, wip c7c04ce, data-pipeline 19737e1, decisions 6d395df, hobby-gaps 156556e): no new findings. -26 narrowed: the decontam record exists and confirms 37/140 route_v1 + 10/43 live_t1 near-dups in main-final training. route_v1_clean (103) is on main but unused; no live_t1 clean subset; serve_brain cites full-set r2 1.000. The it2 train.py hard gate (aborts before spend) looks right. decisions amendment 3 caps cumulative generation spend at $57. -6/-11/-23/-25 unchanged.
+
+Pass 26 (data-pipeline 0c1ca3d, wip 0db1681; main unchanged at d502b78): no new findings. The evalcheck gate now also covers evals/external (570 rows, reads the `text` key correctly). The it2b filter dropped 9 route-train near-dups. The wip generic_decide MLX single-worker thread routes decide->decide_many->_submit and reports init errors, so nothing material. All open findings unchanged (main didn't move).
