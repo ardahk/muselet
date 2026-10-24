@@ -1,4 +1,4 @@
-# ux digest — pass 21 (main 26ff05b, wip 2c79363, hobby-gaps 861b991)
+# ux digest — pass 22 (main d502b78, wip c7c04ce) — all 6 open P2s are on main
 
 All 13 P1s (ux-1 to ux-11, ux-13) are resolved on main, with file:line evidence in findings.jsonl (pass 14). No branch-only findings remain.
 Tests: test_planner_confirm_summary.py 3/3 PASS, and test_confirm_summary_names_object PASS. test_confirm_timeout_clears_app_confirm is stale: its fake ask_confirm doesn't emit confirm_cancel, and the real server.py:174 does.
@@ -13,11 +13,11 @@ None.
 - ux-12 ask/slot-fill shows the listening mascot while the mic is off — orchestrator.py:525,573,711,1314
 
 - ux-16 (now on main) 'a bit brighter' bubble says 'Done'; use result['level'] — replies.py:52 — ml/src/brain/replies.py:48-52
-- ux-17 (hobby-gaps, partly fixed) Calculator replay: the answer bubble comes only after all keys and the read-back; a mismatch shows a confused face — orchestrator.py _deliver_calc
-- ux-18 (now on main) File disambiguation asks 'report.pdf or report.pdf?' — orchestrator.py:604-612
+- ux-17 (now on main, partly fixed) Calculator replay: the answer bubble comes only after all keys and the read-back; a mismatch shows a confused face — orchestrator.py _deliver_calc
+- ux-18 (now on main) File disambiguation asks 'report.pdf or report.pdf?' — orchestrator.py:611-619
 
 ## Highest-leverage next moves
-- Before merging hobby-gaps: fix ux-16 (20 min) and say the answer before replaying it into Calculator and keep 'success' on a read-back mismatch (ux-17, 15 min).
+- On main before rehearsal: ux-16 result-level copy (10 min), ux-18 folder labels (20 min), ux-17 answer-first + keep 'success' on mismatch (15 min).
 - ux-14: set model.mood = .idle in onConfirmCancel, and use "No answer, so I didn't send it." on timeouts: ~15 min.
 - ux-15: give .notRunning a neutral chip; the row is complete when nothing is denied or not determined: ~30 min.
 - ux-12: use 'thinking' plus a "Hold right ⌥ to answer" hint for ask and slot-fill: ~15 min.
