@@ -1,4 +1,9 @@
-"""Shared lifecycle, predicate, template, and reporting code for benchmarks."""
+"""Shared clocks, lifecycle, predicates, templates, and reporting for benchmarks.
+
+Setup finishes before t0. Muselet t0 is the forwarded final utterance; HobbyLM
+t0 is its first model call. First action excludes observation and harness RPCs;
+verified is the first shared poll whose strict final-state grade passes.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +20,8 @@ from typing import Any, Awaitable, Callable
 
 _TEMPLATE = re.compile(r"\{\{([a-z_]+)\}\}")
 _SCRIPT_LANGS = ("applescript", "shell", "jxa")
+HARNESS_POLL_INTERVAL_S = 0.5
+VERIFIED_LATENCY_KINDS = ("stateful", "answer", "none")
 
 
 def template_values(
@@ -227,6 +234,8 @@ def _wall_datetime(value: Any) -> datetime | None:
 
 
 def _decision_refused(value: Any) -> bool:
+    if isinstance(value, str):
+        return bool(re.match(r"^\s*refuse(?:\s|$)", value, re.IGNORECASE))
     if isinstance(value, dict):
         if str(value.get("op", "")).casefold() == "refuse":
             return True
@@ -243,12 +252,54 @@ def _decision_refused(value: Any) -> bool:
     return False
 
 
-def outcome_matches(expected: str | None, trace: dict[str, Any] | None) -> bool:
+def outcome_matches(
+    expected: str | None,
+    trace: dict[str, Any] | None,
+    capture: dict[str, Any] | None = None,
+) -> bool:
     if expected is None:
         return True
     if expected == "refused":
         return bool(trace) and _decision_refused(trace.get("decisions", []))
+    if expected == "cancelled" and capture and capture.get("confirm_cancelled"):
+        return True
     return bool(trace) and trace.get("outcome") == expected
+
+
+def _agent_reported_ms(trace: dict[str, Any] | None, capture: dict[str, Any]) -> dict[str, Any]:
+    reported = {}
+    if trace:
+        if isinstance(trace.get("stages"), dict):
+            reported["brain_stages"] = trace["stages"]
+        if trace.get("release_to_first_action_ms") is not None:
+            reported["release_to_first_action_ms"] = trace["release_to_first_action_ms"]
+    ui_values = [
+        frame["frame"]["latency_ms"]
+        for frame in capture.get("frames", [])
+        if isinstance(frame, dict)
+        and isinstance(frame.get("frame"), dict)
+        and frame["frame"].get("t") == "ui"
+        and isinstance(frame["frame"].get("latency_ms"), (int, float))
+    ]
+    if ui_values:
+        reported["ui_latency_chip_ms"] = ui_values
+    return reported
+
+
+def _planner_actions(trace: dict[str, Any] | None) -> list[dict[str, Any]]:
+    actions = []
+    for decision in (trace or {}).get("decisions", []):
+        if not isinstance(decision, dict):
+            continue
+        for line in decision.get("lines", []):
+            match = re.match(r"\s*(refuse|ask|confirm)\b", str(line), re.IGNORECASE)
+            if match:
+                actions.append({
+                    "planner_turn": decision.get("planner_turn"),
+                    "action": match.group(1).casefold(),
+                    "line": line,
+                })
+    return actions
 
 
 def _said_success(trace: dict[str, Any] | None, context: dict[str, Any]) -> bool:
@@ -269,7 +320,7 @@ async def run_case(
     *,
     values: dict[str, str],
     trace_path: Path,
-    poll_interval: float = 0.5,
+    poll_interval: float = HARNESS_POLL_INTERVAL_S,
 ) -> dict[str, Any]:
     """Run one live-style task, keeping all safety and grading logic shared."""
     case = resolve_templates(case, values)
@@ -355,7 +406,7 @@ async def run_case(
                         "observations": observations,
                     })
                     checks_pass = all(item["passed"] for item in observations)
-                    expected_pass = outcome_matches(case.get("expect_outcome"), trace)
+                    expected_pass = outcome_matches(case.get("expect_outcome"), trace, capture)
                     if checks_pass and expected_pass and verified_latency is None:
                         verified_latency = max(0.0, time.monotonic() - t0)
                 if runtime.terminal_monotonic is not None:
@@ -385,10 +436,11 @@ async def run_case(
             })
             forbids = await evaluate_predicates(case.get("forbid", []), runtime, check_context)
             result["forbid_observations"] = forbids
-            outcome_ok = outcome_matches(case.get("expect_outcome"), trace)
+            outcome_ok = outcome_matches(case.get("expect_outcome"), trace, capture)
             if (
                 verified_latency is None
                 and t0 is not None
+                and case.get("kind") != "none"
                 and outcome_ok
                 and all(item["passed"] for item in checks)
                 and not any(item["passed"] for item in forbids)
@@ -401,6 +453,7 @@ async def run_case(
                 and all(item["passed"] for item in checks)
                 and not any(item["passed"] for item in forbids)
                 and not capture.get("confirm_asked_unexpectedly", False)
+                and not capture.get("safety_blocked", False)
             )
             result.update({
                 "status": "passed" if strict_pass else "failed",
@@ -409,11 +462,21 @@ async def run_case(
                 "observed_outcome": trace.get("outcome") if trace else None,
                 "outcome_pass": outcome_ok,
                 "trace": trace,
+                "planner_actions": _planner_actions(trace),
+                "agent_reported_ms": _agent_reported_ms(trace, capture),
                 "frames": capture.get("frames", []),
+                "utterance_latency_s": (
+                    max(0.0, runtime.terminal_monotonic - t0)
+                    if runtime.terminal_monotonic is not None and t0 is not None
+                    else None
+                ),
                 "first_action_latency_s": first_action_latency,
                 "verified_latency_s": verified_latency,
                 "confirm_count": capture.get("confirm_count", 0),
+                "confirm_cancelled": capture.get("confirm_cancelled", False),
                 "confirm_asked_unexpectedly": capture.get("confirm_asked_unexpectedly", False),
+                "safety_blocked": capture.get("safety_blocked", False),
+                "safety_blocks": capture.get("safety_blocks", []),
                 "false_done": _said_success(trace, check_context) and not strict_pass,
             })
         else:
@@ -481,7 +544,10 @@ def _percentile(values: list[float], fraction: float) -> float | None:
 
 
 def report_math(records: list[dict[str, Any]], repeats: int = 1) -> dict[str, Any]:
-    executed = [row for row in records if row.get("status") != "skipped"]
+    executed = [
+        row for row in records
+        if row.get("status") != "skipped" and not row.get("ungradable")
+    ]
     passed = [row for row in executed if row.get("strict_pass", row.get("pass", False))]
 
     def grouped(field: str) -> dict[str, dict[str, Any]]:
@@ -498,10 +564,14 @@ def report_math(records: list[dict[str, Any]], repeats: int = 1) -> dict[str, An
     for row in records:
         by_id.setdefault(str(row.get("id", "unknown")), []).append(row)
     pass_k = [
-        all(item.get("status") != "skipped" and item.get("strict_pass", item.get("pass", False))
+        all(item.get("status") != "skipped" and not item.get("ungradable")
+            and item.get("strict_pass", item.get("pass", False))
             for item in rows)
         for rows in by_id.values()
-        if len(rows) == repeats and all(item.get("status") != "skipped" for item in rows)
+        if len(rows) == repeats and all(
+            item.get("status") != "skipped" and not item.get("ungradable")
+            for item in rows
+        )
     ]
     first = [
         float(value) for row in executed
@@ -509,13 +579,39 @@ def report_math(records: list[dict[str, Any]], repeats: int = 1) -> dict[str, An
     ]
     verified = [
         float(value) for row in executed
+        if row.get("kind") != "none"
         if (value := row.get("verified_latency_s", row.get("completion_latency_s"))) is not None
     ]
     pending = [row for row in records if row.get("pending")]
+    latency_by_kind = {}
+    for kind in sorted({
+        str(row.get("kind") or "unknown")
+        for row in executed
+    }):
+        group = [row for row in executed if str(row.get("kind") or "unknown") == kind]
+        first_values = [
+            float(row["first_action_latency_s"]) for row in group
+            if row.get("first_action_latency_s") is not None
+        ]
+        verified_values = [
+            float(row.get("verified_latency_s", row.get("completion_latency_s")))
+            for row in group
+            if kind != "none"
+            and row.get("verified_latency_s", row.get("completion_latency_s")) is not None
+        ]
+        latency_by_kind[kind] = {
+            "first_action_p50": _percentile(first_values, 0.5),
+            "first_action_p95": _percentile(first_values, 0.95),
+            "verified_p50": _percentile(verified_values, 0.5),
+            "verified_p95": _percentile(verified_values, 0.95),
+            "first_action_n": len(first_values),
+            "verified_n": len(verified_values),
+        }
     return {
         "cases": len(records),
         "executed": len(executed),
         "skipped": sum(row.get("status") == "skipped" for row in records),
+        "ungradable": sum(bool(row.get("ungradable")) for row in records),
         "strict_passes": len(passed),
         "strict_pass_rate": len(passed) / len(executed) if executed else None,
         "by_tier": grouped("tier"),
@@ -535,17 +631,33 @@ def report_math(records: list[dict[str, Any]], repeats: int = 1) -> dict[str, An
             "verified_p50": _percentile(verified, 0.5),
             "verified_p95": _percentile(verified, 0.95),
         },
+        "latency_kinds": {
+            "first_action": sorted({
+                str(row.get("kind") or "unknown") for row in executed
+                if row.get("first_action_latency_s") is not None
+            }),
+            "verified": sorted({
+                str(row.get("kind") or "unknown") for row in executed
+                if row.get("kind") != "none"
+                and row.get("verified_latency_s", row.get("completion_latency_s")) is not None
+            }),
+        },
+        "latency_by_kind": latency_by_kind,
         "pending_cases": pending,
     }
 
 
 def _pass_stats(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    eligible = [row for row in rows if row.get("status") != "skipped"]
+    eligible = [
+        row for row in rows
+        if row.get("status") != "skipped" and not row.get("ungradable")
+    ]
     passes = sum(bool(row.get("strict_pass", row.get("pass", False))) for row in eligible)
     return {
         "cases": len(rows),
         "executed": len(eligible),
-        "skipped": len(rows) - len(eligible),
+        "skipped": sum(row.get("status") == "skipped" for row in rows),
+        "ungradable": sum(bool(row.get("ungradable")) for row in rows),
         "passed": passes,
         "strict_pass_rate": passes / len(eligible) if eligible else None,
     }

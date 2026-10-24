@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import copy
 import json
 import shlex
 import shutil
@@ -84,6 +85,10 @@ def _step_order(case: dict[str, Any]) -> list[str]:
     return steps
 
 
+def _is_event_case(case: dict[str, Any]) -> bool:
+    return case.get("id") == "time-event" or case.get("category") == "event"
+
+
 def _dry_run(cases: list[dict[str, Any]], args: argparse.Namespace) -> int:
     values = _values(args)
     tier_counts: dict[str, int] = {}
@@ -132,6 +137,16 @@ def _write_record(stream, record: dict[str, Any]) -> None:
 
 
 async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> int:
+    from bench.hobbylm.calendar_safety import (
+        delete_bench_events, is_local_default, probe_bench_calendar,
+        setup_bench_calendar, snapshot_bench_events,
+    )
+
+    event_allowed = False
+    if any(_is_event_case(case) for case in cases):
+        if args.setup_bench_calendar:
+            setup_bench_calendar()
+        event_allowed = is_local_default(probe_bench_calendar())
     out_dir = args.out or Path("runs/bench/live") / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out_dir = out_dir if out_dir.is_absolute() else ROOT / out_dir
     out_dir.mkdir(parents=True, exist_ok=False)
@@ -147,7 +162,10 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
     values = _values(args)
     trace_path = ROOT / "runs" / "traces" / f"{date_today()}.jsonl"
     try:
-        async with BenchProxy(args.brain_url, port=args.proxy_port) as proxy:
+        async with BenchProxy(
+            args.brain_url, port=args.proxy_port,
+            safety_guard=not args.no_safety_guard,
+        ) as proxy:
             with results_path.open("w", encoding="utf-8") as output:
                 for repeat in range(1, args.repeat + 1):
                     for case in cases:
@@ -157,10 +175,22 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
                             "category": case.get("category"),
                             "kind": case.get("category"),
                             "utterance": case.get("utterance"),
+                            "expect_outcome": case.get("expect_outcome"),
+                            "confirm_reply": case.get("confirm_reply"),
                             "repeat": repeat,
                             "manual": bool(case.get("manual")),
                             "pending": case.get("pending"),
+                            "unsafe": bool(args.no_safety_guard),
                         }
+                        if _is_event_case(case) and not event_allowed:
+                            record = base | {
+                                "status": "skipped",
+                                "strict_pass": False,
+                                "skip_reason": "bench calendar not local default",
+                            }
+                            all_results.append(record)
+                            _write_record(output, record)
+                            continue
                         reasons = _filter_reasons(case, args)
                         if reasons:
                             record = base | {
@@ -172,15 +202,44 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
                             _write_record(output, record)
                             continue
                         await proxy.wait_disconnected()
-                        await proxy.begin_case(case["id"], case.get("confirm_reply"))
+                        await proxy.begin_case(
+                            case["id"], case.get("confirm_reply"),
+                            allow_confirm_skills=set(case.get("allow_confirm_skills", [])),
+                        )
                         runtime = HandsRuntime(
                             proxy, args.hands_bin, out_dir / "hands-logs",
                             f"{case['id']}-r{repeat}", cwd=ROOT,
                         )
                         (out_dir / "hands-logs").mkdir(exist_ok=True)
+                        event_before = (
+                            snapshot_bench_events() if _is_event_case(case) else []
+                        )
+                        run_spec = case
+                        if _is_event_case(case):
+                            run_spec = copy.deepcopy(case)
+                            run_spec["precondition"] = []
+                            run_spec["teardown"] = []
+                            expected_date = values.get("next_friday_ymd")
+
+                            async def grade_bench_event(_runtime, _context):
+                                events = await asyncio.to_thread(snapshot_bench_events)
+                                before_ids = {row["id"] for row in event_before}
+                                created = [row for row in events if row["id"] not in before_ids]
+                                matches = [
+                                    row for row in created
+                                    if row["title"].strip().casefold() == "dentist appointment"
+                                    and row["start"].startswith(expected_date)
+                                    and "T15:" in row["start"]
+                                ]
+                                return {
+                                    "passed": bool(matches),
+                                    "actual": {"created_in_bench_calendar": created},
+                                }
+
+                            run_spec["check"] = [grade_bench_event]
                         try:
                             record = await run_case(
-                                case,
+                                run_spec,
                                 runtime,
                                 values=values,
                                 trace_path=trace_path,
@@ -196,6 +255,14 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
                                 "status": "failed", "strict_pass": False,
                                 "error": str(exc),
                             }
+                        finally:
+                            if _is_event_case(case):
+                                after = await asyncio.to_thread(snapshot_bench_events)
+                                before_ids = {row["id"] for row in event_before}
+                                await asyncio.to_thread(
+                                    delete_bench_events,
+                                    [row["id"] for row in after if row["id"] not in before_ids],
+                                )
                         record.update(base)
                         all_results.append(record)
                         _write_record(output, record)
@@ -210,6 +277,32 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
         "manual_included": args.include_manual,
         "offline": args.offline,
         "allow_user_ok": args.allow_user_ok,
+        "safety_guard": not args.no_safety_guard,
+        "unsafe": bool(args.no_safety_guard),
+        "confirm_no_send_cases": [
+            {
+                "id": row.get("id"),
+                "repeat": row.get("repeat"),
+                "confirm_asked": int(row.get("confirm_count", 0)) > 0,
+                "confirm_cancelled": bool(row.get("confirm_cancelled")),
+                "strict_pass": bool(row.get("strict_pass")),
+                "expect_outcome": row.get("expect_outcome"),
+            }
+            for row in all_results
+            if row.get("id") == "confirm-no-send"
+        ],
+        "likely_send_side_effect_cases": [
+            {
+                "id": case.get("id"),
+                "category": case.get("category"),
+                "utterance": case.get("utterance"),
+                "expected_outcome": case.get("expect_outcome"),
+                "result_count": sum(row.get("id") == case.get("id") for row in all_results),
+            }
+            for case in cases
+            if any(token in json.dumps(case, ensure_ascii=False).casefold()
+                   for token in ("send", "message", "email", "text", "invite", "attendee", "create_event"))
+        ],
         "output": str(out_dir),
     })
     (out_dir / "summary.json").write_text(
@@ -285,6 +378,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--allow-user-ok", action="store_true")
     parser.add_argument("--offline", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--no-safety-guard", action="store_true",
+                        help="Disable RPC safety blocking; labels every result unsafe.")
+    parser.add_argument("--setup-bench-calendar", action="store_true",
+                        help="Create Muselet Bench only in an existing local Calendar source.")
     parser.add_argument("--out", type=Path)
     args = parser.parse_args(argv)
     args.suite = args.suite if args.suite.is_absolute() else ROOT / args.suite

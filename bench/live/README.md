@@ -87,3 +87,10 @@ fails the case, and is answered `false`.
 The runner does not claim macOS benchmark results on Linux. `--dry-run` and the
 fake-WebSocket tests validate suite planning and protocol behavior, not model
 quality or live macOS execution.
+
+The RPC safety guard is enabled by default and blocks message/email sends,
+confirmation-risk skills, and invite-related scripts. Event cases are skipped
+unless EventKit proves `Muselet Bench` is in a local source and is the default
+for new events. `--setup-bench-calendar` creates it only in an existing local
+source. `--no-safety-guard` disables these protections and labels the run
+unsafe; use it only in a deliberately disposable benchmark environment.

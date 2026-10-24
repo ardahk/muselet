@@ -7,6 +7,7 @@ from datetime import date, datetime, timezone
 from bench.harness.core import (
     evaluate_predicate,
     find_trace_record,
+    outcome_matches,
     report_math,
     run_case,
     template_values,
@@ -47,6 +48,13 @@ def test_template_values_use_unpadded_dates_and_strict_next_friday():
     values = template_values(today=date(2026, 1, 2))
     assert values["tomorrow_ymd"] == "2026-1-3"
     assert values["next_friday_ymd"] == "2026-1-9"
+
+
+def test_planner_outcomes_and_parent_confirm_cancel_are_gradeable():
+    trace = {"outcome": "failed", "decisions": [{"lines": ["refuse \"no\""]}]}
+    assert outcome_matches("refused", trace)
+    assert outcome_matches("cancelled", None, {"confirm_cancelled": True})
+    assert not outcome_matches("ok", {"outcome": "fallback"})
 
 
 def test_precondition_failure_skips_every_later_case_step(tmp_path):

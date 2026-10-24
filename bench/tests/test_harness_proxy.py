@@ -4,7 +4,7 @@ import json
 import pytest
 import websockets
 
-from bench.harness.proxy import BenchProxy
+from bench.harness.proxy import BenchProxy, SAFETY_BLOCKED_ERROR
 
 
 def test_proxy_forwards_frames_consumes_script_rpc_and_measures_first_action():
@@ -117,6 +117,106 @@ def test_proxy_confirm_replies_are_intercepted(confirm_reply, expected, unexpect
                 assert reply == {"t": "confirm_reply", "id": "c1", "yes": expected}
                 assert proxy.capture.confirm_asked_unexpectedly is unexpected
                 await client
+
+    asyncio.run(scenario())
+
+
+def test_proxy_confirm_cancel_ends_confirmation_wait():
+    async def scenario():
+        brain_ws = asyncio.Queue()
+
+        async def brain_handler(ws):
+            brain_ws.put_nowait(ws)
+            async for _raw in ws:
+                pass
+
+        async with websockets.serve(brain_handler, "127.0.0.1", 0) as server:
+            port = server.sockets[0].getsockname()[1]
+            async with BenchProxy(f"ws://127.0.0.1:{port}") as proxy:
+                await proxy.begin_case("confirm-cancel", False)
+                async def hands_client():
+                    async with websockets.connect(proxy.url) as hands:
+                        await hands.send(json.dumps({"t": "hello"}))
+                        await proxy.wait_connected()
+                        await asyncio.sleep(1)
+
+                client = asyncio.create_task(hands_client())
+                brain = await asyncio.wait_for(brain_ws.get(), 1)
+                await brain.send(json.dumps({"t": "confirm_cancel", "id": "c1"}))
+                await asyncio.wait_for(proxy.capture.terminal_event.wait(), 1)
+                snapshot = proxy.snapshot()
+                assert snapshot["confirm_cancelled"] is True
+                assert snapshot["frames"][-1]["frame"]["t"] == "confirm_cancel"
+                client.cancel()
+
+    asyncio.run(scenario())
+
+
+def test_safety_guard_returns_failures_without_forwarding_blocked_rpcs():
+    blocked_requests = [
+        {"method": "skill", "params": {"name": "send_message", "args": {}}},
+        {"method": "skill", "params": {"name": "compose_email", "args": {}}},
+        {"method": "skill", "params": {"name": "move_to_trash", "args": {}}},
+        {"method": "skill", "params": {"name": "create_event", "args": {"attendee": "Alex"}}},
+        {"method": "skill", "params": {"name": "create_event", "args": {"invitee": "Alex"}}},
+        {"method": "skill", "params": {"name": "create_event", "args": {"email": "a@example.com"}}},
+        {"method": "skill", "params": {"name": "create_event", "args": {"notes": "a@example.com"}}},
+        {"method": "act", "params": {"op": "script", "code": "send message"}},
+        {"method": "act", "params": {"op": "script", "code": "invite Alex"}},
+        {"method": "act", "params": {"op": "script", "code": "list attendees"}},
+    ]
+
+    async def scenario():
+        incoming = asyncio.Queue()
+        brain_ws = asyncio.Queue()
+        hands_received = asyncio.Queue()
+        stop = asyncio.Event()
+
+        async def brain_handler(ws):
+            brain_ws.put_nowait(ws)
+            async for raw in ws:
+                incoming.put_nowait(json.loads(raw))
+
+        async with websockets.serve(brain_handler, "127.0.0.1", 0) as server:
+            port = server.sockets[0].getsockname()[1]
+            async with BenchProxy(f"ws://127.0.0.1:{port}") as proxy:
+                await proxy.begin_case("safety", False)
+
+                async def hands_client():
+                    async with websockets.connect(proxy.url) as hands:
+                        await hands.send(json.dumps({"t": "hello"}))
+                        await proxy.wait_connected()
+                        await hands.send(json.dumps({
+                            "t": "utterance", "id": "u1", "text": "blocked", "final": True,
+                        }))
+                        while not stop.is_set():
+                            try:
+                                raw = await asyncio.wait_for(hands.recv(), 0.02)
+                            except asyncio.TimeoutError:
+                                continue
+                            hands_received.put_nowait(json.loads(raw))
+
+                client = asyncio.create_task(hands_client())
+                brain = await asyncio.wait_for(brain_ws.get(), 1)
+                assert (await asyncio.wait_for(incoming.get(), 1))["t"] == "hello"
+                assert (await asyncio.wait_for(incoming.get(), 1))["t"] == "utterance"
+                for index, request in enumerate(blocked_requests):
+                    request_id = f"unsafe-{index}"
+                    await brain.send(json.dumps({
+                        "t": "rpc", "id": request_id, **request,
+                    }))
+                    response = await asyncio.wait_for(incoming.get(), 1)
+                    assert response == {
+                        "t": "rpc_result", "id": request_id, "ok": False,
+                        "error": SAFETY_BLOCKED_ERROR,
+                    }
+                await asyncio.sleep(0.05)
+                stop.set()
+                await asyncio.wait_for(client, 1)
+                assert hands_received.empty()
+                capture = proxy.snapshot()
+                assert capture["safety_blocked"] is True
+                assert len(capture["safety_blocks"]) == len(blocked_requests)
 
     asyncio.run(scenario())
 
