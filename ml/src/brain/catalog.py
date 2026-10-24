@@ -99,6 +99,14 @@ class Catalog:
                 s = str(val)
                 datetime.fromisoformat(s)  # raises on bad input
                 return s
+            if t == "duration":
+                if isinstance(val, int) and not isinstance(val, bool):
+                    return val
+                from .decision import parse_duration
+                seconds = parse_duration(str(val))
+                if seconds is None:
+                    raise ValueError(val)
+                return seconds
             return str(val)
         except CatalogError:
             raise

@@ -11,7 +11,7 @@ import re
 import threading
 import time
 
-from . import calc, dsl, obsdiff, replies, slots
+from . import argfix, calc, dsl, obsdiff, pathfind, replies, slots
 from .catalog import Catalog, CatalogError
 from .traces import Tracer
 
@@ -60,11 +60,28 @@ def _script_failure(error: str, res: dict | None) -> tuple[str, str]:
 _ABS_SKILL = {"change_volume": "set_volume", "change_brightness": "set_brightness"}
 _ABS_WORDS = {"max": 100, "maximum": 100, "full": 100, "half": 50,
               "min": 0, "minimum": 0}
+_CODE_ARGS = {"set_brightness": {"delta"}, "open_folder": {"view"}}
+_FOLLOW = re.compile(
+    r"^(?:(?:and then|and|then)\s+)?(?:open|show|reveal)\s+"
+    r"(?:it|that|them|the folder|the file)$", re.IGNORECASE)
+_IMPERATIVE = re.compile(
+    r"^(?:open|show|close|play|turn|set|make|create|send|search|find|take|"
+    r"start|put|add|move|delete|go|switch|mute|unmute|lock|empty|quit|hide|"
+    r"copy|paste|type|write|email|text|call|schedule|remind)\b",
+    re.IGNORECASE)
 
 
 def abs_level(text: str) -> int | None:
     """Absolute 0-100 target in the utterance: 'down to twenty', 'to 30
     percent', 'at half', 'to the max' -> int; None for relative requests."""
+    if re.search(r"\ball\s+the\s+way\s+up\b", text, re.IGNORECASE):
+        return 100
+    if re.search(r"\ball\s+the\s+way\s+down\b", text, re.IGNORECASE):
+        return 0
+    if re.search(r"\b(?:max|maximum|full)\b", text, re.IGNORECASE):
+        return 100
+    if re.search(r"\b(?:min|minimum)\b", text, re.IGNORECASE):
+        return 0
     toks = re.findall(r"[a-z]+|\d+", text.lower())
     for i, w in enumerate(toks):
         if w not in ("to", "at") or i + 1 >= len(toks):
@@ -196,6 +213,9 @@ class Orchestrator:
         self._diff_chain: list[str] | None = None
         self._apps: tuple[float, list[str]] | None = None   # (t, names)
         self._collect: list[str] | None = None   # compound: replies to join
+        self._last_skill: tuple[str, dict, dict] | None = None
+        self._compound_to_planner = False
+        self._compound_parts: list[str] = []
 
     # ---------- v0 router ----------
 
@@ -333,6 +353,8 @@ class Orchestrator:
         # reuse a speculative route (+ARGS) when the final text matches the
         # last partial (architect-5a)
         if pre is None and self._collect is None:
+            self._compound_to_planner = False
+            self._compound_parts = []
             out = await self._compound(text, trace)
             if out is not None:
                 return out
@@ -361,6 +383,19 @@ class Orchestrator:
                                    "route_ms": res.ms.get("route_ms"),
                                    "spec_hit": spec_hit})
         label = res.top
+        if self._compound_to_planner:
+            self._compound_to_planner = False
+            if label == "REFUSE":
+                await self.server.say("Sorry, I can't do that")
+                await self._end_ui("confused")
+                return "failed"
+            if label == "MULTI_STEP":
+                trace["compound_to_planner"] = {
+                    "hint": label, "clauses": self._compound_parts}
+                return await self._planner_loop(text, trace)
+            trace["compound_to_planner"] = {
+                "hint": label, "clauses": self._compound_parts}
+            return await self._planner_loop(text, trace, hint=label)
         if res.p_top < self.tau:
             # unsure -> System 2 with a hint (AGENTS.md contract)
             hint = f"{top5[0][0]} or {top5[1][0]}"
@@ -396,16 +431,97 @@ class Orchestrator:
 
     def _missing(self, name: str, args: dict) -> list[str]:
         return [a["name"] for a in (self.catalog.get(name) or {}).get("args", [])
-                if a.get("required") and args.get(a["name"]) in (None, "")]
+                if a.get("required") and args.get(a["name"]) in (None, "")
+                and not (name == "set_brightness" and a["name"] == "level"
+                         and args.get("delta") not in (None, ""))]
 
     async def _run_skill(self, label: str, raw_args: dict, text: str,
-                         trace: dict) -> str:
+                         trace: dict, filled: str | None = None) -> str:
         """fallback table -> slot fill for still-missing args -> execute."""
+        raw_args = dict(raw_args)
         to = _ABS_SKILL.get(label)
-        if to and self.catalog.get(to) and (lvl := abs_level(text)) is not None:
+        if to and self.catalog.get(to) and filled != "level" and \
+                (lvl := abs_level(text)) is not None:
             trace["decisions"].append({"abs_switch": [label, to, lvl]})
             label, raw_args = to, {"level": lvl}
         spec = self.catalog.get(label) or {}
+        if label in ("set_volume", "set_brightness") and \
+                raw_args.get("level") in (None, "") and filled != "level":
+            if (lvl := abs_level(text)) is not None:
+                raw_args["level"] = lvl
+                trace["decisions"].append({"abs_level": [label, lvl]})
+            elif label == "set_brightness" and \
+                    (delta := argfix.vague_delta(text)) is not None:
+                raw_args["delta"] = delta
+                trace["decisions"].append({"vague_delta": delta})
+        if label == "change_volume" and filled != "delta":
+            from . import decision
+            if decision.normalize_delta(raw_args.get("delta")) is None and \
+                    (delta := argfix.vague_delta(text)) is not None:
+                raw_args["delta"] = delta
+                trace["decisions"].append({"vague_delta": delta})
+        if label == "open_folder" and filled != "view":
+            if view := argfix.finder_view(text):
+                raw_args["view"] = view
+        if filled != "on" and any(
+                a.get("name") == "on" and a.get("type") == "bool"
+                for a in spec.get("args", [])):
+            polarity = argfix.polarity(label, text)
+            if polarity in (True, False):
+                raw_args["on"] = polarity
+                trace["decisions"].append({"polarity": polarity})
+            elif polarity == "negated":
+                raw_args.pop("on", None)
+                trace["decisions"].append({"polarity": "negated"})
+        for a in spec.get("args", []):
+            key = a.get("name")
+            if a.get("type") != "duration" or key not in raw_args:
+                continue
+            recovered = argfix.recover_duration(raw_args[key], text)
+            if isinstance(recovered, int):
+                raw_args[key] = recovered
+            elif recovered == "ask":
+                number = argfix.duration_prompt_number(raw_args[key], text)
+                return await self._start_slot(
+                    label, raw_args, [key], text, trace,
+                    question=slots.duration_question(number),
+                    extra={"duration_number": raw_args[key]})
+        for a in spec.get("args", []):
+            key = a.get("name")
+            if label not in ("move_to_trash", "open_file", "open_folder") or \
+                    a.get("type") != "path":
+                continue
+            value = str(raw_args.get(key) or "")
+            phrase = value if filled == "path" else \
+                pathfind.object_phrase(label, text) or value
+            if label == "open_folder" and \
+                    (pathfind.is_alias(value) or pathfind.is_alias(phrase)):
+                continue
+            if value and os.path.exists(os.path.expanduser(value)):
+                continue
+            if not phrase:
+                continue
+            matches = pathfind.resolve(phrase)
+            if len(matches) == 1:
+                raw_args[key] = matches[0]
+                trace["decisions"].append({"path_resolved": matches[0]})
+            elif matches:
+                names = [os.path.basename(p) for p in matches[:3]]
+                if len(names) == 1:
+                    custom = f"Which one: {names[0]}?"
+                elif len(names) == 2:
+                    custom = f"Which one: {names[0]} or {names[1]}?"
+                else:
+                    custom = (f"Which one: {names[0]}, {names[1]}, or "
+                              f"{names[2]}?")
+                return await self._start_slot(
+                    label, raw_args, [key], text, trace,
+                    question=_cap12(custom))
+            else:
+                return await self._start_slot(
+                    label, raw_args, [key], text, trace,
+                    question=_cap12(
+                        f"I couldn't find {phrase}. Which file?"))
         raw_args = slots.fill_defaults(label, raw_args, text)
         for a in spec.get("args", []):
             if a.get("type") == "app" and a.get("required") and \
@@ -423,7 +539,8 @@ class Orchestrator:
         parts = " ".join(
             f'{k}="{v}"' if isinstance(v, str) and " " in v else f"{k}={v}"
             for k, v in raw_args.items())
-        args = self._coerce_args(label, raw_args, utterance=text)
+        args = self._coerce_args(label, raw_args, utterance=text,
+                                 filled=filled)
         if spec.get("executor") == "brain":
             out = await self._brain_tool(label, args, text)
         else:
@@ -458,32 +575,83 @@ class Orchestrator:
         is a confident native skill, run them in order (ARGS per clause) with
         one combined reply. None -> route the whole utterance instead."""
         parts, joins = split_clauses(text)
-        if len(parts) < 2 or len(parts) > MAX_CLAUSES:
+        if len(parts) < 2:
             return None
         from .planner import worker
-        routed = []
-        for c in parts:
+        if len(parts) > MAX_CLAUSES:
+            self._reject_compound(parts, [], trace)
+            return None
+        routed: list[tuple[int, str, str, float]] = []
+        followups: dict[int, str] = {}
+        routed_for_trace = []
+        previous = None
+        for i, c in enumerate(parts):
+            if i and previous in ("new_folder", "take_screenshot", "new_note") \
+                    and _FOLLOW.fullmatch(" ".join(c.lower().split())):
+                followups[i] = previous
+                routed_for_trace.append([c, "FOLLOW", None])
+                previous = None
+                continue
             r = await worker().submit_async(self.engine.route, c,
                                             dict(self._ctx))
             spec = self.catalog.get(r.top)
-            routed.append([c, r.top, round(r.p_top, 3)])
+            routed.append((i, c, r.top, r.p_top))
+            routed_for_trace.append([c, r.top, round(r.p_top, 3)])
             if not spec or spec.get("executor") == "brain" or \
                     r.p_top < self.COMPOUND_P:
-                trace["decisions"].append({"compound_reject": routed})
+                self._reject_compound(parts, routed_for_trace, trace)
                 return None
+            previous = r.top
         # a plain 'and' between two same-skill clauses is one phrase
         # ("search for salt and pepper"); 'then' always sequences
-        if any(j == "and" and routed[i][1] == routed[i + 1][1]
-               for i, j in enumerate(joins)):
-            trace["decisions"].append({"compound_reject": routed})
+        if any(join == "and" and any(row[0] == i for row in routed)
+               and any(row[0] == i + 1 for row in routed)
+               and next(row[2] for row in routed if row[0] == i)
+               == next(row[2] for row in routed if row[0] == i + 1)
+               for i, join in enumerate(joins)):
+            self._reject_compound(parts, routed_for_trace, trace)
             return None
-        trace["compound"] = len(parts)
-        trace["decisions"].append({"compound_routes": routed})
+        trace["compound"] = len(routed)
+        trace["decisions"].append({"compound_routes": routed_for_trace})
         self._spec_fut, self._spec_norm = None, ""
         self._spec_gen += 1
         self._collect = []
         try:
-            for c, label, _ in routed:
+            for i, c in enumerate(parts):
+                if i in followups:
+                    after = followups[i]
+                    last = self._last_skill
+                    result = (last[2] if last and last[0] == after else {})
+                    path = None
+                    name = None
+                    args = {}
+                    if after == "new_folder":
+                        name = "open_folder"
+                        last_args = last[1] if last and last[0] == after else {}
+                        args = {"path": result.get("path") or os.path.join(
+                            pathfind.alias(last_args.get("parent", "")),
+                            str(last_args.get("name") or ""))}
+                        path = args["path"]
+                    elif after == "take_screenshot":
+                        name = "open_file"
+                        path = result.get("path")
+                        if not path:
+                            return await self._fail(
+                                "screenshot path missing",
+                                "I couldn't find the screenshot file")
+                        args = {"path": path}
+                    trace["decisions"].append({
+                        "compound_followup": {"after": after,
+                                              "skill": name or after,
+                                              "path": path}})
+                    if name:
+                        out = await self.execute_actions(
+                            [{"op": "skill", "name": name, "args": args}])
+                        if out != "ok":
+                            return out
+                    continue
+                row = next(row for row in routed if row[0] == i)
+                _, _, label, _ = row
                 if (self.catalog.get(label) or {}).get("args"):
                     ext = await worker().submit_async(
                         self.engine.args, label, c, dict(self._ctx))
@@ -507,21 +675,34 @@ class Orchestrator:
         await self._end_ui("success")
         return "ok"
 
+    def _reject_compound(self, parts: list[str], routed: list,
+                         trace: dict) -> None:
+        trace["decisions"].append({"compound_reject": routed})
+        if any(_IMPERATIVE.match(part.strip()) for part in parts[1:]):
+            self._compound_to_planner = True
+            self._compound_parts = parts
+            trace["decisions"].append(
+                {"compound_rejected_for_planner": parts})
+
     def _arg_spec(self, skill: str, arg: str) -> dict:
         return next((a for a in (self.catalog.get(skill) or {}).get("args", [])
                      if a.get("name") == arg), {})
 
     async def _start_slot(self, skill: str, args: dict, missing: list[str],
-                          text: str, trace: dict) -> str:
+                          text: str, trace: dict, question: str | None = None,
+                          extra: dict | None = None) -> str:
         """ask for the first missing arg; the next final utterance fills it."""
         self._slot = {"skill": skill, "args": dict(args),
                       "missing": list(missing), "t": time.time(),
                       "utterance": text, "tries": 0}
+        if extra:
+            self._slot.update(extra)
         trace["slot_fill"] = True
         trace["decisions"].append({"slot_fill": {"skill": skill,
                                                  "missing": list(missing)}})
         a = self._arg_spec(skill, missing[0])
-        await self.server.say(slots.question(skill, missing[0], a.get("type")))
+        await self.server.say(question or
+                              slots.question(skill, missing[0], a.get("type")))
         await self.server.ui("listening")
         return "awaiting_user"
 
@@ -558,6 +739,13 @@ class Orchestrator:
         arg = slot["missing"][0]
         a = self._arg_spec(slot["skill"], arg)
         val = slots.clean_answer(text, a.get("type"))
+        if a.get("type") == "duration" and \
+                slot.get("duration_number") is not None:
+            from . import decision
+            if decision.parse_duration(val) is None:
+                combined = f'{slot["duration_number"]} {val}'
+                if decision.parse_duration(combined) is not None:
+                    val = combined
         trace["decisions"].append({"slot_fill": {
             "skill": slot["skill"], "arg": arg, "value": val}})
         if not slots.valid(a.get("type"), val, a):
@@ -575,7 +763,7 @@ class Orchestrator:
         self._slot = None
         args = dict(slot["args"], **{arg: val})
         return await self._run_skill(slot["skill"], args, slot["utterance"],
-                                     trace)
+                                     trace, filled=arg)
 
     @staticmethod
     def _human(name: str) -> str:
@@ -669,8 +857,12 @@ class Orchestrator:
                     return _cap12(f"{verb} {to}?")
                 return f'{verb} {to}: "{_excerpt(body, left)}"?'
             if n == "move_to_trash":
-                p = str(ar.get("path") or "this file").rstrip("/")
-                return _cap12(f"Move {os.path.basename(p) or p} to Trash?")
+                p = str(ar.get("path") or "this file")
+                home = os.path.expanduser("~")
+                if os.path.isabs(p) and (p == home or
+                                         p.startswith(home + os.sep)):
+                    p = "~" + p[len(home):]
+                return _cap12(f"Move {p} to Trash?")
             if n == "empty_trash":
                 return "Empty the Trash permanently?"
             if n == "quit_app":
@@ -1168,44 +1360,32 @@ class Orchestrator:
         r"\b(on|enable|activate|start|turn on|back on)\b", re.IGNORECASE)
 
     def _bool_on(self, name: str, utterance: str) -> bool | None:
-        """`on` from the utterance, or None (keep the model's value). For mute,
-        on/off words describe the sound: 'sound off' = mute on."""
-        u = utterance.lower()
-        snd = r"\b(sound|audio|volume|speakers?)\b"
-        if name == "mute":
-            if re.search(r"\bunmute\b|" + snd + r"[^,.;]*\bon\b|"
-                         r"\bturn (the )?(sound|audio) (back )?on\b", u):
-                return False
-            if re.search(r"\bmute\b|\bsilence\b|" + snd + r"[^,.;]*\boff\b|"
-                         r"\b(kill|cut|shut off|turn off)\b[^,.;]*" + snd, u):
-                return True
-            return None
-        if name not in ("wifi", "bluetooth", "dark_mode"):
-            return None
-        if name == "dark_mode" and re.search(r"\blight mode\b", u):
-            return False
-        if re.search(r"\bback on\b|\boff and (then )?on\b", u):
-            return True
-        m = re.search(r"\b(?:turn|switch|put|set)\b[^,.;]*?\b(on|off)\b", u)
-        if m:
-            return m.group(1) == "on"
-        off, on = self._BOOL_OFF.search(u), self._BOOL_ON.search(u)
-        return bool(on) if bool(off) != bool(on) else None
+        """Compatibility wrapper for the shared on/off phrase resolver."""
+        value = argfix.polarity(name, utterance)
+        return value if isinstance(value, bool) else None
 
     def _coerce_args(self, name: str, args: dict,
-                     utterance: str | None = None) -> dict:
+                     utterance: str | None = None,
+                     filled: str | None = None) -> dict:
         """datetime/duration by code; catalog-typed coercion (SPEC 1.4).
         For bool args named `on`, the utterance decides by regex and
         overrides the model output when it matches."""
         from . import decision as _d
         spec = self.catalog.get(name) or {}
+        args = dict(args)
+        if utterance and filled != "on" and \
+                argfix.polarity(name, utterance) == "negated":
+            args.pop("on", None)
         out = {}
         for a in spec.get("args", []):
             key, typ = a.get("name"), a.get("type")
-            if key == "on" and typ == "bool" and utterance:
-                b = self._bool_on(name, utterance)
-                if b is not None:
-                    out[key] = b
+            if key == "on" and typ == "bool" and utterance and \
+                    filled != "on":
+                polarity = argfix.polarity(name, utterance)
+                if polarity == "negated":
+                    continue
+                if isinstance(polarity, bool):
+                    out[key] = polarity
                     continue
             if key not in args:
                 continue
@@ -1221,7 +1401,8 @@ class Orchestrator:
                 out[key] = c if c is not None else v
         # zero-shot fallback: model echoed e.g. 'set_volume=30' — if no known
         # arg was emitted and the skill has exactly one required arg, use it.
-        if not out and args:
+        if not out and args and any(
+                a.get("name") in args for a in spec.get("args", [])):
             req = [a for a in spec.get("args", []) if a.get("required")]
             if len(req) == 1:
                 v = next(iter(args.values()))
@@ -1233,6 +1414,14 @@ class Orchestrator:
                     out[req[0]["name"]] = _d.parse_duration(str(v)) or v
                 else:
                     out[req[0]["name"]] = v
+        for key in _CODE_ARGS.get(name, set()):
+            if key not in args:
+                continue
+            if key == "delta":
+                n = _d.normalize_delta(args[key])
+                out[key] = n if n is not None else args[key]
+            else:
+                out[key] = str(args[key])
         return out
 
     # ---------- execution ----------
@@ -1405,11 +1594,24 @@ class Orchestrator:
             trace = self.tracer.current or {"decisions": []}
             return await self._start_slot(name, args, missing,
                                           self._utterance, trace)
+        code_args = {key: args[key] for key in _CODE_ARGS.get(name, set())
+                     if key in args}
+        catalog_args = {key: value for key, value in args.items()
+                        if key not in code_args}
+        synthetic_level = name == "set_brightness" and \
+            "delta" in code_args and "level" not in catalog_args
+        validation_args = dict(catalog_args)
+        if synthetic_level:
+            validation_args["level"] = 0
         try:
-            args = self.catalog.validate_args(name, args)
+            args = self.catalog.validate_args(name, validation_args)
         except CatalogError as e:
             return await self._fail(
                 str(e), f"I didn't catch the details to {replies.human(name)}.")
+        if synthetic_level:
+            args.pop("level", None)
+        args.update(code_args)
+        validated_args = dict(args)
         spec = self.catalog.get(name) or {}
         if spec.get("risk") == "confirm" and not args.get("confirmed"):
             summary = await self._confirm_summary(
@@ -1434,14 +1636,43 @@ class Orchestrator:
             res = await self.server.rpc(
                 "skill", {"name": name, "args": args}, timeout=45)
         except RuntimeError as e:
-            self.tracer.rpc("skill", {"name": name, "args": args},
-                            {"error": str(e)}, (time.perf_counter() - t) * 1000)
-            return await self._fail(str(e), replies.fail_text(name, args, str(e)))
+            res = {"ok": False, "error": str(e)}
         self.tracer.rpc("skill", {"name": name, "args": args},
                         self._trace_res(res), (time.perf_counter() - t) * 1000)
+        if not res.get("ok", False) and name == "open_folder" and \
+                args.get("view"):
+            error = str(res.get("error", "")).lower()
+            if "view" in error or "unknown arg" in error or "invalid" in error:
+                view = args["view"]
+                args = {key: value for key, value in args.items()
+                        if key != "view"}
+                combo = {"icons": "cmd+1", "list": "cmd+2",
+                         "columns": "cmd+3", "gallery": "cmd+4"}.get(view)
+                if combo:
+                    if self.tracer.current is not None:
+                        self.tracer.current["decisions"].append(
+                            {"view_fallback": view})
+                    t = time.perf_counter()
+                    try:
+                        res = await self.server.rpc(
+                            "skill", {"name": name, "args": args},
+                            timeout=45)
+                    except RuntimeError as e:
+                        res = {"ok": False, "error": str(e)}
+                    self.tracer.rpc(
+                        "skill", {"name": name, "args": args},
+                        self._trace_res(res),
+                        (time.perf_counter() - t) * 1000)
+                    if res.get("ok", False):
+                        out = await self.execute_actions(
+                            [{"op": "keys", "combo": combo}])
+                        if out != "ok":
+                            return out
         if not res.get("ok", False):
             return await self._fail(res.get("error", "?"), replies.fail_text(
                 name, args, str(res.get("error", ""))))
+        self._last_skill = (name, validated_args,
+                            res.get("result") or {})
         reply = replies.success_text(name, args, res.get("result"))
         if self._collect is not None:
             self._collect.append(reply)
