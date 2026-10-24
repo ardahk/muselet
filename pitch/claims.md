@@ -6,32 +6,74 @@ has not been run, the line stays out of the pitch. Mac = the demo MacBook Pro M5
 
 ## 1. Metrics (measure on the Mac, record the run path next to the value)
 
-| Placeholder | Definition | How to measure | Source of truth |
-|---|---|---|---|
-| `{{stt_ms_p50}}` | Right Option release -> final transcript, median | 20 demo utterances; panel row "Last release → text" | `model.lastSTTms`, `app/Sources/MuseletApp/Panel/PanelView.swift:90`; app FileLog |
-| `{{route_ms_p50}}`, `{{route_ms_p95}}` | Router forward pass (cached static prefix + request suffix) | `uv run --project ml python -m brain.cli eval-route --model <router> --cases evals/route_v1.jsonl` | `route_ms`, `ml/src/brain/decision.py:330-350`; `runs/evals/` |
-| `{{route_acc}}` | Router top-1 accuracy, 140 cases | same command | `runs/evals/` |
-| `{{args_ms_p50}}` | ARGS extraction, median | same run / traces | `args_ms`, `decision.py:369-404` |
-| `{{instant_e2e_ms_p50}}` | Release -> first HandsKit action for single-skill commands | traces of the segment-1 commands, 10 takes | `release_to_first_action_ms`, `ml/src/brain/orchestrator.py:295,300` |
-| `{{browser_task_s}}` | "Find flights to Tokyo next Friday": release -> planner `done` | 5 takes, Chrome | trace `total` stage; also shown as the `ui.ms` chip |
-| `{{live_t1_pass}}`/43, `{{live_false_done}}` | Live suite T1/T2 strict pass; runs where the agent said done but the final state check failed | `bench/live/run_live.py` on `evals/live_t1.jsonl`, designated Mac | runner output under `runs/` |
-| `{{planner_tok_s}}`, `{{planner_model}}` | Planner decode tok/s and the model picked | `bench/speed_lab.py --models <repo>` shape `plan` | `runs/speedlab/results.jsonl` |
-| `{{browser_task_s}}` | Utterance -> verified final state, segment 2 | traces, 5 takes, median | `runs/traces/` `total_ms` |
-| `{{advisor_prep_s}}` | "Prep me for the Hendersons" -> final say, DEMO.md success checks pass | 5 takes | `runs/traces/` `total` stage; target <= 30 s (`cloud/tools_interface.md`) |
-| `{{receipts_s}}` | "Reconcile my receipts" -> sheet flagged | 5 takes | `runs/traces/` |
-| `{{premiere_s}}` | Cut + marker + export dialog | 5 takes | `runs/traces/` |
-| `{{receipt_ocr_ms}}` | Apple Vision OCR per receipt | `ocr` RPC `ms` field | `app/Sources/HandsKit/OCR.swift:137` |
-| `{{cat_rule_acc}}`, `{{cat_ask_rows}}` | Finance categorize accuracy with rules only; rows escalated to ASK | `PYTHONPATH=ml/src python3 -m pytest ml/tests/test_finance.py -s` | `ml/src/brain/finance/categorize.py` |
-| `{{hobby_muselet_pass}}`/125, `{{hobby_muselet_p50_s}}` | Muselet on HobbyLM's 125 sealed live requests, strict final-state grading | `bench/hobbylm/replay.py --system muselet --round r4` | `runs/bench/hobbylm/` (harness on `cloud/bench`, not merged) |
-| `{{hobby_rerun_pass}}`/125, `{{hobby_rerun_p50_s}}` | HobbyLM itself, same Mac, its published harness | `bench/hobbylm/replay.py --system hobbylm --round r4` | same |
-| `{{dm_muselet_strict}}`/39, `{{dm_muselet_false_done}}`, `{{dm_muselet_step_p50_s}}` | Muselet on DeskMind Bench (13 tasks x 3), graded by `deskmind-bench score` | `bench/deskmind/README.md` (c) | `runs/bench/deskmind/` |
-| `{{dm_rerun_strict}}`/39, `{{dm_rerun_step_p50_s}}` | DeskMind G18b on the same Mac, their commands | `bench/deskmind/README.md` (a) | same |
-| `{{act_ms_p50}}` | HandsKit act + settle, median | same traces as `{{instant_e2e_ms_p50}}` | `act_ms` + `settle_ms` in `rpc_result` |
-| `{{stt_budget_ms}}`, `{{args_budget_ms}}`, `{{act_budget_ms}}`, `{{e2e_budget_ms}}` | Latency *targets* (not measurements); label "target" wherever shown | set by the lead from the speed-lab results | `architecture.md` budget table |
-| `{{model_disk_gb}}`, `{{peak_ram_gb}}` | Total local weights; peak RSS during the 3:00 demo | `du -sh` on the HF cache snapshots in use; Activity Monitor / `footprint` | Mac |
-| `{{tinker_usd}}` | Total Tinker spend (router LoRA) | `python3 tools/tinker_spend.py` | `runs/tinker_spend.jsonl` |
-| `{{train_examples}}` | Router training examples after dedup | data-pipeline output stats | PR #2 (`cloud/data-pipeline`) |
-| `{{outbound_conns}}` | Non-loopback sockets opened by brain + app during the Wi-Fi-off take | `lsof -nP -i -a -p <brain pid>,<app pid>` before/after; expect only 127.0.0.1:8765/8766 | Mac |
+| Placeholder | Definition | How to measure | Source of truth | Value (2026-10-24) |
+|---|---|---|---|---|
+| `{{stt_ms_p50}}` | Right Option release -> final transcript, median | 20 demo utterances; panel row "Last release → text" | `model.lastSTTms`, `app/Sources/MuseletApp/Panel/PanelView.swift:90`; app FileLog | pending live run (screen was locked overnight) |
+| `{{route_ms_p50}}`, `{{route_ms_p95}}` | Router forward pass (cached static prefix + request suffix) | `uv run --project ml python -m brain.cli eval-route --model <router> --cases evals/route_v1.jsonl` | `route_ms`, `ml/src/brain/decision.py:330-350`; `runs/evals/` | p50 52 ms (r2; `runs/router/r2_self_clean.json`); p95 not reported yet |
+| `{{route_acc}}` | Router top-1 accuracy, route_v1 clean subset (103 of 140 cases) | same command, `--cases evals/route_v1_clean.jsonl` | `runs/router/r2_self_clean.json` | .864 (r2; see §1a) |
+| `{{args_ms_p50}}` | ARGS extraction, median | same run / traces | `args_ms`, `decision.py:369-404` | 97 ms (r2; `runs/router/r2_self_clean.json`) |
+| `{{instant_e2e_ms_p50}}` | Release -> first HandsKit action for single-skill commands | traces of the segment-1 commands, 10 takes | `release_to_first_action_ms`, `ml/src/brain/orchestrator.py:295,300` | pending live run (screen was locked overnight) |
+| `{{browser_task_s}}` | "Find flights to Tokyo next Friday": release -> planner `done` | 5 takes, Chrome | trace `total` stage; also shown as the `ui.ms` chip | pending live run (screen was locked overnight) |
+| `{{live_t1_pass}}`/43, `{{live_false_done}}` | Live suite T1/T2 strict pass; runs where the agent said done but the final state check failed | `bench/live/run_live.py` on `evals/live_t1.jsonl`, designated Mac | runner output under `runs/` | pending live run (screen was locked overnight) |
+| `{{planner_tok_s}}`, `{{planner_model}}` | Planner decode tok/s and the model picked | `bench/speed_lab.py --models <repo>` shape `plan` | `runs/speedlab/results.jsonl` | 83 tok/s, Qwen3.5-4B-4bit (`runs/planner_offline/`); model pick not yet reported |
+| `{{browser_task_s}}` | Utterance -> verified final state, segment 2 | traces, 5 takes, median | `runs/traces/` `total_ms` | pending live run (screen was locked overnight) |
+| `{{advisor_prep_s}}` | "Prep me for the Hendersons" -> final say, DEMO.md success checks pass | 5 takes | `runs/traces/` `total` stage; target <= 30 s (`cloud/tools_interface.md`) | pending live run (screen was locked overnight) |
+| `{{receipts_s}}` | "Reconcile my receipts" -> sheet flagged | 5 takes | `runs/traces/` | pending live run (screen was locked overnight) |
+| `{{premiere_s}}` | Cut + marker + export dialog | 5 takes | `runs/traces/` | pending live run (screen was locked overnight) |
+| `{{receipt_ocr_ms}}` | Apple Vision OCR per receipt | `ocr` RPC `ms` field | `app/Sources/HandsKit/OCR.swift:137` | ~150 ms per receipt, warm (run path not given) |
+| `{{cat_rule_acc}}`, `{{cat_ask_rows}}` | Finance categorize accuracy with rules only; rows escalated to ASK | `PYTHONPATH=ml/src python3 -m pytest ml/tests/test_finance.py -s` | `ml/src/brain/finance/categorize.py` | not run yet |
+| `{{hobby_muselet_pass}}`/125, `{{hobby_muselet_p50_s}}` | Muselet on HobbyLM's 125 sealed live requests, strict final-state grading | `bench/hobbylm/replay.py --system muselet --round r4` | `runs/bench/hobbylm/` (harness on `cloud/bench`, not merged) | pending live run (screen was locked overnight) |
+| `{{hobby_rerun_pass}}`/125, `{{hobby_rerun_p50_s}}` | HobbyLM itself, same Mac, its published harness | `bench/hobbylm/replay.py --system hobbylm --round r4` | same | pending live run (screen was locked overnight) |
+| `{{dm_muselet_strict}}`/39, `{{dm_muselet_false_done}}`, `{{dm_muselet_step_p50_s}}` | Muselet on DeskMind Bench (13 tasks x 3), graded by `deskmind-bench score` | `bench/deskmind/README.md` (c) | `runs/bench/deskmind/` | pending live run (screen was locked overnight) |
+| `{{dm_rerun_strict}}`/39, `{{dm_rerun_step_p50_s}}` | DeskMind G18b on the same Mac, their commands | `bench/deskmind/README.md` (a) | same | pending live run (screen was locked overnight) |
+| `{{act_ms_p50}}` | HandsKit act + settle, median | same traces as `{{instant_e2e_ms_p50}}` | `act_ms` + `settle_ms` in `rpc_result` | pending live run (screen was locked overnight) |
+| `{{stt_budget_ms}}`, `{{args_budget_ms}}`, `{{act_budget_ms}}`, `{{e2e_budget_ms}}` | Latency *targets* (not measurements); label "target" wherever shown | set by the lead from the speed-lab results | `architecture.md` budget table | targets, not set yet |
+| `{{model_disk_gb}}`, `{{peak_ram_gb}}` | Total local weights; peak RSS during the 3:00 demo | `du -sh` on the HF cache snapshots in use; Activity Monitor / `footprint` | Mac | pending live run (screen was locked overnight) |
+| `{{tinker_usd}}` | Tinker spend, month to date | `python3 tools/tinker_spend.py` | `runs/tinker_spend.jsonl` | $34.60 month to date (billing through 09:00Z) |
+| `{{train_examples}}` | Router training examples after dedup | data-pipeline output stats | PR #2 (`cloud/data-pipeline`) | not reported yet |
+| `{{outbound_conns}}` | Non-loopback sockets opened by brain + app during the Wi-Fi-off take | `lsof -nP -i -a -p <brain pid>,<app pid>` before/after; expect only 127.0.0.1:8765/8766 | Mac | pending live run (screen was locked overnight) |
+
+## 1a. Offline benchmark results (Mac, 2026-10-24)
+
+Values as reported from the Mac runs, with their source paths. `runs/` is gitignored, so those files live only on
+the Mac. Same Mac, same runners for every row in a table.
+
+**Router**: trained 4B LoRA "r2" (`jonsnov/muselet-route-4b-main-mlx4` @ 2e3e7bf) vs base Qwen3.5-4B, on the
+route_v1 clean subset (`evals/route_v1_clean.jsonl`). Source: `runs/router/r2_self_clean.json`,
+`runs/router/base_clean.json`.
+
+| | Route acc | Macro-F1 | ARGS exact | Route + ARGS |
+|---|---|---|---|---|
+| r2 | .864 | .866 | 36/36 | .857 |
+| Base Qwen3.5-4B | .767 | .825 | .784 | .690 |
+
+r2 latency p50: route 52 ms, ARGS 97 ms. Always disclose: 37 of the 140 route_v1 cases were excluded because they
+have a near-duplicate in training.
+
+**Planner**: Qwen3.5-4B-4bit, greedy, few-shot + DSL history + line-start constraint; offline planner bench
+(`evals/planner_offline.py`, 25 tune + 14 holdout scenarios, runtime-equivalent grading). Source: `runs/planner_offline/`.
+
+| Config | Pass (tune) | Pass (holdout) | Plan p50 / turn | TTFT | Decode |
+|---|---|---|---|---|---|
+| Qwen3.5-4B-4bit, tuned | .84 | .57 | 139 ms | 72 ms | 83 tok/s |
+| Qwen3.5-4B-4bit, base config | .68 | .50 | – | – | – |
+| Qwen3.6-35B-A3B | .84 | .71 | ~310 ms | 128 ms | 82 tok/s |
+
+Say holdout alongside tune; the holdout set is the honest number.
+
+**System One decision benchmarks** (`bench/run_jevbench.sh`, `bench/run_typed_decisions.sh`):
+
+| | JevBench public | Typed-decisions test |
+|---|---|---|
+| Muselet base | .719 | .569 |
+| DeskMind brain-4b | .831 | .658 |
+| DeskMind brain-0.8b | .723 | .540 |
+
+DeskMind leads here today. Allowed: "On decision benchmarks DeskMind's 4B is ahead of our base model today; our
+generalist decision LoRA is still training." Not allowed: any framing that Muselet wins or ties these.
+
+**Grounding** (ScreenSpot-Pro, 200-sample stratified subset, paired; `bench/grounding/run_screenspot.py`, run path
+not given): eyes-4b two-stage zoom 63.5% at 1 MP, 67.5% at 2 MP (no zoom: 36.0% / 50.5%).
 
 Fixture facts (deterministic, already in the repo; quote freely): Henderson numbers in
 `evals/fixtures/advisor/DEMO.md` ("Numbers the presenter can quote"); finance story numbers and receipt statuses in
@@ -84,7 +126,8 @@ Re-verified on `origin/main` @ 1d49478 (2026-10-24); line numbers are at that co
 | Clicky | MIT; needs Anthropic, AssemblyAI and ElevenLabs keys behind a Cloudflare Worker; push-to-talk streams audio to AssemblyAI, sends transcript + screenshot to Claude; cursor flies via `[POINT:x,y:label:screenN]` tags | https://github.com/farzaa/clicky (README, CLAUDE.md) |
 
 Not verified, do not say: that Savvy flags tax-loss harvesting or cash drag (not on the page); that Clicky
-cannot click; any DeskMind or HobbyLM number on our Mac until the reruns above exist.
+cannot click; any DeskMind Bench or HobbyLM live-set number on our Mac until those reruns exist (the JevBench and
+typed-decisions reruns in §1a do exist).
 
 ## 4. Demo prerequisites (open items the script depends on)
 
@@ -95,4 +138,5 @@ cannot click; any DeskMind or HobbyLM number on our Mac until the reruns above e
    (`tools/finance_review.py:165-196`) builds for the fixture; no test asserts that exact case. Read the real bubble.
 4. DeskMind already reports 39/39 on its own bench: we can at most tie on strict pass. Pitch speed and breadth,
    with both systems rerun on our Mac.
-5. Premiere: UXP bridge untested; the demo uses default shortcuts, so the demo project must use the default keymap.
+5. System One: DeskMind leads on JevBench and typed decisions (§1a); use only the allowed wording there.
+6. Premiere: UXP bridge untested; the demo uses default shortcuts, so the demo project must use the default keymap.
