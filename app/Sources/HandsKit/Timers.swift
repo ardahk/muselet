@@ -100,18 +100,16 @@ public final class TimerRegistry {
         onChange?(list())
     }
 
-    /// Wire form: {id, label?, total_s, left_s, minutes, fires_at}.
+    /// Wire form: {id, label (null if none), total_s, left_s, minutes, fires_at}.
     /// `minutes` = whole minutes left, rounded up ("about 7 minutes left");
     /// `left_s` = seconds left (1 decimal, never negative).
     public static func dict(_ i: Info, now: Date = Date()) -> [String: Any] {
         // Minutes from the reported (0.1 s) value: 540.0000001 s is 9 minutes.
         let left = max(0, i.firesAt.timeIntervalSince(now)).rounded(to: 1)
-        var d: [String: Any] = [
-            "id": i.id, "total_s": i.total.rounded(to: 1), "left_s": left,
+        return [
+            "id": i.id, "label": i.label ?? NSNull(), "total_s": i.total.rounded(to: 1), "left_s": left,
             "minutes": Int((left / 60).rounded(.up)), "fires_at": isoString(i.firesAt),
         ]
-        if let l = i.label { d["label"] = l }
-        return d
     }
 
     static func isoString(_ d: Date) -> String {

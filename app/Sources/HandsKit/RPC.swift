@@ -13,9 +13,9 @@ import Foundation
 ///    clamped 0...100, read back); `open_folder {view}`; `type_text` /
 ///    `type` into a keystroke app (Calculator, `via: "keystroke_app"`);
 ///    truthful launches (`not_frontmost`). See `Skills`.
-///  - `timers {}` -> `{timers: [{id, label?, total_s, left_s, minutes,
-///    fires_at}]}`: Muselet-started timers (`start_timer`), soonest first;
-///    `minutes` = whole minutes left, rounded up.
+///  - `timers {}` -> `{timers: [{id, label (null if none), total_s, left_s,
+///    minutes, fires_at}]}`: Muselet-started timers (`start_timer`), soonest
+///    first; `minutes` = whole minutes left, rounded up.
 ///  - `timers_cancel {id?}` -> `{cancelled: [timer...], timers: [remaining...]}`:
 ///    one timer, or every Muselet timer without `id`; an unknown id is
 ///    ok=false `unknown_timer` (with the pending list).
@@ -54,8 +54,10 @@ public final class RPCHandler {
         guard warmUp else { return }
         // Precompile the skill AppleScripts off the hot path (compile only:
         // nothing runs, so no app is launched and no Automation prompt shows).
-        DispatchQueue.global(qos: .utility).async { [skills = self.skills] in
+        DispatchQueue.global(qos: .utility).async { [skills = self.skills, hands = self.hands] in
             skills.warmUp()
+            // The volume read-back of `keys volume_up/down/mute` (Hands' own runner).
+            (hands.scripts as? AppleScriptRunner)?.precompile([Skills.volumeStateScript])
         }
         // Vision's first accurate OCR in a new binary takes ~25 s; pay it now.
         DispatchQueue.global(qos: .background).async { OCR.warmUp() }

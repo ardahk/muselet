@@ -40,6 +40,24 @@ def _norm(text: str) -> str:
     return " ".join(re.sub(r"[^\w\s']", " ", text.lower()).split())
 
 
+def _repr_line(a: dict) -> str:
+    """legacy Last-batch action text: `{op} k=v ...` from the parsed dict"""
+    return f"{a['op']} " + " ".join(
+        f"{k}={v}" for k, v in a.items() if k != "op")
+
+
+def _log_act(a: dict) -> str:
+    """the action as one DSL line for Last batch (expect dropped; a long
+    script body is cut to 200 chars)"""
+    a = {k: v for k, v in a.items() if k != "expect"}
+    if a.get("op") == "script" and len(a.get("code", "")) > 200:
+        a["code"] = a["code"][:200] + "…"
+    try:
+        return dsl.serialize([a])
+    except (dsl.DSLError, KeyError):
+        return _repr_line(a)
+
+
 def _script_failure(error: str, res: dict | None) -> tuple[str, str]:
     """(bubble, planner reason) for a failed script act: HandsKit sends
     timed_out / exit_code / stderr and `script_failed: exit N: <stderr>`."""
@@ -62,22 +80,95 @@ _ABS_WORDS = {"max": 100, "maximum": 100, "full": 100, "half": 50,
               "min": 0, "minimum": 0}
 
 
+_ABS_ANYWHERE = {"max", "maximum", "full", "half"}
+_REL_UNITS = {"notch": 10, "notches": 10, "step": 10, "steps": 10,
+              "click": 10, "clicks": 10, "tick": 10, "ticks": 10,
+              "bar": 10, "bars": 10, "level": 10, "levels": 10,
+              "point": 1, "points": 1, "percent": 1}
+_UP = {"up", "louder", "raise", "increase", "higher", "brighter", "boost"}
+_DOWN = {"down", "quieter", "lower", "decrease", "softer", "dimmer",
+         "reduce", "dim"}
+_BIT = re.compile(r"\b(a (little )?bit|a little|a touch|a tad|slightly)\b")
+
+
+def _level_toks(text: str) -> list[str]:
+    return re.findall(r"[a-z]+|\d+", text.lower().replace("%", " percent "))
+
+
+def _num_runs(toks: list[str]) -> list[tuple[int, int, float]]:
+    """(start, end, value) of every spoken/digit number run"""
+    runs, i = [], 0
+    while i < len(toks):
+        v, j = calc._parse_run(toks, i)
+        if v is None or j <= i:
+            i += 1
+            continue
+        runs.append((i, j, v))
+        i = j
+    return runs
+
+
 def abs_level(text: str) -> int | None:
-    """Absolute 0-100 target in the utterance: 'down to twenty', 'to 30
-    percent', 'at half', 'to the max' -> int; None for relative requests."""
-    toks = re.findall(r"[a-z]+|\d+", text.lower())
+    """Absolute 0-100 target, only after an absolute marker: 'to N', 'at N',
+    'N percent' / 'N%', 'half', 'max', 'full'. Relative phrasing ('up two to
+    three notches', 'by 20', 'a bit') -> None (brain-16)."""
+    toks = _level_toks(text)
+    n = len(toks)
     for i, w in enumerate(toks):
-        if w not in ("to", "at") or i + 1 >= len(toks):
+        prev, nxt = toks[i - 1] if i else "", toks[i + 1: i + 3]
+        if w in _ABS_WORDS and prev != "by" and \
+                not any(t in _REL_UNITS for t in nxt) and \
+                (w in _ABS_ANYWHERE or prev in ("to", "at", "the")):
+            return _ABS_WORDS[w]
+    runs = _num_runs(toks)
+    ends = {e for _, e, _ in runs}
+    for i, j, v in runs:
+        nxt = toks[j] if j < n else ""
+        if nxt in _REL_UNITS and nxt != "percent":
+            continue                          # 'three notches'
+        k = i - 1 - (i >= 2 and toks[i - 1] == "the")
+        marker = toks[k] if k >= 0 else ""
+        if marker in ("to", "at"):
+            if marker == "to" and k in ends:  # 'two to three': a range
+                continue
+            if (nxt == "percent" or nxt not in _REL_UNITS) and \
+                    0 <= v <= 100 and v == int(v):
+                return int(v)
             continue
-        j = i + 1 + (toks[i + 1] == "the")
-        if j >= len(toks):
-            continue
-        if toks[j] in _ABS_WORDS:
-            return _ABS_WORDS[toks[j]]
-        v, _ = calc._parse_run(toks, j)
-        if v is not None and 0 <= v <= 100 and v == int(v):
+        prev = toks[i - 1] if i else ""
+        if nxt == "percent" and prev not in ("by",) and prev not in _UP \
+                and prev not in _DOWN and 0 <= v <= 100 and v == int(v):
             return int(v)
     return None
+
+
+def rel_delta(text: str) -> int | None:
+    """Signed relative step by code (notch/step = 10): 'up two to three
+    notches' -> 25, 'down by 20' -> -20, 'a bit quieter' -> -10; None when
+    the direction or the amount isn't stated."""
+    toks = _level_toks(text)
+    sign = next((1 if t in _UP else -1 for t in toks
+                 if t in _UP or t in _DOWN), None)
+    if sign is None:
+        return None
+    runs, n, amt = _num_runs(toks), len(toks), None
+    for x, (i, j, v) in enumerate(runs):
+        nxt = toks[j] if j < n else ""
+        lo = v
+        if x and runs[x - 1][1] == i - 1 and toks[i - 1] == "to":
+            lo = runs[x - 1][2]               # 'two to three'
+        unit = _REL_UNITS.get(nxt)
+        if unit is None and lo != v:
+            unit = 10 if v <= 10 else 1       # bare small range = notches
+        if unit is None and i and toks[i - 1] == "by":
+            unit = 1
+        if unit is not None:
+            amt = (lo + v) / 2 * unit
+    if amt is None and _BIT.search(" ".join(toks)):
+        amt = 10
+    if amt is None:
+        return None
+    return sign * round(min(amt, 100))
 
 
 _JOIN = re.compile(r",?\s+(and\s+then|then|and)\s+", re.IGNORECASE)
@@ -175,6 +266,8 @@ class Orchestrator:
         self.engine = engine
         self.tau = tau
         self.planner = None
+        self.planner_escalate = None    # opt-in bigger planner (loop guard)
+        self._active_planner = None
         self._ms_kind = None
         self._last_epoch = None
         self._last_obs = None
@@ -405,6 +498,9 @@ class Orchestrator:
         if to and self.catalog.get(to) and (lvl := abs_level(text)) is not None:
             trace["decisions"].append({"abs_switch": [label, to, lvl]})
             label, raw_args = to, {"level": lvl}
+        elif label in _ABS_SKILL and (d := rel_delta(text)) is not None:
+            trace["decisions"].append({"rel_delta": d})
+            raw_args = dict(raw_args, delta=d)
         spec = self.catalog.get(label) or {}
         raw_args = slots.fill_defaults(label, raw_args, text)
         for a in spec.get("args", []):
@@ -700,12 +796,32 @@ class Orchestrator:
             return _cap12(f'Run {lang} command "{_excerpt(first, 6)}"?')
         return _cap12(f"Continue in {app}?")
 
+    def _batch_line(self, act: str, res: str, legacy: str) -> str:
+        """One Last-batch line in the planner's history format: marked
+        `[ok] <dsl>`, dsl `<dsl> -> ok`, repr = the legacy dict-repr line."""
+        fmt = getattr(self._active_planner or self.planner, "history", "dsl")
+        if fmt == "repr":
+            return legacy
+        if fmt == "dsl":
+            return f"{act} -> {res}"
+        return f"[{res}] {act}"
+
     async def _exec_one(self, a: dict) -> dict:
+        """Execute one DSL action; `_log` is its Last-batch line."""
+        legacy = "script -> " if a["op"] == "script" else _repr_line(a) + "-> "
+        act = _log_act(a)
+        r = await self._exec_action(a)
+        log = r.get("_log") or legacy + str(r.get("status", "?"))
+        res = log[len(legacy):] if log.startswith(legacy) \
+            else str(r.get("status", "?"))
+        r["_log"] = self._batch_line(act, res, log)
+        return r
+
+    async def _exec_action(self, a: dict) -> dict:
         """Execute one DSL action. Returns
         {status: ok|failed|awaiting_user|cancelled|done, ...details}."""
         op = a["op"]
-        dsl_line = f"{op} " + " ".join(
-            f"{k}={v}" for k, v in a.items() if k != "op")
+        dsl_line = _repr_line(a)
         if op == "ask":
             await self.server.say(a["question"])
             await self.server.ui("listening")
@@ -935,6 +1051,8 @@ class Orchestrator:
         obs_text = ""
         diffs: list[str] | None = None
         fail_streak, prev_fail_key = 0, None
+        planner, escalated = self.planner, False
+        self._active_planner = planner
         for turn in range(12):
             if time.perf_counter() - t_start > 60:
                 break
@@ -962,7 +1080,7 @@ class Orchestrator:
             cancel = threading.Event()
             loop = asyncio.get_running_loop()
             fut = worker().submit(
-                self.planner.plan, goal, obs_text, last_batch, q, loop,
+                planner.plan, goal, obs_text, last_batch, q, loop,
                 cancel, hint, self._script_output)
             self._script_output = None   # consumed by this turn
             self._current_goal = goal
@@ -970,6 +1088,7 @@ class Orchestrator:
             lines: list[str] = []
             pending: list[dict] = []       # parsed, not yet flushed
             batch_log: list[str] = []
+            harness_reject = False
             failed = False
             self._batch_confirmed = False
             res_status = "ok"
@@ -1030,7 +1149,8 @@ class Orchestrator:
                         failed = True
                         res_status = "failed"
                         fail_key = " ".join(line.lower().split())
-                        batch_log.append(f"{line} -> failed: {e}")
+                        batch_log.append(self._batch_line(
+                            line, f"failed: {e}", f"{line} -> failed: {e}"))
                         cancel.set()
             except asyncio.CancelledError:
                 cancel.set()   # stop the decode
@@ -1085,16 +1205,35 @@ class Orchestrator:
                     await self._end_ui("success")
                     return "ok"
                 done_rejected = True
-                batch_log.append("done -> failed: not verified; check the "
-                                 "fresh observation")
+                harness_reject = True
+                why = "failed: not verified; check the fresh observation"
+                batch_log.append(self._batch_line("done", why,
+                                                  f"done -> {why}"))
                 failed = True
                 diffs = None          # force a fresh observe next turn
             prev_expect_ok = n_executed > 0 and not failed and last_exp_ok
+            if harness_reject and res_status != "failed":
+                # the harness's own done rejection isn't a planner failure
+                # for the loop guard (planner-20)
+                prev_had_failure = True
+                continue
             if res_status == "failed" or failed or not n_actions:
                 # loop guard: same action failing twice in a row, or three
                 # failed turns -> ask the user instead of burning turns
                 fail_streak += 1
                 same = fail_key is not None and fail_key == prev_fail_key
+                if self.planner_escalate is not None and fail_streak >= 2:
+                    if not escalated:
+                        # opt-in: the escalation planner takes the remaining
+                        # turns instead of stopping
+                        planner, escalated = self.planner_escalate, True
+                        self._active_planner = planner
+                        trace["planner_escalated"] = True
+                        trace["decisions"].append({"planner_escalated": turn})
+                        fail_streak, prev_fail_key = 0, None
+                        prev_had_failure = True
+                        continue
+                    same = True         # escalation failed twice: stop
                 if same or fail_streak >= 3:
                     trace["decisions"].append({"loop_guard": "same_action"
                                                if same else "3_failed_turns",

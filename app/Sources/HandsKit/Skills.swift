@@ -330,7 +330,7 @@ public final class Skills {
     public var pendingTimers: Int { timers.count }
 
     /// `timers {}` RPC: pending Muselet timers, soonest first
-    /// (`{id, label?, total_s, left_s, minutes, fires_at}`).
+    /// (`{id, label (null if none), total_s, left_s, minutes, fires_at}`).
     public func timerList(now: Date = Date()) -> [[String: Any]] {
         timers.list().map { TimerRegistry.dict($0, now: now) }
     }

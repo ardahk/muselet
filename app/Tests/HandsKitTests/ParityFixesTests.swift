@@ -363,7 +363,7 @@ final class TimersRPCTests: XCTestCase {
         XCTAssertEqual(list.map { $0["total_s"] as? Double }, [90, 600])         // soonest first
         let tea = list[1]
         XCTAssertEqual(tea["label"] as? String, "Tea")
-        XCTAssertNil(list[0]["label"])
+        XCTAssertTrue(list[0]["label"] is NSNull)                // always present; null without a label
         XCTAssertTrue((tea["id"] as? String ?? "").hasPrefix("timer-"))
         XCTAssertEqual(tea["minutes"] as? Int, 10)
         XCTAssertEqual(tea["left_s"] as? Double ?? 0, 600, accuracy: 1)
