@@ -77,9 +77,9 @@ def test_long_body_shows_first_words(orch):
 
 
 def test_skill_confirm_uses_object_summary(orch):
-    asyncio.run(orch.execute_actions([{"op": "skill", "name": "send_message",
+    asyncio.run(orch.execute_actions([{"op": "skill", "name": "compose_email",
                                        "args": {"to": "Mom", "body": "hi"}}]))
-    assert orch.server.confirms == ['Text Mom: "hi"?']
+    assert orch.server.confirms == ['Email Mom: "hi"?']
 
 
 def test_trash_confirm_names_file(orch):

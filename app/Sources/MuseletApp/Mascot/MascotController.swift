@@ -35,6 +35,8 @@ final class MascotController {
     private let bubblePanel: FloatingPanel
     private let bubbleHost: FirstMouseHostingView<BubbleView>
     private let layout = BubbleLayout()
+    /// Capsule under the mascot (keyboard + mic), shown on hover / while listening.
+    let pill: PillController
     private var bag = Set<AnyCancellable>()
 
     var onConfirmReply: ((Bool) -> Void)?
@@ -52,6 +54,7 @@ final class MascotController {
         view = MascotView(frame: NSRect(origin: .zero, size: MascotView.size))
         panel = FloatingPanel(size: MascotView.size, level: .statusBar)
         panel.contentView = view
+        pill = PillController(model: model, parent: panel)
 
         bubblePanel = FloatingPanel(size: CGSize(width: 10, height: 10), level: .statusBar)
         bubblePanel.ignoresMouseEvents = true
@@ -67,6 +70,11 @@ final class MascotController {
 
         view.onClick = { [weak self] in self?.poked() }
         view.onDragEnded = { [weak self] in self?.dragEnded() }
+        view.onHover = { [weak self] h in
+            guard let self else { return }
+            if h { self.wake() }
+            self.pill.mascotHover(h)
+        }
 
         placeInitially()
         panel.orderFrontRegardless()
@@ -114,6 +122,7 @@ final class MascotController {
         panel.setFrameOrigin(NSPoint(x: vf.maxX - MascotView.size.width - 18, y: vf.minY + 10))
         onMoved?(anchorCG())
         layoutBubble()
+        pill.layout()
     }
 
     private func ensureOnScreen() {
@@ -121,12 +130,14 @@ final class MascotController {
         if !NSScreen.screens.contains(where: { $0.frame.contains(c) }) { resetPosition() }
         onMoved?(anchorCG())
         layoutBubble()
+        pill.layout()
     }
 
     private func dragEnded() {
         UserDefaults.standard.set(NSStringFromPoint(panel.frame.origin), forKey: Self.originKey)
         onMoved?(anchorCG())
         layoutBubble()
+        pill.layout()
     }
 
     // MARK: moods
@@ -174,8 +185,8 @@ final class MascotController {
         wake()
         view.hop()
         if model.pendingConfirm == nil && !model.isRecording {
-            showBubble(wasSleeping ? "I'm up! Hold right ⌥ and tell me what to do."
-                                   : "Hold right ⌥ and tell me what to do.",
+            showBubble(wasSleeping ? "I'm up! Hold right ⌥, or use my mic."
+                                   : "Hold right ⌥, or click my mic below.",
                        style: .hint)
         }
     }

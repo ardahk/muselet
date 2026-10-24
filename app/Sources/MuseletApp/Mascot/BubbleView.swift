@@ -23,7 +23,9 @@ struct BubbleView: View {
                     .padding(.bottom, 10 + BubbleShape.tail)
                     .frame(minWidth: 44, maxWidth: 280, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
-                    .glassEffect(.regular, in: BubbleShape(tailOnRight: layout.tailOnRight))
+                    .background(VibrancyBackground(shape: BubbleShape(tailOnRight: layout.tailOnRight)))
+                    .overlay(BubbleShape(tailOnRight: layout.tailOnRight)
+                        .stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
                     .shadow(color: .black.opacity(0.18), radius: 10, x: 0, y: 4)
                     .scaleEffect(model.bubbleVisible ? 1 : 0.55,
                                  anchor: layout.tailOnRight ? .bottomTrailing : .bottomLeading)
@@ -56,6 +58,20 @@ struct BubbleView: View {
         }
     }
 
+    static let maxWords = 12
+
+    /// Replies and hints: at most 12 words (AGENTS.md), ellipsis if cut.
+    static func clip(_ text: String, words n: Int = maxWords) -> String {
+        let w = text.split(whereSeparator: \.isWhitespace)
+        return w.count <= n ? text : w.prefix(n).joined(separator: " ") + "…"
+    }
+
+    /// Live transcript: the latest 12 words.
+    static func tail(_ text: String, words n: Int = maxWords) -> String {
+        let w = text.split(whereSeparator: \.isWhitespace)
+        return w.count <= n ? text : "…" + w.suffix(n).joined(separator: " ")
+    }
+
     @ViewBuilder
     private func content(_ b: BubbleContent) -> some View {
         switch b.style {
@@ -64,7 +80,7 @@ struct BubbleView: View {
                 if model.isRecording {
                     LiveWave(level: model.micLevel)
                 }
-                Text(b.text.isEmpty ? "Listening…" : b.text)
+                Text(b.text.isEmpty ? "Listening…" : Self.tail(b.text))
                     .font(.system(size: 13, weight: .regular))
                     .italic(b.text.isEmpty)
                     .foregroundStyle(b.text.isEmpty ? .secondary : .primary)
@@ -72,7 +88,7 @@ struct BubbleView: View {
                     .multilineTextAlignment(.leading)
             }
         case .say, .hint:
-            Text(b.text)
+            Text(Self.clip(b.text))
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(b.style == .hint ? .secondary : .primary)
                 .lineLimit(6)

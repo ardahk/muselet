@@ -5,8 +5,8 @@ One JSON object per frame; `t` = message type.
 
 import json
 
-# App -> brain: hello, utterance, cancel, rpc_result, confirm_reply
-# Brain -> app: rpc, ui, say, confirm
+# App -> brain: hello, utterance, cancel, rpc_result, confirm_reply, config
+# Brain -> app: rpc, ui, say, confirm, confirm_cancel, config_ack
 
 
 def encode(msg: dict) -> str:
