@@ -1,0 +1,9 @@
+C01	calc	what's 82 plus 47	129
+D01	device	laptop glow is insane, pull brightness down	BRIGHTNESS_DOWN
+K01	dark	flip to dark theme, late night work	DARK_MODE ON
+A01	app	gotta scribble a quick note	OPEN Notes
+F01	folder	where did chrome drop that zip	FOLDER Downloads
+T01	timer	timer for 18 minutes	TIMER 18
+S01	screenshot	snap my screen	SCREENSHOT
+N01	none	will it rain in mumbai tonight	UNKNOWN
+E01	event	coffee with Meera wednesday 10am	EVENT Coffee with Meera | wednesday | 10:00 | Meera
