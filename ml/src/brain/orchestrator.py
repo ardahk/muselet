@@ -510,6 +510,7 @@ class Orchestrator:
         try:
             await self.server.ui("thinking")
             self._utterance = text
+            from . import comms
             if not self._pending_task or \
                     time.time() - self._pending_task["t"] >= 90:
                 self._answer_history = []
@@ -518,7 +519,6 @@ class Orchestrator:
                     time.time() - self._comms["t"] >= slots.SLOT_TTL_S:
                 self._comms = None
             if self._comms:
-                from . import comms
                 outcome = await comms.answer(self, text)
                 handled_pending = True
             elif self._draft and \
@@ -561,6 +561,9 @@ class Orchestrator:
                     self._answer_history.append(text)
                     outcome = await self._planner_loop(
                         goal, trace, answer=text)
+            elif (msg := comms.parse_message(text)) is not None:
+                trace["decisions"].append({"message_redirect": msg})
+                outcome = await comms.start(self, msg, text)
             elif (calc_result := calc.result(text)) is not None and \
                     calc_result.value is not None and (
                     str(self._ctx.get("app", "")).casefold() == "calculator"
@@ -584,7 +587,9 @@ class Orchestrator:
                         parsed, trace, calculator=False)
                 else:
                     from .tools import draft_email
-                    dargs = draft_email.parse_request(text, self._ctx)
+                    from . import comms
+                    dargs = None if comms.is_messaging(text) else \
+                        draft_email.parse_request(text, self._ctx)
                     if dargs is not None:
                         trace["decisions"].append(
                             {"draft_redirect": dargs})
@@ -633,9 +638,12 @@ class Orchestrator:
 
     async def _engine_route(self, text: str, trace: dict, pre=None) -> str:
         from .planner import worker
+        from . import comms
+        messaging = comms.is_messaging(text)
         if pre is None:
             from .tools import draft_email
-            dargs = draft_email.parse_request(text, self._ctx)
+            dargs = None if messaging else \
+                draft_email.parse_request(text, self._ctx)
             if dargs is not None:
                 trace["decisions"].append({"draft_redirect": dargs})
                 return await self._brain_tool("draft_email", dargs, text)
@@ -672,6 +680,11 @@ class Orchestrator:
                                    "route_ms": res.ms.get("route_ms"),
                                    "spec_hit": spec_hit})
         label = res.top
+        if messaging and label in ("compose_email", "draft_email"):
+            trace["decisions"].append({
+                "channel_fix": [label, "send_message"]})
+            label = "send_message"
+            spec_ext = None
         if self._compound_to_planner:
             self._compound_to_planner = False
             if label == "REFUSE":
@@ -730,6 +743,20 @@ class Orchestrator:
         raw_args = dict(raw_args)
         label, raw_args = await self._rewrite_app_skill(
             label, raw_args, text, trace)
+        from . import comms
+        if comms.is_messaging(text) and \
+                label in ("compose_email", "draft_email"):
+            trace["decisions"].append({
+                "channel_fix": [label, "send_message"]})
+            raw_args = {
+                "to": raw_args.get("to"),
+                "body": raw_args.get("body") or raw_args.get("about"),
+            }
+            label = "send_message"
+        if label == "send_message":
+            return await comms.start(
+                self, {"to": raw_args.get("to"),
+                       "body": raw_args.get("body")}, text)
         to = _ABS_SKILL.get(label)
         if to and self.catalog.get(to) and filled != "level" and \
                 (lvl := abs_level(text)) is not None:
@@ -1121,6 +1148,13 @@ class Orchestrator:
             await self.server.say("Okay, cancelled")
             await self.server.ui("idle")
             return "cancelled"
+        from . import comms
+        if (parsed := comms.parse_message(text)) is not None:
+            self._slot = None
+            trace["decisions"].append({"slot_fill": "superseded",
+                                       "by": "send_message"})
+            trace["decisions"].append({"message_redirect": parsed})
+            return await comms.start(self, parsed, text)
         # a different-looking command cancels the slot and runs normally
         if self.engine is not None:
             from .planner import worker
@@ -1536,6 +1570,21 @@ function run() {
         {status: ok|failed|awaiting_user|cancelled|done, ...details}."""
         op = a["op"]
         dsl_line = _repr_line(a)
+        from . import comms
+        goal = self._current_goal or self._utterance or ""
+        messaging_goal = comms.is_messaging(goal.splitlines()[0]
+                                            if goal.splitlines() else "")
+        if messaging_goal and (
+                (op == "open" and str(a.get("app") or a.get("name") or
+                                      a.get("target") or "").strip().casefold()
+                 == "mail") or
+                (op == "skill" and a.get("name") == "open_app" and
+                 str((a.get("args") or {}).get("app") or "").strip().casefold()
+                 == "mail")):
+            await self.server.say("I text through Messages, not Mail")
+            await self._end_ui("confused")
+            return {"status": "failed", "_terminal_failure": True,
+                    "_log": f"{dsl_line}-> failed: messaging uses Messages"}
         if op == "ask":
             await self.server.say(a["question"])
             await self.server.ui("listening")
@@ -1574,6 +1623,18 @@ function run() {
             a.get("args", {}).pop("confirmed", None)   # model can't self-confirm
             goal = self._current_goal or self._utterance
             trace = self.tracer.current
+            if messaging_goal and a["name"] in (
+                    "compose_email", "draft_email"):
+                old_name = a["name"]
+                args = a.get("args", {})
+                a["name"] = "send_message"
+                a["args"] = {
+                    "to": args.get("to"),
+                    "body": args.get("body") or args.get("about"),
+                }
+                if trace is not None:
+                    trace["decisions"].append({
+                        "channel_fix": [old_name, "send_message"]})
             label, skill_args = await self._rewrite_app_skill(
                 a["name"], a.get("args", {}), goal,
                 trace if trace is not None else {"decisions": []})
@@ -2370,6 +2431,19 @@ function run() {
         return "failed"
 
     async def _engine_ask(self, text: str, trace: dict, top5) -> str:
+        from . import comms
+        if comms.is_messaging(text):
+            from .planner import worker
+            ext = await worker().submit_async(
+                self.engine.args, "send_message", text, dict(self._ctx))
+            trace["decisions"].append({
+                "args_ms": ext.get("ms", {}).get("args_ms"),
+                "raw": ext.get("_raw"),
+                "channel_fix": ["ASK", "send_message"]})
+            args = {k: v for k, v in ext.items()
+                    if k not in ("ms", "_raw", "missing")}
+            return await comms.start(
+                self, {"to": args.get("to"), "body": args.get("body")}, text)
         # nearest skill below the special options
         skill = next((n for n, _ in top5 if self.catalog.get(n)), None)
         if skill:
@@ -2729,6 +2803,18 @@ function run() {
         trace = self.tracer.current or {"decisions": []}
         name, args = await self._rewrite_app_skill(
             name, args, self._utterance, trace)
+        from . import comms
+        if comms.is_messaging(self._utterance or "") and \
+                name in ("compose_email", "draft_email"):
+            trace["decisions"].append({
+                "channel_fix": [name, "send_message"]})
+            args = {"to": args.get("to"),
+                    "body": args.get("body") or args.get("about")}
+            name = "send_message"
+        if name == "send_message":
+            return await comms.start(
+                self, {"to": args.get("to"), "body": args.get("body")},
+                self._utterance or "")
         args = slots.fill_defaults(name, args, self._utterance)
         missing = self._missing(name, args)
         if missing and self.catalog.get(name):
@@ -2779,10 +2865,6 @@ function run() {
             return "awaiting_user"
         validated_args = dict(args)
         spec = self.catalog.get(name) or {}
-        if name == "send_message":
-            from . import comms
-            return await comms.send_message(
-                self, args["to"], args["body"])
         if spec.get("risk") == "confirm" and not args.get("confirmed"):
             summary = await self._confirm_summary(
                 {"op": "skill", "name": name, "args": args})
