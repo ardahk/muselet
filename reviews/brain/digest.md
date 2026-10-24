@@ -1,24 +1,28 @@
-# Brain lane digest, pass 42 (2026-10-24T21:25Z)
+# Brain lane digest, pass 43 (2026-10-24T22Z)
 
-Heads moved: main 3876f3a, wip/local 3cfa06d, cloud/comms-2 c65ee70. Others unchanged since pass 41.
+Heads: main 3772f7c (merged comms-2, clock-timers, planner-demos, planner-retrieval k=1 default via serve_brain.sh, mascot-animal),
+wip/local 8fcf55f (ml/src identical to main), cloud/decisions f6fb133 (lazy mlx import, brain-34 unchanged).
 
-Counts (open): P0 0 / P1 9 / P2 10.
+Counts (open): P0 1 / P1 10 / P2 10.
 
-Tests (serial): main 1347 passed; bench 165 passed; comms-2 1462 passed; wip/local 1470 passed.
-Review repros: 30 failed on main (unchanged); test_brain_pass41.py 5 failed on comms-2@c65ee70 and wip/local.
+Tests on Linux (mlx stubbed): product suite 699 passed / 2 skipped without stub (22 modules need mlx to collect).
+Review repros on main 3772f7c: 43 failed / 27 passed (6 new in test_brain_pass43.py; 2 brain-13 tests are stale, finding resolved).
+Every previously open finding with a repro still fails on main 3772f7c; comms-2 merge carries brain-38 onto main.
 
-## Changes this pass
-- main 3876f3a: Swift only (messages_people RPC, fuzzy contacts_search, compose v2 with name, windows probe) plus
-  bench document-safety/hobbylm changes. Outside the Python lane; messages_people + fuzzy are what comms-2 calls, so
-  comms-2 no longer depends on unmerged Swift. No brain code changed, every open finding stands.
-- comms-2 c65ee70: does not fix brain-38. 'note' moves into the '<verb> X a note' form: 'send me a note' -> to 'me',
-  'send finder a note' -> to 'finder'. brain-38 refreshed.
-- wip/local: comms-2 plus newer local comms.py ('saying ... to X', 'tell X to Y' split). Same brain-38 repros fail.
+## Open P0/P1 (ranked)
+1. brain-39 P0 Restart/shut down/log out/empty scripts run without CONFIRM — ml/src/brain/orchestrator.py
+2. brain-38 P1 Deterministic message parser hijacks non-messaging commands (now on main) — ml/src/brain/comms.py
+3. brain-40 P1 Final utterance reuses ARGS from the uncased, unpunctuated partial — ml/src/brain/orchestrator.py
+4. brain-35 P1 Permission-prompt gate checks the pre-batch observation — ml/src/brain/orchestrator.py
+5. brain-24 P1 Fuzzy destructive path lookup picks a different existing file — ml/src/brain/orchestrator.py
+6. brain-25 P1 Calculator delivery can type into the wrong frontmost app — ml/src/brain/orchestrator.py
+7. brain-30 P1 35B escalation load races — ml/src/brain/orchestrator.py
+8. brain-29 P1 open_app/site rewrite opens website for installed Zoom/Teams/Outlook — ml/src/brain/orchestrator.py
+9. brain-16 P1 abs_level misreads times/durations/percentages — ml/src/brain/orchestrator.py
+10. brain-17 P1 Compound check runs serial route passes before speculative reuse — ml/src/brain/orchestrator.py
+11. brain-22 P1 Planner history format conflict — ml/src/brain/plan_bank.py
 
-## Top open
-1. brain-35 P1 permission gate uses the pre-batch observation (main).
-2. brain-38 P1 message parser hijacks non-messaging commands (comms-2, wip/local).
-3. brain-25 P1 calculator keys can land in the frontmost app.
-
-Other open P1: brain-29, brain-30, brain-24, brain-16, brain-22, brain-17.
-Other open P2: brain-36, brain-37, brain-34, brain-27, brain-28, brain-8, brain-12, brain-14, brain-18, brain-19.
+## Highest-leverage next moves
+- brain-39: OR the module-level _DANGEROUS_SCRIPT into the method before the read-verb allow-list (one line).
+- brain-40: only reuse spec ARGS for non-free-text skills, or recase from the final transcript.
+- brain-38: gate comms parser behind router top == send_message before demo.
