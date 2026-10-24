@@ -1,6 +1,6 @@
-# training lane digest — pass 20 (main 758a017, cloud/data-pipeline 80cb13f, wip/local a3f82f1 = main tree, cloud/brain-4 dfb66a3, cloud/hobby-gaps 929b931)
+# training lane digest — pass 21 (main 758a017, cloud/data-pipeline 80cb13f, wip/local 630d661, cloud/decisions c08a96d, cloud/brain-5 003d1bb, cloud/brain-4 dfb66a3, cloud/hobby-gaps 929b931)
 
-Open: 1 P0, 11 P1, 9 P2. Pass 20: no new findings, none resolved. New main/brain-4/hobby-gaps commits are planner/live-runner/calc/pitch; only lane effects are the re-checks of training-14, -27 and -31.
+Open: 1 P0, 12 P1, 11 P2. Pass 21: new training-32 (P1), -33, -34 (P2) on cloud/decisions; training-5 updated. brain-5 (ARGS coercion) and wip/local (HandsKit Swift) have nothing in the lane.
 
 ## Open P0/P1 (ranked)
 1. **training-23 (P0, main)** — shipped router `route-4b-main` trained on stale pre-fix route data; `evals/router_check.py` still runs it. it2 plan pins main's split, but no retrain yet.
@@ -13,11 +13,12 @@ Open: 1 P0, 11 P1, 9 P2. Pass 20: no new findings, none resolved. New main/brain
 8. **training-28 (P1, data-pipeline)** — gen note excludes Premiere, but contexts.py still puts 7.9% of media_control in Premiere Pro.
 9. **training-24 (P1)** — ASK undercoverage (val 0/3).
 10. **training-25 (P1)** — weak labels media_control 0.32, dark_mode 0.68, find_file 0.71.
-11. **training-8 / training-15 (P1, data-pipeline)** — no per-label 15% adjudication STOP; teacher subset skew / hard-soft mixing.
+11. **training-32 (P1, cloud/decisions)** — spec'd >=30% route replay unimplemented; H6 judged on route_v1; replay must not come from stale dedup data.
+12. **training-8 / training-15 (P1, data-pipeline)** — no per-label 15% adjudication STOP; teacher subset skew / hard-soft mixing.
 
 ## Next moves (max 5)
 1. Before the it2 launch: fix short_edit1 (skip 1-token items, only allow near-variant/stopword substitutions, per-label drop report), the pronoun ASK rule and media_control context sampling.
 2. Run `evals/router_check.py --args-model` on route-4b-main to get real runtime ARGS/e2e numbers; don't quote 0.869 until then.
 3. Hold cloud/hobby-gaps until the catalog version is bumped and render samples + parity_300 + delta ARGS data are regenerated in the same retrain.
 4. Merge the 41-option parity reference before the byte-identical claim ships.
-5. One shared spend ledger for both Tinker workers; cap each run at 150 - billed - unbilled estimates.
+5. One shared spend ledger (incl. the decisions joint run) for both Tinker workers; cap each run at 150 - billed - unbilled estimates.
