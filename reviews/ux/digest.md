@@ -1,4 +1,4 @@
-# ux digest — pass 23 (main d502b78, wip 0db1681) — all 6 open P2s are on main
+# ux digest — pass 24 (main 7147694, wip 5764a0d, grounder-wire afb12a6)
 
 All 13 P1s (ux-1 to ux-11, ux-13) are resolved on main, with file:line evidence in findings.jsonl (pass 14). No branch-only findings remain.
 Tests: test_planner_confirm_summary.py 3/3 PASS, and test_confirm_summary_names_object PASS. test_confirm_timeout_clears_app_confirm is stale: its fake ask_confirm doesn't emit confirm_cancel, and the real server.py:174 does.
@@ -15,8 +15,11 @@ None.
 - ux-16 (now on main) 'a bit brighter' bubble says 'Done'; use result['level'] — replies.py:52 — ml/src/brain/replies.py:48-52
 - ux-17 (now on main, partly fixed) Calculator replay: the answer bubble comes only after all keys and the read-back; a mismatch shows a confused face — orchestrator.py _deliver_calc
 - ux-18 (now on main) File disambiguation asks 'report.pdf or report.pdf?' — orchestrator.py:611-619
+- ux-19 (grounder-wire) Grounded-click confirm timeout shows 'Something went wrong' — orchestrator.py _click_target
+- ux-20 (grounder-wire) First grounded click cold-loads eyes-4b with no feedback — orchestrator.py _get_grounder
 
 ## Highest-leverage next moves
+- Before merging grounder-wire: wrap the ask_confirm in _click_target (ux-19, 5 min); prewarm the grounder for canvas apps and show a 'Looking for X' bubble (ux-20, 30 min).
 - On main before rehearsal: ux-16 result-level copy (10 min), ux-18 folder labels (20 min), ux-17 answer-first + keep 'success' on mismatch (15 min).
 - ux-14: set model.mood = .idle in onConfirmCancel, and use "No answer, so I didn't send it." on timeouts: ~15 min.
 - ux-15: give .notRunning a neutral chip; the row is complete when nothing is denied or not determined: ~30 min.
