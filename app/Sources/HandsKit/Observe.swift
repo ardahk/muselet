@@ -31,6 +31,14 @@ public struct Observation {
     /// merely be past the cap (never conclude `gone` from absence alone).
     public var truncated: Bool = false
     public var axMs: Double = 0
+    /// Set on the observation that just turned on the app's web AX tree
+    /// ("manual" | "chromium" | "enhanced"), with the time spent waiting
+    /// for the web area to populate (included in axMs).
+    public var webAX: String?
+    public var webAXWaitMs: Double?
+    /// The app's web tree was switched on < ~2.5 s ago and Chrome is still
+    /// debouncing: web content will appear on a later observation.
+    public var webAXPending = false
 }
 
 public enum ObserveError: Error, CustomStringConvertible {
@@ -298,15 +306,10 @@ public enum Differ {
 
 /// Chromium-family apps need AXManualAccessibility before the walk.
 public func isChromiumFamily(bundleId: String?, bundleURL: URL?) -> Bool {
-    let ids = [
-        "com.google.Chrome", "com.google.Chrome.canary", "org.chromium.Chromium",
-        "com.microsoft.edgemac", "com.brave.Browser", "com.vivaldi.Vivaldi",
-        "com.operasoftware.Opera", "com.tinyspeck.slackmacgap", "com.hnc.Discord",
-        "com.microsoft.VSCode", "com.visualstudio.code.oss", "com.figma.Desktop",
-        "notion.id", "com.spotify.client", "com.todoist.mac.Todoist",
-    ]
     if let b = bundleId {
-        if ids.contains(b) || b.contains("electron") || b.contains("chromium") { return true }
+        if WebAX.chromiumIds.contains(b) || b.contains("electron") || b.contains("chromium") {
+            return true
+        }
     }
     if let u = bundleURL {
         let fw = u.appendingPathComponent("Contents/Frameworks/Electron.framework")
@@ -321,7 +324,14 @@ public final class Hands {
     public private(set) var epoch = 0
     private var current: [Int: ElementRecord] = [:]
     private(set) var previous: [ElementRecord] = []
-    private var manualAXPids: Set<pid_t> = []
+    /// Turn on browsers' / Electron apps' web accessibility trees when
+    /// observing them (CLI `--no-web-ax` disables it for comparisons).
+    /// Which processes are already on lives in `webAXRegistry` (shared with
+    /// the app's activation watcher).
+    public var webAXEnabled = true
+    var webAXRegistry = WebAX.Registry.shared
+    /// Last web AX enable (result + populate wait), for the CLI / debugging.
+    public private(set) var lastWebAX: (result: WebAX.EnableResult, wait: WebAX.WaitResult?)?
     private var sessionKey = ""
     /// First epoch of the current window session; acts carrying an older
     /// epoch were planned against another window -> stale_ref.
@@ -392,12 +402,18 @@ public final class Hands {
         let el = AXUIElementCreateApplication(running.processIdentifier)
         let node = AXNode(el)
         node.setMessagingTimeout(0.25)
-        if !manualAXPids.contains(running.processIdentifier),
-           isChromiumFamily(bundleId: running.bundleIdentifier, bundleURL: running.bundleURL) {
-            _ = node.setAttr("AXManualAccessibility", true)
-            manualAXPids.insert(running.processIdentifier)
-        }
         return (node, running)
+    }
+
+    /// Turn on the app's web accessibility tree once per process
+    /// (Electron: AXManualAccessibility; Chromium browsers: that plus
+    /// AXEnhancedUserInterface; Safari/Gecko browsers: AXEnhancedUserInterface).
+    /// Returns the result when it was set just now, else nil.
+    func ensureWebAX(app: Element, pid: pid_t, bundleId: String?, bundleURL: URL?,
+                     launchDate: Date?) -> WebAX.EnableResult? {
+        guard webAXEnabled else { return nil }
+        return webAXRegistry.ensure(pid: pid, bundleId: bundleId, bundleURL: bundleURL,
+                                    launchDate: launchDate, app: app)
     }
 
     /// scope: "focused_window" | "app" | "menubar". app: optional app name.
@@ -409,6 +425,10 @@ public final class Hands {
         var obs = Observation()
         obs.app = running.localizedName ?? "?"
         obs.pid = running.processIdentifier
+        let webOn = ensureWebAX(app: appEl, pid: running.processIdentifier,
+                                bundleId: running.bundleIdentifier,
+                                bundleURL: running.bundleURL,
+                                launchDate: running.launchDate)
 
         var roots: [Element]
         var windowEl: AXUIElement?
@@ -436,10 +456,28 @@ public final class Hands {
                 roots = [appEl]
             }
         }
-        return processObservation(roots: roots, app: obs.app,
-                                  window: obs.window, pid: obs.pid,
-                                  maxNodes: maxNodes, diff: diff,
-                                  deadline: deadline, appEl: appEl, t0: t0)
+        // Just turned on the web AX tree: let the web area populate
+        // (<= 300 ms, once per process) so this observation already sees
+        // it. Skipped when it can't populate that fast (Chrome's 2 s debounce).
+        var webWait: WebAX.WaitResult?
+        if let webOn {
+            if !webOn.delayed, scope != "menubar", let root = roots.first {
+                webWait = WebAX.waitForWebArea(root: root)
+            }
+            lastWebAX = (webOn, webWait)
+        } else if webAXEnabled, scope != "menubar", let root = roots.first,
+                  let left = webAXRegistry.populateTimeLeft(pid: obs.pid) {
+            // The activation watcher switched it on a moment ago: wait the rest.
+            webWait = WebAX.waitForWebArea(root: root, timeout: left)
+        }
+        var out = processObservation(roots: roots, app: obs.app,
+                                     window: obs.window, pid: obs.pid,
+                                     maxNodes: maxNodes, diff: diff,
+                                     deadline: deadline, appEl: appEl, t0: t0)
+        if let webOn { out.webAX = webOn.mode.rawValue }
+        if let w = webWait { out.webAXWaitMs = w.ms }
+        out.webAXPending = webAXEnabled && webAXRegistry.pending(pid: obs.pid)
+        return out
     }
 
     /// Shared tail of observe(): walk, ref/session bookkeeping, serialize, diff.

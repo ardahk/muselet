@@ -39,37 +39,100 @@ public enum UtteranceCtx {
     /// element gets the short messaging timeout.
     public static func focusedInfo(pid: pid_t) -> (focused: String, selection: Bool) {
         guard pid > 0 else { return ("none", false) }
-        let appEl = AXUIElementCreateApplication(pid)
-        AXUIElementSetMessagingTimeout(appEl, axTimeout)
-        var v: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-            appEl, kAXFocusedUIElementAttribute as CFString, &v) == .success,
-            let fe = v, CFGetTypeID(fe) == AXUIElementGetTypeID() else { return ("none", false) }
-        let fel = fe as! AXUIElement
-        AXUIElementSetMessagingTimeout(fel, axTimeout)
-        let node = AXNode(fel)
-        node.setMessagingTimeout(axTimeout)
-        let a = node.copyAttrs()
+        return focusedInfo(app: AXNode(AXUIElementCreateApplication(pid)))
+    }
+
+    /// Testable core (mock app element).
+    static func focusedInfo(app: Element,
+                            budget: TimeInterval = 0.3) -> (focused: String, selection: Bool) {
+        let deadline = Date().addingTimeInterval(budget)
+        app.setMessagingTimeout(axTimeout)
+        guard let fel = node(app.copySingleAttr(kAXFocusedUIElementAttribute as String)) else {
+            return ("none", false)
+        }
+        let a = fel.copyAttrs()
         var focused = "none"
         if let axRole = a.role, let role = kRoleMap[axRole] {
             focused = "\(role) \"\(Walker.label(of: a, role: role))\""
         }
-        return (focused, hasSelection(fel))
+        return (focused, hasSelection(fel, role: a.role, attrs: a, deadline: deadline))
     }
 
-    /// Selection: AXSelectedTextRange length > 0 (cheap), else non-empty
-    /// AXSelectedText (web areas often lack the range).
-    private static func hasSelection(_ el: AXUIElement) -> Bool {
-        var r: CFTypeRef?
-        if AXUIElementCopyAttributeValue(el, kAXSelectedTextRangeAttribute as CFString, &r) == .success,
-           let rv = r, CFGetTypeID(rv) == AXValueGetTypeID() {
+    /// AX element with the short messaging timeout.
+    private static func node(_ v: Any?) -> Element? {
+        guard let e = axElement(v) else { return nil }
+        e.setMessagingTimeout(axTimeout)
+        return e
+    }
+
+    static let itemSelectionAttrs = ["AXSelectedRows", "AXSelectedChildren", "AXSelectedCells"]
+    /// Lists whose AXSelectedRows/Children/Cells are a user selection
+    /// (Finder list/icon/column views, Mail, Notes lists, Numbers tables).
+    static let listRoles: Set<String> = ["AXList", "AXOutline", "AXTable", "AXBrowser", "AXGrid"]
+    /// Roles whose "selected children" are not a user selection.
+    static let noItemSelectionRoles: Set<String> = [
+        "AXMenuBar", "AXMenu", "AXMenuBarItem", "AXTabGroup", "AXRadioGroup", "AXToolbar",
+    ]
+    /// Focus on one of these: look for the list it belongs to (parents).
+    static let itemRoles: Set<String> = ["AXRow", "AXCell", "AXStaticText", "AXImage", "AXTextField"]
+    /// Focus on one of these: look for a list inside (Finder column view, scroll areas).
+    static let containerRoles: Set<String> = ["AXScrollArea", "AXBrowser", "AXSplitGroup", "AXGroup"]
+
+    /// Selection (training-11): selected text (AXSelectedTextRange length
+    /// > 0, else non-empty AXSelectedText), or selected items — non-empty
+    /// AXSelectedRows / AXSelectedChildren / AXSelectedCells on the focused
+    /// element or on its list/outline/table (parent of a focused row/cell,
+    /// or the focused list inside a focused container). Bounded by `deadline`.
+    static func hasSelection(_ el: Element, role: String?, attrs: ElAttrs? = nil,
+                             deadline: Date) -> Bool {
+        if hasTextSelection(el) { return true }
+        let r = role ?? ""
+        if !noItemSelectionRoles.contains(r), hasItemSelection(el) { return true }
+        if itemRoles.contains(r) {
+            // A focused row/cell (or rename field): its list owns the selection.
+            var cur: Element? = el
+            for _ in 0..<3 {
+                guard Date() < deadline,
+                      let p = node(cur?.copySingleAttr(kAXParentAttribute as String)) else { break }
+                if let pr = p.copyAttrs().role, listRoles.contains(pr) { return hasItemSelection(p) }
+                cur = p
+            }
+        } else if containerRoles.contains(r) {
+            // Breadth-first (<= 12 nodes, depth <= 3) for the list inside;
+            // the focused one first.
+            var queue: [(Element, Int)] = (attrs ?? el.copyAttrs()).children.map { ($0, 1) }
+            var lists: [(Element, Bool)] = []
+            var qi = 0
+            while qi < queue.count && qi < 12 && Date() < deadline {
+                let (c, depth) = queue[qi]; qi += 1
+                c.setMessagingTimeout(axTimeout)
+                let ca = c.copyAttrs()
+                if let cr = ca.role, listRoles.contains(cr) { lists.append((c, ca.focused)); continue }
+                if depth < 3 { queue.append(contentsOf: ca.children.map { ($0, depth + 1) }) }
+            }
+            for (l, _) in lists.sorted(by: { $0.1 && !$1.1 }) {
+                if Date() > deadline { break }
+                if hasItemSelection(l) { return true }
+            }
+        }
+        return false
+    }
+
+    static func hasTextSelection(_ el: Element) -> Bool {
+        if let rv = el.copySingleAttr(kAXSelectedTextRangeAttribute as String),
+           CFGetTypeID(rv as CFTypeRef) == AXValueGetTypeID() {
             var range = CFRange()
             if AXValueGetValue(rv as! AXValue, .cfRange, &range) { return range.length > 0 }
         }
-        var s: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(el, kAXSelectedTextAttribute as CFString, &s) == .success,
-              let str = s as? String else { return false }
-        return !str.isEmpty
+        guard let s = el.copySingleAttr(kAXSelectedTextAttribute as String) as? String else { return false }
+        return !s.isEmpty
+    }
+
+    static func hasItemSelection(_ el: Element) -> Bool {
+        for attr in itemSelectionAttrs {
+            if let arr = el.copySingleAttr(attr) as? [Any], !arr.isEmpty { return true }
+        }
+        return false
     }
 
     /// Backwards-compatible: focused summary only.

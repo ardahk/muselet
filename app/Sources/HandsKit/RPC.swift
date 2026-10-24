@@ -6,6 +6,8 @@ import Foundation
 public final class RPCHandler {
     public let hands = Hands()
     public let skills: Skills
+    /// Dock / menu-extra frames for the ghost cursor before skills.
+    public let skillTargets: SkillTargets
     public var ownBundleId: String? = Bundle.main.bundleIdentifier
     public weak var delegate: HandsDelegate? {
         didSet {
@@ -29,8 +31,9 @@ public final class RPCHandler {
 
     /// `skills`: injectable for tests; `warmUp: false` skips the AppleScript
     /// precompile (tests must not touch System Events).
-    public init(skills: Skills? = nil, warmUp: Bool = true) {
+    public init(skills: Skills? = nil, skillTargets: SkillTargets? = nil, warmUp: Bool = true) {
         self.skills = skills ?? Skills()
+        self.skillTargets = skillTargets ?? SkillTargets()
         guard warmUp else { return }
         // Warm the AppleScript runner off the hot path (first compile ~9 s).
         DispatchQueue.global(qos: .utility).async { [skills = self.skills] in
@@ -72,6 +75,9 @@ public final class RPCHandler {
                 if let d = obs.diffText { r["diff_text"] = d }
                 if obs.full { r["full"] = true }
                 if obs.truncated { r["truncated"] = true }
+                // Chrome is still building its web tree (2 s debounce after
+                // the switch): re-observe shortly instead of screenshotting.
+                if obs.webAXPending { r["web_ax_pending"] = true }
                 return (true, r, nil)
 
             case "act":
@@ -83,9 +89,20 @@ public final class RPCHandler {
                     return (false, nil, "missing skill name")
                 }
                 let args = params["args"] as? [String: Any] ?? [:]
-                let wait = delegate?.handsWillAct(op: name, frame: nil,
-                                                  label: nil) ?? 0
-                if wait > 0 { usleep(UInt32(min(wait, 5.0) * 1_000_000)) }
+                // ux-4: fly the ghost cursor to the skill's natural target
+                // (Dock icon, menu extra) first, within cursor_lead_ms
+                // (<= 120 ms, lookup time included). Headless: no delegate,
+                // no lookup, no delay.
+                if let delegate {
+                    let t0 = Date()
+                    let leadMs = min(Double(intParam(params, "cursor_lead_ms") ?? 120), 120)
+                    let target = SkillTargets.hasTarget(name)
+                        ? skillTargets.target(skill: name, args: args) : nil
+                    let wait = delegate.handsWillAct(op: name, frame: target?.frame,
+                                                     label: target?.label)
+                    let left = min(wait, leadMs / 1000) - Date().timeIntervalSince(t0)
+                    if wait > 0, left > 0 { usleep(UInt32(left * 1_000_000)) }
+                }
                 let r = skills.execute(name: name, args: args)
                 let ok = r["ok"] as? Bool ?? false
                 // App-switching skills change focus without an observation:

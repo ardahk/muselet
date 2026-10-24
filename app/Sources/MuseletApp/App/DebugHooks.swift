@@ -56,10 +56,32 @@ final class DebugHooks {
             case "say":
                 brain.onSay?(info["text"] as? String ?? "Hello!")
             case "ui":
-                brain.onUI?(info["mascot"] as? String, info["bubble"] as? String)
+                brain.onUI?(info["mascot"] as? String, info["bubble"] as? String,
+                            num("ms").map(Double.init))
+            case "latency":
+                // Latency chip preview: same path as a final ui message with ms.
+                brain.onUI?(info["mascot"] as? String ?? "success", info["bubble"] as? String,
+                            Double(num("ms") ?? 212))
             case "confirm":
                 brain.onConfirm?("debug-\(Int(Date().timeIntervalSince1970))",
                                  info["summary"] as? String ?? "Send the message to Mom?")
+            case "confirm_cancel":
+                brain.onConfirmCancel?((info["id"] as? String).flatMap { $0.isEmpty ? nil : $0 })
+            case "skill_ghost":
+                // Ghost flight to a skill's natural target (Dock icon / menu
+                // extra) without running the skill: arg.<k>=<v> become args.
+                let name = info["name"] as? String ?? "open_app"
+                var args: [String: Any] = [:]
+                for (k, v) in info {
+                    if let key = k as? String, key.hasPrefix("arg.") { args[String(key.dropFirst(4))] = v }
+                }
+                DispatchQueue.global(qos: .userInitiated).async {
+                    guard let t = rpc.skillTargets.target(skill: name, args: args) else {
+                        FileLog.shared.raw("debug skill_ghost \(name): no visible target")
+                        return
+                    }
+                    Self.preview(ghost: ghost, op: name, frame: t.frame, label: t.label, ok: true)
+                }
             case "hud":
                 // Preview the skill HUD without running the skill:
                 //   kind=volume|mute|brightness|dark|wifi|bluetooth level=0..100 on=true|false

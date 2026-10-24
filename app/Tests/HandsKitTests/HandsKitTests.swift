@@ -11,11 +11,14 @@ final class MockElement: Element {
     var store: [String: Any?] = [:]
     var failAttrs = false
     var alive = true
+    /// Values served by copySingleAttr (e.g. AXWindows, AXSelectedRows, AXParent).
+    var singles: [String: Any] = [:]
 
     var stableIdOverride: Int = 0
     var stableId: Int { stableIdOverride != 0 ? stableIdOverride
         : ObjectIdentifier(self).hashValue }
     func isAlive() -> Bool { alive }
+    func copySingleAttr(_ name: String) -> Any? { singles[name] }
 
     init(role: String, title: String? = nil, x: CGFloat = 0, y: CGFloat = 0,
          w: CGFloat = 80, h: CGFloat = 24, children: [MockElement] = []) {

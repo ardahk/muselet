@@ -15,9 +15,13 @@ final class BrainConnection: NSObject, URLSessionWebSocketDelegate {
 
     // Main-queue callbacks.
     var onStatus: ((BrainStatus) -> Void)?
-    var onUI: ((_ mascot: String?, _ bubble: String?) -> Void)?
+    /// `ms`: latency of the request, on its final ui message (latency chip).
+    var onUI: ((_ mascot: String?, _ bubble: String?, _ ms: Double?) -> Void)?
     var onSay: ((String) -> Void)?
     var onConfirm: ((_ id: String, _ summary: String) -> Void)?
+    /// confirm_cancel: the confirm timed out or the task was cancelled
+    /// (nil id = whatever is pending).
+    var onConfirmCancel: ((_ id: String?) -> Void)?
     var onRPC: ((_ method: String, _ summary: String, _ ms: Double, _ ok: Bool) -> Void)?
     /// A final utterance spoken while offline was dropped (not delivered
     /// within `outboxTTL`); the app shows the "brain offline" bubble.
@@ -247,26 +251,19 @@ final class BrainConnection: NSObject, URLSessionWebSocketDelegate {
     // MARK: inbound
 
     private func onText(_ s: String) {
-        guard let data = s.data(using: .utf8),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let t = obj["t"] as? String else { return }
-        switch t {
-        case "rpc":
-            guard let id = obj["id"] as? String, let method = obj["method"] as? String else { return }
-            let params = obj["params"] as? [String: Any] ?? [:]
+        guard let frame = BrainInbound.decode(s) else { return }
+        switch frame {
+        case .rpc(let id, let method, let params):
             rpcQueue.async { [weak self] in self?.runRPC(id: id, method: method, params: params) }
-        case "ui":
-            let mascot = obj["mascot"] as? String
-            let bubble = obj["bubble"] as? String
-            DispatchQueue.main.async { self.onUI?(mascot, bubble) }
-        case "say":
-            let text = obj["text"] as? String ?? ""
+        case .ui(let mascot, let bubble, let ms):
+            DispatchQueue.main.async { self.onUI?(mascot, bubble, ms) }
+        case .say(let text):
             DispatchQueue.main.async { self.onSay?(text) }
-        case "confirm":
-            guard let id = obj["id"] as? String else { return }
-            let summary = obj["summary"] as? String ?? "Continue?"
+        case .confirm(let id, let summary):
             DispatchQueue.main.async { self.onConfirm?(id, summary) }
-        default:
+        case .confirmCancel(let id):
+            DispatchQueue.main.async { self.onConfirmCancel?(id) }
+        case .unknown:
             break
         }
     }

@@ -881,6 +881,20 @@ public final class Skills {
         var pos = ax.origin, size = ax.size
         let posV = AXValueCreate(.cgPoint, &pos)!
         let sizeV = AXValueCreate(.cgSize, &size)!
+        // With AXEnhancedUserInterface on (web AX for Safari/Gecko), AppKit
+        // animates AX frame changes and a size set mid-animation can be
+        // lost: switch it off around the move (Rectangle does the same).
+        // Not for Chromium browsers: turning it off drops Chrome's web tree
+        // at once and it only comes back after a 2 s debounce.
+        let enhanced = WebAX.enhancedAttribute as CFString
+        var cur: CFTypeRef?
+        let pauseEnhanced = WebAX.mode(bundleId: app.bundleIdentifier, bundleURL: app.bundleURL) != .chromium
+            && AXUIElementCopyAttributeValue(appEl, enhanced, &cur) == .success
+            && (cur as? Bool) == true
+        if pauseEnhanced { AXUIElementSetAttributeValue(appEl, enhanced, kCFBooleanFalse) }
+        defer { if pauseEnhanced { AXUIElementSetAttributeValue(appEl, enhanced, kCFBooleanTrue) } }
+        // size, position, size: the first size may be clamped by the old position.
+        AXUIElementSetAttributeValue(win as! AXUIElement, kAXSizeAttribute as CFString, sizeV)
         AXUIElementSetAttributeValue(win as! AXUIElement, kAXPositionAttribute as CFString, posV)
         AXUIElementSetAttributeValue(win as! AXUIElement, kAXSizeAttribute as CFString, sizeV)
         return ["layout": layout,

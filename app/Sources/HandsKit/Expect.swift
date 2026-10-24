@@ -149,24 +149,74 @@ extension Hands {
         }
     }
 
-    /// Search every window, sheet, menu and popover of `pid` for a label or
-    /// window title containing `label` (case-insensitive). Read-only; does
-    /// not touch ref/session state.
+    /// Search the target app's own windows (with their sheets, popovers,
+    /// drawers) and open menus for a label or window title containing
+    /// `label` (case-insensitive). The menu bar is never searched (its
+    /// File/Edit/View/Format titles would pass any `appears "Format"`),
+    /// except the items of a menu that is open right now (hands-12).
+    /// Read-only; does not touch ref/session state.
     func searchLabel(_ label: String, pid: pid_t, deadline: Date) -> Bool {
         guard pid > 0, !label.isEmpty else { return false }
         let app = AXNode(AXUIElementCreateApplication(pid))
         app.setMessagingTimeout(0.25)
-        if let wins = app.copySingleAttr(kAXWindowsAttribute as String) as? [AXUIElement] {
-            for w in wins {
-                let n = AXNode(w)
-                n.setMessagingTimeout(0.25)
-                if let t = n.copySingleAttr(kAXTitleAttribute as String) as? String,
-                   t.localizedCaseInsensitiveContains(label) { return true }
+        return Self.searchLabel(label, app: app, deadline: deadline)
+    }
+
+    /// Testable core of `searchLabel` (mock app element).
+    static func searchLabel(_ label: String, app: Element, deadline: Date) -> Bool {
+        guard !label.isEmpty else { return false }
+        let roots = labelSearchRoots(app: app)
+        for r in roots where r.window {
+            if let t = r.el.copyAttrs().title, t.localizedCaseInsensitiveContains(label) { return true }
+        }
+        for r in roots {
+            if Date() > deadline { break }
+            let recs = Walker.walk(root: r.el, deadline: deadline, interactiveCap: 3000)
+            if recs.contains(where: { $0.label.localizedCaseInsensitiveContains(label) }) { return true }
+        }
+        return false
+    }
+
+    struct SearchRoot {
+        var el: Element
+        var window: Bool        // its title counts as a match
+    }
+
+    /// Windows (AXWindows + window-like app children: sheets, popovers,
+    /// drawers), open context menus (AXMenu children of the app) and the
+    /// AXMenu of an open menu-bar item. Never the AXMenuBar itself.
+    static func labelSearchRoots(app: Element) -> [SearchRoot] {
+        var roots: [SearchRoot] = []
+        func add(_ el: Element, window: Bool) {
+            if roots.contains(where: { sameElement($0.el, el) }) { return }
+            roots.append(SearchRoot(el: el, window: window))
+        }
+        for w in axElements(app.copySingleAttr(kAXWindowsAttribute as String)) {
+            add(w, window: true)
+        }
+        let windowish: Set<String> = ["AXWindow", "AXSheet", "AXPopover", "AXDrawer"]
+        for c in app.copyAttrs().children {
+            let role = c.copyAttrs().role ?? ""
+            if windowish.contains(role) { add(c, window: role == "AXWindow" || role == "AXSheet") }
+            else if role == "AXMenu" && isOpen(c) { add(c, window: false) }
+        }
+        // Menu bar: only the menu that is open (its AXMenu has a frame).
+        if let bar = axElement(app.copySingleAttr("AXMenuBar")) {
+            for item in bar.copyAttrs().children {
+                for m in item.copyAttrs().children where m.copyAttrs().role == "AXMenu" && isOpen(m) {
+                    add(m, window: false)
+                }
             }
         }
-        let recs = Walker.walk(root: app, deadline: deadline, interactiveCap: 3000)
-        return recs.contains { $0.label.localizedCaseInsensitiveContains(label) }
+        return roots
     }
+
+    /// An AXMenu is open when it has a visible frame (closed menus report 0x0).
+    static func isOpen(_ menu: Element) -> Bool {
+        let a = menu.copyAttrs()
+        return a.size.width > 0 && a.size.height > 0
+    }
+
 }
 
 func unescape(_ s: String) -> String {

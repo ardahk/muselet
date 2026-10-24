@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import HandsKit
 import SwiftUI
 
 /// Small non-activating panel that never becomes key or main.
@@ -212,11 +213,59 @@ final class MascotController {
         model.bubbleVisible = false
         let w = DispatchWorkItem { [weak self] in
             guard let self, !self.model.bubbleVisible else { return }
-            self.bubblePanel.orderOut(nil)
             self.model.bubble = nil
+            // The latency chip outlives the bubble: keep the panel for it.
+            if self.model.latencyChip == nil { self.bubblePanel.orderOut(nil) }
+            else { self.layoutBubble() }
         }
         orderOutWork = w
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: w)
+    }
+
+    /// Confirm mode ended (confirm_cancel / disconnect): drop the confirm
+    /// bubble if it is the one showing.
+    func clearConfirmBubble() {
+        guard model.pendingConfirm == nil else { return }
+        if model.bubble?.style == .confirm { hideBubble() }
+    }
+
+    // MARK: latency chip
+
+    private var latencyWork: DispatchWorkItem?
+    static let latencyChipSeconds: TimeInterval = 2.0
+
+    /// Subtle "0.21 s" chip beside the bubble for ~2 s, then fade out.
+    func showLatency(ms: Double) {
+        latencyWork?.cancel()
+        model.latencyVisible = false
+        model.latencyChip = LatencyChip(text: LatencyFormat.seconds(ms))
+        if !bubblePanel.isVisible {
+            layoutBubble()
+            bubblePanel.orderFront(nil)
+            panel.addChildWindow(bubblePanel, ordered: .above)
+        }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.layoutBubble()
+            self.model.latencyVisible = true          // next turn: fades in
+        }
+        let w = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.model.latencyVisible = false
+            let chip = self.model.latencyChip
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                guard let self, !self.model.latencyVisible, self.model.latencyChip == chip else { return }
+                self.model.latencyChip = nil
+                if self.model.bubble == nil || !self.model.bubbleVisible {
+                    self.bubblePanel.orderOut(nil)
+                    self.model.bubble = nil
+                } else {
+                    DispatchQueue.main.async { [weak self] in self?.layoutBubble() }
+                }
+            }
+        }
+        latencyWork = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.latencyChipSeconds, execute: w)
     }
 
     /// Size the bubble panel to its SwiftUI content and anchor it beside the mascot.
