@@ -1,6 +1,6 @@
-# decisions — digest (pass 17)
+# decisions — digest (pass 18)
 
-Heads: main b625ceb (pitch-4 merged), data-pipeline 512cce0 (CJK-aware evalcheck, it2 v3 report), cloud/decisions 6d395df unchanged, wip/local 49f808f (no lane diff).
+Heads: main b625ceb (pitch-4 merged), data-pipeline 512cce0 (CJK-aware evalcheck, it2 v3 report), cloud/decisions 6d395df unchanged, wip/local 49f808f (no lane diff); brain-6 780f49d = send/click safety gates, no router/decision changes.
 Resolved this pass: decisions-21 (competitor-bench contamination disclosed and policed; it2 0 on HobbyLM r4 and DeskMind).
 
 ## Open P0/P1

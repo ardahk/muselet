@@ -101,3 +101,7 @@
 {"id": "decisions-14", "pass": 17, "ts": "2026-10-24T12:35:00Z", "status": "open", "branch": "main", "sha": "b625ceb", "evidence": "claims.md:17 unchanged; live run pending."}
 {"id": "decisions-17", "pass": 17, "ts": "2026-10-24T12:35:00Z", "status": "open", "branch": "cloud/decisions", "sha": "6d395df", "evidence": "Unchanged."}
 {"id": "decisions-12", "pass": 17, "ts": "2026-10-24T12:35:00Z", "status": "open", "branch": "cloud/decisions", "sha": "6d395df", "evidence": "Unchanged; not rebased."}
+{"id": "decisions-13", "pass": 18, "ts": "2026-10-24T12:46:00Z", "status": "open", "branch": "main", "sha": "b625ceb", "evidence": "Unchanged (claims.md:13)."}
+{"id": "decisions-14", "pass": 18, "ts": "2026-10-24T12:46:00Z", "status": "open", "branch": "main", "sha": "b625ceb", "evidence": "Unchanged (claims.md:17)."}
+{"id": "decisions-17", "pass": 18, "ts": "2026-10-24T12:46:00Z", "status": "open", "branch": "cloud/decisions", "sha": "6d395df", "evidence": "Unchanged."}
+{"id": "decisions-12", "pass": 18, "ts": "2026-10-24T12:46:00Z", "status": "open", "branch": "cloud/decisions", "sha": "6d395df", "evidence": "Unchanged; not rebased."}
