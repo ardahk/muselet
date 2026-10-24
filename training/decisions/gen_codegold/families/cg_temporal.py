@@ -42,6 +42,16 @@ def _business_deadline(start: date, count: int, holidays: set[date]) -> date:
     return cursor
 
 
+def _business_start(deadline: date, count: int, holidays: set[date]) -> date:
+    cursor = deadline
+    remaining = count
+    while remaining:
+        cursor -= timedelta(days=1)
+        if cursor.weekday() < 5 and cursor not in holidays:
+            remaining -= 1
+    return cursor
+
+
 def _next_weekday(day: date) -> date:
     cursor = day + timedelta(days=1)
     while cursor.weekday() >= 5:
@@ -51,40 +61,72 @@ def _next_weekday(day: date) -> date:
 
 def _make_dates(rng: random.Random, transition_day: date):
     months = rng.randint(1, 36)
-    if rng.random() < 0.35:
+    near_transition = rng.random() < 0.40
+    if near_transition:
+        weekdays = [
+            transition_day + timedelta(days=offset)
+            for offset in range(1, 8)
+            if (transition_day + timedelta(days=offset)).weekday() < 5
+        ]
+        deadline = rng.choice(weekdays)
+        business_days = rng.randint(2, 7)
+        possible_holidays = [
+            deadline - timedelta(days=offset)
+            for offset in range(2, 16)
+            if (deadline - timedelta(days=offset)).weekday() < 5
+        ]
+        holidays = set(rng.sample(possible_holidays, 2))
+        anniversary = _business_start(deadline, business_days, holidays)
+        start = _subtract_months(anniversary, months)
+        anniversary = _add_months(start, months)
+        holidays.discard(anniversary)
+        deadline = _business_deadline(anniversary, business_days, holidays)
+    elif rng.random() < 0.35:
         start = rng.choice((date(2024, 2, 29), date(2024, 1, 31), date(2025, 8, 31)))
         anniversary = _add_months(start, months)
+        business_days = rng.randint(2, 7)
+        first_holiday = _next_weekday(anniversary)
+        holidays = {first_holiday}
+        cursor = first_holiday + timedelta(days=1)
+        while len(holidays) < 2:
+            if cursor.weekday() < 5:
+                holidays.add(cursor)
+            cursor += timedelta(days=1)
+        if rng.random() < 0.5:
+            holidays.add(anniversary + timedelta(days=rng.randint(18, 30)))
+        deadline = _business_deadline(anniversary, business_days, holidays)
     else:
         anniversary = transition_day - timedelta(days=rng.choice((2, 3, 4)))
         start = _subtract_months(anniversary, months)
         anniversary = _add_months(start, months)
-
-    business_days = rng.randint(2, 7)
-    first_holiday = _next_weekday(anniversary)
-    holidays = {first_holiday}
-    cursor = first_holiday + timedelta(days=1)
-    while len(holidays) < 2:
-        if cursor.weekday() < 5:
-            holidays.add(cursor)
-        cursor += timedelta(days=1)
-    if rng.random() < 0.5:
-        holidays.add(anniversary + timedelta(days=rng.randint(18, 30)))
-    deadline = _business_deadline(anniversary, business_days, holidays)
+        business_days = rng.randint(2, 7)
+        first_holiday = _next_weekday(anniversary)
+        holidays = {first_holiday}
+        cursor = first_holiday + timedelta(days=1)
+        while len(holidays) < 2:
+            if cursor.weekday() < 5:
+                holidays.add(cursor)
+            cursor += timedelta(days=1)
+        if rng.random() < 0.5:
+            holidays.add(anniversary + timedelta(days=rng.randint(18, 30)))
+        deadline = _business_deadline(anniversary, business_days, holidays)
     return start, months, anniversary, business_days, holidays, deadline
 
 
-def _make_timestamps(rng: random.Random, transition: datetime):
+def _make_timestamps(rng: random.Random, deadline: date):
+    cutoff_zone, receipt_zone = rng.sample(TIME_ZONES, 2)
+    cutoff_local = datetime.combine(deadline, datetime.min.time()).replace(
+        hour=rng.choice((15, 16, 17)), minute=rng.choice((0, 15, 30, 45)),
+        tzinfo=ZoneInfo(cutoff_zone),
+    )
     gap = rng.choice((30, 45, 60, 75, 90))
-    before = transition - timedelta(minutes=gap // 2)
-    after = before + timedelta(minutes=gap)
-    if rng.randrange(2):
-        receipt_utc, cutoff_utc = before, after
-    else:
-        receipt_utc, cutoff_utc = after, before
-    receipt_zone, cutoff_zone = TIME_ZONES if rng.randrange(2) else TIME_ZONES[::-1]
+    direction = -1 if rng.randrange(2) else 1
+    cutoff_utc = cutoff_local.astimezone(timezone.utc)
+    receipt_utc = cutoff_utc + timedelta(minutes=direction * gap)
     receipt = receipt_utc.astimezone(ZoneInfo(receipt_zone))
-    cutoff = cutoff_utc.astimezone(ZoneInfo(cutoff_zone))
-    return receipt, receipt_zone, cutoff, cutoff_zone, gap
+    cutoff = cutoff_local
+    show_offset = rng.random() >= 0.60
+    return receipt, receipt_zone, cutoff, cutoff_zone, gap, show_offset
 
 
 def _date_options(stem: str, value: date, radius: int = 4):
@@ -120,14 +162,16 @@ def _render_state(
     receipt_zone: str,
     cutoff: datetime,
     cutoff_zone: str,
+    show_offset: bool,
 ) -> str:
     holiday_text = ", ".join(day.isoformat() for day in sorted(holidays))
     boundary_text = "on or before" if inclusive else "strictly before"
+    receipt_text = receipt.isoformat(timespec="minutes") if show_offset else receipt.strftime("%Y-%m-%d %H:%M")
+    cutoff_text = cutoff.isoformat(timespec="minutes") if show_offset else cutoff.strftime("%Y-%m-%d %H:%M")
     return (
         "SERVICE CALENDAR REVIEW — Renewal and Receipt Timing\n"
         "The member file is being checked against the renewal cycle and the regional intake clock. "
-        "Dates in the cycle record are local calendar dates; receipt and cutoff stamps retain their "
-        "original named-zone offsets so the audit can be reproduced without a workstation setting.\n\n"
+        "Cycle dates are local calendar dates. Intake timestamps identify the office's named time zone.\n\n"
         "CYCLE RECORD\n"
         f"Cycle opened: {start.isoformat()}\n"
         f"Renewal interval: {months} calendar months after opening\n"
@@ -140,23 +184,17 @@ def _render_state(
         f"Notice received on: {arrival_date.isoformat()}\n"
         f"Date boundary: receipt must be {boundary_text} the computed response deadline.\n\n"
         "INTAKE CLOCK RECORD\n"
-        f"Receipt timestamp: {receipt.isoformat(timespec='minutes')} [{receipt_zone}]\n"
+        f"Receipt timestamp: {receipt_text} [{receipt_zone}]\n"
         f"Receipt clock: {receipt.strftime('%Z')} local time, recorded by the intake portal.\n"
-        f"Daily cutoff timestamp: {cutoff.isoformat(timespec='minutes')} [{cutoff_zone}]\n"
+        f"Daily cutoff timestamp: {cutoff_text} [{cutoff_zone}]\n"
         f"Cutoff clock: {cutoff.strftime('%Z')} local time, copied from the regional service desk.\n"
         "Clock instruction: compare the two instants after applying the named IANA time zones, not by "
-        "subtracting the displayed wall-clock digits. The timestamps were logged around a seasonal "
-        "clock change; their numeric UTC offsets are part of each record.\n\n"
+        "subtracting the displayed wall-clock digits. Use the local civil time in force on the printed date.\n\n"
         "CASEWORKER SUMMARY\n"
-        f"The monthly cycle opened on {start.strftime('%B')} {start.day}, {start.year}, and the file "
-        f"requests a {months}-month renewal. The published calendar is attached because the response "
-        "window crosses ordinary weekends and local nonworking dates. Intake staff should retain both "
-        "the date-level filing result and the separate clock comparison in the case note.\n"
-        f"The computed anniversary is {anniversary.isoformat()}; the service desk will use the "
-        f"{business_days}-business-day window ending on {deadline.isoformat()}. The monthly date "
-        "rule is applied before the business calendar, and the named-zone timestamps are evaluated "
-        "as absolute instants. A previous desk card listed a different cutoff convention and is "
-        "retained only as an archival reference."
+        "The member's renewal request and the portal receipt are being checked against the published "
+        "calendar and regional desk hours. The monthly date rule is applied before the business calendar; "
+        "the clock comparison uses the named office zones. A previous desk card is retained only as an "
+        "archival reference."
     )
 
 
@@ -191,10 +229,17 @@ def _read_state(state: str):
     receipt = datetime.fromisoformat(receipt_match.group(1))
     cutoff = datetime.fromisoformat(cutoff_match.group(1))
     receipt_zone, cutoff_zone = receipt_match.group(2), cutoff_match.group(2)
+    localized = []
     for stamp, zone_name in ((receipt, receipt_zone), (cutoff, cutoff_zone)):
-        zone_stamp = stamp.astimezone(ZoneInfo(zone_name))
-        if zone_stamp.replace(tzinfo=None) != stamp.replace(tzinfo=None):
-            raise ValueError("rendered offset does not match its named zone")
+        zone = ZoneInfo(zone_name)
+        if stamp.tzinfo is None:
+            stamp = stamp.replace(tzinfo=zone)
+        else:
+            zone_stamp = stamp.astimezone(zone)
+            if zone_stamp.replace(tzinfo=None) != stamp.replace(tzinfo=None):
+                raise ValueError("rendered offset does not match its named zone")
+        localized.append(stamp)
+    receipt, cutoff = localized
     anniversary = _add_months(start, months)
     deadline = _business_deadline(anniversary, business_days, holidays)
     return {
@@ -208,6 +253,8 @@ def _read_state(state: str):
         "inclusive": inclusive,
         "receipt": receipt.astimezone(timezone.utc),
         "cutoff": cutoff.astimezone(timezone.utc),
+        "notice_on_holiday": arrival_date in holidays,
+        "deadline_weekday": deadline.strftime("%A"),
     }
 
 
@@ -227,10 +274,8 @@ def verify_rendered(record: dict) -> bool:
                 expected = key_for_value(
                     "renewal_date", data["anniversary"].strftime("%Y_%m_%d")
                 )
-            elif instruction == "What date ends the business-day response window?":
-                expected = key_for_value(
-                    "business_deadline", data["deadline"].strftime("%Y_%m_%d")
-                )
+            elif instruction == "Which weekday does the response window end?":
+                expected = key_for_value("deadline_weekday", data["deadline_weekday"].lower())
             elif instruction == "What UTC timestamp corresponds to the logged receipt?":
                 expected = key_for_value(
                     "receipt_utc", data["receipt"].strftime("%Y_%m_%d_%H_%M")
@@ -239,6 +284,8 @@ def verify_rendered(record: dict) -> bool:
                 expected = "true" if timely_clock else "false"
             elif instruction == "Was the notice received within the business-day boundary?":
                 expected = "true" if timely_date else "false"
+            elif instruction == "Was the notice received on a listed holiday?":
+                expected = "true" if data["notice_on_holiday"] else "false"
             elif instruction == "Which band contains the absolute receipt-to-cutoff separation?":
                 expected = score_level_for(Decimal(gap_minutes), question["criteria"])
             else:
@@ -269,9 +316,18 @@ def generate(rng: random.Random, n_questions: int) -> dict:
     start, months, anniversary, business_days, holidays, deadline = _make_dates(
         rng, transition.date()
     )
-    receipt, receipt_zone, cutoff, cutoff_zone, gap = _make_timestamps(rng, transition)
-    arrival_date = deadline
     inclusive = bool(rng.randrange(2))
+    holiday_arrival = bool(rng.randrange(2))
+    if inclusive:
+        arrival_date = deadline - timedelta(days=1)
+        if holiday_arrival:
+            holidays.add(arrival_date)
+            deadline = _business_deadline(anniversary, business_days, holidays)
+    else:
+        arrival_date = deadline + timedelta(days=1)
+        if holiday_arrival:
+            holidays.add(arrival_date)
+    receipt, receipt_zone, cutoff, cutoff_zone, gap, show_offset = _make_timestamps(rng, deadline)
     date_timely = inclusive
     clock_timely = receipt.astimezone(timezone.utc) <= cutoff.astimezone(timezone.utc)
     specs = []
@@ -280,10 +336,13 @@ def generate(rng: random.Random, n_questions: int) -> dict:
     specs.append((
         "choice", "What date is the next renewal anniversary?", answer, options,
     ))
-    answer, options = _date_options("business_deadline", deadline)
-    specs.append((
-        "choice", "What date ends the business-day response window?", answer, options,
-    ))
+    weekday = deadline.strftime("%A")
+    answer = key_for_value("deadline_weekday", weekday.lower())
+    weekday_options = {
+        key_for_value("deadline_weekday", day.lower()): f"The response window ends on {day}."
+        for day in ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday")
+    }
+    specs.append(("choice", "Which weekday does the response window end?", answer, weekday_options))
     receipt_utc = receipt.astimezone(timezone.utc)
     answer, options = _timestamp_options(receipt_utc)
     specs.append((
@@ -303,6 +362,14 @@ def generate(rng: random.Random, n_questions: int) -> dict:
         {
             "false": "The notice was received within the business-day boundary: No.",
             "true": "The notice was received within the business-day boundary: Yes.",
+        },
+    ))
+    specs.append((
+        "noul", "Was the notice received on a listed holiday?",
+        "true" if arrival_date in holidays else "false",
+        {
+            "false": "The notice was received on a listed holiday: No.",
+            "true": "The notice was received on a listed holiday: Yes.",
         },
     ))
     bands, level = round_bands(
@@ -328,7 +395,7 @@ def generate(rng: random.Random, n_questions: int) -> dict:
 
     state = _render_state(
         start, months, anniversary, business_days, holidays, deadline,
-        arrival_date, inclusive, receipt, receipt_zone, cutoff, cutoff_zone,
+        arrival_date, inclusive, receipt, receipt_zone, cutoff, cutoff_zone, show_offset,
     )
     record_rng = random.Random(rng.getrandbits(64))
     record = finish_record(
@@ -336,10 +403,8 @@ def generate(rng: random.Random, n_questions: int) -> dict:
         facts={
             "cycle_opened": start.isoformat(),
             "renewal_months": months,
-            "anniversary": anniversary.isoformat(),
             "business_days": business_days,
             "holidays": sorted(day.isoformat() for day in holidays),
-            "deadline": deadline.isoformat(),
             "arrival_date": arrival_date.isoformat(),
             "inclusive": inclusive,
             "receipt_utc": receipt_utc.isoformat(),
@@ -350,11 +415,18 @@ def generate(rng: random.Random, n_questions: int) -> dict:
             "dst_zone_conversion", "boundary_comparison",
         ],
         note=note,
-        intermediate_values=[f"{anniversary.isoformat()}::{deadline.isoformat()}::{gap}"],
+        intermediate_values=[
+            receipt_utc.strftime("%Y-%m-%d %H:%M UTC"),
+        ],
     )
     record["_meta"]["quantity_kinds"] = {
         f"q{index}": question["instructions"]
         for index, question in enumerate(record["questions"].values(), start=1)
     }
     record["_meta"]["timestamp_gap_minutes"] = gap
+    record["_meta"]["clock_offset_visible"] = show_offset
+    record["_meta"]["deadline_near_dst"] = any(
+        transition.date() < deadline <= transition.date() + timedelta(days=7)
+        for transition in TRANSITIONS
+    )
     return record

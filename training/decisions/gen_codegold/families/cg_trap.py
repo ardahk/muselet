@@ -16,6 +16,8 @@ def _case(rng):
     kind = rng.choice(("negation", "source_precedence", "irrelevant_number"))
     amount = Decimal(rng.randint(800, 4_500))
     dashboard = Decimal(rng.randint(12_000, 95_000))
+    exception = None
+    amendment_active = None
     if kind == "negation":
         cap = amount + Decimal(rng.randint(-500, 500))
         exception = bool(rng.randrange(2))
@@ -61,10 +63,13 @@ def _case(rng):
             "signed terms to this invoice's service date."
         )
         decisive = service >= effective
-        source = "signed agreement register"
+        amendment_active = service >= effective
+        source = "signed agreement"
     else:
         cap = Decimal(rng.randint(1_500, 4_000))
         amount = cap + Decimal(rng.choice((-250, 250)))
+        dashboard_delta = Decimal(rng.randint(100, int(amount / 2)))
+        dashboard = amount + rng.choice((-dashboard_delta, dashboard_delta))
         authorized = amount <= cap
         wrong = dashboard
         state = (
@@ -80,11 +85,12 @@ def _case(rng):
             "this claim. The signed policy and current case record control."
         )
         decisive = authorized
-        source = "signed case policy"
+        source = "signed policy"
     payable = amount if authorized else Decimal("0")
     return {"kind": kind, "state": state, "amount": amount, "cap": cap, "dashboard": dashboard,
             "authorized": authorized, "payable": payable, "wrong": wrong,
-            "decisive": decisive, "source": source}
+            "decisive": decisive, "source": source, "exception": exception,
+            "amendment_active": amendment_active}
 
 
 def _parse(state):
@@ -93,6 +99,8 @@ def _parse(state):
     def amount(pattern):
         return Decimal(re.search(pattern, state).group(1).replace(",", ""))
     dashboard = amount(r"Dashboard reserve: \$([\d,]+\.\d{2})")
+    exception = None
+    amendment_active = None
     if kind == "negation":
         value = amount(r"Item amount: \$([\d,]+\.\d{2})")
         cap = amount(r"Claim ceiling: \$([\d,]+\.\d{2})")
@@ -112,17 +120,19 @@ def _parse(state):
         authorized = value <= cap
         wrong = value if claimed else Decimal("0")
         decisive = service >= effective
-        source = "signed agreement register"
+        amendment_active = service >= effective
+        source = "signed agreement"
     else:
         value = amount(r"Invoice amount: \$([\d,]+\.\d{2})")
         cap = amount(r"Per-claim ceiling: \$([\d,]+\.\d{2})")
         authorized = value <= cap
         wrong = dashboard
         decisive = authorized
-        source = "signed case policy"
+        source = "signed policy"
     return {"kind": kind, "amount": value, "cap": cap, "dashboard": dashboard,
             "authorized": authorized, "payable": value if authorized else Decimal("0"),
-            "wrong": wrong, "decisive": decisive, "source": source}
+            "wrong": wrong, "decisive": decisive, "source": source,
+            "exception": exception, "amendment_active": amendment_active}
 
 
 def verify_rendered(record):
@@ -130,9 +140,13 @@ def verify_rendered(record):
         case = _parse(record["state"])
         for qid, question in record["questions"].items():
             instruction = question["instructions"]
-            if instruction == "Is the required exception or signed term active?":
-                expected = "true" if case["decisive"] else "false"
-            elif instruction == "Which source controls this claim decision?":
+            if instruction == "Is a signed exception on file?":
+                expected = "true" if case["exception"] else "false"
+            elif instruction == "Does the signed addendum cover the service date?":
+                expected = "true" if case["amendment_active"] else "false"
+            elif instruction == "Is the dashboard reserve greater than the invoice amount?":
+                expected = "true" if case["dashboard"] > case["amount"] else "false"
+            elif instruction == "Which record controls this claim review?":
                 expected = key_for_value("source", case["source"])
             elif instruction == "Is the individual claim within its printed ceiling?":
                 expected = "true" if case["amount"] <= case["cap"] else "false"
@@ -174,26 +188,54 @@ def generate(rng: random.Random, n_questions: int) -> dict:
         case["cap"], "$", [Decimal("10"), Decimal("25"), Decimal("50"), Decimal("100")],
         rng, metric="The controlling per-claim ceiling",
     )
+    sources = {
+        "negation": ("signed policy", "quoted chat message", "dashboard"),
+        "source_precedence": ("signed agreement", "quoted email", "dashboard"),
+        "irrelevant_number": ("signed policy", "dashboard", "current case record"),
+    }[case["kind"]]
     source_options = {
-        key_for_value("source", source): f"The controlling source is the {source}."
-        for source in ("signed policy", "quoted email", "dashboard", "signed agreement register", "signed case policy")
+        key_for_value("source", source): f"The controlling record is the {source}."
+        for source in sources
     }
+    extra_question = {
+        "negation": (
+            "Is a signed exception on file?",
+            "true" if case["exception"] else "false",
+            {
+                "false": "A signed exception is on file: No.",
+                "true": "A signed exception is on file: Yes.",
+            },
+        ),
+        "source_precedence": (
+            "Does the signed addendum cover the service date?",
+            "true" if case["amendment_active"] else "false",
+            {
+                "false": "The signed addendum covers the service date: No.",
+                "true": "The signed addendum covers the service date: Yes.",
+            },
+        ),
+        "irrelevant_number": (
+            "Is the dashboard reserve greater than the invoice amount?",
+            "true" if case["dashboard"] > case["amount"] else "false",
+            {
+                "false": "The dashboard reserve is greater than the invoice amount: No.",
+                "true": "The dashboard reserve is greater than the invoice amount: Yes.",
+            },
+        ),
+    }[case["kind"]]
     pool = [
         ("choice", "What is the claim disposition?",
          "authorized" if case["authorized"] else "held",
          {"authorized": "The claim is authorized.", "held": "The claim is held."}),
         ("score", "Which band contains the submitted claim amount?", str(amount_level), amount_bands),
         ("score", "Which band contains the controlling per-claim ceiling?", str(cap_level), cap_bands),
-        ("noul", "Is the required exception or signed term active?",
-         "true" if case["decisive"] else "false",
-         {"false": "The required exception or signed term is active: No.",
-          "true": "The required exception or signed term is active: Yes."}),
-        ("choice", "Which source controls this claim decision?",
+        ("choice", "Which record controls this claim review?",
          key_for_value("source", case["source"]), source_options),
         ("noul", "Is the individual claim within its printed ceiling?",
          "true" if case["amount"] <= case["cap"] else "false",
          {"false": "The individual claim is within its printed ceiling: No.",
           "true": "The individual claim is within its printed ceiling: Yes."}),
+        ("noul", *extra_question),
     ]
     selected = rng.sample(pool, n_questions)
     note = None

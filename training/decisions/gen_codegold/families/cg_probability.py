@@ -347,16 +347,8 @@ def _question_pool(rng, case):
                     "false": "The current-plan risk meets the review point: No.",
                     "true": "The current-plan risk meets the review point: Yes.",
                 })},
-            {"quantity": "sample_size", "spec": ("choice", "How many units are selected under the current inspection plan?",
-                key_for_value("sample_units", case["sample"]), {
-                    key_for_value("sample_units", case["sample"]): f"The selected sample contains {case['sample']} units.",
-                    key_for_value("sample_units", case["old_sample"]): f"The selected sample contains {case['old_sample']} units.",
-                    key_for_value("sample_units", case["flagged"]): f"The selected sample contains {case['flagged']} units.",
-                })},
         ]
     if kind == "independent":
-        events = case["events"]
-        best = max(events, key=lambda item: item[1])
         return [
             _percent_band(rng, "any_event", "Which band contains the chance of at least one disruption?", case["any"], "The probability of at least one disruption"),
             _percent_band(rng, "no_events", "Which band contains the chance of no disruption?", case["none"], "The probability of no disruption"),
@@ -368,21 +360,12 @@ def _question_pool(rng, case):
                     "false": "The disruption probability meets the review point: No.",
                     "true": "The disruption probability meets the review point: Yes.",
                 })},
-            {"quantity": "highest_event_rate", "spec": ("choice", "Which event has the highest individual probability?",
-                key_for_value("event_rate", _percent(best[1])), {
-                    key_for_value("event_rate", _percent(rate)): f"The highest individual event probability is {_percent(rate):.2f}%."
-                    for _, rate in events
-                })},
         ]
     if kind == "expected_value":
         options = case["options"]
         best, second = options[0], options[1]
+        positive_count = sum(item["net"] > 0 for item in options)
         return [
-            {"quantity": "best_initiative", "spec": ("choice", "Which initiative has the highest expected net value after fixed costs?",
-                key_for_value("initiative", best["name"]), {
-                    key_for_value("initiative", item["name"]): f"{item['name']} has the highest expected net value."
-                    for item in options
-                })},
             _band(rng, "best_net_value", "Which band contains the highest expected net value?",
                   Decimal(best["net"].numerator)/Decimal(best["net"].denominator), "The highest expected net value", "$"),
             _percent_band(rng, "winning_success_probability", "Which band contains the winning initiative's success probability?",
@@ -395,10 +378,10 @@ def _question_pool(rng, case):
                     "false": "The best expected net value meets the review point: No.",
                     "true": "The best expected net value meets the review point: Yes.",
                 })},
-            {"quantity": "winning_fixed_cost", "spec": ("choice", "What fixed cost is listed for the leading initiative?",
-                key_for_value("fixed_cost", best["cost"]), {
-                    key_for_value("fixed_cost", item["cost"]): f"The listed fixed cost is ${item['cost']:,.2f}."
-                    for item in options
+            {"quantity": "positive_net_proposals", "spec": ("choice", "How many proposals have positive expected net value?",
+                key_for_value("positive_proposals", positive_count), {
+                    key_for_value("positive_proposals", count): f"Exactly {count} proposals have positive expected net value."
+                    for count in range(len(options) + 1)
                 })},
         ]
     return [
@@ -447,27 +430,24 @@ def _expected(record_state, instruction, criteria):
             "Which band contains the expected flagged-unit count in the current draw?": ("score", Decimal(case["expected"].numerator)/Decimal(case["expected"].denominator)),
             "Which band contains the chance of at least one flagged unit under the archived plan?": ("score", case["old"]),
             "Is the current-plan risk at least the review point?": ("noul", "true" if case["current"] >= case["point"] else "false"),
-            "How many units are selected under the current inspection plan?": ("choice", key_for_value("sample_units", case["sample"])),
         }
     elif kind == "independent":
-        best = max(case["events"], key=lambda item: item[1])
         values = {
             "Which band contains the chance of at least one disruption?": ("score", case["any"]),
             "Which band contains the chance of no disruption?": ("score", case["none"]),
             "Which band contains the chance of exactly one disruption?": ("score", case["exactly_one"]),
             "Which band contains the expected number of disruptions?": ("score", case["expected"]),
             "Is the probability of at least one disruption at least the review point?": ("noul", "true" if case["any"] >= case["point"] else "false"),
-            "Which event has the highest individual probability?": ("choice", key_for_value("event_rate", _percent(best[1]))),
         }
     elif kind == "expected_value":
         best, second = case["options"][:2]
+        positive_count = sum(item["net"] > 0 for item in case["options"])
         values = {
-            "Which initiative has the highest expected net value after fixed costs?": ("choice", key_for_value("initiative", best["name"])),
             "Which band contains the highest expected net value?": ("score", best["net"]),
             "Which band contains the winning initiative's success probability?": ("score", case["options"][0]["probability"]),
             "Which band contains the gap between the best and next-best expected net values?": ("score", best["net"]-second["net"]),
             "Does the best expected net value meet the review point?": ("noul", "true" if best["net"] >= case["point"] else "false"),
-            "What fixed cost is listed for the leading initiative?": ("choice", key_for_value("fixed_cost", best["cost"])),
+            "How many proposals have positive expected net value?": ("choice", key_for_value("positive_proposals", positive_count)),
         }
     else:
         values = {

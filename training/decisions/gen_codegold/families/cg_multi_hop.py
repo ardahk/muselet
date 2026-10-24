@@ -160,8 +160,8 @@ def verify_rendered(record: dict) -> bool:
                 wanted = _key("usd_amount", converted, places=2)
             elif instruction == "Which band contains the converted invoice amount?":
                 wanted = score_level_for(converted, question["criteria"])
-            elif instruction == "Which vendor number matches the requested trading name?":
-                wanted = _key("vendor_number", vendor["Vendor number"])
+            elif instruction == "Does the invoice date fall in the second half of its month?":
+                wanted = "true" if documents["invoice_day"].day >= 16 else "false"
             elif instruction == "Which currency is specified by the active agreement?":
                 wanted = _key("payment_currency", agreement["Payment currency"])
             elif instruction == "Does the converted invoice amount stay within the active authorization limit?":
@@ -410,21 +410,18 @@ def generate(rng: random.Random, n_questions: int) -> dict:
         }
     question_pool.append(amount_question)
 
-    vendor_alternatives = [
-        (row["Vendor number"], "near_duplicate_entity")
-        for row in entities if row["Vendor number"] != vendor_id
-    ]
-    vendor_answer, vendor_options, vendor_origins = _choice(
-        "vendor_number", vendor_id, vendor_alternatives,
-        lambda value: f"The matching vendor number is {value}.",
-    )
+    invoice_in_second_half = invoice_day.day >= 16
     question_pool.append({
-        "quantity": "matched_vendor_number",
+        "quantity": "invoice_month_half",
         "spec": (
-            "choice", "Which vendor number matches the requested trading name?",
-            vendor_answer, vendor_options,
+            "noul", "Does the invoice date fall in the second half of its month?",
+            "true" if invoice_in_second_half else "false",
+            {
+                "false": "The invoice date falls in the second half of its month: No.",
+                "true": "The invoice date falls in the second half of its month: Yes.",
+            },
         ),
-        "origins": vendor_origins,
+        "origins": {},
     })
 
     currency_alternatives = [

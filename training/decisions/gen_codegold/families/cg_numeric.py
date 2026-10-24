@@ -275,7 +275,7 @@ def generate(rng: random.Random, n_questions: int) -> dict:
         fee, "$", [Decimal("5"), Decimal("10"), Decimal("25"), Decimal("50"), Decimal("100")],
         rng, metric="The marginal service fee",
     )
-    question_pool.append(rng.choice((
+    fee_questions = (
         {
             "quantity": "marginal_service_fee",
             "spec": ("choice", "What is the marginal service fee after final rounding?",
@@ -288,7 +288,11 @@ def generate(rng: random.Random, n_questions: int) -> dict:
                      str(fee_level), fee_bands),
             "origins": {},
         },
-    )))
+    )
+    if mode == "fee threshold" and threshold == fee:
+        question_pool.append(fee_questions[1])
+    else:
+        question_pool.append(rng.choice(fee_questions))
 
     effective_choice = _choice(
         "effective_rate", effective_rate,
