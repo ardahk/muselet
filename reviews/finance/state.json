@@ -1,16 +1,19 @@
 {
  "lane": "finance",
- "pass": 3,
- "ts": "2026-10-24T07:20:00Z",
+ "pass": 4,
+ "ts": "2026-10-24T06:40:00Z",
  "last_reviewed": {
-  "main": "dec310b",
-  "wip/local": "cbc4879",
+  "main": "e78f143",
+  "wip/local": "e0bdc65",
   "cloud/finance": "529e9ff",
   "cloud/fixtures-docs": "4bf2291",
-  "cloud/data-pipeline": "8c7c023",
+  "cloud/data-pipeline": "153a01c",
   "cloud/advisor": "9432c30",
-  "cloud/bench": "8429245"
+  "cloud/bench": "14c7eb1",
+  "cloud/finance-2": "f4ae461",
+  "cloud/advisor-2": "ec98013",
+  "cloud/pitch": "454a563"
  },
- "next_id": 18,
- "notes": "pass 3: advisor truth recomputed independently (tests/recompute_advisor.py: reconciles). The IRS MFJ 2026 brackets in tax.py (24,800/100,800/211,400/403,550/512,450/768,700) match Rev. Proc. 2025-32 page 10 (PDF sha256 e9ada115...) and IR-2025-103, so there is no tax-number P0. 23 advisor tests pass. cloud/finance 529e9ff only adds the TAX REFUND income fix; finance-9/10/11/12 are still open. bench and data-pipeline are outside this lane."
+ "next_id": 23,
+ "notes": "pass 4: finance-2 144 tests pass and its truth (incl. duplicate_status, weekend, fuzzy/delayed receipts) reconciles with tests/recompute_truth.py; advisor-2 65 tests pass. finance-4/6/7/8/10/11/12 resolved. main/wip: nothing new in lane besides the planner line already reviewed."
 }

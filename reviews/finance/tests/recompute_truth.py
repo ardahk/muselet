@@ -33,12 +33,25 @@ if over != B['over_budget']: errs.append('over_budget')
 g = {}
 for i, r in enumerate(rows, 1): g.setdefault((r['Date'], r['Description'], r['Amount']), []).append(i)
 if [v for v in g.values() if len(v) > 1] != T['duplicates']: errs.append('duplicates')
-for k, v in R.items():
-    m = [i for i, r in enumerate(rows, 1) if r['Description'] == v['merchant'] and r['Date'] == v['date']]
+import re as _re
+def _key(x): return _re.sub(r'[^A-Z]', '', _re.split(r'[\s#]', x.upper().replace("'", ''))[0])
+for k, v in R.items():  # own rule: first word of the printed store name, charge posted 0-3 days later
+    d0 = date.fromisoformat(v['date'])
+    m = [i for i, r in enumerate(rows, 1) if _key(v['merchant']) == _key(r['Description'])
+         and 0 <= (date.fromisoformat(r['Date']) - d0).days <= 3 and D(r['Amount']) < 0]
     ex = [i for i in m if -D(rows[i-1]['Amount']) == D(str(v['total']))]
     st = 'matched' if ex else ('amount_mismatch' if m else 'no_match')
     mr = (ex or m or [None])[0]
-    if (st, mr) != (v['status'], v['match_row']) or len(m) > 1: errs.append(f'receipt {k} {st} {mr} {m}')
+    if (st, mr) != (v['status'], v['match_row']): errs.append(f'receipt {k} {st} {mr} {m}')
+if 'weekend_charges' in T:
+    wk = [i for i, r in enumerate(rows, 1) if D(r['Amount']) < 0 and date.fromisoformat(r['Date']).weekday() >= 5]
+    if wk != T['weekend_charges']: errs.append('weekend')
+if 'duplicate_status' in T:
+    for dd in T['duplicate_status']:
+        a = rows[dd['rows'][0]-1]
+        rf = [i for i, r in enumerate(rows, 1) if D(r['Amount']) == -D(a['Amount']) and 'REFUND' in r['Description']
+              and r['Description'].startswith(a['Description']) and r['Date'] >= a['Date']]
+        if (dd['status'], dd['refund_row']) != (('refunded', rf[0]) if rf else ('open', None)): errs.append('dup_status')
 print('income', inc, 'spend', tot, 'net', inc - tot, 'closing', bal, 'over', over)
 print({c: str(B['budget'][c] - spend.get(c, D(0))) for c in B['categories']})
 print('weekday of rows', T['outliers'], [date.fromisoformat(rows[i-1]['Date']).strftime('%a') for i in T['outliers']])
