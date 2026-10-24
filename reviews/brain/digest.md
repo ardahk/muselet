@@ -1,7 +1,9 @@
-# brain digest — pass 10 (2026-10-24T08:05:00Z)
+# brain digest — pass 11 (2026-10-24T08:10:00Z)
 
 Heads: main 76a03c1 / wip/local 34ddf5f (no ml/ changes since pass 9: planner prompt + Swift only), cloud/brain-3 14a3f52, cloud/advisor-3 ca93147, cloud/finance-3 31be399, cloud/bench 6e7cd09 (merge of main only), cloud/data-pipeline 0f3df7f (parity_300 export).
 All product suites pass on brain-3, advisor-3 and finance-3 (test_decision.py real-model test skipped: Linux CPU).
+
+Pass 11: main 0fd5698 / wip/local 64dd1cb changed only AGENTS.md (standing decisions) and tools/ (tcc_warm, spend guard); no ml/ changes, so all open findings stand as of pass 10. Standing decision 'reviewed PRs that pass tests may be merged' applies to cloud/brain-3: its suites pass, but none of its tests cover brain-16/17/18.
 
 ## Open P0/P1 (ranked)
 1. brain-16 (P1, brain-3) abs_level turns relative volume requests into near-zero absolute levels — ml/src/brain/orchestrator.py:65
