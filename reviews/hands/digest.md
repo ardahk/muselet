@@ -1,7 +1,9 @@
-# hands — digest (pass 15: re-verified against main 2920225)
+# hands — digest (pass 16; open findings re-verified on main 2920225 in pass 15)
 
 All hands findings re-checked on main 2920225. Resolved on main: hands-1 to hands-9 and hands-11 to hands-14 (file:line in findings.jsonl, pass 15). hands-15 superseded. None of them exists only on a branch: all the Swift batches are on main.
 Main's app/ code is unchanged since bb494af (reviewed in passes 9-14), so there is no new app/ code to review in tonight's merges.
+
+Pass 16: wip/local 3e03686, cloud/data-pipeline 5371185, cloud/decisions 3a865a0 and cloud/pitch-2 3303678 have no app/ changes and no server/protocol/orchestrator changes since their base. cloud/decisions only looks different from main because it forked before 2920225.
 
 ## Open P0/P1 (ranked)
 None.
