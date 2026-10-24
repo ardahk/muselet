@@ -14,6 +14,11 @@ import time
 from concurrent.futures import Future
 from pathlib import Path
 
+try:
+    import mlx.core as mx
+    import mlx_lm
+except ImportError:  # no MLX runtime (Linux CI); serving always has it
+    mx = mlx_lm = None
 import numpy as np
 from tinker_cookbook.renderers import Message
 
@@ -45,12 +50,6 @@ HISTORY_FORMATS = ("marked", "dsl", "repr")
 PLANNER_CONSTRAIN_DEFAULT = True   # line-start op constraint; the lead sets the final default
 ROOT = Path(__file__).resolve().parents[3]
 FEWSHOT_PATH = "prompts/planner_fewshot.md"
-
-
-def _mlx_core():
-    import mlx.core as mx
-
-    return mx
 
 
 def _compatible(x: str, ops) -> bool:
@@ -234,8 +233,6 @@ _MODELS_LOCK = threading.Lock()
 
 def load_model(path: str):
     """Memoized mlx_lm.load — Planner and DecisionEngine share weights."""
-    import mlx_lm
-
     with _MODELS_LOCK:
         if path not in _MODELS:
             _MODELS[path] = mlx_lm.load(path)
@@ -354,7 +351,6 @@ class Planner:
         return cache
 
     def _build_cache(self):
-        mx = _mlx_core()
         msgs = [Message(role="system", content=self.system),
                 Message(role="user", content=SENTINEL)]
         toks = self._render_msgs(msgs)
@@ -482,7 +478,6 @@ class Planner:
         `lines_out` (call_soon_threadsafe), then a None sentinel. Returns the
         full line list."""
         t0 = time.perf_counter()
-        mx = _mlx_core()
         if self._cache is None:
             self._build_cache()
         toks = self.prompt_tokens(goal, observation, last_batch, hint, script_output, login_page)
@@ -574,7 +569,6 @@ class Planner:
     def generate(self, system: str, user: str, max_tokens: int = 48,
                  stop_at_newline: bool = True) -> str:
         """One short greedy generation on the worker (ANSWER path)."""
-        mx = _mlx_core()
         msgs = [Message(role="system", content=system),
                 Message(role="user", content=user),
                 Message(role="assistant", content=SENTINEL)]

@@ -7,9 +7,8 @@ import json
 import math
 from typing import Any
 
-from brain.choice_renderer import AlphaChoiceRenderer
+from brain.decision import AlphaChoiceRenderer, split_model
 from brain.decision_chunking import chunk_options, combine_chunked
-from brain.decision import split_model
 from brain.vendor.tinker_decisions import Decision, DecisionRenderer
 
 
