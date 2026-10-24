@@ -21,7 +21,7 @@ _Last updated: 2026-10-24, at the org cut-over. PR #34 is merged; PR #42 (this h
 ```sh
 gh repo clone ardahk/muselet && cd muselet && git checkout main && git pull
 # Linux, Python checks only:
-cd ml && uv venv && uv pip install -e '.[dev]' 2>/dev/null || true   # or follow AGENTS.md setup
+cd ml && uv sync                                                     # uses ml/uv.lock
 uv pip install --python .venv/bin/python "mlx-cpu==0.32.4"          # Linux only (libmlx.so)
 .venv/bin/python -m pytest -q                                        # expect 1310 passed, 55 skipped
 # Mac (required, never done):
