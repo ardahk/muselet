@@ -1,4 +1,4 @@
-# evals-safety digest, pass 21 (2026-10-24T10:03:11Z): main 758a017 unchanged; reviewed wip/local 630d661, cloud/decisions c08a96d, cloud/brain-5 003d1bb, nothing material
+# evals-safety digest, pass 22 (2026-10-24T10:18:17Z): main 758a017 unchanged; reviewed wip/local 4350185 (HandsKit parity fixes; no confirm/network/shell changes) and data-pipeline 8881d38 (doc-only), nothing material
 
 ## Open P0/P1 (ranked)
 No open P0.
