@@ -11,6 +11,9 @@ public enum HandsError: Error, CustomStringConvertible {
     case notImplemented(String)
     case needsConfirmation
     case skillFailed(String)
+    /// The frontmost app is not the observed/target app and could not be
+    /// re-activated: never type into the wrong app.
+    case focusChanged(expected: String, frontmost: String)
     case `internal`(String)
     public var description: String {
         switch self {
@@ -20,6 +23,8 @@ public enum HandsError: Error, CustomStringConvertible {
         case .notImplemented(let s): return "not_implemented: \(s)"
         case .needsConfirmation: return "needs_confirmation"
         case .skillFailed(let s): return s
+        case .focusChanged(let want, let got):
+            return "focus_changed: frontmost is \(got), expected \(want)"
         case .internal(let s): return s
         }
     }
@@ -28,13 +33,15 @@ public enum HandsError: Error, CustomStringConvertible {
         case .staleRef: return "stale_ref"
         case .needsConfirmation: return "needs_confirmation"
         case .notImplemented: return "not_implemented"
+        case .focusChanged: return "focus_changed"
         default: return "error"
         }
     }
 }
 
-/// Ghost-cursor hook. Implemented by the menu-bar app; the headless CLI
-/// leaves it nil so no flight time is added.
+/// App-side hooks (ghost cursor, skill HUD, timer bubble). Implemented by
+/// the menu-bar app; the headless CLI leaves it nil so no flight time is
+/// added. All methods are called off the main thread.
 public protocol HandsDelegate: AnyObject {
     /// Called on the hands queue right before an action touches the UI.
     /// frame: global top-left points (nil for untargeted ops). Return the
@@ -42,10 +49,22 @@ public protocol HandsDelegate: AnyObject {
     func handsWillAct(op: String, frame: CGRect?, label: String?) -> TimeInterval
     /// Called after the action and settle complete.
     func handsDidAct(op: String, frame: CGRect?, ok: Bool)
+    /// Called after a `skill` RPC finished. `result` is the full skill
+    /// response `{ok, result?, error?, ms}`; read-back values live in
+    /// `result["result"]` (e.g. `{level, muted}` for volume skills).
+    func handsDidRunSkill(name: String, args: [String: Any], result: [String: Any])
+    /// A `start_timer` timer fired (on the timer queue).
+    func handsTimerFired(label: String?)
+}
+
+public extension HandsDelegate {
+    func handsDidRunSkill(name: String, args: [String: Any], result: [String: Any]) {}
+    func handsTimerFired(label: String?) {}
 }
 
 // MARK: - CGEvent helpers
 
+/// All posts go through `SyntheticEvent.post` (tagged with eventSourceUserData).
 enum Events {
     static func click(at p: CGPoint, button: CGMouseButton = .left, clicks: Int = 1) {
         let downType: CGEventType = button == .left ? .leftMouseDown : .rightMouseDown
@@ -54,12 +73,12 @@ enum Events {
             if let d = CGEvent(mouseEventSource: nil, mouseType: downType,
                                mouseCursorPosition: p, mouseButton: button) {
                 if i > 1 { d.setIntegerValueField(.mouseEventClickState, value: Int64(i)) }
-                d.post(tap: .cghidEventTap)
+                SyntheticEvent.post(d)
             }
             if let u = CGEvent(mouseEventSource: nil, mouseType: upType,
                                mouseCursorPosition: p, mouseButton: button) {
                 if i > 1 { u.setIntegerValueField(.mouseEventClickState, value: Int64(i)) }
-                u.post(tap: .cghidEventTap)
+                SyntheticEvent.post(u)
             }
             if clicks > 1 { usleep(50_000) }
         }
@@ -68,7 +87,7 @@ enum Events {
     static func move(to p: CGPoint) {
         if let e = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved,
                            mouseCursorPosition: p, mouseButton: .left) {
-            e.post(tap: .cghidEventTap)
+            SyntheticEvent.post(e)
         }
     }
 
@@ -89,7 +108,7 @@ enum Events {
         if let e = CGEvent(scrollWheelEvent2Source: nil, units: .line,
                            wheelCount: 2, wheel1: w1, wheel2: w2, wheel3: 0) {
             e.location = p
-            e.post(tap: .cghidEventTap)
+            SyntheticEvent.post(e)
         }
     }
 
@@ -101,10 +120,10 @@ enum Events {
                 d.flags = []
                 d.keyboardSetUnicodeString(stringLength: utf16.count,
                                            unicodeString: &utf16)
-                d.post(tap: .cghidEventTap)
+                SyntheticEvent.post(d)
             }
             if let u = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: false) {
-                u.post(tap: .cghidEventTap)
+                SyntheticEvent.post(u)
             }
             usleep(2_000)
         }
@@ -113,10 +132,10 @@ enum Events {
     static func key(_ code: CGKeyCode, flags: CGEventFlags = []) {
         let src = CGEventSource(stateID: .hidSystemState)
         if let d = CGEvent(keyboardEventSource: src, virtualKey: code, keyDown: true) {
-            d.flags = flags; d.post(tap: .cghidEventTap)
+            d.flags = flags; SyntheticEvent.post(d)
         }
         if let u = CGEvent(keyboardEventSource: src, virtualKey: code, keyDown: false) {
-            u.flags = flags; u.post(tap: .cghidEventTap)
+            u.flags = flags; SyntheticEvent.post(u)
         }
     }
 }
@@ -209,7 +228,8 @@ extension Hands {
 
 extension Hands {
     /// Execute one DSL op. params: {op, ref?, epoch?, text?, combo?, x?, y?,
-    /// direction?, n?, right?, double?, name?, url?, ms?, expect?, cursor_lead_ms?}
+    /// direction?, n?, right?, double?, name?, url?, ms?, expect?,
+    /// expect_timeout_ms? (default 1500), cursor_lead_ms?}
     public func act(_ params: [String: Any]) -> [String: Any] {
         let t0 = Date()
         var out: [String: Any] = [:]
@@ -217,11 +237,17 @@ extension Hands {
             guard let op = params["op"] as? String else {
                 throw HandsError.invalidParams("missing op")
             }
-            // Refs live in the current epoch's ref space; a missing ref is
-            // stale_ref (epoch is informational only).
+            // Parse expect up front: a bad predicate must fail before acting.
+            var pred: ExpectPredicate? = nil
+            if let exp = params["expect"] {
+                do { pred = try Expect.parse(json: exp) }
+                catch { throw HandsError.invalidParams("\(error)") }
+            }
+            // Refs are valid only in the window session they were minted in;
+            // an epoch older than the session start is stale_ref too.
             var refRec: ElementRecord? = nil
             if let r = intParam(params, "ref") {
-                refRec = try element(ref: r)
+                refRec = try element(ref: r, epoch: intParam(params, "epoch"))
             }
             // Ghost-cursor hook: the app may animate a cursor to the target
             // first; headless has no delegate so no delay is added.
@@ -234,13 +260,17 @@ extension Hands {
                 op: op, frame: targetFrame, label: refRec?.label) ?? 0
             if lead > 0 { usleep(UInt32(min(lead, 5.0) * 1_000_000)) }
 
-            var pidForSettle = lastObservedPid()
+            // Synthesized input must land in the observed app (hands-8).
+            if ["type", "keys", "click"].contains(op) { try ensureTargetFocus() }
+
+            let pidForSettle = lastObservedPid()
             var scriptResult: [String: Any]? = nil
             switch op {
             case "press":
                 guard let rec = refRec else { throw HandsError.invalidParams("press needs ref") }
                 if !rec.element.performAction(kAXPressAction)
                     && !rec.element.performAction("AXConfirm") {
+                    try ensureTargetFocus()
                     Events.click(at: CGPoint(x: rec.frame.midX, y: rec.frame.midY))
                 }
             case "type":
@@ -284,12 +314,21 @@ extension Hands {
                 guard let name = params["name"] as? String ?? params["app"] as? String else {
                     throw HandsError.invalidParams("open needs name")
                 }
-                try openAppNamed(name)
+                let pid = try openAppNamed(name)
+                // Let activation land before the fused re-observation, so
+                // the session (and the focus guard) binds to the new app.
+                if pid > 0 { _ = waitFrontmost(pid: pid, timeout: 2.0) }
             case "url":
                 guard let s = params["url"] as? String, let u = URL(string: s) else {
                     throw HandsError.invalidParams("url needs url")
                 }
+                let handler = NSWorkspace.shared.urlForApplication(toOpen: u)
+                    .flatMap { Bundle(url: $0)?.bundleIdentifier }
                 NSWorkspace.shared.open(u)
+                if let bid = handler,
+                   let app = apps.runningApp(bundlePrefix: bid) ?? waitRunning(bundleId: bid, timeout: 2.0) {
+                    _ = waitFrontmost(pid: app.pid, timeout: 1.5)
+                }
             case "wait":
                 let ms = intParam(params, "ms") ?? 500
                 usleep(UInt32(min(ms, 60_000)) * 1000)
@@ -308,32 +347,64 @@ extension Hands {
             }
 
             // Settle, then fused re-observation for diff_text + expect.
-            let pid = pidForSettle != 0 ? pidForSettle
-                : (NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0)
-            out["settle_ms"] = waitForSettle(pid: pid).rounded(to: 2)
-
-            var post: Observation? = nil
-            if let o = try? observe(scope: "focused_window", diff: true) { post = o }
-            out["epoch"] = currentEpoch
-            if let post {
-                out["diff_text"] = post.diffText ?? ""
+            let pid = pidForSettle != 0 ? pidForSettle : apps.frontmostPid()
+            let baseline = previous             // pre-act records (cumulative diff)
+            let settleStart = Date()
+            let settleMs = settleOverride?(pid) ?? waitForSettle(pid: pid)
+            out["settle_ms"] = settleMs.rounded(to: 2)
+            let reobserve: () -> Observation? = { [unowned self] in
+                if let o = self.observeOverride { return try? o() }
+                return try? self.observe(scope: "focused_window", diff: true)
             }
-            if let exp = params["expect"] {
-                let pred = try Expect.parse(json: exp)
-                if let post {
-                    let (ok, observed) = Expect.eval(pred, post)
-                    out["expect_ok"] = ok
-                    out["observed"] = observed
-                    if !ok {
-                        out["ok"] = false
-                        out["error"] = "expect_failed: \(observed)"
-                        delegate?.handsDidAct(op: op, frame: targetFrame, ok: false)
-                        return out
+            var post = reobserve()
+            var sawFull = post?.full ?? false
+
+            var expectOK = true
+            if let pred {
+                // Poll: a slow UI (page load, sheet, document open) may pass
+                // later; re-observe ~every 80 ms until it passes or times out.
+                let timeout = Double(max(0, intParam(params, "expect_timeout_ms") ?? 1500)) / 1000
+                let deadline = Date().addingTimeInterval(timeout)
+                var (ok, observed) = post.map { evalExpect(pred, $0, deadline: deadline) }
+                    ?? (false, "no observation")
+                var polls = 0
+                while !ok && Date() < deadline {
+                    let tick = Date()
+                    let remaining = deadline.timeIntervalSince(tick)
+                    usleep(UInt32(max(0, min(0.08, remaining)) * 1_000_000))
+                    polls += 1
+                    if let o = reobserve() {
+                        post = o
+                        sawFull = sawFull || o.full
+                        (ok, observed) = evalExpect(pred, o, deadline: deadline)
                     }
                 }
+                if polls > 0 {
+                    // Time from settle start until the predicate passed (or gave up).
+                    out["settle_ms"] = (Date().timeIntervalSince(settleStart) * 1000).rounded(to: 2)
+                    out["expect_polls"] = polls
+                }
+                out["expect_ok"] = ok
+                out["observed"] = observed
+                expectOK = ok
+                if !ok { out["error"] = "expect_failed: \(observed)" }
             }
-            out["ok"] = true
-            delegate?.handsDidAct(op: op, frame: targetFrame, ok: true)
+            out["epoch"] = currentEpoch
+            if let post {
+                if sawFull {
+                    out["diff_text"] = ""
+                    out["full"] = true
+                } else {
+                    // Cumulative diff vs the pre-act state (refs are unique,
+                    // so a ref present in both is the same element).
+                    let old = Set(baseline.map { $0.ref })
+                    var matched: [Int: Int] = [:]
+                    for e in post.elements where old.contains(e.ref) { matched[e.ref] = e.ref }
+                    out["diff_text"] = Differ.diff(old: baseline, new: post.elements, matched: matched)
+                }
+            }
+            out["ok"] = expectOK
+            delegate?.handsDidAct(op: op, frame: targetFrame, ok: expectOK)
             return out
         } catch let e as HandsError {
             out["ok"] = false
@@ -417,29 +488,65 @@ extension Hands {
     }
 
     private func lastObservedPid() -> pid_t {
-        lastPid != 0 ? lastPid
-            : (NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0)
+        lastPid != 0 ? lastPid : apps.frontmostPid()
+    }
+
+    /// hands-8: synthesized keys/typing/clicks must go to the observed app.
+    /// If another app is frontmost, activate the target and wait <= 300 ms;
+    /// still wrong -> focus_changed (never type into the wrong app).
+    /// After a skill switched apps on purpose (`focusRebindPending`), or
+    /// with no observation yet, the current frontmost app is the target.
+    func ensureTargetFocus() throws {
+        let target = lastPid
+        guard target > 0, !focusRebindPending, target != getpid() else { return }
+        if apps.frontmostPid() == target { return }
+        if apps.ensureFrontmost(pid: target, timeout: 0.3) { return }
+        throw HandsError.focusChanged(expected: apps.name(pid: target),
+                                      frontmost: apps.name(pid: apps.frontmostPid()))
+    }
+
+    func waitFrontmost(pid: pid_t, timeout: TimeInterval) -> Bool {
+        let end = Date().addingTimeInterval(timeout)
+        while Date() < end {
+            if apps.frontmostPid() == pid { return true }
+            usleep(20_000)
+        }
+        return apps.frontmostPid() == pid
+    }
+
+    func waitRunning(bundleId: String, timeout: TimeInterval) -> RunningAppInfo? {
+        let end = Date().addingTimeInterval(timeout)
+        while Date() < end {
+            if let a = apps.runningApp(bundlePrefix: bundleId) { return a }
+            usleep(50_000)
+        }
+        return nil
     }
 }
 
-func openAppNamed(_ name: String) throws {
+/// Launch or activate an app by name. Returns its pid (0 if unknown).
+@discardableResult
+func openAppNamed(_ name: String) throws -> pid_t {
     // Running first.
     if let running = NSWorkspace.shared.runningApplications.first(where: {
         ($0.localizedName ?? "").localizedCaseInsensitiveCompare(name) == .orderedSame
     }) {
-        running.activate(options: [.activateIgnoringOtherApps])
-        return
+        // AXFrontmost + activate (cooperative activation may ignore the latter).
+        WorkspaceApps().activate(pid: running.processIdentifier)
+        return running.processIdentifier
     }
     if let url = AppResolver.url(forAppNamed: name) {
         let cfg = NSWorkspace.OpenConfiguration()
+        cfg.activates = true
         let sem = DispatchSemaphore(value: 0)
         var openErr: Error?
-        NSWorkspace.shared.openApplication(at: url, configuration: cfg) { _, err in
-            openErr = err; sem.signal()
+        var pid: pid_t = 0
+        NSWorkspace.shared.openApplication(at: url, configuration: cfg) { app, err in
+            openErr = err; pid = app?.processIdentifier ?? 0; sem.signal()
         }
         _ = sem.wait(timeout: .now() + 5)
         if let e = openErr { throw HandsError.skillFailed(e.localizedDescription) }
-        return
+        return pid
     }
     throw HandsError.skillFailed("app not found: \(name)")
 }

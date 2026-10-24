@@ -10,6 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var ghost: GhostCursor!
     private var mascot: MascotController!
     private var voice: VoiceController!
+    private var bridge: HandsBridge!          // rpc.delegate is weak: keep it here
+    private let hud = SkillHUD()
     private let permissionWatcher = PermissionWatcher()
     private var debugHooks: DebugHooks?
 
@@ -24,7 +26,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         overlays = OverlayController()
         ghost = GhostCursor(overlays: overlays)
         mascot = MascotController(model: model)
-        rpc.delegate = ghost
+        bridge = HandsBridge(ghost: ghost)
+        bridge.onSkill = { [weak self] name, _, response in
+            guard let self, let fb = SkillFeedback.from(name: name, response: response) else { return }
+            self.hud.show(fb)
+        }
+        bridge.onTimer = { [weak self] label in self?.showTimerDone(label: label) }
+        rpc.delegate = bridge
 
         // Ghost <-> mascot choreography.
         mascot.onMoved = { [weak self] p in self?.ghost.updateMascotAnchor(p) }
@@ -49,7 +57,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         permissionWatcher.refreshNow()
         wireActions()
 
-        debugHooks = DebugHooks(model: model, ghost: ghost, mascot: mascot, brain: brain, rpc: rpc)
+        debugHooks = DebugHooks(model: model, ghost: ghost, mascot: mascot, brain: brain, rpc: rpc,
+                                hud: hud, bridge: bridge)
 
         voice.start()
         brain.start()
@@ -128,6 +137,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         brain.onRPC = { [weak self] method, summary, ms, ok in
             self?.model.log(.rpc, summary, ms: ms, ok: ok)
         }
+        brain.onUtteranceDropped = { [weak self] id in
+            guard let self else { return }
+            self.model.log(.error, "utterance \(id) dropped: brain offline for > \(Int(BrainConnection.outboxTTL)) s")
+            guard !self.model.isRecording, self.model.pendingConfirm == nil else { return }
+            self.model.mood = .confused
+            self.mascot.showBubble(VoiceController.offlineHint, style: .hint)
+        }
+    }
+
+    // MARK: timers
+
+    /// "Timer done" (+ label) bubble with a happy mascot. Deferred while the
+    /// user is talking or a confirmation is pending.
+    private func showTimerDone(label: String?, attempt: Int = 0) {
+        let words = label?.split(separator: " ").prefix(8).joined(separator: " ")
+        let text = (words?.isEmpty == false) ? "Timer done: \(words!)" : "Timer done"
+        if attempt == 0 { model.log(.system, text) }
+        if (model.isRecording || model.pendingConfirm != nil) && attempt < 30 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                self?.showTimerDone(label: label, attempt: attempt + 1)
+            }
+            return
+        }
+        mascot.wake()
+        model.mood = .success
+        mascot.view.hop(height: 12)
+        mascot.showBubble(text, style: .say)
     }
 
     private func replyConfirm(yes: Bool) {

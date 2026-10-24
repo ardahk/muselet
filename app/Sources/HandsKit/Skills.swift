@@ -4,6 +4,7 @@ import CoreGraphics
 import EventKit
 import Foundation
 import IOKit.ps
+import UserNotifications
 
 // MARK: - Catalog
 
@@ -102,9 +103,169 @@ public final class AppleScriptRunner: ScriptRunning {
         let fixed: [String] = [
             "return 1",
             "output volume of (get volume settings)",
+            Skills.volumeStateScript,
             "tell application \"System Events\" to tell appearance preferences to get dark mode",
         ]
         for src in fixed { _ = try? run(src) }
+    }
+}
+
+// MARK: - System hooks (private frameworks, sounds, notifications)
+
+/// Side effects that can't run in unit tests, injectable as closures.
+/// `live` talks to the real system; tests pass `inert` with overrides.
+public struct SystemHooks {
+    /// IOBluetoothPreferenceGetControllerPowerState; nil = symbol missing.
+    public var bluetoothGet: () -> Bool?
+    /// IOBluetoothPreferenceSetControllerPowerState; false = symbol missing.
+    public var bluetoothSet: (Bool) -> Bool
+    /// Control Center AX toggle fallback; returns the state it left.
+    public var bluetoothControlCenter: (Bool) throws -> Bool
+    /// SACLockScreenImmediate; false = symbol missing.
+    public var lockScreenPrivate: () -> Bool
+    public var brightnessGet: () -> Float?
+    /// DisplayServicesSetBrightness; false = unavailable.
+    public var brightnessSet: (Float) -> Bool
+    public var playSound: (String) -> Void
+    public var notify: (_ title: String, _ body: String) -> Void
+
+    public init(bluetoothGet: @escaping () -> Bool?, bluetoothSet: @escaping (Bool) -> Bool,
+                bluetoothControlCenter: @escaping (Bool) throws -> Bool,
+                lockScreenPrivate: @escaping () -> Bool,
+                brightnessGet: @escaping () -> Float?, brightnessSet: @escaping (Float) -> Bool,
+                playSound: @escaping (String) -> Void,
+                notify: @escaping (String, String) -> Void) {
+        self.bluetoothGet = bluetoothGet
+        self.bluetoothSet = bluetoothSet
+        self.bluetoothControlCenter = bluetoothControlCenter
+        self.lockScreenPrivate = lockScreenPrivate
+        self.brightnessGet = brightnessGet
+        self.brightnessSet = brightnessSet
+        self.playSound = playSound
+        self.notify = notify
+    }
+
+    /// No side effects at all (unit tests start from this).
+    public static var inert: SystemHooks {
+        SystemHooks(
+            bluetoothGet: { nil }, bluetoothSet: { _ in false },
+            bluetoothControlCenter: { _ in throw HandsError.skillFailed("inert") },
+            lockScreenPrivate: { false },
+            brightnessGet: { nil }, brightnessSet: { _ in false },
+            playSound: { _ in }, notify: { _, _ in })
+    }
+
+    public static var live: SystemHooks {
+        SystemHooks(
+            bluetoothGet: { PrivateSymbols.bluetoothPower() },
+            bluetoothSet: { PrivateSymbols.setBluetoothPower($0) },
+            bluetoothControlCenter: { try ControlCenter.setToggle(named: "Bluetooth", on: $0) },
+            lockScreenPrivate: { PrivateSymbols.lockScreen() },
+            brightnessGet: { PrivateSymbols.brightness() },
+            brightnessSet: { PrivateSymbols.setBrightness($0) },
+            playSound: { name in
+                DispatchQueue.main.async {
+                    let s = NSSound(named: NSSound.Name(name))
+                    PrivateSymbols.retainedSound = s     // keep alive while playing
+                    s?.play()
+                }
+            },
+            notify: { title, body in Notifier.post(title: title, body: body) })
+    }
+}
+
+/// dlsym'd private/undocumented entry points (resolved lazily, cached).
+public enum PrivateSymbols {
+    static var retainedSound: NSSound?
+
+    private static let ioBluetooth: UnsafeMutableRawPointer? =
+        dlopen("/System/Library/Frameworks/IOBluetooth.framework/IOBluetooth", RTLD_LAZY)
+    private static let login: UnsafeMutableRawPointer? =
+        dlopen("/System/Library/PrivateFrameworks/login.framework/Versions/Current/login", RTLD_LAZY)
+    private static let displayServices: UnsafeMutableRawPointer? =
+        dlopen("/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices", RTLD_LAZY)
+
+    /// Symbol availability without calling anything (for probes/reports).
+    public static func resolves(_ name: String) -> Bool {
+        let h: UnsafeMutableRawPointer?
+        switch name {
+        case "IOBluetoothPreferenceGetControllerPowerState",
+             "IOBluetoothPreferenceSetControllerPowerState": h = ioBluetooth
+        case "SACLockScreenImmediate": h = login
+        default: h = displayServices
+        }
+        guard let h else { return false }
+        return dlsym(h, name) != nil
+    }
+
+    public static func bluetoothPower() -> Bool? {
+        typealias Fn = @convention(c) () -> Int32
+        guard let h = ioBluetooth,
+              let s = dlsym(h, "IOBluetoothPreferenceGetControllerPowerState") else { return nil }
+        return unsafeBitCast(s, to: Fn.self)() != 0
+    }
+
+    public static func setBluetoothPower(_ on: Bool) -> Bool {
+        typealias Fn = @convention(c) (Int32) -> Void
+        guard let h = ioBluetooth,
+              let s = dlsym(h, "IOBluetoothPreferenceSetControllerPowerState") else { return false }
+        unsafeBitCast(s, to: Fn.self)(on ? 1 : 0)
+        return true
+    }
+
+    public static func lockScreen() -> Bool {
+        typealias Fn = @convention(c) () -> Int32
+        guard let h = login, let s = dlsym(h, "SACLockScreenImmediate") else { return false }
+        _ = unsafeBitCast(s, to: Fn.self)()
+        return true
+    }
+
+    public static func brightness() -> Float? {
+        typealias Fn = @convention(c) (CGDirectDisplayID, UnsafeMutablePointer<Float>) -> Int32
+        guard let h = displayServices, let s = dlsym(h, "DisplayServicesGetBrightness") else {
+            return nil
+        }
+        var v: Float = -1
+        guard unsafeBitCast(s, to: Fn.self)(CGMainDisplayID(), &v) == 0, v >= 0 else { return nil }
+        return v
+    }
+
+    public static func setBrightness(_ v: Float) -> Bool {
+        typealias Fn = @convention(c) (CGDirectDisplayID, Float) -> Int32
+        guard let h = displayServices, let s = dlsym(h, "DisplayServicesSetBrightness") else {
+            return false
+        }
+        _ = unsafeBitCast(s, to: Fn.self)(CGMainDisplayID(), v)
+        return true
+    }
+}
+
+/// User notification for timers. In the bundled app: UNUserNotificationCenter
+/// (asks for permission once). Unbundled (CLI): `display notification`.
+enum Notifier {
+    static func post(title: String, body: String) {
+        let bundled = Bundle.main.bundleIdentifier != nil
+            && Bundle.main.bundleURL.pathExtension == "app"
+        if bundled {
+            let c = UNUserNotificationCenter.current()
+            c.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+                guard granted else { scriptFallback(title: title, body: body); return }
+                let content = UNMutableNotificationContent()
+                content.title = title
+                content.body = body
+                c.add(UNNotificationRequest(identifier: UUID().uuidString,
+                                            content: content, trigger: nil))
+            }
+        } else {
+            scriptFallback(title: title, body: body)
+        }
+    }
+
+    private static func scriptFallback(title: String, body: String) {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        p.arguments = ["-e", "display notification \"\(asq(body))\" with title \"\(asq(title))\""]
+        try? p.run()
     }
 }
 
@@ -130,7 +291,29 @@ public enum PathAlias {
 public final class Skills {
     private let catalog: [String: SkillDef]
     private let scripts: ScriptRunning
+    private let events: EventPosting
+    private let apps: AppControlling
+    private let hooks: SystemHooks
     private var wifiDevice: String?
+    /// Receives `handsTimerFired` (set by RPCHandler.delegate).
+    public weak var delegate: HandsDelegate?
+
+    private let timerQueue = DispatchQueue(label: "hands.timers")
+    private let timerLock = NSLock()
+    private var timers: [String: DispatchSourceTimer] = [:]
+
+    /// Premiere Pro default keyboard shortcuts per `premiere_command`.
+    public static let premiereKeys: [String: String] = [
+        "razor_at_playhead": "cmd+k", "add_marker": "m", "play_toggle": "space",
+        "undo": "cmd+z", "go_to_start": "home", "go_to_end": "end", "export": "cmd+m",
+    ]
+    static let premiereBundlePrefix = "com.adobe.PremierePro"
+
+    /// "<output volume>,<output muted>" as text (a record has no stringValue).
+    static let volumeStateScript = """
+        set s to get volume settings
+        return ((output volume of s) as text) & "," & ((output muted of s) as text)
+        """
 
     /// Precompile AppleScript sources off the hot path (RPCHandler calls
     /// this on a background queue at startup).
@@ -138,12 +321,23 @@ public final class Skills {
         (scripts as? AppleScriptRunner)?.warmUp()
     }
 
-    public init(catalog: [String: SkillDef], scripts: ScriptRunning = AppleScriptRunner()) {
+    public init(catalog: [String: SkillDef], scripts: ScriptRunning = AppleScriptRunner(),
+                events: EventPosting = CGEventPoster(), apps: AppControlling = WorkspaceApps(),
+                hooks: SystemHooks = .live) {
         self.catalog = catalog
         self.scripts = scripts
+        self.events = events
+        self.apps = apps
+        self.hooks = hooks
     }
     public convenience init() {
         self.init(catalog: (try? Catalog.load()) ?? [:])
+    }
+
+    /// Number of timers scheduled and not yet fired.
+    public var pendingTimers: Int {
+        timerLock.lock(); defer { timerLock.unlock() }
+        return timers.count
     }
 
     public func def(_ name: String) -> SkillDef? { catalog[name] }
@@ -169,6 +363,7 @@ public final class Skills {
             let result = try run(name, inArgs)
             out["ok"] = true
             out["result"] = result
+            if let r = result as? [String: Any], let f = r["fires_at"] { out["fires_at"] = f }
         } catch let e as HandsError {
             out["ok"] = false
             out["error"] = e.description
@@ -183,34 +378,54 @@ public final class Skills {
     private func run(_ name: String, _ a: [String: Any]) throws -> Any {
         switch name {
         // ---- system ----
+        // Read-back skills return the state actually observed afterwards
+        // (drives the app's feedback HUD): volume {level, muted},
+        // brightness {level}, toggles {on}.
         case "set_volume":
-            let lvl = try intArg(a, "level")
+            let lvl = max(0, min(100, try intArg(a, "level")))
             _ = try scripts.run("set volume output volume \(lvl)")
-            return ["level": lvl]
+            return volumeResult(fallbackLevel: lvl, fallbackMuted: false)
         case "change_volume":
             let d = try intArg(a, "delta")
             let cur = Int(try scripts.run("output volume of (get volume settings)").trimmingCharacters(in: .whitespacesAndNewlines)) ?? 50
             let lvl = max(0, min(100, cur + d))
             _ = try scripts.run("set volume output volume \(lvl)")
-            return ["level": lvl]
+            return volumeResult(fallbackLevel: lvl, fallbackMuted: false)
         case "mute":
             let on = try boolArg(a, "on")
             _ = try scripts.run(on ? "set volume with output muted"
                                    : "set volume without output muted")
-            return ["muted": on]
+            return volumeResult(fallbackLevel: nil, fallbackMuted: on)
         case "dark_mode":
             let on = try boolArg(a, "on")
             _ = try scripts.run(
                 "tell application \"System Events\" to tell appearance preferences to set dark mode to \(on)")
-            return ["dark": on]
+            let read = (try? scripts.run(
+                "tell application \"System Events\" to tell appearance preferences to get dark mode"))
+                .flatMap { parseBool($0) }
+            let now = read ?? on
+            return ["on": now, "dark": now]
         case "set_brightness":
-            let lvl = try intArg(a, "level")
-            try setBrightness(Float(lvl) / 100.0)
-            return ["level": lvl]
+            let lvl = max(0, min(100, try intArg(a, "level")))
+            guard hooks.brightnessSet(Float(lvl) / 100.0) else {
+                throw HandsError.notImplemented("set_brightness (DisplayServices unavailable)")
+            }
+            usleep(30_000)
+            let read = hooks.brightnessGet().map { Int(($0 * 100).rounded()) }
+            return ["level": read ?? lvl]
         case "wifi":
             let on = try boolArg(a, "on")
             try setWifi(on)
-            return ["wifi": on]
+            let now = wifiPower() ?? on
+            return ["on": now, "wifi": now]
+        case "bluetooth":
+            return try bluetooth(on: try boolArg(a, "on"))
+        case "lock_screen":
+            if hooks.lockScreenPrivate() {
+                return ["locked": true, "method": "SACLockScreenImmediate"]
+            }
+            events.post(try Combo.parse("ctrl+cmd+q"))
+            return ["locked": true, "method": "ctrl+cmd+q"]
         case "sleep_display":
             try process("/usr/bin/pmset", ["displaysleepnow"])
             return ["sleeping": true]
@@ -301,8 +516,22 @@ public final class Skills {
             try FileManager.default.trashItem(
                 at: URL(fileURLWithPath: p), resultingItemURL: &resulting)
             return ["trashed": p]
+        case "empty_trash":
+            // risk=confirm: execute() already required confirmed:true.
+            _ = try scripts.run("tell application \"Finder\" to empty trash")
+            return ["emptied": true]
 
         // ---- time ----
+        case "start_timer":
+            guard let secs = Skills.parseDuration(a["duration"]), secs > 0, secs <= 86_400 else {
+                throw HandsError.invalidParams("start_timer: duration must be seconds in (0, 86400]")
+            }
+            let label = (a["label"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            return startTimer(seconds: secs, label: label)
+
+        // ---- premiere ----
+        case "premiere_command":
+            return try premiereCommand(try strArg(a, "command"), preset: a["preset"] as? String)
         case "create_event":
             return try createEvent(a)
         case "create_reminder":
@@ -430,16 +659,159 @@ public final class Skills {
         return out
     }
 
-    private func setBrightness(_ v: Float) throws {
-        typealias Fn = @convention(c) (CGDirectDisplayID, Float) -> Int32
-        guard let h = dlopen(
-            "/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices",
-            RTLD_LAZY),
-              let sym = dlsym(h, "DisplayServicesSetBrightness") else {
-            throw HandsError.notImplemented("set_brightness (DisplayServices unavailable)")
+    // MARK: read-backs
+
+    /// Parse "30,false" from `volumeStateScript` ("missing value" volume ->
+    /// nil level, e.g. outputs without a volume control).
+    static func parseVolumeState(_ s: String) -> (level: Int?, muted: Bool?) {
+        let parts = s.trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        guard parts.count == 2 else { return (nil, nil) }
+        return (Int(parts[0]) ?? Double(parts[0]).map { Int($0.rounded()) }, parseBool(parts[1]))
+    }
+
+    private func volumeResult(fallbackLevel: Int?, fallbackMuted: Bool) -> [String: Any] {
+        let st = Self.parseVolumeState((try? scripts.run(Self.volumeStateScript)) ?? "")
+        var r: [String: Any] = ["muted": st.muted ?? fallbackMuted]
+        if let l = st.level ?? fallbackLevel { r["level"] = l }
+        return r
+    }
+
+    private func wifiPower() -> Bool? {
+        guard let dev = wifiDevice,
+              let out = try? process("/usr/sbin/networksetup", ["-getairportpower", dev]) else {
+            return nil
         }
-        let f = unsafeBitCast(sym, to: Fn.self)
-        _ = f(CGMainDisplayID(), v)
+        // "Wi-Fi Power (en0): On"
+        if out.range(of: ": On", options: .caseInsensitive) != nil { return true }
+        if out.range(of: ": Off", options: .caseInsensitive) != nil { return false }
+        return nil
+    }
+
+    // MARK: bluetooth
+
+    /// IOBluetooth power setter, verified by polling the getter <= 1 s;
+    /// falls back to the Control Center toggle when the symbol is missing
+    /// or the state didn't change.
+    private func bluetooth(on: Bool) throws -> [String: Any] {
+        if let cur = hooks.bluetoothGet(), cur == on {
+            return ["on": on, "changed": false, "method": "none"]
+        }
+        if hooks.bluetoothSet(on) {
+            let end = Date().addingTimeInterval(1.0)
+            while Date() < end {
+                if hooks.bluetoothGet() == on {
+                    return ["on": on, "changed": true, "method": "iobluetooth"]
+                }
+                usleep(50_000)
+            }
+        }
+        let left = try hooks.bluetoothControlCenter(on)
+        let now = hooks.bluetoothGet() ?? left
+        if now != on {
+            throw HandsError.skillFailed("bluetooth: still \(now ? "on" : "off") after toggling")
+        }
+        return ["on": now, "changed": true, "method": "control_center"]
+    }
+
+    // MARK: timer
+
+    /// Seconds from a number or a duration string ("90", "90s", "10 minutes",
+    /// "1h 30m", "1:30", "PT10M"). The brain normally sends seconds.
+    public static func parseDuration(_ v: Any?) -> Double? {
+        if let n = v as? NSNumber {
+            // JSON booleans are NSNumbers too; a bool is not a duration.
+            if CFGetTypeID(n) == CFBooleanGetTypeID() { return nil }
+            return n.doubleValue
+        }
+        guard var s = (v as? String)?.lowercased().trimmingCharacters(in: .whitespaces),
+              !s.isEmpty else { return nil }
+        if let d = Double(s) { return d }
+        if s.hasPrefix("pt") || s.hasPrefix("p") {
+            s = s.replacingOccurrences(of: "pt", with: "").replacingOccurrences(of: "p", with: "")
+        }
+        let colon = s.split(separator: ":").map { Double($0) }
+        if colon.count >= 2, colon.allSatisfy({ $0 != nil }) {
+            return colon.compactMap { $0 }.reduce(0) { $0 * 60 + $1 }
+        }
+        guard let re = try? NSRegularExpression(
+            pattern: #"(\d+(?:\.\d+)?)\s*(hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)(?![a-z])"#)
+        else { return nil }
+        var total = 0.0
+        var found = false
+        for m in re.matches(in: s, range: NSRange(s.startIndex..., in: s)) {
+            guard let nr = Range(m.range(at: 1), in: s), let ur = Range(m.range(at: 2), in: s),
+                  let n = Double(s[nr]) else { continue }
+            let u = s[ur]
+            let mult: Double = u.hasPrefix("h") ? 3600 : u.hasPrefix("m") ? 60 : 1
+            total += n * mult
+            found = true
+        }
+        return found ? total : nil
+    }
+
+    private func startTimer(seconds: Double, label: String?) -> [String: Any] {
+        let id = "timer-\(UUID().uuidString.prefix(8))"
+        let firesAt = Date().addingTimeInterval(seconds)
+        let hooks = self.hooks
+        let t = DispatchSource.makeTimerSource(queue: timerQueue)
+        // Wall clock: keeps counting across system sleep, like a kitchen timer.
+        t.schedule(wallDeadline: .now() + seconds, leeway: .milliseconds(20))
+        t.setEventHandler { [weak self, weak t, weak delegate = self.delegate] in
+            hooks.playSound("Glass")
+            hooks.notify("Timer done", label ?? "Your \(Self.humanDuration(seconds)) timer is up.")
+            (self?.delegate ?? delegate)?.handsTimerFired(label: label)
+            t?.cancel()
+            if let self {
+                self.timerLock.lock()
+                self.timers.removeValue(forKey: id)
+                self.timerLock.unlock()
+            }
+        }
+        timerLock.lock()
+        timers[id] = t
+        timerLock.unlock()
+        t.resume()
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        var r: [String: Any] = ["fires_at": iso.string(from: firesAt), "seconds": seconds,
+                                "timer_id": id]
+        if let label { r["label"] = label }
+        return r
+    }
+
+    static func humanDuration(_ s: Double) -> String {
+        let n = Int(s.rounded())
+        if n >= 3600, n % 3600 == 0 { return "\(n / 3600)-hour" }
+        if n >= 60, n % 60 == 0 { return "\(n / 60)-minute" }
+        return "\(n)-second"
+    }
+
+    // MARK: premiere
+
+    /// Activate the running Premiere Pro and send its default shortcut.
+    private func premiereCommand(_ command: String, preset: String?) throws -> [String: Any] {
+        guard let keys = Self.premiereKeys[command] else {
+            throw HandsError.invalidParams("premiere_command: unknown command \(command)")
+        }
+        let combo = try Combo.parse(keys)
+        guard let app = apps.runningApp(bundlePrefix: Self.premiereBundlePrefix) else {
+            throw HandsError.skillFailed("Premiere Pro isn't open")
+        }
+        // A heavy app: allow up to 1 s to come forward; never send the
+        // keystroke to another app.
+        guard apps.ensureFrontmost(pid: app.pid, timeout: 1.0) else {
+            throw HandsError.focusChanged(expected: app.name,
+                                          frontmost: apps.name(pid: apps.frontmostPid()))
+        }
+        events.post(combo)
+        var r: [String: Any] = ["command": command, "keys": keys, "app": app.name]
+        if command == "export" {
+            // cmd+m opens Export; presets are picked in the export UI.
+            r["preset_applied"] = false
+            if let preset { r["preset"] = preset }
+        }
+        return r
     }
 
     private func setWifi(_ on: Bool) throws {
@@ -624,8 +996,17 @@ public final class Skills {
                 timestamp: 0, windowNumber: 0, context: nil,
                 subtype: 8, data1: (Int(key) << 16) | (state << 8), data2: -1)
         }
-        ev(true)?.cgEvent?.post(tap: .cghidEventTap)
-        ev(false)?.cgEvent?.post(tap: .cghidEventTap)
+        if let d = ev(true)?.cgEvent { SyntheticEvent.post(d) }
+        if let u = ev(false)?.cgEvent { SyntheticEvent.post(u) }
+    }
+}
+
+/// "true"/"false"/"yes"/"no"/"1"/"0"/"on"/"off" -> Bool.
+func parseBool(_ s: String) -> Bool? {
+    switch s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+    case "true", "yes", "1", "on": return true
+    case "false", "no", "0", "off": return false
+    default: return nil
     }
 }
 

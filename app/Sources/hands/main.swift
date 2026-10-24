@@ -14,7 +14,68 @@ struct HandsCLI: ParsableCommand {
         commandName: "hands",
         abstract: "HandsKit headless CLI: observe, act, skills, brain client.",
         subcommands: [ObserveCmd.self, ReplCmd.self, SkillCmd.self,
-                      BenchObserveCmd.self, ServeCmd.self])
+                      BenchObserveCmd.self, ServeCmd.self, OcrCmd.self, ProbeCmd.self])
+}
+
+struct OcrCmd: ParsableCommand {
+    static var configuration = CommandConfiguration(
+        commandName: "ocr", abstract: "Apple Vision OCR on an image file (or a screen region).")
+    @Option(help: "Image path") var path: String?
+    @Option(help: "Screen region x,y,w,h in global points (needs Screen Recording)")
+    var region: String?
+    @Flag(help: "Print only the joined text") var text = false
+    @Flag(help: "Run the OCR warm-up first (prints its ms to stderr)") var warm = false
+    func run() throws {
+        if warm {
+            let ms = OCR.warmUp()
+            FileHandle.standardError.write("warmup_ms=\(Int(ms))\n".data(using: .utf8)!)
+        }
+        var rect: CGRect?
+        if let region {
+            let v = region.split(separator: ",").compactMap { Double($0) }
+            guard v.count == 4 else { throw ValidationError("region must be x,y,w,h") }
+            rect = CGRect(x: v[0], y: v[1], width: v[2], height: v[3])
+        }
+        guard path != nil || rect != nil else { throw ValidationError("--path or --region") }
+        // Direct call (no RPCHandler: its AppleScript warm-up isn't needed here).
+        let d = try OCR.run(path: path, region: path == nil ? rect : nil, excludeBundleId: nil)
+        if text { print(d["text"] as? String ?? "") } else { printJSON(d) }
+    }
+}
+
+/// Read-only state probes (never change anything).
+struct ProbeCmd: ParsableCommand {
+    static var configuration = CommandConfiguration(
+        commandName: "probe", abstract: "Read-only probes: bluetooth | volume | brightness | symbols")
+    @Argument(help: "bluetooth | volume | brightness | symbols") var what: String
+    func run() throws {
+        switch what {
+        case "bluetooth":
+            let get = PrivateSymbols.resolves("IOBluetoothPreferenceGetControllerPowerState")
+            let set = PrivateSymbols.resolves("IOBluetoothPreferenceSetControllerPowerState")
+            let v = get ? PrivateSymbols.bluetoothPower() : nil
+            printJSON(["getter_resolves": get, "setter_resolves": set,
+                       "power_on": v.map { $0 as Any } ?? NSNull()])
+        case "volume":
+            let out = try AppleScriptRunner().run("""
+                set s to get volume settings
+                return ((output volume of s) as text) & "," & ((output muted of s) as text)
+                """)
+            printJSON(["raw": out])
+        case "brightness":
+            printJSON(["brightness": PrivateSymbols.brightness().map { Double($0) as Any } ?? NSNull()])
+        case "symbols":
+            var d: [String: Any] = [:]
+            for s in ["IOBluetoothPreferenceGetControllerPowerState",
+                      "IOBluetoothPreferenceSetControllerPowerState", "SACLockScreenImmediate",
+                      "DisplayServicesGetBrightness", "DisplayServicesSetBrightness"] {
+                d[s] = PrivateSymbols.resolves(s)
+            }
+            printJSON(d)
+        default:
+            throw ValidationError("unknown probe \(what)")
+        }
+    }
 }
 
 struct ObserveCmd: ParsableCommand {

@@ -74,6 +74,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <string>muselet reads and creates calendar events when you ask it to.</string>
   <key>NSRemindersFullAccessUsageDescription</key>
   <string>muselet reads and creates reminders when you ask it to.</string>
+  <key>NSBluetoothAlwaysUsageDescription</key>
+  <string>muselet turns Bluetooth on or off when you ask it to.</string>
 </dict>
 </plist>
 PLIST

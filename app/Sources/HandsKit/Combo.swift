@@ -64,15 +64,28 @@ public enum Combo {
         return KeyCombo(flags: flags, keyCode: code, keyName: k)
     }
 
+    /// Post key down + up, tagged as synthetic (see `SyntheticEvent`).
     public static func post(_ combo: KeyCombo) {
         let src = CGEventSource(stateID: .hidSystemState)
         if let down = CGEvent(keyboardEventSource: src, virtualKey: combo.keyCode, keyDown: true) {
             down.flags = combo.flags
-            down.post(tap: .cghidEventTap)
+            SyntheticEvent.post(down)
         }
         if let up = CGEvent(keyboardEventSource: src, virtualKey: combo.keyCode, keyDown: false) {
             up.flags = combo.flags
-            up.post(tap: .cghidEventTap)
+            SyntheticEvent.post(up)
         }
+    }
+
+    /// Canonical spelling for logs/results ("cmd+shift+n").
+    public static func describe(_ c: KeyCombo) -> String {
+        var parts: [String] = []
+        if c.flags.contains(.maskControl) { parts.append("ctrl") }
+        if c.flags.contains(.maskAlternate) { parts.append("opt") }
+        if c.flags.contains(.maskShift) { parts.append("shift") }
+        if c.flags.contains(.maskCommand) { parts.append("cmd") }
+        if c.flags.contains(.maskSecondaryFn) { parts.append("fn") }
+        parts.append(c.keyName)
+        return parts.joined(separator: "+")
     }
 }
