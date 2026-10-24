@@ -108,6 +108,102 @@ public enum MessageHandles {
         }
         return false
     }
+
+    /// Like `recipientMatches` with an additional name identifier (the
+    /// `name` param of messages_compose): a case-insensitive contains in
+    /// the same identifying texts.
+    public static func recipientMatches(texts: [String],
+                                        handle: MessageHandle,
+                                        contactName: String?,
+                                        extraName: String?) -> Bool {
+        recipientMatches(texts: texts, handle: handle,
+                         contactName: contactName)
+            || (extraName.map { n in
+                    n.count >= 3 && texts.contains(where: {
+                        $0.lowercased().contains(n.lowercased()) })
+                } ?? false)
+    }
+}
+
+/// `messages_people`: who the user talks to in Messages, from the
+/// `participants` of `chats` (the only Automation use in comms; the app
+/// already holds it). Cached 30 s.
+public enum MessagesPeople {
+    private static var cache: (at: Date, people: [[String: Any]])?
+    private static let cacheTTL: TimeInterval = 30
+
+    static let listScript = """
+        tell application "Messages"
+            set out to ""
+            repeat with c in chats
+                repeat with p in participants of c
+                    try
+                        set out to out & (name of p) & tab & (handle of p) & linefeed
+                    end try
+                end repeat
+            end repeat
+            return out
+        end tell
+        """
+
+    /// Tab-separated `name <TAB> handle` lines -> people records.
+    public static func parsePeople(_ raw: String) -> [[String: Any]] {
+        var seen = Set<String>()
+        var out: [[String: Any]] = []
+        for line in raw.split(separator: "\n") {
+            let parts = line.split(separator: "\t", omittingEmptySubsequences: false)
+            let name = parts.count > 0 ? String(parts[0]) : ""
+            let handle = parts.count > 1 ? String(parts[1]) : ""
+            guard !name.isEmpty || !handle.isEmpty else { continue }
+            let key = "\(name)|\(handle)"
+            guard seen.insert(key).inserted else { continue }
+            var handles: [[String: Any]] = []
+            if !handle.isEmpty {
+                handles.append([
+                    "kind": handle.contains("@") ? "email" : "phone",
+                    "value": handle])
+            }
+            out.append(["name": name, "handles": handles, "chat": true])
+        }
+        return out
+    }
+
+    /// Name match the same way contacts_search does (case-insensitive
+    /// substring on any whitespace-separated word order).
+    static func nameMatches(_ name: String, query: String) -> Bool {
+        name.lowercased().contains(query.lowercased())
+    }
+
+    /// `(ok, result, error)` in the RPC handler's shape.
+    public static func rpc(query: String, limit: Int,
+                           scripts: ScriptRunning = AppleScriptRunner())
+        -> (Bool, Any?, String?) {
+        let t0 = Date()
+        var people: [[String: Any]]
+        if let c = cache, Date().timeIntervalSince(c.at) < cacheTTL {
+            people = c.people
+        } else {
+            do {
+                let raw = try scripts.run(listScript)
+                people = parsePeople(raw)
+                cache = (Date(), people)
+            } catch {
+                let msg = "\(error)"
+                if msg.contains("-1743") || msg.contains("notPermitted") {
+                    return (false, nil, "messages_automation_denied")
+                }
+                return (false, nil, "messages_unavailable")
+            }
+        }
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let matched = q.isEmpty ? people
+            : people.filter {
+                nameMatches($0["name"] as? String ?? "", query: q) }
+        return (true, [
+            "people": Array(matched.prefix(max(1, limit))),
+            "ms": (Date().timeIntervalSince(t0) * 1000).rounded(to: 2),
+        ], nil)
+    }
 }
 
 /// `messages_compose` / `messages_send` RPCs. Compose opens Messages on a
@@ -267,7 +363,10 @@ public final class MessagesComposer {
     // MARK: messages_compose
 
     /// `(ok, result, error)` in the RPC handler's shape. Never sends.
-    public func compose(handle rawHandle: String, body: String)
+    /// `name` is an extra recipient identifier (the display name the
+    /// brain resolved); error results carry `contact_name_lookup`.
+    public func compose(handle rawHandle: String, body: String,
+                        name: String? = nil)
         -> (Bool, Any?, String?) {
         guard let handle = MessageHandles.parse(rawHandle) else {
             return (false, nil, "bad_handle")
@@ -297,14 +396,30 @@ public final class MessagesComposer {
         guard pid != 0 else {
             return (false, ["frontmost": false], "not_frontmost")
         }
+        let lookup = contactName(for: handle)
         let appEl = AXNode(AXUIElementCreateApplication(pid))
         appEl.setMessagingTimeout(0.5)
-        guard let window = frontWindow(appEl: appEl) else {
-            return (false, ["frontmost": true], "no_text_target")
+        // Messages needs a beat to populate the conversation window:
+        // poll <= 2 s for the front window and the compose field.
+        var window: Element?
+        var field: Element?
+        let fieldDeadline = Date().addingTimeInterval(2)
+        while Date() < fieldDeadline {
+            if let w = frontWindow(appEl: appEl) {
+                window = w
+                if let f = composeField(in: w) { field = f; break }
+            }
+            usleep(50_000)
+        }
+        guard let window else {
+            return (false, ["frontmost": true,
+                            "contact_name_lookup": lookup as Any],
+                    "no_text_target")
         }
         let title = window.copySingleAttr(kAXTitleAttribute) as? String ?? ""
-        guard let field = composeField(in: window) else {
-            return (false, ["frontmost": true, "window_title": title],
+        guard let field else {
+            return (false, ["frontmost": true, "window_title": title,
+                            "contact_name_lookup": lookup as Any],
                     "no_text_target")
         }
 
@@ -313,11 +428,12 @@ public final class MessagesComposer {
         // modified. Only the title, toolbar header and To field count.
         let texts = Self.identifyingTexts(window: window, title: title)
         let recipientOK = MessageHandles.recipientMatches(
-            texts: texts, handle: handle,
-            contactName: contactName(for: handle))
+            texts: texts, handle: handle, contactName: lookup,
+            extraName: name)
         guard recipientOK else {
             return (false, [
                 "frontmost": true, "window_title": title,
+                "contact_name_lookup": lookup as Any,
                 "observed": ["window_title": title,
                              "header": texts.prefix(10)],
             ], "recipient_unverified")

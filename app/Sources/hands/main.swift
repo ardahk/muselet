@@ -51,10 +51,12 @@ struct ProbeCmd: ParsableCommand {
     static var configuration = CommandConfiguration(
         commandName: "probe",
         abstract: "Read-only probes: bluetooth | volume | brightness | symbols | skill-targets | applescript | automation | control-center | timers | session")
-    @Argument(help: "bluetooth | volume | brightness | symbols | skill-targets | applescript | automation | control-center | timers | session | contacts")
+    @Argument(help: "bluetooth | volume | brightness | symbols | skill-targets | applescript | automation | control-center | timers | session | contacts | windows")
     var what: String
     @Option(help: "contacts: the search query")
     var query: String = ""
+    @Option(help: "windows: bundle id(s), repeatable")
+    var bundleId: [String] = []
     @Flag(help: "applescript: time the old per-argument compile path instead")
     var legacy = false
     @Flag(help: "control-center: open the panel to find the Bluetooth switch (never pressed; closed again)")
@@ -93,6 +95,9 @@ struct ProbeCmd: ParsableCommand {
             if let r { d["result"] = r }
             if let e { d["error"] = e }
             printJSON(d)
+        case "windows":
+            // AX-only window inventory per bundle id — never Apple Events.
+            printJSON(WindowsProbe.probe(bundleIds: bundleId))
         case "control-center":
             Permissions.requireAX()
             printJSON(ControlCenterProbe.locate(named: "Bluetooth", open: open))

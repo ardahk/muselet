@@ -199,6 +199,12 @@ public final class RPCHandler {
             case "contacts_search":
                 return ContactsSearch.rpc(
                     query: params["query"] as? String ?? "",
+                    limit: intParam(params, "limit") ?? 5,
+                    fuzzy: params["fuzzy"] as? Bool ?? false)
+
+            case "messages_people":
+                return MessagesPeople.rpc(
+                    query: params["query"] as? String ?? "",
                     limit: intParam(params, "limit") ?? 5)
 
             case "messages_compose":
@@ -207,7 +213,9 @@ public final class RPCHandler {
                     return (false, nil,
                             "messages_compose needs handle + body")
                 }
-                return composer.compose(handle: handle, body: body)
+                return composer.compose(
+                    handle: handle, body: body,
+                    name: params["name"] as? String)
 
             case "messages_send":
                 return composer.send()

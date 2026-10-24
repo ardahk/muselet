@@ -125,12 +125,93 @@ public enum ContactsSearch {
         }
     }
 
+    /// Classic Levenshtein distance (small strings; contact names).
+    public static func levenshtein(_ a: String, _ b: String) -> Int {
+        let x = Array(a.lowercased()), y = Array(b.lowercased())
+        var prev = Array(0...y.count)
+        for (i, cx) in x.enumerated() {
+            var cur = [i + 1] + Array(repeating: 0, count: y.count)
+            for (j, cy) in y.enumerated() {
+                cur[j + 1] = cx == cy
+                    ? prev[j]
+                    : 1 + min(prev[j], prev[j + 1], cur[j])
+            }
+            prev = cur
+        }
+        return prev[y.count]
+    }
+
+    /// Normalized similarity in 0...1 (1 = identical).
+    public static func similarity(_ a: String, _ b: String) -> Double {
+        let m = max(a.count, b.count)
+        guard m > 0 else { return 1 }
+        return 1 - Double(levenshtein(a, b)) / Double(m)
+    }
+
+    /// Best fuzzy score of `query` against a contact's name fields
+    /// (full / given / family / nickname). Pure for tests.
+    public static func fuzzyScore(query: String, full: String,
+                                  given: String, family: String,
+                                  nickname: String) -> Double {
+        [full, given, family, nickname]
+            .filter { !$0.isEmpty }
+            .map { similarity(query.lowercased(), $0.lowercased()) }
+            .max() ?? 0
+    }
+
+    /// fuzzy:true — enumerate every contact and keep the top `limit`
+    /// with score >= 0.75, each carrying `score`.
+    static func fuzzySearch(store: CNContactStore, query: String,
+                            limit: Int) -> ([[String: Any]]?, String?) {
+        switch CNContactStore.authorizationStatus(for: .contacts) {
+        case .authorized:
+            break
+        case .notDetermined:
+            var granted = false
+            let sem = DispatchSemaphore(value: 0)
+            store.requestAccess(for: .contacts) { g, _ in
+                granted = g; sem.signal() }
+            _ = sem.wait(timeout: .now() + 60)
+            guard granted else { return (nil, "contacts_denied") }
+        case .denied, .restricted:
+            return (nil, "contacts_denied")
+        @unknown default:
+            return (nil, "contacts_denied")
+        }
+        let keys: [CNKeyDescriptor] = fetchKeys + [
+            CNContactGivenNameKey as CNKeyDescriptor,
+            CNContactFamilyNameKey as CNKeyDescriptor,
+        ]
+        var scored: [(Double, [String: Any])] = []
+        let req = CNContactFetchRequest(keysToFetch: keys)
+        do {
+            try store.enumerateContacts(with: req) { c, _ in
+                let s = fuzzyScore(
+                    query: query,
+                    full: CNContactFormatter.string(from: c, style: .fullName) ?? "",
+                    given: c.givenName, family: c.familyName,
+                    nickname: c.nickname)
+                if s >= 0.75 {
+                    var d = matchDict(c)
+                    d["score"] = (s * 1000).rounded() / 1000
+                    scored.append((s, d))
+                }
+            }
+        } catch {
+            return (nil, "contacts_search failed: \(error.localizedDescription)")
+        }
+        scored.sort { $0.0 > $1.0 }
+        return (scored.prefix(max(1, limit)).map(\.1), nil)
+    }
+
     /// `(ok, result, error)` in the RPC handler's shape.
-    public static func rpc(query: String, limit: Int)
+    public static func rpc(query: String, limit: Int, fuzzy: Bool = false)
         -> (Bool, Any?, String?) {
         let t0 = Date()
-        let (matches, error) = search(
-            store: CNContactStore(), query: query, limit: limit)
+        let store = CNContactStore()
+        let (matches, error) = fuzzy
+            ? fuzzySearch(store: store, query: query, limit: limit)
+            : search(store: store, query: query, limit: limit)
         if let error { return (false, nil, error) }
         return (true, [
             "matches": matches ?? [],

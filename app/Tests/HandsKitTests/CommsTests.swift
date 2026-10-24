@@ -323,6 +323,152 @@ final class SendMessageGuardTests: XCTestCase {
     }
 }
 
+/// Windows probe JSON shaping on mock elements — pure, no AX/TCC.
+final class WindowsProbeTests: XCTestCase {
+    func testWindowDict() {
+        let w = MockElement(role: "AXWindow")
+        w.attrs.title = "report.txt"
+        w.attrs.subrole = "AXStandardWindow"
+        w.singles["AXDocument"] = "file:///tmp/report.txt"
+        w.singles["AXMinimized"] = true
+        let d = WindowsProbe.windowDict(w)
+        XCTAssertEqual(d["title"] as? String, "report.txt")
+        XCTAssertEqual(d["subrole"] as? String, "AXStandardWindow")
+        XCTAssertEqual(d["document"] as? String, "file:///tmp/report.txt")
+        XCTAssertEqual(d["minimized"] as? Bool, true)
+    }
+
+    func testWindowDictMinimal() {
+        let w = MockElement(role: "AXWindow")
+        w.attrs.title = "Save Panel"
+        let d = WindowsProbe.windowDict(w)
+        XCTAssertEqual(d["title"] as? String, "Save Panel")
+        XCTAssertNil(d["document"])
+        XCTAssertNil(d["subrole"])
+        XCTAssertEqual(d["minimized"] as? Bool, false)
+    }
+}
+
+/// Fuzzy contact matching: normalized Levenshtein >= 0.75 on
+/// full/given/family/nickname.
+final class FuzzyContactsTests: XCTestCase {
+    func testLevenshtein() {
+        XCTAssertEqual(ContactsSearch.levenshtein("arda", "arda"), 0)
+        XCTAssertEqual(ContactsSearch.levenshtein("arda", "arda!"), 1)
+        XCTAssertEqual(ContactsSearch.levenshtein("kitten", "sitting"), 3)
+        XCTAssertEqual(ContactsSearch.similarity("arda", "Arda"), 1)
+    }
+
+    func testFuzzyScore() {
+        XCTAssertGreaterThanOrEqual(
+            ContactsSearch.fuzzyScore(
+                query: "arada", full: "Arda Hoke", given: "Arda",
+                family: "Hoke", nickname: ""), 0.75)
+        XCTAssertGreaterThanOrEqual(
+            ContactsSearch.fuzzyScore(
+                query: "hokee", full: "Arda Hoke", given: "Arda",
+                family: "Hoke", nickname: ""), 0.75)
+        XCTAssertLessThan(
+            ContactsSearch.fuzzyScore(
+                query: "zebediah", full: "Arda Hoke", given: "Arda",
+                family: "Hoke", nickname: ""), 0.75)
+        // Nickname hits count too.
+        XCTAssertGreaterThanOrEqual(
+            ContactsSearch.fuzzyScore(
+                query: "ardy", full: "", given: "", family: "",
+                nickname: "Ardy"), 0.75)
+    }
+}
+
+/// The `name` param of messages_compose counts as a recipient
+/// identifier inside the identifying texts only.
+final class ExtraNameMatchTests: XCTestCase {
+    let handle = MessageHandles.parse("+15551234567")!
+
+    func testNameMatches() {
+        XCTAssertTrue(MessageHandles.recipientMatches(
+            texts: ["To: Arda Hoke"], handle: handle,
+            contactName: nil, extraName: "Arda Hoke"))
+        XCTAssertTrue(MessageHandles.recipientMatches(
+            texts: ["ARDA HOKE"], handle: handle,
+            contactName: nil, extraName: "arda hoke"))
+    }
+
+    func testNameDoesNotRescue() {
+        // Different name in the texts: still false.
+        XCTAssertFalse(MessageHandles.recipientMatches(
+            texts: ["Mom"], handle: handle,
+            contactName: nil, extraName: "Arda Hoke"))
+        // Empty texts stay false.
+        XCTAssertFalse(MessageHandles.recipientMatches(
+            texts: [], handle: handle,
+            contactName: nil, extraName: "Arda Hoke"))
+        // A two-letter name fragment never matches.
+        XCTAssertFalse(MessageHandles.recipientMatches(
+            texts: ["Ar"], handle: handle,
+            contactName: nil, extraName: "Ar"))
+    }
+}
+
+/// messages_people parsing + name matching (tab-separated records).
+final class MessagesPeopleTests: XCTestCase {
+    func testParsePeople() {
+        let raw = "Arda Hoke\t+15551234567\n" +
+            "Mom\tmom@x.io\n" +
+            "Arda Hoke\t+15551234567\n" +   // duplicate row
+            "\n" +
+            "Group Chat\t\n"
+        let people = MessagesPeople.parsePeople(raw)
+        XCTAssertEqual(people.count, 3)
+        let arda = people.first { ($0["name"] as? String) == "Arda Hoke" }!
+        let handles = arda["handles"] as? [[String: Any]]
+        XCTAssertEqual(handles?.first?["value"] as? String, "+15551234567")
+        XCTAssertEqual(handles?.first?["kind"] as? String, "phone")
+        let mom = people.first { ($0["name"] as? String) == "Mom" }!
+        XCTAssertEqual(
+            (mom["handles"] as? [[String: Any]])?.first?["kind"] as? String,
+            "email")
+        XCTAssertEqual(arda["chat"] as? Bool, true)
+    }
+
+    func testNameMatch() {
+        XCTAssertTrue(MessagesPeople.nameMatches("Arda Hoke", query: "arda"))
+        XCTAssertTrue(MessagesPeople.nameMatches("Arda Hoke", query: "Hoke"))
+        XCTAssertFalse(MessagesPeople.nameMatches("Mom", query: "arda"))
+    }
+}
+
+/// iso() accepts naive local datetimes as well as offset-bearing ISO.
+final class IsoLocalTests: XCTestCase {
+    func skills() -> Skills {
+        Skills(catalog: [:], scripts: SpyRunner(), events: MockPoster(),
+               apps: MockApps(), hooks: .inert)
+    }
+
+    func testNaiveLocal() throws {
+        let s = skills()
+        let d = try s.iso("2026-10-30T15:00:00")
+        var cal = Calendar.current
+        let comps = cal.dateComponents(
+            [.year, .month, .day, .hour, .minute], from: d)
+        XCTAssertEqual(comps.hour, 15)
+        XCTAssertEqual(comps.minute, 0)
+        XCTAssertEqual(comps.day, 30)
+        cal = Calendar.current
+        let d2 = try s.iso("2026-10-30T15:00")
+        XCTAssertEqual(cal.component(.hour, from: d2), 15)
+    }
+
+    func testOffsetStillWorks() throws {
+        _ = try skills().iso("2026-10-30T15:00:00-07:00")
+        _ = try skills().iso("2026-10-30T22:00:00Z")
+    }
+
+    func testBad() {
+        XCTAssertThrowsError(try skills().iso("friday at 3"))
+    }
+}
+
 final class RelativePathTests: XCTestCase {
     func skills() -> Skills {
         Skills(catalog: (try! Catalog.load()), scripts: SpyRunner(),
