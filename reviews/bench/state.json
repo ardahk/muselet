@@ -1,8 +1,8 @@
 {
-  "pass": 49,
-  "ts": "2026-10-24T23:30Z",
+  "pass": 50,
+  "ts": "2026-10-24T23:45Z",
   "branches": {
-    "main": "46b97f5",
+    "main": "18c139f",
     "wip/local": "719907a",
     "cloud/bench": "f584cb2",
     "cloud/data-pipeline": "830ba35",
@@ -46,7 +46,7 @@
     "cloud/memory": "ba3dc0a",
     "cloud/memory-eval": "c05944e",
     "cloud/memory-lt": "cc056af",
-    "cloud/planner-lora": "ceafe3d",
+    "cloud/planner-lora": "79f0a97",
     "cloud/router-it3-serve": "b455d2c",
     "cloud/docs-demo": "095d4ef",
     "cloud/ui-polish": "e8bceef",
@@ -64,5 +64,5 @@
     "cloud/safety-brain38": "54ca8f6",
     "cloud/safety-planner28": "fb4a45a"
   },
-  "notes": "pass49: only cloud/decisions moved (results.md + cal snapshot). Recomputed the totals: JevBench full .801 = 185/231, brain-4b ref .831 = 192/231, TD .6645 matches the per-kind weights. Calibration is fit on dev only. Tinker-vs-Mac numbers are labelled not comparable, and the gate defers to the Mac MLX run. No findings. Risk to watch: choosing pilot vs full by JevBench hard tier would be tuning on the benchmark."
+  "notes": "pass50: main merged planner-lora (#48), planner-think (#56), live-cases (#57) and bench-28 bank fix (#60); all reviewed on their branches earlier. The planner-lora export checks are consistent (untied lm_head; input embeddings equal base within 4-bit tolerance). The MLX smoke test was skipped on Linux. No new findings."
 }

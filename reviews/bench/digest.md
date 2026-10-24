@@ -1,14 +1,14 @@
-# bench digest — pass 49 (2026-10-24T23:30Z, main@46b97f5)
+# bench digest — pass 50 (2026-10-24T23:45Z, main@18c139f)
 
 P0: 0 | open P1: 9 | open P2: 8
 
 ## Open P1 (ranked)
-1. bench-31 — Planner LoRA trained with ~21 v2-tune demos on v2-holdout screens; gate checks goals only — `training/planner_lora/common.py` (cloud/planner-lora)
+1. bench-31 — Planner LoRA trained with ~21 v2-tune demos on v2-holdout screens; gate checks goals only — `training/planner_lora/common.py` (main@18c139f)
 2. bench-16 — HobbyLM replay: Muselet-only skips/--exclude-kind (calc = 30/125 of r4) shrink its denominator — `bench/hobbylm/replay.py`
 3. bench-20 — Timer tasks graded for Muselet, ungradable for HobbyLM — `bench/hobbylm/replay.py`
 4. bench-21 — Calculator starts in different initial states per arm — `bench/hobbylm/replay.py`
 5. bench-29 — Retrieval bank exposes identical v2-holdout screens (19/130 top-1) — `ml/src/brain/plan_bank.py`
-6. bench-28 — v2-holdout gold/accept still treats field-replacing type "\n..." as append (bank side fixed on cloud/safety-bench28) — `evals/planner_scenarios_v2.jsonl`
+6. bench-28 — v2-holdout gold/accept still treats field-replacing type "\n..." as append (bank side fixed on main 7a85c1f) — `evals/planner_scenarios_v2.jsonl`
 7. bench-11 — Non-MLX systemone backends report as `muselet` — `bench/systemone/`
 8. bench-14 — No ScreenSpot-Pro/OSWorld-G decontam for grounding data — grounding pipeline
 9. bench-15 — Grounding --limit is a sorted prefix, not a stratified sample — grounding runner
