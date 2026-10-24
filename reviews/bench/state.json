@@ -1,12 +1,12 @@
 {
-  "pass": 32,
-  "ts": "2026-10-24T14:35:00Z",
+  "pass": 33,
+  "ts": "2026-10-24T16:25:00Z",
   "branches": {
-    "main": "5292608",
-    "wip/local": "a02959b",
+    "main": "c949565",
+    "wip/local": "4ec066f",
     "cloud/bench": "f584cb2",
     "cloud/data-pipeline": "512cce0",
-    "cloud/decisions": "6d395df",
+    "cloud/decisions": "e125c13",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
     "cloud/finance-3": "31be399",
@@ -27,5 +27,5 @@
     "cloud/pitch-4": "6393857",
     "cloud/brain-6": "780f49d"
   },
-  "notes": "pass32: main 5292608 AGENTS.md:41 now says it2 has 0 real overlaps on HobbyLM r4 and DeskMind Bench after the CJK-aware gate, consistent with it2_report_v3/external_affected_it2 on data-pipeline@512cce0 (gate code still branch-only). wip/local: no lane diff. All open findings unchanged."
+  "notes": "pass33: main c949565 adds cloud/builder_*.md briefs only (not lane). decisions e125c13: full data run, decontam incl. pilot reference: 1,925/3,673 states dropped (1,923 pilot 13-gram hits), remaining overlaps 0. bench-22 updated (decisions tokenizer still ASCII). Not a bench finding (data composition): pilot dedup removed all counting/multi-hop/long-policy code states, numeric 1. bench/tests on decisions not runnable here (httpx/tinker/brain imports). wip/local: no lane diff."
 }

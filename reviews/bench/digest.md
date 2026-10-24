@@ -1,4 +1,4 @@
-# bench digest — pass 32 (2026-10-24T14:35Z, main@5292608)
+# bench digest — pass 33 (2026-10-24T16:25Z, main@c949565)
 
 P0: 0 | open P1: 6 | open P2: 3
 
@@ -10,7 +10,7 @@ P0: 0 | open P1: 6 | open P2: 3
 5. bench-15 — Grounding subset in pitch/claims.md not reproducible (--limit is a sorted prefix; no stratified sampler committed; ±6.7 pt at n=200) — `bench/grounding/run_screenspot.py` (main)
 6. bench-14 — No ScreenSpot-Pro/OSWorld-G decontamination for grounding training data — `training/src/muselet_train/decontam.py` (branch-only)
 
-Open P2: bench-22 (route evalcheck fixed on data-pipeline@512cce0; only the decisions decontam tokenizer still drops CJK), bench-12 (chunked choice probabilities), bench-19 (claims.md quotes consumed holdout-1, n=14, overlapping CIs; use holdout2 + CI).
+Open P2: bench-22 (route evalcheck fixed on data-pipeline@512cce0; only the decisions decontam tokenizer still drops CJK; it has now run on the full decisions data, e125c13), bench-12 (chunked choice probabilities), bench-19 (claims.md quotes consumed holdout-1, n=14, overlapping CIs; use holdout2 + CI).
 
 ## Highest-leverage next moves
 - hobby-gaps is merged: forward HobbyLM's recorded timers to its grade (bench-20; the Muselet side now uses the timers RPC) and give both systems the same Calculator start state (bench-21).
