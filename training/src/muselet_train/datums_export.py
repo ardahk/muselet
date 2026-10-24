@@ -4,7 +4,8 @@
       --teacher-files teacher_pilot_adj.jsonl teacher_ask_adj.jsonl teacher_v2_adj.jsonl
 route.jsonl.gz: final RouteItems after the lead's label rules, with the rendered tokens the trainer used
 (ASR noise applied to train items, as in training) and the soft target over choice ids.
-args.jsonl.gz: ARGS chat messages (system/user/assistant); train on the last assistant message only.
+args.jsonl.gz: ARGS chat messages (system/user/assistant). Weight only the answer + <|im_end|>: the empty think
+block is runtime-prefilled prompt (datums._answer_only).
 """
 
 from __future__ import annotations
@@ -79,7 +80,8 @@ def main() -> None:
 - Choice alphabet: `ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789bdefhijklmnopqrstuvxyz` (a c g w dropped: not single tokens
   after `choice#`); catalog order, skill 37 = `b`, MULTI_STEP/ASK/REFUSE/ANSWER = `d e f h`.
 - Catalog v{meta['catalog_version']} sha256 `{meta['catalog_sha256']}`.
-- ARGS rows: chat messages, train on the last assistant message only. ASR noise is on route train items only.
+- ARGS rows: chat messages. Weight only the answer tokens + `<|im_end|>`; the empty think block is prompt, since
+  the runtime (`DecisionEngine.args`) prefills it (`datums._answer_only`). ASR noise is on route train items only.
 """)
     api = HfApi()
     api.create_repo(a.repo, repo_type="dataset", private=True, exist_ok=True)
