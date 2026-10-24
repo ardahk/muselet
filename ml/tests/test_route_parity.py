@@ -1,5 +1,7 @@
-"""Token-level parity with the training side's reference file
-(training/artifacts/route_render_samples.jsonl, produced on cloud/data-pipeline).
+"""Token-level parity with the training side's reference files, one per catalog:
+route_render_samples.jsonl (skills/catalog.json, v2: r2/it2) and
+route_render_samples_v3.jsonl (training/artifacts/catalog_v3.json: it3),
+both produced on cloud/data-pipeline by muselet_train.render_samples.
 Uses only the locally cached Qwen3.5 tokenizer — no model weights."""
 
 import json
@@ -10,8 +12,11 @@ import pytest
 from brain.catalog import Catalog
 from brain.decision import RouteRenderer, ARGS_SYSTEM, ARGS_USER
 
-SAMPLES = Path(__file__).resolve().parents[2] / \
-    "training" / "artifacts" / "route_render_samples.jsonl"
+ROOT = Path(__file__).resolve().parents[2]
+SAMPLES = ROOT / "training" / "artifacts" / "route_render_samples.jsonl"
+CATALOGS = {"v2": (ROOT / "skills" / "catalog.json", SAMPLES),
+            "v3": (ROOT / "training" / "artifacts" / "catalog_v3.json",
+                   ROOT / "training" / "artifacts" / "route_render_samples_v3.jsonl")}
 MODEL = "mlx-community/Qwen3.5-0.8B-4bit"
 MODEL4B = "mlx-community/Qwen3.5-4B-4bit"
 
@@ -29,14 +34,24 @@ pytestmark = pytest.mark.skipif(_SNAP is None,
                                 reason="Qwen3.5-0.8B tokenizer not cached")
 
 
-@pytest.fixture(scope="module")
-def rr():
-    return RouteRenderer(_SNAP, Catalog.load())
+@pytest.fixture(scope="module", params=sorted(CATALOGS))
+def which(request):
+    return request.param
 
 
 @pytest.fixture(scope="module")
-def samples():
-    return [json.loads(l) for l in SAMPLES.read_text().splitlines()
+def cat(which):
+    return Catalog.load(CATALOGS[which][0])
+
+
+@pytest.fixture(scope="module")
+def rr(cat):
+    return RouteRenderer(_SNAP, cat)
+
+
+@pytest.fixture(scope="module")
+def samples(which):
+    return [json.loads(l) for l in CATALOGS[which][1].read_text().splitlines()
             if l.strip()]
 
 
@@ -55,10 +70,9 @@ def test_tokenizer_parity_08b_vs_4b():
         assert e8 == e4, f"tokenizer mismatch on {r['utterance']!r}"
 
 
-def test_header_parity(rr, samples):
+def test_header_parity(rr, samples, cat):
     h = samples[0]
     assert h["kind"] == "header"
-    cat = Catalog.load()
     ours = [n for n, _ in rr.options]
     theirs = [o["name"] for o in h["options"]]
     if theirs != ours:
@@ -82,9 +96,8 @@ def test_header_parity(rr, samples):
 
 
 @pytest.mark.parametrize("i", range(50))
-def test_sample_parity(rr, samples, i):
+def test_sample_parity(rr, samples, cat, i):
     """Every rendered sample must match tokens + choice_pos exactly."""
-    cat = Catalog.load()
     if [o["name"] for o in samples[0]["options"]] != [n for n, _ in rr.options]:
         pytest.xfail(
             f"samples are for a different catalog (v{cat.version}); "

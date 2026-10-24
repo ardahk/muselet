@@ -249,6 +249,43 @@ def test_confirm_yes_no_double(tmp_path):
     assert len(hands.sent_confirm_replies) == 1   # no double confirm
 
 
+@pytest.mark.parametrize("actions", [
+    ['confirm "Open settings?"', "press #2", "press #1"],
+    ['confirm "Send it?"', "press #1", "press #1"],
+], ids=["harmless_action_clears_confirm", "two_dangerous_actions_one_confirm"])
+def test_brain14_confirm_covers_only_next_action(actions):
+    hands = FakeHands()
+    hands.confirm_yes = True
+    orig = FakeHands.reply
+
+    async def reply(self, msg):
+        if msg["method"] == "observe":
+            return protocol.rpc_result(msg["id"], True, _obs_elements(
+                [{"ref": 1, "role": "button", "label": "Send",
+                  "enabled": True, "frame": [0, 0, 10, 10]},
+                 {"ref": 2, "role": "button", "label": "Settings",
+                  "enabled": True, "frame": [20, 0, 10, 10]}],
+                app="Messages"))
+        return await orig(self, msg)
+    hands.reply = types.MethodType(reply, hands)
+    planner = FakePlanner([actions, ['done "ok"']])
+    server, orch = _mk(9961, planner, hands)
+
+    async def go():
+        await _up(server, hands, orch, 9961)
+        try:
+            await orch._planner_loop("open settings", trace_for(orch))
+        finally:
+            await hands.close()
+            await server.close()
+    run(go())
+    confirms = [m for m in hands.messages if m.get("t") == "confirm"]
+    assert len(confirms) == 2
+    presses = [m["params"]["ref"] for m in hands.rpcs
+               if m["method"] == "act" and m["params"].get("op") == "press"]
+    assert presses == ([2, 1] if "press #2" in actions else [1, 1])
+
+
 def test_confirm_no_cancels(tmp_path):
     hands = FakeHands()
     hands.confirm_yes = False

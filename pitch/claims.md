@@ -60,9 +60,9 @@ have a near-duplicate in training (§1b).
 | Qwen3.5-4B-4bit, base config | .68 | .50 | – | – | – | – |
 | shipped + retrieval k=0 (same run) | .840 (21/25) | .643 (9/14) | .667 (8/12) | – | 74.7 ms holdout / 113.4 ms v2-holdout | – |
 | **shipped + retrieval k=1 (serving default)** | **.880 (22/25)** | **.714 (10/14)** | **.750 (9/12)** | – | 119.3 ms / 184.6 ms | – |
-| shipped + retrieval k=2 (rejected: v2-holdout TTFT +156 ms > 100 ms gate) | 1.000 | .714 | .750 | – | 168.8 ms / 269.4 ms | – |
-
-| Qwen3.6-35B-A3B (k=0) | .84 | .71 | – | ~310 ms | 128 ms | 82 tok/s |
+| shipped + retrieval k=2 (rejected: v2-holdout TTFT +156 ms > pre-registered +150 ms gate) | 1.000 | .714 | .750 | – | 168.8 ms / 269.4 ms | – |
+| Qwen3.6-35B-A3B, k=0, v1 sets (older run, earlier prompt) | .84 | .71 | – | ~310 ms | 128 ms | 82 tok/s |
+| Qwen3.6-35B-A3B, k=1 | TBD(35B k=1 planner run, Mac) | TBD | TBD | TBD | TBD | TBD |
 
 Retrieval rows: `cloud/handoff/notes/retrieval_eval.md` (v2-holdout k=0 / 1 / 2: 52 / 60 / 60 of 130). k=2's
 tune 1.000 is not a held-out number; quote held-out sets only. `{{planner_holdout}}` = .714 (10/14, k=1).

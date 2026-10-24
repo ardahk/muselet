@@ -30,7 +30,8 @@ class BrainServer:
         self.on_config = None         # async cb(config) -> ack fields
 
     async def start(self):
-        self._server = await websockets.serve(self._handler, self.host, self.port)
+        self._server = await websockets.serve(
+            self._handler, self.host, self.port, origins=[None])
         if self.port == 0:
             self.port = self._server.sockets[0].getsockname()[1]
         log.info("brain ws listening on ws://%s:%d", self.host, self.port)

@@ -446,6 +446,32 @@ async def run(orch, args: dict, utterance: str) -> str:
     return "ok"
 
 
+def _draft_signature(obs: dict | None):
+    if not obs:
+        return None
+    elements = _elements(obs)
+
+    def header(label):
+        field = _field(elements, label=label + r"(?::| recipients)?")
+        if field is not None and "value" in field:
+            return str(field["value"] or "").strip(), field.get("ref")
+        match = re.search(r"^" + label + r":\s*([^\n]*)", _obs_text(obs),
+                          re.IGNORECASE | re.MULTILINE)
+        return (match.group(1).strip(), None) if match else None
+
+    recipient, subject = header("To"), header("Subject")
+    if subject is None and str(obs.get("window") or "").lower().startswith("re:"):
+        subject = (obs["window"], None)
+    if not recipient or not recipient[0] or subject is None:
+        return None
+    body = tuple((e.get("ref"), str(e.get("value") or ""))
+                 for e in elements if str(e.get("role") or "").casefold() in
+                 ("textarea", "text area") or re.search(
+                     r"message body", _label(e), re.IGNORECASE))
+    return (obs.get("app"), obs.get("window"), obs.get("window_id"),
+            recipient, subject, body)
+
+
 async def send_draft(orch) -> str:
     draft = getattr(orch, "_draft", None)
     if not draft:
@@ -455,6 +481,7 @@ async def send_draft(orch) -> str:
         if not obs or obs.get("app") != draft["app"] or \
                 obs.get("window") != draft["window_title"]:
             return await _fail(orch, "The draft isn't in front anymore")
+        signature = _draft_signature(obs)
         summary = ("Send the reply?" if draft["reply"] else
                    f"Send the email to {draft['to']}?" if draft.get("to")
                    else "Send the email?")
@@ -467,10 +494,13 @@ async def send_draft(orch) -> str:
             await orch.server.say("Left it as a draft")
             await orch._end_ui("idle")
             return "cancelled"
+        fresh = await orch._observe()
+        if signature is None or _draft_signature(fresh) != signature:
+            return await _fail(orch, "The draft changed; please check it again")
         combo = "cmd+shift+d" if draft["target"] == "mail" else "cmd+return"
         result, error = await _act(
             orch, {"op": "keys", "combo": combo,
-                   "epoch": obs.get("epoch")},
+                   "epoch": fresh.get("epoch")},
             "Couldn't send the email")
         if error or not _success(result):
             return await _fail(orch, error or "Couldn't send the email")
