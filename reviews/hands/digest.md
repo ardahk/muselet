@@ -1,20 +1,27 @@
-# hands — digest (pass 45)
+# hands — digest (pass 46)
 
-Pass 45: main ebdd639, wip/local eb1d232, w9-safety, memory/memory-lt, docs-demo, planner-lora and router-it3-serve have no app/ changes since pass 44, and hands-26/27 are still open. cloud/ui-polish e8bceef was reviewed: HoverDwell (1.0 s dwell before the pill shows, cancellable), PillController typing open/close with a generation guard, a kitten avatar, and debug hooks pill_hover/pill_typing/panel. These hooks are UI-only and their string booleans match debug_ui.sh's json helper. No issues found.
+Reviewed:
+- main 806b0d4 and wip/local 6b1006e have no app/ changes. hands-26 and hands-27 are re-verified open; the orchestrator.py expect strip is also present on cloud/planner-verify at line 2011.
+- cloud/hands-clock 26d4427 adds ClockAX.swift, about 660 lines that drive Clock.app via AX. It is marked uncompiled.
+- cloud/w9-safety 6aa332a: the `appears` matching change is word-bounded and searches only the focused window plus its sheets, popovers and open menus. That closes my "Not filed: appears substring" note. OK.
+- cloud/memory-lt f0ea345: memory frames list/search/delete/clear and config.memory match its AGENTS.md. OK.
+- cloud/decisions: app/ is identical to main.
+- docs-demo-2, live-cases, planner-think, planner-verify, memory: no app/ changes.
 
-Pass 44: main 2a2c2a9 and wip/local 4f963a7 have no app/ changes since pass 43, so hands-26 and hands-27 are re-verified as still open (orchestrator.py:1896 and BrainClient.swift:91 are unchanged). cloud/w9-safety 50a3b25 only touches a test. cloud/memory 4b519b1 adds ctx.url and ctx.window_title to UtteranceCtx: bounded BFS of up to 80 nodes within a 0.15 s budget, AX only, captured asynchronously at key-down. No issues found there. cloud/memory-eval has no app/ changes.
+Static analysis only.
 
-Pass 43 reviewed main 3772f7c. That covers the clock-timers merge (ClockTimers.swift, the Shortcuts CLI backend with a 10 s kill, and the timer_backend RPC, plus the timers_cancel unsupported/failed split) and the mascot redesign. Also reviewed wip/local 8fcf55f and the cloud heads per state.json. Static analysis only; Linux VM.
-
-Open: 0 P0, 1 P1, 5 P2.
+Open: 0 P0, 3 P1, 6 P2.
 
 Open P0/P1, ranked:
-- P1 hands-26: brain strips `expect` from act and runs a single-shot verify, so HandsKit's 1.5 s expect polling never runs (ml/src/brain/orchestrator.py:1896,2034; app/Sources/HandsKit/RPC.swift:173)
+- P1 hands-28: an unverified Clock AX start is reported as a set timer that never fires (cloud/hands-clock app/Sources/HandsKit/ClockAX.swift, Skills.swift:925)
+- P1 hands-29: Clock AX start and cancel steal focus and never restore the prior app (cloud/hands-clock app/Sources/HandsKit/ClockAX.swift:316,421)
+- P1 hands-26: the brain strips `expect` from act, so HandsKit's expect polling never runs (ml/src/brain/orchestrator.py:1896; app/Sources/HandsKit/RPC.swift:173)
 
-Open P2: hands-27 (headless hello frames are bottom-left, BrainClient.swift:86), hands-25, hands-20, hands-16, hands-10.
+Open P2: hands-30 (Clock wheel stepping latency), hands-27, hands-25, hands-20, hands-16, hands-10.
 
 Highest-leverage next moves:
-1. hands-26: send expect inside act. This is one line in the orchestrator, and slow-UI expects stop failing. It also saves one RPC plus one AX walk per action.
-2. hands-27: share ScreenGeometry.cgBounds with BrainClient so headless and bench runs on multi-display rigs get correct grounder zoom scale.
-3. Not filed (needs a live check): timers_cancel runs the generic `Muselet Cancel Timer` shortcut once per Clock timer id (Skills.swift:394-400). If that shortcut cancels all or the wrong Clock timer, the per-id `cancelled` report is wrong.
-4. Not filed: start_timer can block the serial RPC queue for up to ~24 s cold (shortcuts list plus run, 10 s each plus kill). That is under the 45 s skill timeout, but any queued observe/act waits.
+1. hands-28 before merging hands-clock: an unverified start must fall back, or keep a real Muselet alarm. Otherwise users get silent missed timers.
+2. hands-29: save and restore the frontmost app around the Clock AX calls, so compound utterances and the demo keep focus.
+3. hands-26: pass expect inside act. That is a one-line change, fixes slow-UI expect failures, and saves one RPC plus one AX walk per action.
+4. hands-30: cap clockAXStart at about 5 s and step wheels in the shorter direction.
+5. hands-27: use CGDisplayBounds in BrainClient.sendHello.
