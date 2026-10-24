@@ -1,0 +1,50 @@
+{
+  "sheet": "Budget",
+  "categories": [
+    "Rent",
+    "Groceries",
+    "Dining",
+    "Transport",
+    "Shopping",
+    "Subscriptions",
+    "Utilities",
+    "Health"
+  ],
+  "budget": {
+    "Rent": 1650,
+    "Groceries": 400,
+    "Dining": 250,
+    "Transport": 150,
+    "Shopping": 200,
+    "Subscriptions": 60,
+    "Utilities": 180,
+    "Health": 80
+  },
+  "actual": {
+    "Rent": 1650.0,
+    "Groceries": 1238.07,
+    "Dining": 831.97,
+    "Transport": 717.93,
+    "Shopping": 1955.33,
+    "Subscriptions": 50.47,
+    "Utilities": 146.31,
+    "Health": 295.25
+  },
+  "remaining": {
+    "Rent": 0.0,
+    "Groceries": -838.07,
+    "Dining": -581.97,
+    "Transport": -567.93,
+    "Shopping": -1755.33,
+    "Subscriptions": 9.53,
+    "Utilities": 33.69,
+    "Health": -215.25
+  },
+  "over_budget": [
+    "Groceries",
+    "Dining",
+    "Transport",
+    "Shopping",
+    "Health"
+  ]
+}

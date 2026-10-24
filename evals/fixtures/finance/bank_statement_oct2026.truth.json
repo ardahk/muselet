@@ -1,0 +1,515 @@
+{
+  "rows": [
+    {
+      "row": 1,
+      "category": "Income"
+    },
+    {
+      "row": 2,
+      "category": "Rent"
+    },
+    {
+      "row": 3,
+      "category": "Transport"
+    },
+    {
+      "row": 4,
+      "category": "Shopping"
+    },
+    {
+      "row": 5,
+      "category": "Transport"
+    },
+    {
+      "row": 6,
+      "category": "Dining"
+    },
+    {
+      "row": 7,
+      "category": "Transport"
+    },
+    {
+      "row": 8,
+      "category": "Dining"
+    },
+    {
+      "row": 9,
+      "category": "Groceries"
+    },
+    {
+      "row": 10,
+      "category": "Groceries"
+    },
+    {
+      "row": 11,
+      "category": "Dining"
+    },
+    {
+      "row": 12,
+      "category": "Transport"
+    },
+    {
+      "row": 13,
+      "category": "Transport"
+    },
+    {
+      "row": 14,
+      "category": "Groceries"
+    },
+    {
+      "row": 15,
+      "category": "Dining"
+    },
+    {
+      "row": 16,
+      "category": "Groceries"
+    },
+    {
+      "row": 17,
+      "category": "Dining"
+    },
+    {
+      "row": 18,
+      "category": "Groceries"
+    },
+    {
+      "row": 19,
+      "category": "Dining"
+    },
+    {
+      "row": 20,
+      "category": "Dining"
+    },
+    {
+      "row": 21,
+      "category": "Groceries"
+    },
+    {
+      "row": 22,
+      "category": "Transport"
+    },
+    {
+      "row": 23,
+      "category": "Groceries"
+    },
+    {
+      "row": 24,
+      "category": "Groceries"
+    },
+    {
+      "row": 25,
+      "category": "Dining"
+    },
+    {
+      "row": 26,
+      "category": "Transport"
+    },
+    {
+      "row": 27,
+      "category": "Transport"
+    },
+    {
+      "row": 28,
+      "category": "Dining"
+    },
+    {
+      "row": 29,
+      "category": "Dining"
+    },
+    {
+      "row": 30,
+      "category": "Transport"
+    },
+    {
+      "row": 31,
+      "category": "Dining"
+    },
+    {
+      "row": 32,
+      "category": "Transport"
+    },
+    {
+      "row": 33,
+      "category": "Dining"
+    },
+    {
+      "row": 34,
+      "category": "Subscriptions"
+    },
+    {
+      "row": 35,
+      "category": "Shopping"
+    },
+    {
+      "row": 36,
+      "category": "Dining"
+    },
+    {
+      "row": 37,
+      "category": "Transport"
+    },
+    {
+      "row": 38,
+      "category": "Groceries"
+    },
+    {
+      "row": 39,
+      "category": "Dining"
+    },
+    {
+      "row": 40,
+      "category": "Transport"
+    },
+    {
+      "row": 41,
+      "category": "Shopping"
+    },
+    {
+      "row": 42,
+      "category": "Dining"
+    },
+    {
+      "row": 43,
+      "category": "Transport"
+    },
+    {
+      "row": 44,
+      "category": "Dining"
+    },
+    {
+      "row": 45,
+      "category": "Dining"
+    },
+    {
+      "row": 46,
+      "category": "Income"
+    },
+    {
+      "row": 47,
+      "category": "Groceries"
+    },
+    {
+      "row": 48,
+      "category": "Transport"
+    },
+    {
+      "row": 49,
+      "category": "Shopping"
+    },
+    {
+      "row": 50,
+      "category": "Dining"
+    },
+    {
+      "row": 51,
+      "category": "Dining"
+    },
+    {
+      "row": 52,
+      "category": "Transport"
+    },
+    {
+      "row": 53,
+      "category": "Groceries"
+    },
+    {
+      "row": 54,
+      "category": "Groceries"
+    },
+    {
+      "row": 55,
+      "category": "Health"
+    },
+    {
+      "row": 56,
+      "category": "Health"
+    },
+    {
+      "row": 57,
+      "category": "Dining"
+    },
+    {
+      "row": 58,
+      "category": "Groceries"
+    },
+    {
+      "row": 59,
+      "category": "Transport"
+    },
+    {
+      "row": 60,
+      "category": "Groceries"
+    },
+    {
+      "row": 61,
+      "category": "Subscriptions"
+    },
+    {
+      "row": 62,
+      "category": "Subscriptions"
+    },
+    {
+      "row": 63,
+      "category": "Shopping"
+    },
+    {
+      "row": 64,
+      "category": "Dining"
+    },
+    {
+      "row": 65,
+      "category": "Income"
+    },
+    {
+      "row": 66,
+      "category": "Health"
+    },
+    {
+      "row": 67,
+      "category": "Transport"
+    },
+    {
+      "row": 68,
+      "category": "Groceries"
+    },
+    {
+      "row": 69,
+      "category": "Dining"
+    },
+    {
+      "row": 70,
+      "category": "Health"
+    },
+    {
+      "row": 71,
+      "category": "Groceries"
+    },
+    {
+      "row": 72,
+      "category": "Shopping"
+    },
+    {
+      "row": 73,
+      "category": "Shopping"
+    },
+    {
+      "row": 74,
+      "category": "Transport"
+    },
+    {
+      "row": 75,
+      "category": "Transport"
+    },
+    {
+      "row": 76,
+      "category": "Transport"
+    },
+    {
+      "row": 77,
+      "category": "Dining"
+    },
+    {
+      "row": 78,
+      "category": "Shopping"
+    },
+    {
+      "row": 79,
+      "category": "Shopping"
+    },
+    {
+      "row": 80,
+      "category": "Dining"
+    },
+    {
+      "row": 81,
+      "category": "Health"
+    },
+    {
+      "row": 82,
+      "category": "Transport"
+    },
+    {
+      "row": 83,
+      "category": "Dining"
+    },
+    {
+      "row": 84,
+      "category": "Health"
+    },
+    {
+      "row": 85,
+      "category": "Groceries"
+    },
+    {
+      "row": 86,
+      "category": "Utilities"
+    },
+    {
+      "row": 87,
+      "category": "Groceries"
+    },
+    {
+      "row": 88,
+      "category": "Groceries"
+    },
+    {
+      "row": 89,
+      "category": "Subscriptions"
+    },
+    {
+      "row": 90,
+      "category": "Shopping"
+    },
+    {
+      "row": 91,
+      "category": "Dining"
+    },
+    {
+      "row": 92,
+      "category": "Shopping"
+    },
+    {
+      "row": 93,
+      "category": "Health"
+    },
+    {
+      "row": 94,
+      "category": "Dining"
+    },
+    {
+      "row": 95,
+      "category": "Transport"
+    },
+    {
+      "row": 96,
+      "category": "Transport"
+    },
+    {
+      "row": 97,
+      "category": "Dining"
+    },
+    {
+      "row": 98,
+      "category": "Groceries"
+    },
+    {
+      "row": 99,
+      "category": "Groceries"
+    },
+    {
+      "row": 100,
+      "category": "Transport"
+    },
+    {
+      "row": 101,
+      "category": "Health"
+    },
+    {
+      "row": 102,
+      "category": "Health"
+    },
+    {
+      "row": 103,
+      "category": "Groceries"
+    },
+    {
+      "row": 104,
+      "category": "Dining"
+    },
+    {
+      "row": 105,
+      "category": "Groceries"
+    },
+    {
+      "row": 106,
+      "category": "Shopping"
+    },
+    {
+      "row": 107,
+      "category": "Transport"
+    },
+    {
+      "row": 108,
+      "category": "Dining"
+    },
+    {
+      "row": 109,
+      "category": "Utilities"
+    },
+    {
+      "row": 110,
+      "category": "Groceries"
+    },
+    {
+      "row": 111,
+      "category": "Dining"
+    },
+    {
+      "row": 112,
+      "category": "Groceries"
+    },
+    {
+      "row": 113,
+      "category": "Transport"
+    },
+    {
+      "row": 114,
+      "category": "Dining"
+    },
+    {
+      "row": 115,
+      "category": "Dining"
+    },
+    {
+      "row": 116,
+      "category": "Dining"
+    },
+    {
+      "row": 117,
+      "category": "Dining"
+    },
+    {
+      "row": 118,
+      "category": "Groceries"
+    },
+    {
+      "row": 119,
+      "category": "Dining"
+    },
+    {
+      "row": 120,
+      "category": "Groceries"
+    }
+  ],
+  "duplicates": [
+    [
+      26,
+      27
+    ],
+    [
+      72,
+      73
+    ]
+  ],
+  "outliers": [
+    90
+  ],
+  "refunds": [
+    106
+  ],
+  "category_spend": {
+    "Rent": 1650.0,
+    "Groceries": 1238.07,
+    "Dining": 831.97,
+    "Transport": 717.93,
+    "Shopping": 1955.33,
+    "Subscriptions": 50.47,
+    "Utilities": 146.31,
+    "Health": 295.25
+  },
+  "total_income": 4845.0,
+  "total_spend": 6885.33,
+  "net": -2040.33,
+  "opening_balance": 3120.55,
+  "closing_balance": 1080.22
+}
