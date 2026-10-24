@@ -34,6 +34,26 @@ def find_duplicates(txns: list[Txn]) -> list[tuple[int, int]]:
     return pairs
 
 
+def duplicate_status(txns: list[Txn], pairs: list[tuple[int, int]] | None = None) -> list[dict]:
+    """[{rows, amount, status: open|refunded, refund_row}] per duplicate pair. A pair is refunded when a later
+    refund credit reverses one of its debits (same merchant and amount); each refund settles one pair."""
+    pairs = find_duplicates(txns) if pairs is None else pairs
+    by_row = {t.row: t for t in txns}
+    free = [r for r in find_refunds(txns)]
+    out = []
+    for a, b in pairs:
+        refund_row = None
+        for r in free:
+            orig = reversed_debit(txns, r)
+            if orig in (a, b) or (orig is not None and _dup_key(by_row[orig]) == _dup_key(by_row[a])):
+                refund_row = r
+                free.remove(r)
+                break
+        out.append({"rows": [a, b], "amount": -by_row[a].amount, "status": "refunded" if refund_row else "open",
+                    "refund_row": refund_row})
+    return out
+
+
 def robust_z(values: list[Decimal]) -> list[Decimal]:
     m = median(values)
     mad = median(abs(v - m) for v in values)

@@ -1,10 +1,21 @@
 tell application id "com.apple.Numbers"
 	tell front document
-		if exists sheet "Review" then delete sheet "Review"
-		set s to make new sheet with properties {name:"Review"}
+		set nm to "Muselet Review"
+		if exists sheet nm then
+			if exists table "Muselet Allocation" of sheet nm then
+				delete sheet nm
+			else
+				set i to 2
+				repeat while exists sheet (nm & " " & i)
+					set i to i + 1
+				end repeat
+				set nm to nm & " " & i
+			end if
+		end if
+		set s to make new sheet with properties {name:nm}
 		tell s
 			set t1 to table 1
-			set name of t1 to "Allocation"
+			set name of t1 to "Muselet Allocation"
 			set column count of t1 to 6
 			set row count of t1 to 6
 			set value of cell 1 of row 1 of t1 to "Asset class"
@@ -44,7 +55,7 @@ tell application id "com.apple.Numbers"
 			set value of cell 5 of row 6 of t1 to 7.87
 			set value of cell 6 of row 6 of t1 to 60.00
 			set format of range "B2:B6" of t1 to currency
-			set t2 to make new table with properties {name:"Trades", column count:6, row count:4}
+			set t2 to make new table with properties {name:"Muselet Trades", column count:6, row count:4}
 			set {x0, y0} to position of t1
 			set position of t2 to {x0, y0 + (height of t1) + 40}
 			set value of cell 1 of row 1 of t2 to "Account"

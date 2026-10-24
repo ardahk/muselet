@@ -32,10 +32,13 @@ public struct Observation {
     public var truncated: Bool = false
     public var axMs: Double = 0
     /// Set on the observation that just turned on the app's web AX tree
-    /// ("manual" | "enhanced"), with the time spent waiting for the web
-    /// area to populate (included in axMs).
+    /// ("manual" | "chromium" | "enhanced"), with the time spent waiting
+    /// for the web area to populate (included in axMs).
     public var webAX: String?
     public var webAXWaitMs: Double?
+    /// The app's web tree was switched on < ~2.5 s ago and Chrome is still
+    /// debouncing: web content will appear on a later observation.
+    public var webAXPending = false
 }
 
 public enum ObserveError: Error, CustomStringConvertible {
@@ -321,14 +324,14 @@ public final class Hands {
     public private(set) var epoch = 0
     private var current: [Int: ElementRecord] = [:]
     private(set) var previous: [ElementRecord] = []
-    /// Apps whose web AX tree we already turned on: pid -> launch date
-    /// (a reused pid with another launch date is a new process).
-    private var webAXPids: [pid_t: Date] = [:]
     /// Turn on browsers' / Electron apps' web accessibility trees when
     /// observing them (CLI `--no-web-ax` disables it for comparisons).
+    /// Which processes are already on lives in `webAXRegistry` (shared with
+    /// the app's activation watcher).
     public var webAXEnabled = true
-    /// Last web AX enable (mode + populate wait), for the CLI / debugging.
-    public private(set) var lastWebAX: (mode: WebAXMode, wait: WebAX.WaitResult)?
+    var webAXRegistry = WebAX.Registry.shared
+    /// Last web AX enable (result + populate wait), for the CLI / debugging.
+    public private(set) var lastWebAX: (result: WebAX.EnableResult, wait: WebAX.WaitResult?)?
     private var sessionKey = ""
     /// First epoch of the current window session; acts carrying an older
     /// epoch were planned against another window -> stale_ref.
@@ -403,22 +406,14 @@ public final class Hands {
     }
 
     /// Turn on the app's web accessibility tree once per process
-    /// (Chromium/Electron: AXManualAccessibility; Safari/Gecko browsers:
-    /// AXEnhancedUserInterface). Returns the mode when it was set just now
-    /// (the caller then waits for the web area to populate), else nil.
+    /// (Electron: AXManualAccessibility; Chromium browsers: that plus
+    /// AXEnhancedUserInterface; Safari/Gecko browsers: AXEnhancedUserInterface).
+    /// Returns the result when it was set just now, else nil.
     func ensureWebAX(app: Element, pid: pid_t, bundleId: String?, bundleURL: URL?,
-                     launchDate: Date?) -> WebAXMode? {
-        guard webAXEnabled, pid > 0, pid != getpid() else { return nil }
-        let stamp = launchDate ?? .distantPast
-        if let seen = webAXPids[pid], seen == stamp { return nil }
-        guard let mode = WebAX.mode(bundleId: bundleId, bundleURL: bundleURL) else {
-            webAXPids[pid] = stamp        // not a web app: never re-check this process
-            return nil
-        }
-        WebAX.enable(mode, app: app)
-        webAXPids[pid] = stamp
-        if webAXPids.count > 256 { webAXPids = [pid: stamp] }
-        return mode
+                     launchDate: Date?) -> WebAX.EnableResult? {
+        guard webAXEnabled else { return nil }
+        return webAXRegistry.ensure(pid: pid, bundleId: bundleId, bundleURL: bundleURL,
+                                    launchDate: launchDate, app: app)
     }
 
     /// scope: "focused_window" | "app" | "menubar". app: optional app name.
@@ -430,10 +425,10 @@ public final class Hands {
         var obs = Observation()
         obs.app = running.localizedName ?? "?"
         obs.pid = running.processIdentifier
-        let webMode = ensureWebAX(app: appEl, pid: running.processIdentifier,
-                                  bundleId: running.bundleIdentifier,
-                                  bundleURL: running.bundleURL,
-                                  launchDate: running.launchDate)
+        let webOn = ensureWebAX(app: appEl, pid: running.processIdentifier,
+                                bundleId: running.bundleIdentifier,
+                                bundleURL: running.bundleURL,
+                                launchDate: running.launchDate)
 
         var roots: [Element]
         var windowEl: AXUIElement?
@@ -462,18 +457,26 @@ public final class Hands {
             }
         }
         // Just turned on the web AX tree: let the web area populate
-        // (bounded, once per process) so this observation already sees it.
+        // (<= 300 ms, once per process) so this observation already sees
+        // it. Skipped when it can't populate that fast (Chrome's 2 s debounce).
         var webWait: WebAX.WaitResult?
-        if let webMode, scope != "menubar", let root = roots.first {
-            webWait = WebAX.waitForWebArea(root: root)
-            lastWebAX = (webMode, webWait!)
+        if let webOn {
+            if !webOn.delayed, scope != "menubar", let root = roots.first {
+                webWait = WebAX.waitForWebArea(root: root)
+            }
+            lastWebAX = (webOn, webWait)
+        } else if webAXEnabled, scope != "menubar", let root = roots.first,
+                  let left = webAXRegistry.populateTimeLeft(pid: obs.pid) {
+            // The activation watcher switched it on a moment ago: wait the rest.
+            webWait = WebAX.waitForWebArea(root: root, timeout: left)
         }
         var out = processObservation(roots: roots, app: obs.app,
                                      window: obs.window, pid: obs.pid,
                                      maxNodes: maxNodes, diff: diff,
                                      deadline: deadline, appEl: appEl, t0: t0)
-        if let webMode { out.webAX = webMode.rawValue }
+        if let webOn { out.webAX = webOn.mode.rawValue }
         if let w = webWait { out.webAXWaitMs = w.ms }
+        out.webAXPending = webAXEnabled && webAXRegistry.pending(pid: obs.pid)
         return out
     }
 

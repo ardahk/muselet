@@ -316,8 +316,21 @@ final class GhostCursor: HandsDelegate {
         case "scroll": return "Scroll"
         case "click": return "Click"
         case "keys": return "Keys"
-        case "open": return "Open"
-        default: return op.capitalized
+        case "open", "open_app", "open_file", "open_url": return "Open"
+        // Skills (ux-4): the ghost flies to the Dock icon / menu extra.
+        case "quit_app": return "Quit"
+        case "hide_app": return "Hide"
+        case "open_folder": return "Open folder"
+        case "find_file": return "Find"
+        case "new_folder": return "New folder"
+        case "web_search": return "Search"
+        case "set_volume", "change_volume": return "Volume"
+        case "mute": return "Mute"
+        case "set_brightness": return "Brightness"
+        case "dark_mode": return "Dark mode"
+        case "wifi": return "Wi‑Fi"
+        case "bluetooth": return "Bluetooth"
+        default: return op.replacingOccurrences(of: "_", with: " ").capitalized
         }
     }
 

@@ -171,7 +171,13 @@
     "months": 6,
     "monthly_expenses": "8000.00",
     "emergency_reserve": "48000.00",
-    "lake_house_reserve": "120000.00",
+    "reserves": [
+      {
+        "label": "lake house down payment",
+        "amount": "120000.00"
+      }
+    ],
+    "reserve_total": "120000.00",
     "excess": "68480.00"
   },
   "roth": {

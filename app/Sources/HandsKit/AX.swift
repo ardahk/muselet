@@ -137,6 +137,25 @@ public final class AXNode: Element {
     }
 }
 
+/// Element from a copySingleAttr value (an AXUIElement, or a mock Element in tests).
+func axElement(_ v: Any?) -> Element? {
+    guard let v else { return nil }
+    if let e = v as? Element { return e }
+    let o = v as CFTypeRef
+    return CFGetTypeID(o) == AXUIElementGetTypeID() ? AXNode(o as! AXUIElement) : nil
+}
+
+/// Element array from a copySingleAttr value (CFArray of AXUIElement, or mocks).
+func axElements(_ v: Any?) -> [Element] {
+    if let els = v as? [Element] { return els }
+    if let raw = v as? [AnyObject] {
+        return raw.compactMap { o in
+            CFGetTypeID(o) == AXUIElementGetTypeID() ? AXNode(o as! AXUIElement) : nil
+        }
+    }
+    return []
+}
+
 /// Identity comparison for CF-based elements.
 public func sameElement(_ a: Element, _ b: Element) -> Bool {
     if let x = a as? AXNode, let y = b as? AXNode { return CFEqual(x.el, y.el) }

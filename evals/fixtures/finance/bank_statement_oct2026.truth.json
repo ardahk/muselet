@@ -491,11 +491,65 @@
       67
     ]
   ],
+  "duplicate_status": [
+    {
+      "rows": [
+        18,
+        19
+      ],
+      "amount": 23.47,
+      "status": "open",
+      "refund_row": null
+    },
+    {
+      "rows": [
+        66,
+        67
+      ],
+      "amount": 64.99,
+      "status": "refunded",
+      "refund_row": 105
+    }
+  ],
   "outliers": [
     85
   ],
   "refunds": [
     105
+  ],
+  "weekend_charges": [
+    4,
+    5,
+    6,
+    7,
+    8,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    116,
+    117,
+    118,
+    119,
+    120
   ],
   "category_spend": {
     "Rent": 1625.0,

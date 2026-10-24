@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import HandsKit
+import QuartzCore
 
 /// Global hold-to-talk on Right Option via a listen-only CGEventTap
 /// (flagsChanged keycode 61 + the device-dependent right-alt bit), plus Esc.
@@ -19,6 +20,9 @@ final class PushToTalkMonitor {
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private(set) var isHeld = false
+    /// CACurrentMediaTime-domain time of the last Right ⌥ key-down event
+    /// (from the event timestamp; tap delivery latency included in timings).
+    private(set) var pressEventTime: CFTimeInterval = 0
     private var chorded = false
     private var wakeObserver: NSObjectProtocol?
 
@@ -104,6 +108,11 @@ final class PushToTalkMonitor {
             if down && !isHeld {
                 isHeld = true
                 chorded = false
+                // CGEvent timestamps are mach-time nanoseconds; keep them only
+                // if they're plausible (else "now").
+                let now = CACurrentMediaTime()
+                let t = Double(event.timestamp) / 1e9
+                pressEventTime = (t > 0 && t <= now && now - t < 1) ? t : now
                 onPress?()
             } else if !down && isHeld {
                 isHeld = false

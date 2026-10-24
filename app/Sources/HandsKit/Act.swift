@@ -342,8 +342,18 @@ extension Hands {
                 throw HandsError.invalidParams("unknown op \(op)")
             }
             out["act_ms"] = (Date().timeIntervalSince(t0) * 1000).rounded(to: 2)
+            // A shell script that exits non-zero (or times out) failed
+            // (planner-11): ok=false with exit_code/stdout/stderr.
+            var scriptError: String?
             if let sr = scriptResult {
                 for (k, v) in sr { out[k] = v }
+                let code = sr["exit_code"] as? Int ?? 0
+                if sr["timed_out"] as? Bool == true {
+                    scriptError = "script_failed: timed out after \(Int(Self.shellTimeout)) s"
+                } else if code != 0 {
+                    let err = (sr["stderr"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                    scriptError = "script_failed: exit \(code)" + (err.isEmpty ? "" : ": \(err.prefix(300))")
+                }
             }
 
             // Settle, then fused re-observation for diff_text + expect.
@@ -391,6 +401,10 @@ extension Hands {
             }
             out["epoch"] = currentEpoch
             if let post {
+                // hands-13: the re-observation hit the node cap, so a `- #ref`
+                // may only mean "pushed past the cap"; consumers must not
+                // apply diff_text as a complete view.
+                if post.truncated { out["truncated"] = true }
                 if sawFull {
                     out["diff_text"] = ""
                     out["full"] = true
@@ -403,8 +417,10 @@ extension Hands {
                     out["diff_text"] = Differ.diff(old: baseline, new: post.elements, matched: matched)
                 }
             }
-            out["ok"] = expectOK
-            delegate?.handsDidAct(op: op, frame: targetFrame, ok: expectOK)
+            if let scriptError { out["error"] = scriptError }
+            let ok = expectOK && scriptError == nil
+            out["ok"] = ok
+            delegate?.handsDidAct(op: op, frame: targetFrame, ok: ok)
             return out
         } catch let e as HandsError {
             out["ok"] = false
@@ -453,37 +469,50 @@ extension Hands {
         return out?.stringValue ?? ""
     }
 
-    private func runShell(_ code: String) throws -> [String: Any] {
+    static let shellTimeout: TimeInterval = 10
+    /// Max chars of stdout/stderr returned per stream.
+    static let shellOutputCap = 100_000
+
+    /// /bin/zsh -c with a timeout. Always returns {stdout, stderr, output,
+    /// exit_code, timed_out?}; act() turns a non-zero exit into ok=false.
+    /// Pipes are drained while the process runs (a >64 KB output must not
+    /// block the child until the timeout).
+    func runShell(_ code: String, timeout: TimeInterval = Hands.shellTimeout) throws -> [String: Any] {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/zsh")
         p.arguments = ["-c", code]
         let outP = Pipe(), errP = Pipe()
         p.standardOutput = outP
         p.standardError = errP
-        try p.run()
+        p.standardInput = FileHandle.nullDevice
+        let buf = ShellOutput()
+        outP.fileHandleForReading.readabilityHandler = { h in buf.append(h.availableData, err: false) }
+        errP.fileHandleForReading.readabilityHandler = { h in buf.append(h.availableData, err: true) }
         let done = DispatchSemaphore(value: 0)
-        DispatchQueue.global().async { p.waitUntilExit(); done.signal() }
-        var rc = p.terminationStatus
+        p.terminationHandler = { _ in done.signal() }
+        do { try p.run() } catch {
+            outP.fileHandleForReading.readabilityHandler = nil
+            errP.fileHandleForReading.readabilityHandler = nil
+            throw HandsError.skillFailed("shell: \(error.localizedDescription)")
+        }
         var timedOut = false
-        if done.wait(timeout: .now() + 10) == .timedOut {
-            p.terminate()
+        if done.wait(timeout: .now() + timeout) == .timedOut {
             timedOut = true
-            _ = done.wait(timeout: .now() + 2)
+            p.terminate()
+            if done.wait(timeout: .now() + 1) == .timedOut {
+                kill(p.processIdentifier, SIGKILL)
+                _ = done.wait(timeout: .now() + 1)
+            }
         }
-        rc = p.terminationStatus
-        let outS = String(data: outP.fileHandleForReading.readDataToEndOfFile(),
-                          encoding: .utf8) ?? ""
-        let errS = String(data: errP.fileHandleForReading.readDataToEndOfFile(),
-                          encoding: .utf8) ?? ""
-        var r: [String: Any] = ["stdout": outS, "stderr": errS,
-                                "exit_code": Int(rc), "output": outS]
-        if timedOut {
-            throw HandsError.skillFailed("shell timed out (10s): \(errS)")
-        }
-        if rc != 0 {
-            r["exit_code"] = Int(rc)
-            return r   // output still reported; caller decides
-        }
+        // EOF arrives once every writer closed; a backgrounded child may
+        // keep the pipe open, so wait only briefly.
+        buf.waitForEOF(timeout: 0.2)
+        outP.fileHandleForReading.readabilityHandler = nil
+        errP.fileHandleForReading.readabilityHandler = nil
+        let (outS, errS) = buf.strings(cap: Self.shellOutputCap)
+        let rc = Int(p.isRunning ? -1 : p.terminationStatus)
+        var r: [String: Any] = ["stdout": outS, "stderr": errS, "exit_code": rc, "output": outS]
+        if timedOut { r["timed_out"] = true }
         return r
     }
 
@@ -521,6 +550,39 @@ extension Hands {
             usleep(50_000)
         }
         return nil
+    }
+}
+
+/// Thread-safe stdout/stderr accumulator for `runShell`.
+final class ShellOutput {
+    private let lock = NSLock()
+    private var out = Data(), err = Data()
+    private var outEOF = false, errEOF = false, signaled = false
+    private let eof = DispatchSemaphore(value: 0)
+
+    func append(_ d: Data, err isErr: Bool) {
+        lock.lock()
+        if d.isEmpty {        // EOF (the handler may fire again with empty data)
+            if isErr { errEOF = true } else { outEOF = true }
+            let fire = outEOF && errEOF && !signaled
+            if fire { signaled = true }
+            lock.unlock()
+            if fire { eof.signal() }
+            return
+        }
+        if isErr { err.append(d) } else { out.append(d) }
+        lock.unlock()
+    }
+
+    func waitForEOF(timeout: TimeInterval) { _ = eof.wait(timeout: .now() + timeout) }
+
+    func strings(cap: Int) -> (String, String) {
+        lock.lock(); defer { lock.unlock() }
+        func s(_ d: Data) -> String {
+            let str = String(decoding: d, as: UTF8.self)
+            return str.count > cap ? String(str.prefix(cap)) + "…[truncated]" : str
+        }
+        return (s(out), s(err))
     }
 }
 

@@ -26,6 +26,12 @@ final class VoiceController {
     private var moodBeforeListening: MascotMood = .idle
     /// Keep capturing briefly after release so the last syllable isn't clipped.
     private let releaseTail: TimeInterval = 0.06
+    /// The confirm that was pending at key-down (a yes/no answer to a
+    /// confirm the brain cancelled meanwhile must not become a command).
+    private var confirmAtPress: String?
+    /// Key-down -> listening mood / first mic buffer (ux-7), logged per press.
+    private struct ListenTiming { var moodMs: Double?; var firstBufferMs: Double?; var logged = false }
+    private var listenTiming = ListenTiming()
 
     init(model: AppModel) {
         self.model = model
@@ -37,6 +43,13 @@ final class VoiceController {
             self.model.micLevel = v
             self.model.levelSubject.send(v)
         }
+        recorder.onFirstBuffer = { [weak self] ms in
+            guard let self else { return }
+            self.listenTiming.firstBufferMs = ms
+            self.logListenTiming()
+        }
+        // Keep the engine prepared so key-down only pays engine.start().
+        if AVCaptureDevice.authorizationStatus(for: .audio) == .authorized { recorder.warmUp() }
         ptt.onPress = { [weak self] in self?.pressBegan() }
         ptt.onRelease = { [weak self] in self?.pressEnded() }
         ptt.onChord = { [weak self] in self?.abortRecording(hint: nil) }
@@ -120,12 +133,14 @@ final class VoiceController {
 
     private func pressBegan() {
         guard !model.isRecording else { return }
+        let keyDown = ptt.pressEventTime > 0 ? ptt.pressEventTime : CACurrentMediaTime()
         mascot?.wake()
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .audio) { granted in
                 DispatchQueue.main.async {
                     self.model.permissions = Permissions.snapshot()
+                    if granted { self.recorder.warmUp() }
                     self.mascot?.showBubble(granted ? "Mic is on. Hold right ⌥ again and talk to me."
                                                     : "I need the microphone to hear you.",
                                             style: .hint)
@@ -139,27 +154,49 @@ final class VoiceController {
         default:
             break
         }
-        do {
-            try recorder.start()
-        } catch {
-            model.mood = .confused
-            mascot?.showBubble("Mic error: \(error.localizedDescription)", style: .hint)
-            model.log(.error, "mic start failed: \(error.localizedDescription)")
-            return
-        }
         counter += 1
-        currentID = "u\(counter)-\(Int(Date().timeIntervalSince1970) % 100_000)"
+        let id = "u\(counter)-\(Int(Date().timeIntervalSince1970) % 100_000)"
+        currentID = id
         lastPartial = ""
         // Capture ctx at push-to-talk key-down (AGENTS.md contract). App
         // name is read now; the AX part runs off the main thread with a
         // 0.15 s timeout so a hung frontmost app can't stall listening.
         pressCtx = UtteranceCtx.begin()
+        confirmAtPress = model.pendingConfirm?.id
+        // ux-7: feedback first. The listening mood and bubble never wait on
+        // Core Audio; the (prepared) engine starts on the audio queue.
         model.isRecording = true
         model.micLevel = 0
         if model.mood != .listening { moodBeforeListening = model.mood }
         model.mood = .listening
         mascot?.showBubble("", style: .transcript, autoHide: false)
+        listenTiming = ListenTiming()
+        DispatchQueue.main.async { [weak self] in
+            // Next main-loop turn: the mood change has been committed to the render server.
+            guard let self, self.currentID == id else { return }
+            self.listenTiming.moodMs = (CACurrentMediaTime() - keyDown) * 1000
+            self.logListenTiming()
+        }
+        recorder.start(keyDownAt: keyDown) { [weak self] error in
+            guard let self, let error else { return }
+            self.model.log(.error, "mic start failed: \(error.localizedDescription)")
+            guard self.model.isRecording, self.currentID == id else { return }
+            self.partialTask?.cancel()
+            self.model.isRecording = false
+            self.model.micLevel = 0
+            self.model.mood = .confused
+            self.mascot?.showBubble("Mic error: \(error.localizedDescription)", style: .hint)
+        }
         startPartials()
+    }
+
+    /// One line per press once both numbers are in (FileLog, next to stt_latency).
+    private func logListenTiming() {
+        guard !listenTiming.logged, let mood = listenTiming.moodMs,
+              let first = listenTiming.firstBufferMs else { return }
+        listenTiming.logged = true
+        FileLog.shared.raw(String(format: "listen_latency keydown_to_mood_ms=%.1f keydown_to_first_buffer_ms=%.1f",
+                                  mood, first))
     }
 
     private func pressEnded() {
@@ -247,6 +284,14 @@ final class VoiceController {
                 model.mood = .confused
                 restoreBubbleAfterVoice(hint: nil)
             }
+            return
+        }
+        // The brain cancelled the confirm while the user was answering it:
+        // a bare yes/no must not go out as a new command.
+        if confirmAtPress != nil, Self.parseYesNo(text) != nil {
+            model.log(.utterance, "“\(text)” dropped: the confirmation was cancelled")
+            model.mood = .idle
+            mascot?.showBubble("That question was cancelled.", style: .hint)
             return
         }
         guard !text.isEmpty else {

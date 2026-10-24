@@ -89,11 +89,14 @@ struct ObserveCmd: ParsableCommand {
     @Flag(help: "Emit JSON instead of text") var json = false
     @Flag(help: "Don't turn on the web AX tree (AXManualAccessibility / AXEnhancedUserInterface)")
     var noWebAx = false
+    @Option(help: "Re-observe N more times (stats lines only), e.g. to watch a web tree populate")
+    var repeatCount: Int = 0
+    @Option(help: "Interval between repeats (ms)") var intervalMs: Int = 250
     func run() throws {
         Permissions.requireAX()
+        WebAX.Registry.shared.isEnabled = !noWebAx
         if json {
             let rpc = RPCHandler(warmUp: false)
-            rpc.hands.webAXEnabled = !noWebAx
             let (ok, r, e) = rpc.handle(method: "observe", params: [
                 "app": app as Any, "max_nodes": max, "scope": scope, "diff": true])
             if ok, let r { printJSON(r) }
@@ -101,19 +104,36 @@ struct ObserveCmd: ParsableCommand {
         } else {
             let h = Hands()
             h.webAXEnabled = !noWebAx
+            let t0 = Date()
+            func stats(_ obs: Observation) -> String {
+                let web = obs.elements.filter { $0.inWebArea }.count
+                var line = "t_ms=\(Int(Date().timeIntervalSince(t0) * 1000)) ax_ms=\(obs.axMs.rounded(to: 1))"
+                    + " nodes=\(obs.elements.count) web_nodes=\(web)"
+                    + (obs.truncated ? " truncated" : "") + (obs.webAXPending ? " web_ax_pending" : "")
+                if let m = obs.webAX, let last = h.lastWebAX {
+                    line += " web_ax=\(m) manual_err=\(last.result.manualError.map(String.init) ?? "-")"
+                        + " enhanced_err=\(last.result.enhancedError.map(String.init) ?? (last.result.enhancedAlreadyOn ? "already_on" : "-"))"
+                    if let w = last.wait {
+                        line += " web_wait_ms=\(w.ms.rounded(to: 1)) web_area=\(w.foundWebArea)"
+                            + " populated=\(w.populated) polls=\(w.polls)"
+                    } else {
+                        line += " web_wait=skipped"
+                    }
+                }
+                return line
+            }
             let obs = try h.observe(scope: scope, app: app, maxNodes: max)
             print(obs.text)
             if let d = obs.diffText, !d.isEmpty { print("--- diff ---\n\(d)") }
-            let web = obs.elements.filter { $0.inWebArea }.count
-            var line = "ax_ms=\(obs.axMs.rounded(to: 1)) nodes=\(obs.elements.count) web_nodes=\(web)"
-                + (obs.truncated ? " truncated" : "")
-            if let m = obs.webAX {
-                line += " web_ax=\(m) web_wait_ms=\((obs.webAXWaitMs ?? 0).rounded(to: 1))"
-                if let w = h.lastWebAX?.wait {
-                    line += " web_area=\(w.foundWebArea) populated=\(w.populated) polls=\(w.polls)"
-                }
+            FileHandle.standardError.write((stats(obs) + "\n").data(using: .utf8)!)
+            for _ in 0..<Swift.max(0, repeatCount) {
+                usleep(UInt32(Swift.max(0, intervalMs)) * 1000)
+                let o = try h.observe(scope: scope, app: app, maxNodes: max, diff: false)
+                FileHandle.standardError.write((stats(o) + "\n").data(using: .utf8)!)
             }
-            FileHandle.standardError.write((line + "\n").data(using: .utf8)!)
+            if repeatCount > 0, let last = try? h.observe(scope: scope, app: app, maxNodes: max, diff: false) {
+                print("--- last ---\n\(last.text)")
+            }
         }
     }
 }
@@ -125,12 +145,14 @@ struct WebAXCmd: ParsableCommand {
         abstract: "Show an app's AXManualAccessibility / AXEnhancedUserInterface and web area; --set changes them.")
     @Option(help: "App name") var app: String
     @Option(help: "manual | enhanced | off (sets both false) | manual-off | enhanced-off") var set: String?
+    @Option(help: "Print the focused window's role tree to this depth (stderr)") var dump: Int?
     func run() throws {
         Permissions.requireAX()
         guard let ra = NSWorkspace.shared.runningApplications.first(where: {
             ($0.localizedName ?? "").localizedCaseInsensitiveCompare(app) == .orderedSame
         }) else { throw ValidationError("not running: \(app)") }
-        let node = AXNode(AXUIElementCreateApplication(ra.processIdentifier))
+        let appEl = AXUIElementCreateApplication(ra.processIdentifier)
+        let node = AXNode(appEl)
         node.setMessagingTimeout(0.5)
         var d: [String: Any] = ["app": ra.localizedName ?? app, "pid": ra.processIdentifier,
                                 "bundle_id": ra.bundleIdentifier ?? "",
@@ -144,18 +166,23 @@ struct WebAXCmd: ParsableCommand {
         }
         state("before_")
         if let set {
-            var r: [String: Bool] = [:]
+            // Raw AXError codes (0 = success; Chromium may report an error yet apply it).
+            var r: [String: Int] = [:]
+            func put(_ attr: String, _ v: Bool) -> Int {
+                Int(AXUIElementSetAttributeValue(appEl, attr as CFString,
+                                                 (v ? kCFBooleanTrue : kCFBooleanFalse)!).rawValue)
+            }
             switch set {
-            case "manual": r["manual"] = node.setAttr(WebAX.manualAttribute, true)
-            case "enhanced": r["enhanced"] = node.setAttr(WebAX.enhancedAttribute, true)
-            case "manual-off": r["manual"] = node.setAttr(WebAX.manualAttribute, false)
-            case "enhanced-off": r["enhanced"] = node.setAttr(WebAX.enhancedAttribute, false)
+            case "manual": r["manual"] = put(WebAX.manualAttribute, true)
+            case "enhanced": r["enhanced"] = put(WebAX.enhancedAttribute, true)
+            case "manual-off": r["manual"] = put(WebAX.manualAttribute, false)
+            case "enhanced-off": r["enhanced"] = put(WebAX.enhancedAttribute, false)
             case "off":
-                r["manual"] = node.setAttr(WebAX.manualAttribute, false)
-                r["enhanced"] = node.setAttr(WebAX.enhancedAttribute, false)
+                r["manual"] = put(WebAX.manualAttribute, false)
+                r["enhanced"] = put(WebAX.enhancedAttribute, false)
             default: throw ValidationError("bad --set \(set)")
             }
-            d["set_ok"] = r
+            d["set_axerror"] = r
             state("after_")
         }
         let wins = (node.copySingleAttr(kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
@@ -173,6 +200,19 @@ struct WebAXCmd: ParsableCommand {
                 d["web_area_children"] = area.copyAttrs().children.count
             } else {
                 d["web_area_children"] = NSNull()
+            }
+            if let depth = dump {
+                var lines: [String] = []
+                func walk(_ el: Element, _ lvl: Int) {
+                    guard lines.count < 400 else { return }
+                    let a = el.copyAttrs()
+                    let name = [a.title, a.desc].compactMap { $0 }.first { !$0.isEmpty } ?? ""
+                    lines.append(String(repeating: "  ", count: lvl)
+                                 + "\(a.role ?? "?")\(a.subrole.map { "/\($0)" } ?? "") \"\(name.prefix(40))\" kids=\(a.children.count)")
+                    if lvl < depth { a.children.forEach { walk($0, lvl + 1) } }
+                }
+                walk(win, 0)
+                FileHandle.standardError.write((lines.joined(separator: "\n") + "\n").data(using: .utf8)!)
             }
         }
         printJSON(d)
@@ -290,6 +330,7 @@ struct ServeCmd: ParsableCommand {
     func run() throws {
         Permissions.requireAX()
         guard let u = URL(string: url) else { throw ValidationError("bad url") }
+        WebAX.watchActivations()
         let client = BrainClient(url: u, utterances: utterance)
         client.run()
     }

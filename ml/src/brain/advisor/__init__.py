@@ -14,8 +14,15 @@ from .core import (
                    tlh_candidates,
                    totals,
 )
-from .scripts import notes_brief_script, numbers_highlight_script, numbers_review_script
+from .scripts import (
+    calendar_lookup_script,
+    notes_brief_script,
+    numbers_highlight_script,
+    numbers_review_script,
+    numbers_wait_script,
+)
 
-__all__ = ["Household", "allocation", "brief_html", "brief_markdown", "cash_excess", "donation_candidates",
-           "load_household", "notes_brief_script", "numbers_highlight_script", "numbers_review_script", "prep",
+__all__ = ["Household", "allocation", "brief_html", "brief_markdown", "calendar_lookup_script", "cash_excess", "donation_candidates",
+           "load_household", "notes_brief_script", "numbers_highlight_script", "numbers_review_script",
+           "numbers_wait_script", "prep",
            "rebalance_trades", "roth_room", "strip_evidence", "tlh_candidates", "totals"]
