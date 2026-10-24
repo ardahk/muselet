@@ -1,0 +1,185 @@
+{
+ "evals": {
+  "route_v1": 140,
+  "live_t1": 43,
+  "external/deskmind/diag": 13,
+  "external/deskmind/dyn": 64,
+  "external/deskmind/proposals": 22,
+  "external/hobbylm/calc-tasks/dev": 4,
+  "external/hobbylm/calc-tasks/held-out": 30,
+  "external/hobbylm/sealed-r1": 95,
+  "external/hobbylm/sealed-r2": 95,
+  "external/hobbylm/sealed-r3": 107,
+  "external/hobbylm/sealed-r4": 125,
+  "external/hobbylm/system-settings": 15
+ },
+ "route_train": {
+  "rows": 39181,
+  "pairs": 27,
+  "by_rule": {
+   "short_edit1": 27
+  },
+  "by_eval": {
+   "route_v1": 8,
+   "external/hobbylm/sealed-r3": 1,
+   "external/hobbylm/sealed-r2": 1,
+   "external/deskmind/dyn": 16,
+   "external/deskmind/diag": 1
+  }
+ },
+ "route_val": {
+  "rows": 1216,
+  "pairs": 0,
+  "by_rule": {},
+  "by_eval": {}
+ },
+ "args_train": {
+  "rows": 29705,
+  "pairs": 0,
+  "by_rule": {},
+  "by_eval": {}
+ },
+ "args_val": {
+  "rows": 878,
+  "pairs": 0,
+  "by_rule": {},
+  "by_eval": {}
+ },
+ "affected": {
+  "route_v1": [
+   {
+    "idx": 8,
+    "utterance": "kill the sound"
+   },
+   {
+    "idx": 29,
+    "utterance": "close slack completely"
+   },
+   {
+    "idx": 30,
+    "utterance": "hide messages"
+   },
+   {
+    "idx": 67,
+    "utterance": "resume playback"
+   },
+   {
+    "idx": 112,
+    "utterance": "what's fifteen percent of eighty"
+   },
+   {
+    "idx": 120,
+    "utterance": "set volume too thirty"
+   },
+   {
+    "idx": 128,
+    "utterance": "kill bluetooth"
+   }
+  ],
+  "live_t1": [],
+  "external/deskmind/diag": [
+   {
+    "idx": 6,
+    "utterance": "\u5728\u5de5\u4f5c\u76ee\u5f55\u91cc\u65b0\u5efa\u4e00\u4e2a\u540d\u4e3a archive \u7684\u6587\u4ef6\u5939\u3002\u4e0d\u8981\u505a\u522b\u7684\u3002"
+   }
+  ],
+  "external/deskmind/dyn": [
+   {
+    "idx": 25,
+    "utterance": "\u628a\u9752\u79be\u90a3\u5f20\u53d1\u7968\u653e\u8fdb\u65b0\u6587\u4ef6\u5939 \u5f85\u62a5\u9500\u3002\u5176\u4ed6\u6587\u4ef6\u4e0d\u8981\u52a8\u3002"
+   },
+   {
+    "idx": 26,
+    "utterance": "\u628a\u9752\u79be\u90a3\u5f20\u53d1\u7968\u653e\u8fdb\u65b0\u6587\u4ef6\u5939 \u5f85\u62a5\u9500\u3002\u5176\u4ed6\u6587\u4ef6\u4e0d\u8981\u52a8\u3002"
+   },
+   {
+    "idx": 27,
+    "utterance": "\u628a\u9752\u79be\u90a3\u5f20\u53d1\u7968\u653e\u8fdb\u65b0\u6587\u4ef6\u5939 \u5f85\u62a5\u9500\u3002\u5176\u4ed6\u6587\u4ef6\u4e0d\u8981\u52a8\u3002"
+   },
+   {
+    "idx": 28,
+    "utterance": "\u628a\u9752\u79be\u90a3\u5f20\u53d1\u7968\u653e\u8fdb\u65b0\u6587\u4ef6\u5939 \u5f85\u62a5\u9500\u3002\u5176\u4ed6\u6587\u4ef6\u4e0d\u8981\u52a8\u3002"
+   },
+   {
+    "idx": 45,
+    "utterance": "\u6574\u7406\u4e00\u4e0b\u8fd9\u4e2a\u6587\u4ef6\u5939\u3002"
+   },
+   {
+    "idx": 46,
+    "utterance": "\u6574\u7406\u4e00\u4e0b\u8fd9\u4e2a\u6587\u4ef6\u5939\u3002"
+   },
+   {
+    "idx": 47,
+    "utterance": "\u6574\u7406\u4e00\u4e0b\u8fd9\u4e2a\u6587\u4ef6\u5939\u3002"
+   },
+   {
+    "idx": 48,
+    "utterance": "\u6574\u7406\u4e00\u4e0b\u8fd9\u4e2a\u6587\u4ef6\u5939\u3002"
+   },
+   {
+    "idx": 49,
+    "utterance": "\u6309\u9879\u76ee\u6574\u7406\u8fd9\u4e2a\u6587\u4ef6\u5939\uff1a\u6bcf\u4e2a\u9879\u76ee\u4e00\u4e2a\u6587\u4ef6\u5939\uff0c\u7528\u9879\u76ee\u540d\u547d\u540d\u3002"
+   },
+   {
+    "idx": 50,
+    "utterance": "\u6309\u9879\u76ee\u6574\u7406\u8fd9\u4e2a\u6587\u4ef6\u5939\uff1a\u6bcf\u4e2a\u9879\u76ee\u4e00\u4e2a\u6587\u4ef6\u5939\uff0c\u7528\u9879\u76ee\u540d\u547d\u540d\u3002"
+   },
+   {
+    "idx": 51,
+    "utterance": "\u6309\u9879\u76ee\u6574\u7406\u8fd9\u4e2a\u6587\u4ef6\u5939\uff1a\u6bcf\u4e2a\u9879\u76ee\u4e00\u4e2a\u6587\u4ef6\u5939\uff0c\u7528\u9879\u76ee\u540d\u547d\u540d\u3002"
+   },
+   {
+    "idx": 52,
+    "utterance": "\u6309\u9879\u76ee\u6574\u7406\u8fd9\u4e2a\u6587\u4ef6\u5939\uff1a\u6bcf\u4e2a\u9879\u76ee\u4e00\u4e2a\u6587\u4ef6\u5939\uff0c\u7528\u9879\u76ee\u540d\u547d\u540d\u3002"
+   },
+   {
+    "idx": 53,
+    "utterance": "\u6309\u9879\u76ee\u6574\u7406\u8fd9\u4e2a\u6587\u4ef6\u5939\uff1a\u6bcf\u4e2a\u9879\u76ee\u4e00\u4e2a\u6587\u4ef6\u5939\uff0c\u7528\u9879\u76ee\u540d\u547d\u540d\u3002"
+   },
+   {
+    "idx": 54,
+    "utterance": "\u6309\u9879\u76ee\u6574\u7406\u8fd9\u4e2a\u6587\u4ef6\u5939\uff1a\u6bcf\u4e2a\u9879\u76ee\u4e00\u4e2a\u6587\u4ef6\u5939\uff0c\u7528\u9879\u76ee\u540d\u547d\u540d\u3002"
+   },
+   {
+    "idx": 55,
+    "utterance": "\u6309\u9879\u76ee\u6574\u7406\u8fd9\u4e2a\u6587\u4ef6\u5939\uff1a\u6bcf\u4e2a\u9879\u76ee\u4e00\u4e2a\u6587\u4ef6\u5939\uff0c\u7528\u9879\u76ee\u540d\u547d\u540d\u3002"
+   },
+   {
+    "idx": 56,
+    "utterance": "\u6309\u9879\u76ee\u6574\u7406\u8fd9\u4e2a\u6587\u4ef6\u5939\uff1a\u6bcf\u4e2a\u9879\u76ee\u4e00\u4e2a\u6587\u4ef6\u5939\uff0c\u7528\u9879\u76ee\u540d\u547d\u540d\u3002"
+   }
+  ],
+  "external/deskmind/proposals": [],
+  "external/hobbylm/calc-tasks/dev": [],
+  "external/hobbylm/calc-tasks/held-out": [],
+  "external/hobbylm/sealed-r1": [],
+  "external/hobbylm/sealed-r2": [
+   {
+    "idx": 231,
+    "utterance": "open calendar"
+   }
+  ],
+  "external/hobbylm/sealed-r3": [
+   {
+    "idx": 371,
+    "utterance": "decrese the sound"
+   }
+  ],
+  "external/hobbylm/sealed-r4": [],
+  "external/hobbylm/system-settings": []
+ },
+ "affected_counts": {
+  "route_v1": 7,
+  "live_t1": 0,
+  "external/deskmind/diag": 1,
+  "external/deskmind/dyn": 16,
+  "external/deskmind/proposals": 0,
+  "external/hobbylm/calc-tasks/dev": 0,
+  "external/hobbylm/calc-tasks/held-out": 0,
+  "external/hobbylm/sealed-r1": 0,
+  "external/hobbylm/sealed-r2": 1,
+  "external/hobbylm/sealed-r3": 1,
+  "external/hobbylm/sealed-r4": 0,
+  "external/hobbylm/system-settings": 0
+ }
+}

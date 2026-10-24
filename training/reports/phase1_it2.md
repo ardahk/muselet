@@ -260,3 +260,33 @@ Regression reading (all errors for those labels in it2 pred_val): mostly val ite
   defensible.
 Fix candidate for iteration 3: route referent-less "turn it off" / "bump it to N" to ASK in val and train (rule:
 pronoun object, no app/selection referent).
+
+## Export, empty outputs, clean route_v1 (after the run)
+
+**Export.** `sampler_weights/it2-final` merged with the untied-head `merge` (base `embed_tokens`, separate `lm_head`),
+MLX 4-bit (4.502 bpw): `jonsnov/muselet-route-4b-main-mlx4` @ `54b21817ba9a22753cb487ad1deea6d696bc2c73`.
+`tie_word_embeddings=false` at the root and in `text_config` (HF and MLX config). Earlier revisions `ac4dd1f` (old merge)
+and `2e3e7bf` (main-final, r2) are kept. Mac parity file for it2: `artifacts/parity_300_it2.jsonl` (render check 50/50).
+
+**Empty outputs, runtime ARGS rendering, Tinker sampler, the same 878 it2-val ARGS rows.**
+
+| | ARGS EM | all-empty rate (old metric) | empty on non-empty target |
+|---|---|---|---|
+| main-final | 0.863 | 0.157 | 0 |
+| it2 | 0.870 | 0.156 | 1 (take_screenshot, target `region=full`) |
+
+The 0.156 figure counted every empty output; nearly all are correct empty targets of no-argument skills.
+
+**route_v1 on the cases clean for both models** (`route_v1_clean_both` in `evalcheck/clean_subsets.json`; it2's
+7 affected cases are a subset of main's 37, so this is the same 103). Reported once, **not used for selection**.
+Tinker sampler, argmax, no threshold:
+
+| | clean 103 | all 140 (contaminated, do not quote) |
+|---|---|---|
+| main-final | 90/103 = 0.874 | 0.857 |
+| it2 | 99/103 = 0.961 | 0.950 |
+
+**Gate re-run with the current evalcheck** (either-side short-edit rule, raw + ASR text, evals/external): route_v1
+affected sets unchanged (main 37, it2 7). evals/external also has short-edit overlaps: main route-train touches
+deskmind/dyn 16, deskmind/diag 1, hobbylm sealed-r1..r4 12/13/10/15; it2 deskmind/dyn 16, deskmind/diag 1, sealed-r2 1,
+sealed-r3 1. Scores on those external sets from either model need the same clean-subset treatment. it2b passes 0 on all.

@@ -1,0 +1,572 @@
+{
+ "evals": {
+  "route_v1": 140,
+  "live_t1": 43,
+  "external/deskmind/diag": 13,
+  "external/deskmind/dyn": 64,
+  "external/deskmind/proposals": 22,
+  "external/hobbylm/calc-tasks/dev": 4,
+  "external/hobbylm/calc-tasks/held-out": 30,
+  "external/hobbylm/sealed-r1": 95,
+  "external/hobbylm/sealed-r2": 95,
+  "external/hobbylm/sealed-r3": 107,
+  "external/hobbylm/sealed-r4": 125,
+  "external/hobbylm/system-settings": 15
+ },
+ "route_train": {
+  "rows": 36580,
+  "pairs": 1590,
+  "by_rule": {
+   "short_edit1": 1590
+  },
+  "by_eval": {
+   "route_v1": 205,
+   "external/hobbylm/sealed-r3": 102,
+   "external/hobbylm/sealed-r2": 327,
+   "external/hobbylm/sealed-r4": 120,
+   "external/hobbylm/sealed-r1": 247,
+   "live_t1": 62,
+   "external/deskmind/dyn": 496,
+   "external/deskmind/diag": 31
+  }
+ },
+ "route_val": {
+  "rows": 1130,
+  "pairs": 40,
+  "by_rule": {
+   "short_edit1": 40
+  },
+  "by_eval": {
+   "route_v1": 4,
+   "external/hobbylm/sealed-r1": 6,
+   "external/hobbylm/sealed-r2": 6,
+   "live_t1": 1,
+   "external/hobbylm/sealed-r3": 2,
+   "external/hobbylm/sealed-r4": 4,
+   "external/deskmind/dyn": 16,
+   "external/deskmind/diag": 1
+  }
+ },
+ "args_train": {
+  "rows": 27023,
+  "pairs": 1288,
+  "by_rule": {
+   "short_edit1": 1288
+  },
+  "by_eval": {
+   "route_v1": 292,
+   "external/hobbylm/sealed-r3": 113,
+   "external/hobbylm/sealed-r2": 391,
+   "external/hobbylm/sealed-r4": 133,
+   "external/hobbylm/sealed-r1": 283,
+   "live_t1": 76
+  }
+ },
+ "args_val": {
+  "rows": 792,
+  "pairs": 22,
+  "by_rule": {
+   "short_edit1": 22
+  },
+  "by_eval": {
+   "route_v1": 3,
+   "external/hobbylm/sealed-r1": 6,
+   "external/hobbylm/sealed-r2": 6,
+   "live_t1": 1,
+   "external/hobbylm/sealed-r3": 2,
+   "external/hobbylm/sealed-r4": 4
+  }
+ },
+ "affected": {
+  "route_v1": [
+   {
+    "idx": 0,
+    "utterance": "set the volume to 40"
+   },
+   {
+    "idx": 7,
+    "utterance": "just a touch more"
+   },
+   {
+    "idx": 8,
+    "utterance": "kill the sound"
+   },
+   {
+    "idx": 10,
+    "utterance": "unmute my mac"
+   },
+   {
+    "idx": 12,
+    "utterance": "brightness seventy"
+   },
+   {
+    "idx": 14,
+    "utterance": "full brightness please"
+   },
+   {
+    "idx": 17,
+    "utterance": "dark appearance please"
+   },
+   {
+    "idx": 20,
+    "utterance": "turn the screen off"
+   },
+   {
+    "idx": 25,
+    "utterance": "switch over to notes"
+   },
+   {
+    "idx": 26,
+    "utterance": "bring up numbers"
+   },
+   {
+    "idx": 29,
+    "utterance": "close slack completely"
+   },
+   {
+    "idx": 30,
+    "utterance": "hide messages"
+   },
+   {
+    "idx": 34,
+    "utterance": "go to github dot com"
+   },
+   {
+    "idx": 40,
+    "utterance": "show me the desktop folder"
+   },
+   {
+    "idx": 45,
+    "utterance": "open resume dot pdf"
+   },
+   {
+    "idx": 50,
+    "utterance": "screenshot just this window"
+   },
+   {
+    "idx": 65,
+    "utterance": "skip this track"
+   },
+   {
+    "idx": 66,
+    "utterance": "go back a track"
+   },
+   {
+    "idx": 67,
+    "utterance": "resume playback"
+   },
+   {
+    "idx": 68,
+    "utterance": "put on some jazz"
+   },
+   {
+    "idx": 73,
+    "utterance": "type see you tomorrow"
+   },
+   {
+    "idx": 75,
+    "utterance": "copy the highlighted part"
+   },
+   {
+    "idx": 78,
+    "utterance": "drop a marker right here"
+   },
+   {
+    "idx": 79,
+    "utterance": "go ahead and start it"
+   },
+   {
+    "idx": 99,
+    "utterance": "start a countdown"
+   },
+   {
+    "idx": 102,
+    "utterance": "put it in there"
+   },
+   {
+    "idx": 103,
+    "utterance": "set the volume"
+   },
+   {
+    "idx": 104,
+    "utterance": "remind me"
+   },
+   {
+    "idx": 105,
+    "utterance": "email her"
+   },
+   {
+    "idx": 106,
+    "utterance": "schedule something"
+   },
+   {
+    "idx": 112,
+    "utterance": "what's fifteen percent of eighty"
+   },
+   {
+    "idx": 120,
+    "utterance": "set volume too thirty"
+   },
+   {
+    "idx": 122,
+    "utterance": "dark mode on"
+   },
+   {
+    "idx": 124,
+    "utterance": "skip this song"
+   },
+   {
+    "idx": 128,
+    "utterance": "kill bluetooth"
+   },
+   {
+    "idx": 129,
+    "utterance": "turn my bluetooth back on"
+   },
+   {
+    "idx": 132,
+    "utterance": "secure my screen"
+   }
+  ],
+  "live_t1": [
+   {
+    "idx": 2,
+    "utterance": "make it way louder"
+   },
+   {
+    "idx": 3,
+    "utterance": "silence the speakers"
+   },
+   {
+    "idx": 8,
+    "utterance": "shut off the wifi"
+   },
+   {
+    "idx": 10,
+    "utterance": "lock the screen please"
+   },
+   {
+    "idx": 11,
+    "utterance": "launch textedit"
+   },
+   {
+    "idx": 12,
+    "utterance": "bring up the calculator"
+   },
+   {
+    "idx": 13,
+    "utterance": "hide the calculator"
+   },
+   {
+    "idx": 14,
+    "utterance": "close the calculator app"
+   },
+   {
+    "idx": 15,
+    "utterance": "show me my downloads"
+   },
+   {
+    "idx": 28,
+    "utterance": "copy the selected text"
+   }
+  ],
+  "external/deskmind/diag": [
+   {
+    "idx": 6,
+    "utterance": "\u5728\u5de5\u4f5c\u76ee\u5f55\u91cc\u65b0\u5efa\u4e00\u4e2a\u540d\u4e3a archive \u7684\u6587\u4ef6\u5939\u3002\u4e0d\u8981\u505a\u522b\u7684\u3002"
+   }
+  ],
+  "external/deskmind/dyn": [
+   {
+    "idx": 25,
+    "utterance": "\u628a\u9752\u79be\u90a3\u5f20\u53d1\u7968\u653e\u8fdb\u65b0\u6587\u4ef6\u5939 \u5f85\u62a5\u9500\u3002\u5176\u4ed6\u6587\u4ef6\u4e0d\u8981\u52a8\u3002"
+   },
+   {
+    "idx": 26,
+    "utterance": "\u628a\u9752\u79be\u90a3\u5f20\u53d1\u7968\u653e\u8fdb\u65b0\u6587\u4ef6\u5939 \u5f85\u62a5\u9500\u3002\u5176\u4ed6\u6587\u4ef6\u4e0d\u8981\u52a8\u3002"
+   },
+   {
+    "idx": 27,
+    "utterance": "\u628a\u9752\u79be\u90a3\u5f20\u53d1\u7968\u653e\u8fdb\u65b0\u6587\u4ef6\u5939 \u5f85\u62a5\u9500\u3002\u5176\u4ed6\u6587\u4ef6\u4e0d\u8981\u52a8\u3002"
+   },
+   {
+    "idx": 28,
+    "utterance": "\u628a\u9752\u79be\u90a3\u5f20\u53d1\u7968\u653e\u8fdb\u65b0\u6587\u4ef6\u5939 \u5f85\u62a5\u9500\u3002\u5176\u4ed6\u6587\u4ef6\u4e0d\u8981\u52a8\u3002"
+   },
+   {
+    "idx": 45,
+    "utterance": "\u6574\u7406\u4e00\u4e0b\u8fd9\u4e2a\u6587\u4ef6\u5939\u3002"
+   },
+   {
+    "idx": 46,
+    "utterance": "\u6574\u7406\u4e00\u4e0b\u8fd9\u4e2a\u6587\u4ef6\u5939\u3002"
+   },
+   {
+    "idx": 47,
+    "utterance": "\u6574\u7406\u4e00\u4e0b\u8fd9\u4e2a\u6587\u4ef6\u5939\u3002"
+   },
+   {
+    "idx": 48,
+    "utterance": "\u6574\u7406\u4e00\u4e0b\u8fd9\u4e2a\u6587\u4ef6\u5939\u3002"
+   },
+   {
+    "idx": 49,
+    "utterance": "\u6309\u9879\u76ee\u6574\u7406\u8fd9\u4e2a\u6587\u4ef6\u5939\uff1a\u6bcf\u4e2a\u9879\u76ee\u4e00\u4e2a\u6587\u4ef6\u5939\uff0c\u7528\u9879\u76ee\u540d\u547d\u540d\u3002"
+   },
+   {
+    "idx": 50,
+    "utterance": "\u6309\u9879\u76ee\u6574\u7406\u8fd9\u4e2a\u6587\u4ef6\u5939\uff1a\u6bcf\u4e2a\u9879\u76ee\u4e00\u4e2a\u6587\u4ef6\u5939\uff0c\u7528\u9879\u76ee\u540d\u547d\u540d\u3002"
+   },
+   {
+    "idx": 51,
+    "utterance": "\u6309\u9879\u76ee\u6574\u7406\u8fd9\u4e2a\u6587\u4ef6\u5939\uff1a\u6bcf\u4e2a\u9879\u76ee\u4e00\u4e2a\u6587\u4ef6\u5939\uff0c\u7528\u9879\u76ee\u540d\u547d\u540d\u3002"
+   },
+   {
+    "idx": 52,
+    "utterance": "\u6309\u9879\u76ee\u6574\u7406\u8fd9\u4e2a\u6587\u4ef6\u5939\uff1a\u6bcf\u4e2a\u9879\u76ee\u4e00\u4e2a\u6587\u4ef6\u5939\uff0c\u7528\u9879\u76ee\u540d\u547d\u540d\u3002"
+   },
+   {
+    "idx": 53,
+    "utterance": "\u6309\u9879\u76ee\u6574\u7406\u8fd9\u4e2a\u6587\u4ef6\u5939\uff1a\u6bcf\u4e2a\u9879\u76ee\u4e00\u4e2a\u6587\u4ef6\u5939\uff0c\u7528\u9879\u76ee\u540d\u547d\u540d\u3002"
+   },
+   {
+    "idx": 54,
+    "utterance": "\u6309\u9879\u76ee\u6574\u7406\u8fd9\u4e2a\u6587\u4ef6\u5939\uff1a\u6bcf\u4e2a\u9879\u76ee\u4e00\u4e2a\u6587\u4ef6\u5939\uff0c\u7528\u9879\u76ee\u540d\u547d\u540d\u3002"
+   },
+   {
+    "idx": 55,
+    "utterance": "\u6309\u9879\u76ee\u6574\u7406\u8fd9\u4e2a\u6587\u4ef6\u5939\uff1a\u6bcf\u4e2a\u9879\u76ee\u4e00\u4e2a\u6587\u4ef6\u5939\uff0c\u7528\u9879\u76ee\u540d\u547d\u540d\u3002"
+   },
+   {
+    "idx": 56,
+    "utterance": "\u6309\u9879\u76ee\u6574\u7406\u8fd9\u4e2a\u6587\u4ef6\u5939\uff1a\u6bcf\u4e2a\u9879\u76ee\u4e00\u4e2a\u6587\u4ef6\u5939\uff0c\u7528\u9879\u76ee\u540d\u547d\u540d\u3002"
+   }
+  ],
+  "external/deskmind/proposals": [],
+  "external/hobbylm/calc-tasks/dev": [],
+  "external/hobbylm/calc-tasks/held-out": [],
+  "external/hobbylm/sealed-r1": [
+   {
+    "idx": 134,
+    "utterance": "open notes app"
+   },
+   {
+    "idx": 137,
+    "utterance": "open finder"
+   },
+   {
+    "idx": 140,
+    "utterance": "open apple music"
+   },
+   {
+    "idx": 184,
+    "utterance": "increse the volume"
+   },
+   {
+    "idx": 187,
+    "utterance": "kill all sound"
+   },
+   {
+    "idx": 189,
+    "utterance": "show downloads folder"
+   },
+   {
+    "idx": 192,
+    "utterance": "open documents"
+   },
+   {
+    "idx": 195,
+    "utterance": "turn on dark mode"
+   },
+   {
+    "idx": 202,
+    "utterance": "open flipkart.com"
+   },
+   {
+    "idx": 209,
+    "utterance": "what does dark matter mean"
+   },
+   {
+    "idx": 216,
+    "utterance": "take a screenshot"
+   },
+   {
+    "idx": 217,
+    "utterance": "grab my screen"
+   }
+  ],
+  "external/hobbylm/sealed-r2": [
+   {
+    "idx": 231,
+    "utterance": "open calendar"
+   },
+   {
+    "idx": 235,
+    "utterance": "start the music app"
+   },
+   {
+    "idx": 237,
+    "utterance": "open reminders"
+   },
+   {
+    "idx": 272,
+    "utterance": "make the screen brighter"
+   },
+   {
+    "idx": 278,
+    "utterance": "volume badhao"
+   },
+   {
+    "idx": 286,
+    "utterance": "open desktop folder"
+   },
+   {
+    "idx": 287,
+    "utterance": "open my documents"
+   },
+   {
+    "idx": 290,
+    "utterance": "enable dark mode"
+   },
+   {
+    "idx": 292,
+    "utterance": "disable dark mode"
+   },
+   {
+    "idx": 297,
+    "utterance": "open youtube"
+   },
+   {
+    "idx": 311,
+    "utterance": "screenshot pls"
+   },
+   {
+    "idx": 315,
+    "utterance": "timer for 25 minutes"
+   },
+   {
+    "idx": 316,
+    "utterance": "remind me in two hours"
+   }
+  ],
+  "external/hobbylm/sealed-r3": [
+   {
+    "idx": 324,
+    "utterance": "launch notes"
+   },
+   {
+    "idx": 326,
+    "utterance": "launch calendar app"
+   },
+   {
+    "idx": 328,
+    "utterance": "finder kholo"
+   },
+   {
+    "idx": 371,
+    "utterance": "decrese the sound"
+   },
+   {
+    "idx": 391,
+    "utterance": "go to downloads"
+   },
+   {
+    "idx": 393,
+    "utterance": "show desktop files"
+   },
+   {
+    "idx": 399,
+    "utterance": "remove dark mode"
+   },
+   {
+    "idx": 404,
+    "utterance": "go to flipkart.com"
+   },
+   {
+    "idx": 418,
+    "utterance": "capture this screen"
+   },
+   {
+    "idx": 423,
+    "utterance": "remind me in three hours"
+   }
+  ],
+  "external/hobbylm/sealed-r4": [
+   {
+    "idx": 433,
+    "utterance": "open the calendar"
+   },
+   {
+    "idx": 435,
+    "utterance": "open finder please"
+   },
+   {
+    "idx": 436,
+    "utterance": "fire up music"
+   },
+   {
+    "idx": 473,
+    "utterance": "bump the brightness up"
+   },
+   {
+    "idx": 483,
+    "utterance": "cut all sound"
+   },
+   {
+    "idx": 516,
+    "utterance": "open the downloads folder"
+   },
+   {
+    "idx": 518,
+    "utterance": "desktop folder open"
+   },
+   {
+    "idx": 520,
+    "utterance": "open documents please"
+   },
+   {
+    "idx": 522,
+    "utterance": "turn dark mode on"
+   },
+   {
+    "idx": 524,
+    "utterance": "turn dark mode off"
+   },
+   {
+    "idx": 529,
+    "utterance": "open reddit.com"
+   },
+   {
+    "idx": 543,
+    "utterance": "snap my screen"
+   },
+   {
+    "idx": 545,
+    "utterance": "screen capture please"
+   },
+   {
+    "idx": 547,
+    "utterance": "timer for 18 minutes"
+   },
+   {
+    "idx": 552,
+    "utterance": "timer of half an hour"
+   }
+  ],
+  "external/hobbylm/system-settings": []
+ },
+ "affected_counts": {
+  "route_v1": 37,
+  "live_t1": 10,
+  "external/deskmind/diag": 1,
+  "external/deskmind/dyn": 16,
+  "external/deskmind/proposals": 0,
+  "external/hobbylm/calc-tasks/dev": 0,
+  "external/hobbylm/calc-tasks/held-out": 0,
+  "external/hobbylm/sealed-r1": 12,
+  "external/hobbylm/sealed-r2": 13,
+  "external/hobbylm/sealed-r3": 10,
+  "external/hobbylm/sealed-r4": 15,
+  "external/hobbylm/system-settings": 0
+ }
+}
