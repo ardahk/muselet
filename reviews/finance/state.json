@@ -1,10 +1,10 @@
 {
  "lane": "finance",
- "pass": 8,
- "ts": "2026-10-24T08:55:00Z",
+ "pass": 9,
+ "ts": "2026-10-24T09:05:00Z",
  "last_reviewed": {
-  "main": "76a03c1",
-  "wip/local": "34ddf5f",
+  "main": "0fd5698",
+  "wip/local": "64dd1cb",
   "cloud/finance": "529e9ff",
   "cloud/fixtures-docs": "4bf2291",
   "cloud/data-pipeline": "0f3df7f",
@@ -20,5 +20,5 @@
   "cloud/brain-3": "14a3f52"
  },
  "next_id": 26,
- "notes": "pass 8: finance-3 164 tests pass; advisor-3 127 tests pass, Henderson truth reconciles. normalize_client probe: 10/10 spoken forms map to the right folder (Hendersons/Davises/Joneses/Rosses/Chris Moses/Hendricks). Calendar is now from .ics (no Automation prompt). main/wip: planner prompt lines 14-15 only (new-document recipe, no third retry), no Numbers recipe change."
+ "notes": "pass 8: finance-3 164 tests pass; advisor-3 127 tests pass, Henderson truth reconciles. normalize_client probe: 10/10 spoken forms map to the right folder (Hendersons/Davises/Joneses/Rosses/Chris Moses/Hendricks). Calendar is now from .ics (no Automation prompt). main/wip: planner prompt lines 14-15 only (new-document recipe, no third retry), no Numbers recipe change. | pass 9: main/wip only AGENTS.md standing decisions (demo setup scripts approved), tcc_warm and spend guard; no lane changes. Open list unchanged."
 }
