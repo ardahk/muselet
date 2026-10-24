@@ -1,10 +1,10 @@
 {
-  "pass": 27,
-  "ts": "2026-10-24T11:24:00Z",
+  "pass": 28,
+  "ts": "2026-10-24T11:42:00Z",
   "last_reviewed": {
-    "main": "d502b78",
-    "wip/local": "0db1681",
-    "cloud/data-pipeline": "0c1ca3d",
+    "main": "7147694",
+    "wip/local": "5764a0d",
+    "cloud/data-pipeline": "9b36081",
     "cloud/decisions": "6d395df",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
@@ -16,12 +16,14 @@
     "cloud/advisor-3": "ca93147",
     "cloud/pitch": "ad1b058",
     "cloud/pitch-2": "3303678",
+    "cloud/pitch-3": "e203181",
     "cloud/brain-2": "741465c",
     "cloud/brain-3": "14a3f52",
     "cloud/brain-4": "dfb66a3",
     "cloud/brain-5": "b752261",
     "cloud/hobby-gaps": "156556e",
-    "cloud/grounding": "3441ee8"
+    "cloud/grounding": "3441ee8",
+    "cloud/grounder-wire": "afb12a6"
   },
   "next_id": 19
 }
