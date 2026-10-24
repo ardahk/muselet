@@ -1,18 +1,17 @@
-# decisions — digest (pass 22)
+# decisions — digest (pass 23)
 
-Heads: cloud/decisions 184c80f (merged main; decontam re-run, multi-task trainer + dev-only calibration), data-pipeline 6c1e565 (route_v2 frozen, it3 prep), report dffa733, brain-7 13432fe (compose_text router:false, catalog parity kept), main c949565.
-Resolved this pass: decisions-22 (code-gold restored: 2,224 states, all families), decisions-12 (main merged into cloud/decisions).
+Heads: main cf53292 (merged report, brain-7, native-research; 3 data briefs), cloud/decisions 43abfa3 (lazy MLX imports), data-pipeline f8b721a (it3 gate-filter), comms 956d4ac (draft_email router:false, so the router option list is unchanged), report-2 3c25e78 (live_t1 results, raised gen cap to $120).
 
 ## Open P0/P1
-1. decisions-17 P1 Label priors skewed: noul 37.6% true, score levels 4-5 = 1.9% — training/decisions/families/*
-2. decisions-13 P1 route_acc quotes r2 .864 'top-1', not serving it2; gating unstated — pitch/claims.md:13
-3. decisions-14 P1 live_t1 fixes fitted on live_t1 failures; live_t1_pass not held out — pitch/claims.md:17
-4. decisions-4 P1 noul option order flips with criteria presence — ml/src/brain/generic_decide.py
-5. decisions-3 P1 Route regression renderer/n=140 — cloud/builder_decisions.md
-6. decisions-5 P1 Before/after must use one backend/precision — cloud/builder_decisions.md
+1. decisions-14 P1 live_t1 T1 19/22 now quoted (claims.md:17,67; REPORT.md:158), but live_t1 was the brain-5 tuning set and isn't labeled dev
+2. decisions-25 P1 builder_data_decisions.md spends up to $70 on a code-gold gap 184c80f already closed (2,224 states / ~9.7k decisions)
+3. decisions-17 P1 noul 37.6% true; score levels 4-5 = 1.9% of score gold
+4. decisions-13 P1 route_acc still r2 .864 'top-1', not it2 with tau stated — pitch/claims.md:13
+5. decisions-4 P1 noul option order flips with criteria presence — ml/src/brain/generic_decide.py
+6. decisions-3 / decisions-5 P1 route regression runner and backend parity — cloud/builder_decisions.md
 
 ## Highest-leverage next moves
-- Reweight noul to ~50% per family and upsample score levels 4-5 in the split/trainer before the Tinker run (decisions-17).
-- Report route regression on route_v1_clean + route_v2 for base, it2 and the multi-task model with one runner (decisions-3/-5).
-- Add route_v2 to decisions decontam (decisions-24); fix REPORT.md:166 and the .658 caveat (decisions-23/-11).
-- claims.md:13 to it2 with gating stated (decisions-13); label live_t1 as dev or freeze a holdout (decisions-14).
+- Label live_t1 a dev suite in claims/REPORT, or freeze a held-out live set before quoting 19/22 (decisions-14).
+- Re-scope the data-decisions brief from full_gen.md@184c80f before it spends (decisions-25).
+- Rebalance noul/score labels in split or loss weights before the decisions Tinker run (decisions-17).
+- Fix REPORT.md:71,170 '301' and caveat .658 (decisions-23/-11); claims.md:13 to it2 with gating (decisions-13).
