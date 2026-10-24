@@ -1,6 +1,6 @@
-# planner lane — pass 11 (main 280715d, wip 38768f3; cloud unchanged except data-pipeline)
+# planner lane — pass 12 (main 280715d, wip 38768f3 unchanged; cloud/bench 2c57d7f)
 
-main 894df52 commits the wip HandsKit work I reviewed in passes 9-10 (observe window fallback, no_text_target, compiled skill scripts). No new issues in the Swift code. AGENTS.md now documents window_source, truncated and web_ax_pending. The main brain reads none of them yet; brain-3 reads web_ax_pending.
+Only cloud/bench moved: a merge of main plus safety guards in the bench cases. Its other differences from main are decision_chunking.py and generic_decide.py, which belong to the router lane, not mine. No change to the open findings.
 
 ## Open P1 (ranked)
 1. planner-21 P1 — Main brain ignores web_ax_pending; planner plans on half-empty Chrome tree (demo goal 2) — ml/src/brain/orchestrator.py@main
