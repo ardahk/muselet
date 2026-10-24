@@ -1,0 +1,32 @@
+{
+  "run_id": "muselet-fixture-G07-1",
+  "task_id": "G07-finder-newfolder",
+  "state": "completed",
+  "metrics": {
+    "actions": 0,
+    "dialogue_turns": 0,
+    "stale_refusals": 0,
+    "indeterminate_actions": 0,
+    "parse_errors": 0,
+    "failed_actions": 0
+  },
+  "driver_state": {},
+  "elapsed_s": 0.1,
+  "grade": {
+    "strict": true,
+    "partial": 1.0,
+    "checkpoints": {
+      "folder_exists": {
+        "ok": true,
+        "detail": "/home/ubuntu/repos/muselet/bench/tests/fixtures/deskmind-v27/G07-finder-newfolder/ws/archive exists"
+      }
+    },
+    "violations": [],
+    "error": null
+  },
+  "failure": {
+    "class": "none",
+    "detail": "",
+    "auto": false
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "run_id": "muselet-fixture-G07-1",
+  "task_id": "G07-finder-newfolder",
+  "fixture": "diag_finder2",
+  "suite": "diag",
+  "suite_version": "diag-v27",
+  "suite_hash": "5eec62a0c662",
+  "repeat": 1,
+  "environment": {
+    "harness_commit": "bench-fixture",
+    "hands_commit": "89be730acdbdd50a77bb6ac44583e190c719a14a",
+    "locale": "zh-Hans"
+  }
+}

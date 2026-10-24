@@ -1,0 +1,95 @@
+C01	calc	what's 64 plus 29	93
+C02	calc	518 minus 247	271
+C03	calc	23 x 7 kya hai	161
+C04	calc	144 divided by 16	9
+C05	calc	how much is 1250 + 875	2125
+C06	calc	38 times 12?	456
+C07	calc	7.5 into 4	30
+C08	calc	take 14 off 95	81
+C09	calc	how much less is 27 than 80	53
+C10	calc	remove 120 from 500	380
+C11	calc	how many 8s fit in 136	17
+C12	calc	what's 33 short of 90	57
+C13	calc	how much bigger is 410 than 365	45
+C14	calc	from 72 take away 29	43
+C15	calc	divide 225 into 9 equal parts, each one is?	25
+C16	calc	sixty eight plus twenty four	92
+C17	calc	two dozen times five	120
+C18	calc	eighty one divided by nine	9
+C19	calc	hundred minus thirty seven	63
+C20	calc	fifteen times fifteen	225
+C21	calc	four hundred plus three fifty	750
+C22	calc	ninety six divided by eight	12
+C23	calc	bought 4 kurtas for 2200 total, one kurta costs?	550
+C24	calc	dinner bill 1800 split among 6 of us	300
+C25	calc	had 2000 in wallet, spent 1365, how much left	635
+C26	calc	auto charges 15 per km, went 12 km, fare?	180
+C27	calc	12 boxes with 24 laddoos each, total laddoos	288
+C28	calc	salary 45000 plus bonus 7500, total this month	52500
+C29	calc	train goes 480 km at 80 kmph, how many hours	6
+C30	calc	phone is 18999, got 2500 off, final price	16499
+D01	device	the screen is burning my eyes, tone it down	BRIGHTNESS_DOWN
+D02	device	reduce brightness a little	BRIGHTNESS_DOWN
+D03	device	screen too glowy in this dark room	BRIGHTNESS_DOWN
+D04	device	everything looks so dim, cant read	BRIGHTNESS_UP
+D05	device	make the screen brighter	BRIGHTNESS_UP
+D06	device	in the sun right now, screen is invisible	BRIGHTNESS_UP
+D07	device	bit lower volume pls	VOLUME_DOWN
+D08	device	my ears are hurting, reduce sound	VOLUME_DOWN
+D09	device	neighbours are complaining, turn it down	VOLUME_DOWN
+D10	device	i cant hear what she is saying	VOLUME_UP
+D11	device	volume badhao	VOLUME_UP
+D12	device	sound is too low, louder	VOLUME_UP
+D13	device	shh, teacher is on the call	MUTE
+D14	device	kill the sound completely	MUTE
+D15	device	mute pls, in the library	MUTE
+K01	dark	this white screen hurts at 2am	DARK_MODE ON
+K02	dark	enable dark mode	DARK_MODE ON
+K03	dark	make everything black background	DARK_MODE ON
+K04	dark	disable dark mode	DARK_MODE OFF
+K05	dark	i want the bright theme back	DARK_MODE OFF
+K06	dark	switch off night look, its morning now	DARK_MODE OFF
+A01	app	let me jot down this idea	OPEN Notes
+A02	app	open notes app quickly	OPEN Notes
+A03	app	am i free on friday evening	OPEN Calendar
+A04	app	open calendar	OPEN Calendar
+A05	app	open finder window	OPEN Finder
+A06	app	i want to browse my mac files	OPEN Finder
+A07	app	open music, need to focus	OPEN Music
+A08	app	start the music app	OPEN Music
+A09	app	what did i have to buy, check reminders	OPEN Reminders
+A10	app	open reminders	OPEN Reminders
+F01	folder	the zip i just got from the browser, open that folder	FOLDER Downloads
+F02	folder	open downloads folder pls	FOLDER Downloads
+F03	folder	show stuff saved on desktop	FOLDER Desktop
+F04	folder	open desktop folder	FOLDER Desktop
+F05	folder	open my documents	FOLDER Documents
+F06	folder	where's my resume, open documents folder	FOLDER Documents
+T01	timer	timer for 25 minutes	TIMER 25
+T02	timer	remind me in two hours	TIMER 120
+T03	timer	quarter of an hour timer	TIMER 15
+T04	timer	set timer 1 hr 15 min	TIMER 75
+T05	timer	five mins for maggi	TIMER 5
+T06	timer	forty minute timer for study	TIMER 40
+T07	timer	remind me after 3 hours to take medicine	TIMER 180
+T08	timer	timer an hour and 10 min	TIMER 70
+S01	screenshot	screenshot pls	SCREENSHOT
+S02	screenshot	save a picture of my screen	SCREENSHOT
+S03	screenshot	snap the screen right now	SCREENSHOT
+S04	screenshot	take screen shot of this page	SCREENSHOT
+N01	none	weather in bangalore tomorrow?	UNKNOWN
+N02	none	send whatsapp to rahul saying happy bday	UNKNOWN
+N03	none	open youtube	UNKNOWN
+N04	none	15 percent of 2400 plus 300	UNKNOWN
+N05	none	tell me a joke	UNKNOWN
+N06	none	how bright is the sun	UNKNOWN
+N07	none	play a loud party playlist on youtube	UNKNOWN
+N08	none	calculate my home loan emi	UNKNOWN
+N09	none	open incognito window in safari	UNKNOWN
+N10	none	set an alarm for 6 am	UNKNOWN
+N11	none	where is the screenshot i took yesterday	UNKNOWN
+N12	none	whats the volume of a cylinder	UNKNOWN
+N13	none	convert 50 dollars to rupees	UNKNOWN
+N14	none	book an uber to the airport	UNKNOWN
+N15	none	show me dark mode wallpapers	UNKNOWN
+N16	none	are you a real person	UNKNOWN
