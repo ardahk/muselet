@@ -1,9 +1,9 @@
 {
-  "pass": 44,
-  "ts": "2026-10-24T22:15Z",
+  "pass": 45,
+  "ts": "2026-10-24T22:35Z",
   "branches": {
-    "main": "2a2c2a9",
-    "wip/local": "4f963a7",
+    "main": "ebdd639",
+    "wip/local": "eb1d232",
     "cloud/bench": "f584cb2",
     "cloud/data-pipeline": "830ba35",
     "cloud/decisions": "f6fb133",
@@ -42,9 +42,14 @@
     "cloud/mascot-animal": "4b7d95a",
     "cloud/planner-retrieval": "7df32b1",
     "cloud/data-decisions": "91de461",
-    "cloud/w9-safety": "50a3b25",
-    "cloud/memory": "4b519b1",
-    "cloud/memory-eval": "c05944e"
+    "cloud/w9-safety": "2a7d0df",
+    "cloud/memory": "5cd44e6",
+    "cloud/memory-eval": "c05944e",
+    "cloud/memory-lt": "5cd44e6",
+    "cloud/planner-lora": "ceafe3d",
+    "cloud/router-it3-serve": "b455d2c",
+    "cloud/docs-demo": "095d4ef",
+    "cloud/ui-polish": "e8bceef"
   },
-  "notes": "pass44: main 2a2c2a9 adds planner-lora brief (bench-31 new, bench-30 update on ship rule); memory-eval adds memory_followups to plan_bank denylist (bench-32: not in router evalcheck). w9-safety/memory: no lane files. HF planner-demos dataset is private, so the kept-demo screen overlap can't be checked here."
+  "notes": "pass45: planner-lora trained (bench-31 update, contamination now realized); docs-demo misstates retrieval rule (bench-33); main adds live-cases/planner-think/verify briefs (no lane code yet); router-it3-serve opt-in only, not on competitor runs. ui-polish/memory-lt/w9-safety: no lane files."
 }
