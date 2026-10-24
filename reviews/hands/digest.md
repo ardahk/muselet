@@ -1,4 +1,6 @@
-# hands — digest (pass 44)
+# hands — digest (pass 45)
+
+Pass 45: main ebdd639, wip/local eb1d232, w9-safety, memory/memory-lt, docs-demo, planner-lora and router-it3-serve have no app/ changes since pass 44, and hands-26/27 are still open. cloud/ui-polish e8bceef was reviewed: HoverDwell (1.0 s dwell before the pill shows, cancellable), PillController typing open/close with a generation guard, a kitten avatar, and debug hooks pill_hover/pill_typing/panel. These hooks are UI-only and their string booleans match debug_ui.sh's json helper. No issues found.
 
 Pass 44: main 2a2c2a9 and wip/local 4f963a7 have no app/ changes since pass 43, so hands-26 and hands-27 are re-verified as still open (orchestrator.py:1896 and BrainClient.swift:91 are unchanged). cloud/w9-safety 50a3b25 only touches a test. cloud/memory 4b519b1 adds ctx.url and ctx.window_title to UtteranceCtx: bounded BFS of up to 80 nodes within a 0.15 s budget, AX only, captured asynchronously at key-down. No issues found there. cloud/memory-eval has no app/ changes.
 
