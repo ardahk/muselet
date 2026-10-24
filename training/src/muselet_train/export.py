@@ -60,6 +60,46 @@ async def parity(tinker_path: str, run: str, teacher_files: tuple[str, ...], n: 
     return out
 
 
+def _load_key(d: str, key: str):
+    from safetensors.torch import load_file
+    idx = Path(d) / "model.safetensors.index.json"
+    shard = json.loads(idx.read_text())["weight_map"][key] if idx.exists() else "model.safetensors"
+    return shard, load_file(str(Path(d) / shard))
+
+
+def untie_lm_head(base_model: str, adapter_dir: str, hf_dir: str) -> dict:
+    """Qwen3.5-4B ties lm_head to embed_tokens. Tinker's unembed_tokens LoRA changes only the output head, but
+    build_hf_model folds it into the tied embed_tokens, which also shifts every input embedding. Restore the
+    base input embeddings and write the trained head as a separate lm_head.weight."""
+    import torch
+    from huggingface_hub import snapshot_download
+    from safetensors.torch import load_file, save_file
+    cfg = json.loads((Path(adapter_dir) / "adapter_config.json").read_text())
+    ad = load_file(str(Path(adapter_dir) / "adapter_model.safetensors"))
+    pre = "base_model.model.model.unembed_tokens."
+    delta = (ad[pre + "lora_B.weight"].float() @ ad[pre + "lora_A.weight"].float()) * (cfg["lora_alpha"] / cfg["r"])
+    key = "model.language_model.embed_tokens.weight"
+    base = _load_key(snapshot_download(base_model, allow_patterns=["*.safetensors", "*.json"]), key)[1][key]
+    shard, t = _load_key(hf_dir, key)
+    err = (t[key].float() - base.float() - delta).abs().max().item()
+    t[key] = base
+    t["lm_head.weight"] = (base.float() + delta).to(base.dtype)
+    save_file(t, str(Path(hf_dir) / shard), metadata={"format": "pt"})
+    idx = Path(hf_dir) / "model.safetensors.index.json"
+    if idx.exists():
+        j = json.loads(idx.read_text())
+        j["weight_map"]["lm_head.weight"] = shard
+        idx.write_text(json.dumps(j, indent=2))
+    c = json.loads((Path(hf_dir) / "config.json").read_text())
+    c["tie_word_embeddings"] = False
+    if "text_config" in c:
+        c["text_config"]["tie_word_embeddings"] = False
+    (Path(hf_dir) / "config.json").write_text(json.dumps(c, indent=2))
+    return {"folded_delta_max_err": err, "delta_absmax": delta.abs().max().item(),
+            "delta_rel_norm": (delta.norm() / base.float().norm()).item(), "dtype": str(base.dtype),
+            "torch": torch.__version__}
+
+
 def upload(path: str, repo: str) -> str:
     api = HfApi()
     api.create_repo(repo, private=True, exist_ok=True)
@@ -69,7 +109,7 @@ def upload(path: str, repo: str) -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["download", "merge", "parity", "upload", "check"])
+    ap.add_argument("cmd", choices=["download", "merge", "untie", "parity", "upload", "check"])
     ap.add_argument("--tinker-path")
     ap.add_argument("--name", default="v1")
     ap.add_argument("--run", default="v2all")
@@ -89,6 +129,9 @@ def main() -> None:
         weights.build_hf_model(base_model=STUDENT_MODEL, adapter_path=str(d / "adapter"),
                                output_path=str(d / "hf"), trust_remote_code=True)
         print(d / "hf")
+        print(json.dumps(untie_lm_head(STUDENT_MODEL, str(d / "adapter"), str(d / "hf"))))
+    elif a.cmd == "untie":
+        print(json.dumps(untie_lm_head(STUDENT_MODEL, str(d / "adapter"), a.dir or str(d / "hf"))))
     elif a.cmd == "parity":
         print(asyncio.run(parity(a.tinker_path, a.run, tuple(a.teacher_files), a.n, a.seed, Path(a.out))))
     else:
