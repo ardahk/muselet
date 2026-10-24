@@ -1028,3 +1028,13 @@ def test_document_close_detector_classifies_document_and_window_targets(script, 
     detector = getattr(documents, "is_document_close", None)
     assert callable(detector)
     assert detector(script) is expected
+
+
+def test_chat_mail_and_browser_apps_are_inventoried_through_system_events_only():
+    unscripted = {app.name for app in DOCUMENT_APPS if not app.scripted}
+    assert {"Mail", "Messages", "Slack", "Safari", "Google Chrome", "Reminders"} <= unscripted
+    assert {"TextEdit", "Numbers", "Pages", "Notes"}.isdisjoint(unscripted)
+    script = inventory_script(DOCUMENT_APPS)
+    assert '"scripted": false' in script and "if (!appInfo.scripted)" in script
+    skip = script.index("if (!appInfo.scripted)")
+    assert script.index("processes[0].windows.name()") < skip < script.index("Application(bundleId)")
