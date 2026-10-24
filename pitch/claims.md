@@ -22,10 +22,10 @@ has not been run, the line stays out of the pitch. Mac = the demo MacBook Pro M5
 | `{{premiere_s}}` | Cut + marker + export dialog | 5 takes | `runs/traces/` | pending live run (screen was locked overnight) |
 | `{{receipt_ocr_ms}}` | Apple Vision OCR per receipt | `ocr` RPC `ms` field | `app/Sources/HandsKit/OCR.swift:137` | ~150 ms per receipt, warm (run path not given) |
 | `{{cat_rule_acc}}`, `{{cat_ask_rows}}` | Finance categorize accuracy with rules only; rows escalated to ASK | `PYTHONPATH=ml/src python3 -m pytest ml/tests/test_finance.py -s` | `ml/src/brain/finance/categorize.py` | not run yet |
-| `{{hobby_muselet_pass}}`/125, `{{hobby_muselet_p50_s}}` | Muselet on HobbyLM's 125 sealed live requests, strict final-state grading | `bench/hobbylm/replay.py --system muselet --round r4` | `runs/bench/hobbylm/` (harness on `cloud/bench`, not merged) | pending live run (screen was locked overnight) |
-| `{{hobby_rerun_pass}}`/125, `{{hobby_rerun_p50_s}}` | HobbyLM itself, same Mac, its published harness | `bench/hobbylm/replay.py --system hobbylm --round r4` | same | pending live run (screen was locked overnight) |
-| `{{dm_muselet_strict}}`/39, `{{dm_muselet_false_done}}`, `{{dm_muselet_step_p50_s}}` | Muselet on DeskMind Bench (13 tasks x 3), graded by `deskmind-bench score` | `bench/deskmind/README.md` (c) | `runs/bench/deskmind/` | pending live run (screen was locked overnight) |
-| `{{dm_rerun_strict}}`/39, `{{dm_rerun_step_p50_s}}` | DeskMind G18b on the same Mac, their commands | `bench/deskmind/README.md` (a) | same | pending live run (screen was locked overnight) |
+| `{{hobby_muselet_pass}}`/125, `{{hobby_muselet_p50_s}}` | Muselet (router it2 only, §1b) on HobbyLM's 125 sealed-r4 live requests, strict final-state grading | `bench/hobbylm/replay.py --system muselet --round r4` | `runs/bench/hobbylm/` | pending morning run |
+| `{{hobby_rerun_pass}}`/125, `{{hobby_rerun_p50_s}}` | HobbyLM itself, same Mac, its published harness | `bench/hobbylm/replay.py --system hobbylm --round r4` | same | pending morning run |
+| `{{dm_muselet_strict}}`/39, `{{dm_muselet_strict_clean}}`/36, `{{dm_muselet_false_done}}`, `{{dm_muselet_step_p50_s}}` | Muselet (router it2 only, §1b) on DeskMind Bench `diag` (13 tasks x 3), graded by `deskmind-bench score`; `_clean` = without the 1 affected task (§1b) | `bench/deskmind/README.md` (c) | `runs/bench/deskmind/` | pending morning run |
+| `{{dm_rerun_strict}}`/39, `{{dm_rerun_step_p50_s}}` | DeskMind G18b on the same Mac, their commands | `bench/deskmind/README.md` (a) | same | pending morning run |
 | `{{act_ms_p50}}` | HandsKit act + settle, median | same traces as `{{instant_e2e_ms_p50}}` | `act_ms` + `settle_ms` in `rpc_result` | pending live run (screen was locked overnight) |
 | `{{stt_budget_ms}}`, `{{args_budget_ms}}`, `{{act_budget_ms}}`, `{{e2e_budget_ms}}` | Latency *targets* (not measurements); label "target" wherever shown | set by the lead from the speed-lab results | `architecture.md` budget table | targets, not set yet |
 | `{{model_disk_gb}}`, `{{peak_ram_gb}}` | Total local weights; peak RSS during the 3:00 demo | `du -sh` on the HF cache snapshots in use; Activity Monitor / `footprint` | Mac | pending live run (screen was locked overnight) |
@@ -48,7 +48,7 @@ route_v1 clean subset (`evals/route_v1_clean.jsonl`). Source: `runs/router/r2_se
 | Base Qwen3.5-4B | .767 | .825 | .784 | .690 |
 
 r2 latency p50: route 52 ms, ARGS 97 ms. Always disclose: 37 of the 140 route_v1 cases were excluded because they
-have a near-duplicate in training.
+have a near-duplicate in training (§1b).
 
 **Planner**: Qwen3.5-4B-4bit, greedy, few-shot + DSL history + line-start constraint; offline planner bench
 (`evals/planner_offline.py`, 25 tune + 14 holdout scenarios, runtime-equivalent grading). Source: `runs/planner_offline/`.
@@ -74,6 +74,28 @@ generalist decision LoRA is still training." Not allowed: any framing that Musel
 
 **Grounding** (ScreenSpot-Pro, 200-sample stratified subset, paired; `bench/grounding/run_screenspot.py`, run path
 not given): eyes-4b two-stage zoom 63.5% at 1 MP, 67.5% at 2 MP (no zoom: 36.0% / 50.5%).
+
+## 1b. Contamination disclosures (review decisions-21)
+
+Source: cloud A's overlap check on PR #2 (`cloud/data-pipeline` @ 0ce9ea6),
+`training/reports/evalcheck/{main_report_v2,it2_report_v2,clean_subsets}.json`: router training rows vs each eval
+set, rule `short_edit1` (short near-duplicates). Policy: `AGENTS.md:37-41`. "main-final" = the training data behind
+r1/r2; it2 = the serving router (`tools/serve_brain.sh:3`).
+
+| Eval set | Cases | Affected, main-final (r1/r2) | Affected, it2 | How we quote it |
+|---|---|---|---|---|
+| route_v1 | 140 | 37 | 7 (all among the 37) | only on `evals/route_v1_clean.jsonl`: 103 cases, clean for both; say "37 of 140 excluded for short near-duplicates" |
+| live_t1 | 43 | 10 | 0 | it2 only |
+| HobbyLM sealed-r4 | 125 | 15 | 0 (cloud A is confirming per id) | it2 only; pending morning run |
+| HobbyLM sealed-r1 / r2 / r3 | 95 / 95 / 107 | 12 / 13 / 10 | 0 / 1 / 1 | not quoted |
+| DeskMind Bench `diag` | 13 tasks | 1 | 1 (`affected` idx 6: "在工作目录里新建一个名为 archive 的文件夹。不要做别的。") | it2 only; report with and without that task (`{{dm_muselet_strict}}`/39 and `{{dm_muselet_strict_clean}}`/36); pending morning run |
+| DeskMind `dyn` | 64 | 16 | 16 | not quoted |
+
+Rules:
+- Never quote any HobbyLM sealed-set or DeskMind Bench number from r1/r2 (main-final data has 12-15 near-duplicates
+  per HobbyLM sealed round).
+- The §1a router table is r2 on the route_v1 clean subset only; it is not the serving router (it2).
+- it2b (0 overlaps on every set, `training/reports/phase1_it2.md:292` on PR #2) is not the serving router.
 
 Fixture facts (deterministic, already in the repo; quote freely): Henderson numbers in
 `evals/fixtures/advisor/DEMO.md` ("Numbers the presenter can quote"); finance story numbers and receipt statuses in
@@ -126,8 +148,8 @@ Re-verified on `origin/main` @ 1d49478 (2026-10-24); line numbers are at that co
 | Clicky | MIT; needs Anthropic, AssemblyAI and ElevenLabs keys behind a Cloudflare Worker; push-to-talk streams audio to AssemblyAI, sends transcript + screenshot to Claude; cursor flies via `[POINT:x,y:label:screenN]` tags | https://github.com/farzaa/clicky (README, CLAUDE.md) |
 
 Not verified, do not say: that Savvy flags tax-loss harvesting or cash drag (not on the page); that Clicky
-cannot click; any DeskMind Bench or HobbyLM live-set number on our Mac until those reruns exist (the JevBench and
-typed-decisions reruns in §1a do exist).
+cannot click; any DeskMind Bench or HobbyLM live-set number on our Mac until those reruns exist (pending
+morning run; router it2 only, §1b). The JevBench and typed-decisions reruns in §1a do exist.
 
 ## 4. Demo prerequisites (open items the script depends on)
 
@@ -139,4 +161,5 @@ typed-decisions reruns in §1a do exist).
 4. DeskMind already reports 39/39 on its own bench: we can at most tie on strict pass. Pitch speed and breadth,
    with both systems rerun on our Mac.
 5. System One: DeskMind leads on JevBench and typed decisions (§1a); use only the allowed wording there.
-6. Premiere: UXP bridge untested; the demo uses default shortcuts, so the demo project must use the default keymap.
+6. Contamination: quote competitor benchmarks only under the §1b rules; never from r1/r2.
+7. Premiere: UXP bridge untested; the demo uses default shortcuts, so the demo project must use the default keymap.
