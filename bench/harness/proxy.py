@@ -49,6 +49,23 @@ def _decode(raw: str | bytes) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
+async def _close_bounded(connection: Any, timeout: float = 2.0) -> None:
+    """Close a WS connection without waiting for the peer's handshake forever.
+
+    A busy brain may not answer the close handshake while it is generating;
+    slot cleanup must not wait on that, so abort the transport on timeout.
+    """
+    try:
+        await asyncio.wait_for(connection.close(), timeout)
+    except Exception:
+        transport = getattr(connection, "transport", None)
+        if transport is not None:
+            try:
+                transport.abort()
+            except Exception:
+                pass
+
+
 def _wall_time() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 
@@ -152,7 +169,7 @@ class BenchProxy:
             self._server = None
         for connection in (self._hands, self._brain):
             if connection is not None:
-                await connection.close()
+                await _close_bounded(connection)
         self._hands = None
         self._brain = None
         self._connected.clear()
@@ -253,10 +270,7 @@ class BenchProxy:
 
         for connection in (self._hands, self._brain):
             if connection is not None:
-                try:
-                    await connection.close()
-                except Exception:
-                    pass
+                await _close_bounded(connection)
         deadline = time.monotonic() + 1.0
         while not self._slot_released() and time.monotonic() < deadline:
             await asyncio.sleep(min(0.1, max(0.0, deadline - time.monotonic())))
@@ -458,7 +472,7 @@ class BenchProxy:
                 self._pending_scripts.clear()
                 self._pending_rpcs.clear()
                 if brain is not None:
-                    await brain.close()
+                    await _close_bounded(brain)
                 self._brain = None
                 self._disconnected.set()
 

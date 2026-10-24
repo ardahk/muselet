@@ -226,3 +226,32 @@ async def drain_queue(queue):
     while not queue.empty():
         items.append(queue.get_nowait())
     return items
+
+
+def test_close_bounded_aborts_peer_that_never_answers():
+    from bench.harness.proxy import _close_bounded
+
+    class Transport:
+        def __init__(self):
+            self.aborted = False
+
+        def abort(self):
+            self.aborted = True
+
+    class HangingConnection:
+        def __init__(self):
+            self.transport = Transport()
+
+        async def close(self):
+            await asyncio.sleep(60)
+
+    async def scenario():
+        connection = HangingConnection()
+        started = asyncio.get_running_loop().time()
+        await _close_bounded(connection, timeout=0.05)
+        assert asyncio.get_running_loop().time() - started < 10
+        assert connection.transport.aborted
+
+    asyncio.run(scenario())
+
+
