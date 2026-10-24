@@ -1,23 +1,22 @@
-# ux digest — pass 3 (wip/local cbc4879, main dec310b)
+# ux digest — pass 4 (wip/local e0bdc65, main e78f143)
 
-No cloud/* branch has lane edits of its own. ux-6 is resolved on wip/local (not yet on main).
+No cloud/* branch has lane edits of its own. Resolved: ux-5 (stale offline replay), ux-6 (ctx), ux-9 (ctx capture blocking), all on main too.
+New since pass 3: SkillHUD (native glass HUD for volume/brightness/dark/Wi-Fi/Bluetooth, honors Reduce Motion) and a timer-done bubble. Good demo polish.
 
 ## Open P0/P1 (ranked)
-1. ux-11 Brain exceptions leave mascot thinking ~45 s, no bubble — ml/src/brain/server.py (new)
-2. ux-1 Confirm timeout leaves app stuck in confirm mode — server.py (+AppDelegate/VoiceController)
-3. ux-10 Planner confirm shows 'Text Mom: "None"?' — orchestrator.py `_confirm_summary` (new)
+1. ux-11 Brain exceptions leave mascot thinking ~45 s, no bubble — ml/src/brain/server.py:59-66
+2. ux-1 Confirm timeout leaves app stuck in confirm mode — server.py:158-168 (+AppDelegate/VoiceController)
+3. ux-10 Planner confirm shows 'Text Mom: "None"?' — orchestrator.py `_confirm_summary` (3 failing tests)
 4. ux-2 Engine-path confirm never names recipient/file — orchestrator.py `_summary`
-5. ux-3 Skill success shows no reply text — orchestrator.py:846
-6. ux-4 Ghost cursor never appears for skills — HandsKit/RPC.swift (handsDidRunSkill seam unused)
-7. ux-9 Key-down ctx capture blocks main thread before listening — HandsKit/UtteranceCtx.swift
-8. ux-5 Offline utterances replay later as surprise actions — BrainConnection.swift
-9. ux-8 Failure copy leaks raw skill ids — orchestrator.py:840,845
-10. ux-7 Listening feedback waits on cold AVAudioEngine start — VoiceController.swift
+5. ux-3 Skill success shows no reply text (outside HUD skills) — orchestrator.py:875
+6. ux-4 No ghost/chip for open_app/folder/url/web_search skills — HandsKit/RPC.swift, SkillFeedback.swift
+7. ux-8 Failure copy leaks raw skill ids — orchestrator.py:869,874
+8. ux-7 Listening feedback waits on cold AVAudioEngine start — VoiceController.swift
 P2: ux-12 'ask' shows listening mascot while the mic is off.
 
 ## Highest-leverage next moves
-- One error/confirm hardening patch: runner except → ui confused + bubble; catch confirm timeout; confirm-done frame (ux-11, ux-1): ~1 h.
-- Single `_confirm_summary` for both paths with the body/basename fixes, plus per-skill done text (ux-10, ux-2, ux-3, ux-8): ~1.5 h.
-- Key-down path: listening first, mic second, ctx async with a 0.1 s AX timeout (ux-7, ux-9): ~45 min.
-- Implement handsDidRunSkill in GhostCursor → chip "Opening Safari…" near the mascot (ux-4): ~1 h.
-- Demo polish: success-bubble latency chip from trace release_to_first_action_ms (~45 min).
+- Error/confirm hardening: runner except → ui confused + bubble; catch confirm timeout; confirm-done frame (ux-11, ux-1): ~1 h.
+- One shared `_confirm_summary` for both paths (`body`, basename, compose_email/empty_trash) + per-skill done text (ux-10, ux-2, ux-3, ux-8): ~1.5 h.
+- Extend SkillFeedback with an app-icon chip for open_app/open_folder/open_url/web_search (ux-4): ~1 h.
+- Key-down: set .listening before recorder.start(); prepare the engine once at launch (ux-7): ~30 min.
+- Demo polish: success-bubble latency chip from release_to_first_action_ms (~45 min).

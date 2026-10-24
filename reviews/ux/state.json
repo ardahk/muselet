@@ -1,14 +1,17 @@
 {
-  "pass": 3,
-  "ts": "2026-10-24T06:00:00Z",
+  "pass": 4,
+  "ts": "2026-10-24T06:20:00Z",
   "last_reviewed": {
-    "main": "dec310b",
-    "wip/local": "cbc4879",
-    "cloud/data-pipeline": "8c7c023",
+    "main": "e78f143",
+    "wip/local": "e0bdc65",
+    "cloud/data-pipeline": "153a01c",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
+    "cloud/finance-2": "f4ae461",
     "cloud/advisor": "9432c30",
-    "cloud/bench": "8429245"
+    "cloud/advisor-2": "ec98013",
+    "cloud/bench": "14c7eb1",
+    "cloud/pitch": "454a563"
   },
-  "notes": "main dec310b lane delta = catalog v2 only (bluetooth, lock_screen, empty_trash[confirm], finance_review, advisor_prep). cloud/* have no lane edits of their own (they are behind main). ux-6 resolved on wip, still open on main."
+  "notes": "cloud/* have no lane edits of their own (they branch from older main). Self-polling every 20 min while the lead is offline."
 }
