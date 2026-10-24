@@ -1,5 +1,5 @@
-# architect digest - pass 52 (2026-10-24T23:35Z)
-Reviewed: only cloud/decisions moved (c88b613: results.md with the calibrated JevBench/TD on Tinker bf16). TD .6645 vs DeskMind .658 is inside 1 SE (1.06 pt), and JevBench .801 < .831, so there is no 'beats DeskMind' claim yet. The Mac MLX run decides. results.md recommends serving uncalibrated (T=1), because the dev-fitted temperatures worsen benchmark KL/ECE. No new findings; open findings re-checked, all still unchanged at their SHAs.
+# architect digest - pass 53 (2026-10-24T23:50Z)
+Reviewed: main 18c139f (merged planner-lora #48, planner-think #56 default off, live-cases #57, brain-12/18/27/38, bench-28) and planner-lora 79f0a97 (MLX export: untied lm_head written, Mac smoke skipped). The default serving config is unchanged (base planner, few-shot, k=1, THINK=0). The LoRA was trained without few-shot or retrieval, so its Mac matrix must pass `--planner-fewshot none` via serve_brain's extra args (planner_offline already uses few_shot=None). No new findings.
 
 ## Open P1 (ranked)
 1. architect-29 - No competitor benchmark number exists - pitch/claims.md
