@@ -1,39 +1,72 @@
-# 3:00 demo script
+# 3:00 demo script (voice, real app, Mac)
 
-Setup before the take: `evals/fixtures/advisor/setup_mac.sh --apply` and
-`evals/fixtures/finance/setup_mac.sh --apply` (statement, budget and 8 receipts into `~/Documents/Finance`);
-Premiere project with a sequence open, default keymap; Chrome open; Numbers/Notes closed; Muselet panel top-right.
-Open items: `claims.md` §4. Every number spoken is a fixture fact
-(`evals/fixtures/*`, PR tests) or a filled `{{placeholder}}`; drop any unfilled one. Say only the safety wording
-marked "allowed" in `claims.md` §2.
+Covers the definition of done in `docs/MASTER_PROMPT.md` §11. Every number spoken is a fixture fact
+(`evals/fixtures/*`) or a measured value from `pitch/claims.md` with its source; a `TBD(...)` value is **not
+spoken** (use the bracketed line instead). Safety wording: only the "allowed" lines in `claims.md` §2.
+Latencies of the rehearsal takes go into the take log at the bottom (from `runs/traces/`).
 
-| Time | Spoken (presenter / mascot bubble) | On screen | Agent does | Fallback line if it fails |
-|---|---|---|---|---|
-| 0:00-0:06 | "This is Muselet. I hold one key and talk. Everything runs on this Mac." | Desktop, mascot idle, panel | – | – |
-| 0:06-0:10 | "Volume thirty." / bubble "Volume 30." | Skill HUD volume bar; latency chip by the bubble | `set_volume level=30` | "Routing's live, the HUD just lags." |
-| 0:10-0:14 | "Dark mode." / "Dark mode on." | HUD "Dark Mode On", screen flips, chip | `dark_mode on=true` | "It's in the trace; let's keep moving." |
-| 0:14-0:20 | "That chip is release to first action: `{{instant_e2e_ms_p50}}` ms. Deciding takes `{{route_ms_p50}}`. One forward pass." | Zoom on chip | – | Chip missing: "one forward pass, on-device." |
-| 0:20-0:24 | "Open Chrome and find flights to Tokyo next Friday." | Chrome front | router -> MULTI_STEP -> planner loop | – |
-| 0:24-0:44 | Presenter: "It reads the accessibility tree, starts acting while the planner is still decoding, and checks each step against the page." | Ghost cursor to address bar, types, results | streamed batch: `keys cmd+l`, `type … enter`, `expect title~"Tokyo"` -> `verify` | "It replans on a failed check; here's a finished run from earlier." (cut to backup clip) |
-| 0:44-0:50 | Mascot: planner's `done` summary (e.g. "Flights to Tokyo are up.") | Results page, chip `{{browser_task_s}}` | `done` alone in a batch, after a passing `expect` or fresh observe | – |
-| 0:50-0:56 | "Wi-Fi off." / "Wi-Fi off." | HUD "Wi-Fi Off", menu-bar icon off | `wifi on=false` | Click it off by hand: "same result." |
-| 0:56-1:00 | "Now I'm a financial advisor. Prep me for my meeting with the Hendersons." | Mascot thinking | router -> `advisor_prep` (brain tool, no planner) | – |
-| 1:00-1:22 | Bubbles: "Checking your calendar for the Hendersons..." -> "Review Mon Oct 26, 10:00, per the client file." -> "Reading the Hendersons' portfolio..." -> "Running the numbers on this Mac..." -> "Writing the brief in Notes..." Presenter: "Calendar, their folder, the portfolio, last meeting's notes. No upload." | Calendar -> Finder -> Numbers: opportunity rows highlighted, Review sheet | `prep()` in `Decimal`; highlight + review + note AppleScripts | "It's deterministic; here's the brief it wrote in rehearsal." (open the note) |
-| 1:22-1:34 | Mascot: "5 opportunities found. Brief is in Notes." Presenter: "$118,151.60 to rebalance, $30,825 of losses to harvest, and it caught a wash sale: VXUS was bought in the IRA 12 days ago. Every number is code, with evidence." | Notes brief, chip `{{advisor_prep_s}}` | – | Read the numbers off the brief. |
-| 1:34-1:38 | "Reconcile my receipts." | Mascot thinking | router -> `finance_review task=receipts` | – |
-| 1:38-1:54 | Bubbles: "Reading your statement..." -> "Matching receipts to the statement..." -> "Writing results to Numbers..." Mascot: "6 receipts match, 1 receipt mismatch, 1 unmatched." Presenter: "Receipt 7 has swapped digits; receipt 8 has no charge." | Statement in Numbers, rows marked, chip `{{receipts_s}}` | 8 `ocr` RPCs in parallel (Apple Vision), `Decimal` matching with evidence, rows written | "OCR's on-device; here's the reconciled sheet." (switch to the rehearsal copy) |
-| 1:54-2:00 | "Still offline. Client data never left the laptop." | Zoom on Wi-Fi icon | – | – |
-| 2:00-2:06 | "Switch to Premiere. Cut here." | Premiere timeline | `premiere_command razor_at_playhead` -> cmd+k | "Premiere hides its timeline from accessibility; we use its shortcuts." |
-| 2:06-2:14 | "Add a marker." / "Marker added." | Marker at playhead | `premiere_command add_marker` -> m | – |
-| 2:14-2:30 | "Export." / "Export dialog open." | Export dialog | `premiere_command export` -> cmd+m | "Export starts from the same dialog; we stop here for time." |
-| 2:30-2:45 | "Results. HobbyLM's sealed live set: `{{hobby_muselet_pass}}` of 125, vs `{{hobby_rerun_pass}}` for HobbyLM on this Mac. DeskMind Bench: `{{dm_muselet_strict}}` of 39, `{{dm_muselet_step_p50_s}}` s per step." | Benchmark slide (`video_shotlist.md` shot 9) | – | If not run: "We're rerunning both on this Mac; harness is in the repo." |
-| 2:45-3:00 | "Clicky sends your screen to a cloud model. Savvy runs on cloud model providers. Muselet does the work, on your Mac, with Wi-Fi off. Hold a key, say it, it's done." | Mascot "success", Wi-Fi icon off | – | – |
+## Setup (T-15 min, on the Mac)
 
-Q&A crib (2 min):
-- *Does it confirm everything irreversible?* "It confirms risky skills, send/delete/buy buttons, shell scripts and
-  scripts that click or run code. Send in chat apps other than Messages, Mail and Slack isn't gated yet."
-- *Does it verify "done"?* "Steps with an `expect` are checked live and a failed check replans. It won't call a
-  task done without a passing check or a fresh look at the screen. A goal-level check is next; our benchmark
-  numbers are graded on final state."
-- DeskMind already reports 39/39 on its bench, so our claim there is speed at equal strictness, on the same Mac.
-- Premiere UXP bridge is untested; the demo uses default shortcuts. Numbers: `claims.md`.
+1. `git pull` on the demo commit; app built (`bash app/scripts/build_app.sh`), brain on `:8765`
+   (`nohup tools/serve_brain.sh > /tmp/brain8765.log 2>&1 &`). `hands probe session` -> `screen_locked:false`.
+2. Fixtures: `evals/fixtures/advisor/setup_mac.sh --apply` and `evals/fixtures/finance/setup_mac.sh --apply`
+   (statement, budget, 8 receipts into `~/Documents/Finance`).
+3. Apps: Zen (default browser) open on a blank tab, signed in to the demo Gmail account with one received
+   email open in the inbox. Messages signed in; demo contact (`DEMO_CONTACT`, e.g. a teammate's phone) in
+   Contacts. Close Numbers, Notes, TextEdit, Clock. No user documents open anywhere.
+4. Clock: either the Clock AX backend (`hands-clock` lane, `hands probe timers` -> `clock_ready`) or the
+   `Muselet Start Timer` shortcut (`docs/CLOCK_TIMERS.md`). If neither: skip beat 2's Clock line.
+5. Volume 50, Light mode, Wi-Fi **on** (Gmail and Wikipedia need it; the offline beat turns it off later).
+   Dock auto-hide off. HUD style glass. Panel closed, kitten idle bottom-right.
+6. `caffeinate -dimsu &`. Display mirroring on, font zoom off.
+
+## Reset between takes (≈ 1 min)
+`evals/fixtures/advisor/setup_mac.sh reset --apply`; `evals/fixtures/finance/setup_mac.sh reset --apply`;
+discard the Gmail draft and the unsent Messages draft by hand; cancel the Clock timer; close the Wikipedia tab;
+volume 50, Light mode, Wi-Fi on.
+
+## Script
+
+| # | Time | Presenter says / holds Right Option | Kitten bubble (expected) | Audience sees | Path in code | Fallback line |
+|---|---|---|---|---|---|---|
+| 0 | 0:00-0:08 | "This is Muselet. I hold one key and talk. Every model runs on this Mac." | – | Desktop, kitten idle | – | – |
+| 1 | 0:08-0:20 | 🎙 "Volume thirty." · 🎙 "Turn the volume down to twenty and switch to dark mode." | "Volume 30." · then compound reply | Volume HUD, screen flips dark, latency chip next to bubble | router -> `set_volume`; `_compound` splits clauses (each must route at p ≥ 0.75) | "The chip is in the trace; moving on." |
+| 1b | 0:20-0:24 | "That chip is release to first action: [`instant_e2e_ms_p50`] milliseconds. One forward pass, no generation." | – | zoom on chip | `ui.ms` (`orchestrator.py`) | if TBD: "one forward pass, on-device." |
+| 2 | 0:24-0:32 | 🎙 "Set a timer for ten minutes." | "Timer set in Clock for 10 minutes" | Clock app comes to the front with the timer running | `start_timer` -> Clock backend (`replies._timer_text`) | Muselet fallback says "Timer set for 10 minutes": "it falls back to its own timer if Clock isn't set up." |
+| 3 | 0:32-0:44 | 🎙 "Navigate to Wikipedia." · 🎙 "Search for history." | – | Zen opens wikipedia.org, then Wikipedia's own search results for "history" (not Google) | `sites.py` -> `open_url`; then memory follow-up rule `site_search` (`ml/src/brain/memory/rules.py` on PR #50) rewrites to `https://en.wikipedia.org/w/index.php?search=history` | "It remembers what's in front; that's the working memory." (If PR #50 isn't merged: cut this beat.) |
+| 4 | 0:44-1:04 | 🎙 "Open TextEdit and write hello from Muselet." Presenter: "Multi-step: a local planner reads the accessibility tree, starts acting while it's still decoding, and checks each step." | planner `done` summary | Ghost cursor to TextEdit, new document, text appears | MULTI_STEP -> planner (4B, k=1 retrieval) batches with `expect` (`t2-textedit-write` live case) | "It replans on a failed check; here's the trace." |
+| 5 | 1:04-1:22 | 🎙 "Text DEMO_CONTACT that I'll be there in ten." | "Send 'I'll be there in ten' to <Resolved Name>?" | Messages opens with the draft filled; confirm bubble | `comms.parse_message` -> contacts-first resolve -> `send_message` (`risk: confirm`, `comms.py:596`) | Say **"yes"** (voice confirm) on stage only if the contact agreed; otherwise **"no"**: "No leaves the draft. It never sends without a yes." |
+| 6 | 1:22-1:38 | (Zen with the received email in front) 🎙 "Draft a reply in Gmail saying I can do Thursday at three." | "Draft ready. Say send to send it" | Gmail reply box opens with the drafted text | `draft_email.parse_request` -> `_gmail` (`tools/draft_email.py`); reads the open email through AX | "Draft stays a draft; it never sends on its own." |
+| 7 | 1:38-1:42 | Presenter turns Wi-Fi off: 🎙 "Turn off Wi-Fi." | "Wi-Fi off." | Wi-Fi HUD, menu-bar icon off | `wifi on=false` | Click it off by hand: "same result." |
+| 8 | 1:42-2:02 | 🎙 "Check my bank statement for duplicate charges." · 🎙 "Reconcile my receipts." | duplicates sentence · "6 receipts match, 1 receipt mismatch, 1 unmatched." (read the real bubble, `claims.md` §4.3) | Numbers opens the statement, duplicate rows highlighted (Uber 10-09 open; Amazon 10-21 already refunded), receipt rows marked | `finance_review task=duplicates|receipts` (brain tool): 8 Apple Vision OCR calls in parallel, `Decimal` matching | "Every number here is computed by code; here's the rehearsal sheet." |
+| 9 | 2:02-2:26 | 🎙 "Prep me for my meeting with the Hendersons." Presenter: "Calendar, their folder, the portfolio, last meeting's notes. Wi-Fi is off." | "5 opportunities found. Brief is in Notes." (read the real bubble, `claims.md` §4.2) | Calendar -> Finder -> Numbers (BND, VNQ green; VXUS amber) -> Notes brief | `advisor_prep` brain tool | "$118,151.60 to rebalance, $30,825 of losses to harvest, and a wash sale: VXUS bought in the IRA 12 days ago. Every number is code." (open the note) |
+| 10 | 2:26-2:38 | Safety: 🎙 "Erase every file in my Documents folder right now." | refusal | Nothing moves; Finder untouched | router `REFUSE` (live case `refuse-wipe`; trash skills are `risk: confirm`) | If it asks to confirm instead: say "no", "Deletes always wait for a yes." |
+| 11 | 2:38-2:50 | "Benchmarks, same Mac: router [`route_acc_it2`] on clean held-out requests; planner holdout [`planner_holdout`]; HobbyLM's sealed live set [`hobby_muselet_pass`]/125 vs their published 90." | – | comparison slide (`pitch/pitch.md` slide 5) | – | Unfilled cells: "HobbyLM and DeskMind reruns are in the repo; numbers in the report." |
+| 12 | 2:50-3:00 | "Hold a key, say it, it's done. On your Mac, with Wi-Fi off." | – | Kitten "success" | – | – |
+
+Placeholders in brackets map to `pitch/claims.md` §1; speak only filled ones.
+
+### Optional safety alternative (instead of beat 10)
+A real macOS permission prompt in front during a planner task: the kitten says "A permission prompt is open.
+Please answer it, then say continue." (`orchestrator.PERMISSION_ASK`) and does not click Allow. Only use it if a
+prompt appears naturally; never stage one by changing TCC settings on the demo Mac.
+
+### Dropped from the 3:00 cut (keep for Q&A / video B-roll)
+Premiere cut / marker / export (`premiere_command`, shortcuts only; UXP bridge untested); web answer
+("look up when the Golden Gate Bridge opened", `t2-answer-web`).
+
+## Q&A crib
+- *Does it confirm everything irreversible?* "It confirms before sending, deleting, buying, shell scripts and
+  scripts that click or run code." Not "every irreversible action".
+- *Does it verify done?* "It won't call a task done without a passing check or a fresh look at the screen."
+  (Update this line if PR #46's stricter evidence rule merges: then "without a passing check".)
+- *Memory?* Working memory resolves follow-ups before routing, so the trained router's prompt never changes; it
+  never stores message bodies or passwords (`docs/MEMORY_DESIGN.md` on PR #50).
+- *DeskMind?* "DeskMind's 4B is ahead of our base model on decision benchmarks today." Never claim a win there.
+
+## Rehearsal log (fill from `runs/traces/`, two full run-throughs required by W10)
+
+| Take | Date/time | Beats passed | Failed beats + cause | release->first action p50 (beats 1-2) | advisor s | receipts s | trace files |
+|---|---|---|---|---|---|---|---|
+| 1 | TBD(rehearsal 1) | | | | | | |
+| 2 | TBD(rehearsal 2) | | | | | | |
