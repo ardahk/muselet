@@ -1,5 +1,5 @@
-# architect digest - pass 51 (2026-10-24T23:22Z)
-Reviewed: main 46b97f5 (harness proxy close bound), wip/local 719907a, safety-architect27 4edcba5, safety-brain12/18/38, safety-planner28, brain-9 e9e9b42, live-cases fa9c374. New: architect-34 and architect-35 (both P2, on the architect-27 fix branch). The Premiere beat is now out of the 3:00 demo cut, so architect-26 and architect-27 are lower demo risk.
+# architect digest - pass 52 (2026-10-24T23:35Z)
+Reviewed: only cloud/decisions moved (c88b613: results.md with the calibrated JevBench/TD on Tinker bf16). TD .6645 vs DeskMind .658 is inside 1 SE (1.06 pt), and JevBench .801 < .831, so there is no 'beats DeskMind' claim yet. The Mac MLX run decides. results.md recommends serving uncalibrated (T=1), because the dev-fitted temperatures worsen benchmark KL/ECE. No new findings; open findings re-checked, all still unchanged at their SHAs.
 
 ## Open P1 (ranked)
 1. architect-29 - No competitor benchmark number exists - pitch/claims.md
@@ -18,4 +18,4 @@ Reviewed: main 46b97f5 (harness proxy close bound), wip/local 719907a, safety-ar
 2. planner-verify: fit VERIFY_P on labelled final states or merge with VERIFY_DONE=off. ~30 min.
 3. Before merging safety-architect27: probe Premiere's real Window menu titles, and confirm only export. ~15 min on the Mac.
 4. Run the planner-lora / think Mac matrix on paraphrase-deduped holdouts. ~1 h.
-5. Re-run the decisions calibrated JevBench + TD eval (~$0.3, within the $148 stop).
+5. Mac MLX 4-bit decisions run (jonsnov/muselet-decisions-4b-mlx4 @ 8a8807d, T=1) on JevBench + TD through the same shim as the DeskMind ref. Quote it only as a tie or win against the SE. ~30 min.

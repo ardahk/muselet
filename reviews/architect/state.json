@@ -1,6 +1,6 @@
 {
-  "pass": 51,
-  "ts": "2026-10-24T23:22:00Z",
+  "pass": 52,
+  "ts": "2026-10-24T23:35:00Z",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
@@ -25,7 +25,7 @@
     "cloud/data-pipeline": "830ba35",
     "cloud/data-planner": "ee8ae33",
     "cloud/data-route": "42835ce",
-    "cloud/decisions": "08dae49",
+    "cloud/decisions": "c88b613",
     "cloud/docs-demo": "095d4ef",
     "cloud/docs-demo-2": "fa79929",
     "cloud/finance": "529e9ff",
