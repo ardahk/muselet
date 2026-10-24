@@ -1,4 +1,13 @@
-# brain digest — pass 16 (2026-10-24T09:25:00Z) — full re-verification against main 2920225
+# brain digest — pass 17 (2026-10-24T09:35:00Z)
+
+Pass 17: main is unchanged at 2920225. wip/local 3e03686 has the same tree as main, so every open finding and every pass-16 repro still stands.
+cloud/decisions 3a865a0 moves AlphaChoiceRenderer into ml/src/brain/choice_renderer.py (it still assigns IDS = usable_ids) and adds a Tinker System One backend under bench/systemone.
+- Its decision.py edits are based on code from before the split_model fix and would revert it as a branch diff. I tried the merge with main: it merges cleanly and keeps the language_model.lm_head lookup.
+- On that merge result: test_split_model, test_route_parity and test_orchestrator give 12 passed, 1 skipped, 51 xfailed. The bench systemone tests give 14 passed.
+- The Tinker backend reads choice log-probs at row choice_pos-1, which is the correct position. Retries are bounded, and each call samples max_tokens=1. No findings.
+cloud/data-pipeline (dedup pin-split, datums_export) and cloud/pitch-2 have nothing in my lane.
+
+## Pass 16 summary (re-verification against main 2920225)
 
 Main 2920225: all 20 product suites pass (incl. new test_split_model 2/2). Fresh repros for every open finding are in reviews/brain/tests/test_brain_pass16.py; all 6 tests fail on 2920225.
 Branch-only findings: none left. Every open item reproduces on main. Findings from cloud/* branches that are now merged were resolved in passes 9 and 15. The 2 failures in test_brain_pass4.py are stale tests (brain-13 is fixed), so ignore them.
