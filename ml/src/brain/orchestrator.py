@@ -40,6 +40,98 @@ def _norm(text: str) -> str:
     return " ".join(re.sub(r"[^\w\s']", " ", text.lower()).split())
 
 
+def _script_failure(error: str, res: dict | None) -> tuple[str, str]:
+    """(bubble, planner reason) for a failed script act: HandsKit sends
+    timed_out / exit_code / stderr and `script_failed: exit N: <stderr>`."""
+    res = res or {}
+    err = " ".join(str(res.get("stderr") or "").split())[:200]
+    if res.get("timed_out") or re.search(r"timed? ?out", error or ""):
+        return "That script timed out", "timed out" + (f"; stderr: {err}" if err else "")
+    code = res.get("exit_code")
+    if code is None and (m := re.search(r"exit (-?\d+)", error or "")):
+        code = int(m.group(1))
+    if code is None:
+        return "Script failed", error or "?"
+    if not err:
+        err = re.sub(r"^script_failed: exit -?\d+:? ?", "", error or "")[:200]
+    return "Script failed", f"exit {code}" + (f"; stderr: {err}" if err else "")
+
+
+_ABS_SKILL = {"change_volume": "set_volume", "change_brightness": "set_brightness"}
+_ABS_WORDS = {"max": 100, "maximum": 100, "full": 100, "half": 50,
+              "min": 0, "minimum": 0}
+
+
+def abs_level(text: str) -> int | None:
+    """Absolute 0-100 target in the utterance: 'down to twenty', 'to 30
+    percent', 'at half', 'to the max' -> int; None for relative requests."""
+    toks = re.findall(r"[a-z]+|\d+", text.lower())
+    for i, w in enumerate(toks):
+        if w not in ("to", "at") or i + 1 >= len(toks):
+            continue
+        j = i + 1 + (toks[i + 1] == "the")
+        if j >= len(toks):
+            continue
+        if toks[j] in _ABS_WORDS:
+            return _ABS_WORDS[toks[j]]
+        v, _ = calc._parse_run(toks, j)
+        if v is not None and 0 <= v <= 100 and v == int(v):
+            return int(v)
+    return None
+
+
+_JOIN = re.compile(r",?\s+(and\s+then|then|and)\s+", re.IGNORECASE)
+MAX_CLAUSES = 4
+
+
+def split_clauses(text: str) -> tuple[list[str], list[str]]:
+    """'a and then b' -> (['a', 'b'], ['and then']); never splits inside
+    "quoted text". One clause -> ([text], [])."""
+    parts, joins, start = [], [], 0
+    for m in _JOIN.finditer(text):
+        if text[:m.start()].count('"') % 2:
+            continue
+        parts.append(text[start:m.start()])
+        joins.append(" ".join(m.group(1).lower().split()))
+        start = m.end()
+    parts.append(text[start:])
+    parts = [p.strip(" ,.") for p in parts]
+    if len(parts) < 2 or not all(parts):
+        return [text], []
+    return parts, joins
+
+
+# common spoken names -> app (the `apps` RPC list wins when it matches)
+_APP_ALIASES = {"finder": "Finder", "chrome": "Google Chrome",
+                "google chrome": "Google Chrome", "safari": "Safari",
+                "notes": "Notes", "numbers": "Numbers",
+                "premiere": "Adobe Premiere Pro",
+                "premiere pro": "Adobe Premiere Pro"}
+APPS_TTL_S = 60
+
+
+def app_in(text: str, names: list[str]) -> str | None:
+    """Longest installed/running app name (or alias) in the utterance."""
+    u = f" {_norm(text)} "
+    hits = [n for n in names if _norm(n) and f" {_norm(n)} " in u]
+    if hits:
+        return max(hits, key=lambda n: len(_norm(n)))
+    for alias in sorted(_APP_ALIASES, key=len, reverse=True):
+        if f" {alias} " in u:
+            full = _APP_ALIASES[alias]
+            return next((n for n in names if _norm(full) in _norm(n)), full)
+    return None
+
+
+def _action_key(a: dict) -> str:
+    """normalized DSL line of an action (loop-guard identity)."""
+    try:
+        line = dsl.serialize([dict(a, expect=None)])
+    except Exception:       # noqa: BLE001
+        line = str(a)
+    return " ".join(line.lower().split())
+
+
 def _headtail(s: str, n: int = 1500) -> str:
     """Script output for the planner: head + tail when longer than n."""
     if len(s) <= n:
@@ -72,6 +164,9 @@ def script_needs_confirm(lang: str, code: str) -> bool:
 
 
 class Orchestrator:
+    WEB_AX_WINDOW_S = 2.2     # Chrome's web AX tree lands ~2 s after a switch
+    COMPOUND_P = 0.75         # every clause must route this confidently
+
     def __init__(self, server, catalog: Catalog | None = None,
                  tracer: Tracer | None = None, engine=None, tau: float = 0.55):
         self.server = server
@@ -86,6 +181,7 @@ class Orchestrator:
         self._ctx = {"app": "none", "focused": "none", "selection": False,
                      "last_action": "none"}
         self._t_final = 0.0
+        self._web_ax_t0 = None      # first web_ax_pending observe arrival
         self._first_action_ms: float | None = None
         self._batch_confirmed = False
         self._pending_task: dict | None = None
@@ -98,6 +194,8 @@ class Orchestrator:
         self._slot: dict | None = None     # {skill, args, missing, t, ...}
         self._utterance = ""
         self._diff_chain: list[str] | None = None
+        self._apps: tuple[float, list[str]] | None = None   # (t, names)
+        self._collect: list[str] | None = None   # compound: replies to join
 
     # ---------- v0 router ----------
 
@@ -150,6 +248,7 @@ class Orchestrator:
         t0 = time.perf_counter()
         self._t_final = t0
         self._first_action_ms = None
+        self._web_ax_t0 = None
         self._ms_kind = None
         trace = self.tracer.begin(text)
         # utterance-frame ctx wins (app/focused/selection/online)
@@ -233,6 +332,10 @@ class Orchestrator:
         from .planner import worker
         # reuse a speculative route (+ARGS) when the final text matches the
         # last partial (architect-5a)
+        if pre is None and self._collect is None:
+            out = await self._compound(text, trace)
+            if out is not None:
+                return out
         norm = _norm(text)
         spec_hit = False
         spec_ext = None
@@ -298,8 +401,19 @@ class Orchestrator:
     async def _run_skill(self, label: str, raw_args: dict, text: str,
                          trace: dict) -> str:
         """fallback table -> slot fill for still-missing args -> execute."""
+        to = _ABS_SKILL.get(label)
+        if to and self.catalog.get(to) and (lvl := abs_level(text)) is not None:
+            trace["decisions"].append({"abs_switch": [label, to, lvl]})
+            label, raw_args = to, {"level": lvl}
         spec = self.catalog.get(label) or {}
         raw_args = slots.fill_defaults(label, raw_args, text)
+        for a in spec.get("args", []):
+            if a.get("type") == "app" and a.get("required") and \
+                    raw_args.get(a["name"]) in (None, ""):
+                app = app_in(text, await self._app_names())
+                if app:
+                    raw_args[a["name"]] = app
+                    trace["decisions"].append({"app_fill": app})
         missing = self._missing(label, raw_args)
         if missing:
             return await self._start_slot(label, raw_args, missing, text,
@@ -320,6 +434,78 @@ class Orchestrator:
             if self.engine is not None:
                 self.engine.last_action = self._ctx["last_action"]
         return out
+
+    async def _app_names(self) -> list[str]:
+        """running + installed app names from the `apps` RPC, cached 60 s
+        (a failed RPC is cached too: aliases still work)."""
+        now = time.time()
+        if self._apps and now - self._apps[0] < APPS_TTL_S:
+            return self._apps[1]
+        names = []
+        try:
+            res = await self.server.rpc("apps", {}, timeout=3)
+            names = [a.get("name") if isinstance(a, dict) else a
+                     for a in res.get("running") or []] + \
+                list(res.get("installed") or [])
+        except RuntimeError:
+            pass
+        names = [n for n in dict.fromkeys(names) if isinstance(n, str) and n]
+        self._apps = (now, names)
+        return names
+
+    async def _compound(self, text: str, trace: dict) -> str | None:
+        """'X and then Y': route each clause on the worker; when every clause
+        is a confident native skill, run them in order (ARGS per clause) with
+        one combined reply. None -> route the whole utterance instead."""
+        parts, joins = split_clauses(text)
+        if len(parts) < 2 or len(parts) > MAX_CLAUSES:
+            return None
+        from .planner import worker
+        routed = []
+        for c in parts:
+            r = await worker().submit_async(self.engine.route, c,
+                                            dict(self._ctx))
+            spec = self.catalog.get(r.top)
+            routed.append([c, r.top, round(r.p_top, 3)])
+            if not spec or spec.get("executor") == "brain" or \
+                    r.p_top < self.COMPOUND_P:
+                trace["decisions"].append({"compound_reject": routed})
+                return None
+        # a plain 'and' between two same-skill clauses is one phrase
+        # ("search for salt and pepper"); 'then' always sequences
+        if any(j == "and" and routed[i][1] == routed[i + 1][1]
+               for i, j in enumerate(joins)):
+            trace["decisions"].append({"compound_reject": routed})
+            return None
+        trace["compound"] = len(parts)
+        trace["decisions"].append({"compound_routes": routed})
+        self._spec_fut, self._spec_norm = None, ""
+        self._spec_gen += 1
+        self._collect = []
+        try:
+            for c, label, _ in routed:
+                if (self.catalog.get(label) or {}).get("args"):
+                    ext = await worker().submit_async(
+                        self.engine.args, label, c, dict(self._ctx))
+                    trace["decisions"].append(
+                        {"args_ms": ext.get("ms", {}).get("args_ms"),
+                         "raw": ext.get("_raw")})
+                    out = await self._run_skill(label, {
+                        k: v for k, v in ext.items()
+                        if k not in ("ms", "_raw", "missing")}, c, trace)
+                else:
+                    out = await self.execute_actions(
+                        [{"op": "skill", "name": label, "args": {}}])
+                if out != "ok":
+                    return out
+            said = self._collect
+        finally:
+            self._collect = None
+        reply = ", ".join(s if i == 0 else s[:1].lower() + s[1:]
+                          for i, s in enumerate(said))
+        await self.server.say(_cap12(reply or "Done"))
+        await self._end_ui("success")
+        return "ok"
 
     def _arg_spec(self, skill: str, arg: str) -> dict:
         return next((a for a in (self.catalog.get(skill) or {}).get("args", [])
@@ -582,7 +768,13 @@ class Orchestrator:
                     return {"status": "cancelled"}
             r = await self._rpc_action(
                 "act", {"op": "script", "lang": lang, "code": code}, a)
-            r["_log"] = f"script -> {'ok' if r['status']=='ok' else 'failed: ' + r.get('error','?')}"
+            if r.get("status") == "failed":
+                bubble, why = _script_failure(r.get("error", "?"),
+                                              r.get("res"))
+                r["_log"] = f"script -> failed: {why}"
+                await self.server.say(bubble)
+            else:
+                r["_log"] = f"script -> {r['status']}"
             if r.get("status") == "ok":
                 out = r.get("res", {})
                 text_out = out.get("output") or out.get("stdout") or ""
@@ -742,6 +934,7 @@ class Orchestrator:
         prev_expect_ok = False
         obs_text = ""
         diffs: list[str] | None = None
+        fail_streak, prev_fail_key = 0, None
         for turn in range(12):
             if time.perf_counter() - t_start > 60:
                 break
@@ -783,6 +976,9 @@ class Orchestrator:
             done_seen = False
             n_executed = 0
             last_exp_ok = False
+            skipped: list[str] = []      # prose / tags / fences, not actions
+            n_actions = 0
+            fail_key = None              # normalized action line that failed
             script_buf: list[str] | None = None   # multi-line """ block
             try:
                 while True:
@@ -805,9 +1001,16 @@ class Orchestrator:
                         if pending and line.startswith("expect"):
                             pending[-1]["expect"] = line[7:].strip()
                         continue
+                    dl = dsl.action_line(line, self.catalog.skills)
+                    if dl is None:
+                        skipped.append(line)
+                        continue
+                    line = dl
+                    n_actions += 1
                     # a new action line: flush the previous pending action
                     if pending and not failed and not done_seen:
-                        r = await self._exec_one(pending.pop(0))
+                        a = pending.pop(0)
+                        r = await self._exec_one(a)
                         batch_log.append(r["_log"])
                         if r["status"] == "done":
                             done_seen = True
@@ -819,12 +1022,14 @@ class Orchestrator:
                                 failed = True
                                 cancel.set()
                                 res_status = r["status"]
+                                fail_key = _action_key(a)
                     try:
                         acts = dsl.parse(line)
                         pending.extend(acts)
                     except Exception as e:
                         failed = True
                         res_status = "failed"
+                        fail_key = " ".join(line.lower().split())
                         batch_log.append(f"{line} -> failed: {e}")
                         cancel.set()
             except asyncio.CancelledError:
@@ -832,7 +1037,8 @@ class Orchestrator:
                 raise
             # flush tail action(s)
             while pending and not failed and not done_seen:
-                r = await self._exec_one(pending.pop(0))
+                a = pending.pop(0)
+                r = await self._exec_one(a)
                 batch_log.append(r["_log"])
                 if r["status"] == "done":
                     done_seen = True
@@ -842,6 +1048,7 @@ class Orchestrator:
                     if r["status"] != "ok":
                         failed = True
                         res_status = r["status"]
+                        fail_key = _action_key(a)
                         cancel.set()
             info = await asyncio.wrap_future(fut)
             trace["decisions"].append({
@@ -849,6 +1056,9 @@ class Orchestrator:
                 "ttft_ms": round(info["ttft_ms"], 1),
                 "decode_tok_s": round(info["decode_tok_s"], 1),
                 "tokens": info["tokens"]})
+            if skipped:
+                trace["decisions"].append({"skipped_lines": skipped})
+                batch_log.append(f"ignored {len(skipped)} non-action lines")
             last_batch = batch_log or None
             lo = self._last_obs or {}
             # capped/truncated observations can't be rebuilt from diffs: an
@@ -880,12 +1090,23 @@ class Orchestrator:
                 failed = True
                 diffs = None          # force a fresh observe next turn
             prev_expect_ok = n_executed > 0 and not failed and last_exp_ok
-            if res_status == "failed" or failed:
+            if res_status == "failed" or failed or not n_actions:
+                # loop guard: same action failing twice in a row, or three
+                # failed turns -> ask the user instead of burning turns
+                fail_streak += 1
+                same = fail_key is not None and fail_key == prev_fail_key
+                if same or fail_streak >= 3:
+                    trace["decisions"].append({"loop_guard": "same_action"
+                                               if same else "3_failed_turns",
+                                               "line": fail_key})
+                    self._pending_task = {"goal": text, "t": time.time()}
+                    await self.server.say("I'm stuck on that, can you help?")
+                    await self._end_ui("confused")
+                    return "awaiting_user"
+                prev_fail_key = fail_key
                 prev_had_failure = True
                 continue          # replan with fresh observation
-            if not lines:
-                prev_had_failure = True
-                continue
+            fail_streak, prev_fail_key = 0, None
             # batch fully executed without a terminal op -> keep going
             prev_had_failure = False
         await self.server.say("That didn't work")
@@ -1017,6 +1238,27 @@ class Orchestrator:
     # ---------- execution ----------
 
     async def _observe(self):
+        """observe; while Chrome fills its web AX tree (`web_ax_pending`,
+        ~2 s after the switch) wait out the window once and re-observe;
+        never a screenshot because of it."""
+        res = await self._observe_once()
+        if not res or not res.get("web_ax_pending"):
+            if res:
+                self._web_ax_t0 = None
+            return res
+        now = time.perf_counter()
+        if self._web_ax_t0 is None:
+            self._web_ax_t0 = now
+        await asyncio.sleep(max(0.0, self.WEB_AX_WINDOW_S
+                                - (now - self._web_ax_t0)))
+        res = await self._observe_once() or res
+        if self.tracer.current is not None:
+            tr = self.tracer.current
+            tr["web_ax_wait_ms"] = round(tr.get("web_ax_wait_ms", 0) + (
+                time.perf_counter() - now) * 1000, 1)
+        return res
+
+    async def _observe_once(self):
         t = time.perf_counter()
         try:
             res = await self.server.rpc(
@@ -1151,8 +1393,8 @@ class Orchestrator:
         self.tracer.rpc("act", params, self._trace_res(res),
                         (time.perf_counter() - t) * 1000)
         if not res.get("ok", False):
-            return await self._fail(res.get("error", "script failed"),
-                                  "Script failed")
+            err = res.get("error", "script failed")
+            return await self._fail(err, _script_failure(err, res)[0])
         return "ok"
 
     async def _skill(self, a: dict) -> str:
@@ -1200,7 +1442,10 @@ class Orchestrator:
         if not res.get("ok", False):
             return await self._fail(res.get("error", "?"), replies.fail_text(
                 name, args, str(res.get("error", ""))))
-        await self.server.say(replies.success_text(name, args,
-                                                   res.get("result")))
+        reply = replies.success_text(name, args, res.get("result"))
+        if self._collect is not None:
+            self._collect.append(reply)
+            return "ok"
+        await self.server.say(reply)
         await self._end_ui("success")
         return "ok"

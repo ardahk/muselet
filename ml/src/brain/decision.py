@@ -507,6 +507,7 @@ class DecisionEngine:
                         break
                     j = j + m2.end()
                 v = first[i:j].strip()
+                v = v.rstrip(",;.").rstrip() or v    # `parent=~/Desktop,`
                 i = j
             if k == "missing":
                 out["missing"] = v
