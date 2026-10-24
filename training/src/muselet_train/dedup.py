@@ -55,7 +55,7 @@ def eval_texts() -> list[str]:
     return out
 
 
-def run(run_name: str, infile: str, seed: int) -> None:
+def run(run_name: str, infile: str, seed: int, pin: str | None = None) -> None:
     rows = _load(run_name, infile)
     stats = collections.Counter()
     seen, kept = set(), []
@@ -108,12 +108,27 @@ def run(run_name: str, infile: str, seed: int) -> None:
     by_label = collections.defaultdict(list)
     for g in groups.values():
         by_label[collections.Counter(clean[i]["label"] for i in g).most_common(1)[0][0]].append(g)
+    pinned = {}
+    if pin:
+        prun, pfile = pin.split(":")
+        pinned = {norm(r["utterance"]): r["split"] for r in _load(prun, pfile)}
     split = {}
     for lab, gs in sorted(by_label.items()):
         rng.shuffle(gs)
         n = sum(len(g) for g in gs)
         nval = 0
+        free = []
         for g in gs:
+            ss = {pinned.get(norm(clean[i]["utterance"])) for i in g}
+            s = "val" if "val" in ss else "train" if "train" in ss else None
+            if s is None:
+                free.append(g)
+                continue
+            stats[f"pinned_{s}"] += len(g)
+            nval += len(g) if s == "val" else 0
+            for i in g:
+                split[i] = s
+        for g in free:
             s = "val" if nval < round(VAL * n) else "train"
             nval += len(g) if s == "val" else 0
             for i in g:
@@ -136,8 +151,10 @@ def main() -> None:
     ap.add_argument("--run", required=True)
     ap.add_argument("--in", dest="infile", default="route.jsonl")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--pin-split-from", default=None,
+                    help="run:file; items (near-dup groups) seen there keep that split, so val stays held out across runs")
     a = ap.parse_args()
-    run(a.run, a.infile, a.seed)
+    run(a.run, a.infile, a.seed, a.pin_split_from)
 
 
 if __name__ == "__main__":
