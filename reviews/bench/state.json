@@ -1,11 +1,11 @@
 {
-  "pass": 27,
-  "ts": "2026-10-24T12:10:00Z",
+  "pass": 28,
+  "ts": "2026-10-24T12:25:00Z",
   "branches": {
-    "main": "d7c192f",
-    "wip/local": "367d450",
+    "main": "fbd5aa0",
+    "wip/local": "2f26223",
     "cloud/bench": "f584cb2",
-    "cloud/data-pipeline": "0ce9ea6",
+    "cloud/data-pipeline": "735686f",
     "cloud/decisions": "6d395df",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
@@ -23,7 +23,8 @@
     "cloud/brain-4": "dfb66a3",
     "cloud/brain-5": "b752261",
     "cloud/grounder-wire": "afb12a6",
-    "cloud/pitch-3": "e203181"
+    "cloud/pitch-3": "e203181",
+    "cloud/pitch-4": "6393857"
   },
-  "notes": "pass27: main d7c192f serves it2 router by default (5dc347c) + AGENTS.md serving config. data-pipeline 0ce9ea6: v2 evalcheck reports incl. evals/external -> bench-18 now measured (r2: 15/125 HobbyLM r4 near-dups; it2: 0). New bench-22: decontam.norm strips all CJK, so DeskMind (zh-Hans) overlap counts are artifacts. wip/local: no lane diff."
+  "notes": "pass28: main fbd5aa0 AGENTS.md: competitor benches only with routers passing the overlap check (it2) -> bench-18 resolved. data-pipeline 735686f: it2 as-trained external overlap (r4 0/125; DeskMind G07 artifact; 0 CJK chars in it2 datums) -> bench-22 lowered to P2 (normalizer still blind; decisions decontam TOKEN also drops CJK). pitch-4: claims.md contamination disclosures consistent with the reports. wip/local: no lane diff. bench-16/20/21 unchanged."
 }
