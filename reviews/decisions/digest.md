@@ -1,6 +1,6 @@
-# decisions — digest (pass 32)
+# decisions — digest (pass 33)
 
-Heads: cloud/decisions f6fb133 (unchanged since pass 31; full run done, uncalibrated JevBench .801 / TD .6645, cal + route evals not run), cloud/data-decisions 91de461, main 2a2c2a9 / wip/local 4f963a7 (only new briefs: planner-lora, ui-polish; budget edit), cloud/memory-eval c05944e adds evals/memory_followups.jsonl.
+Heads: cloud/decisions f6fb133 (unchanged; full run done, uncalibrated JevBench .801 / TD .6645, cal + route evals not run), main ebdd639 / wip eb1d232 (briefs only), cloud/planner-lora ceafe3d (2-epoch SFT, est. $5.84), cloud/docs-demo 095d4ef (pitch keeps decisions LoRA TBD; DeskMind-leads wording kept).
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
@@ -17,5 +17,5 @@ Contamination re-check this pass: 2400 freshly generated code-family items vs Je
 - Before any 'calibrated' number: wire temperatures into GenericMLXDecider (decisions-30) and refit on non-template dev or ship T=1 (decisions-31).
 - results.md: full run is below DeskMind on JevBench and tied on TD on a different backend; label rows test-selected (decisions-32). Keep claims.md:85-86.
 - Any data-decisions v2 merge: gate gold-rank uniformity and noul balance per family in build.py (decisions-33, -17).
-- Budget: user allows full $150, hard stop $148 MTD; only planner-lora (<= $7, abort >= $142) is approved to train. Console read $136.22 at 21:30Z; 136.22 + 7 + decisions cal cross-check (~$0.27 est.) = ~$143.5, which leaves ~$4.5 margin, so no other lane may train. Any decisions retrain needs lead approval plus a written estimate.
+- Budget: MTD ~= $136.22 (console 21:30Z) + planner-lora $5.84 est. = ~$142.1, so ~$5.9 left to the $148 stop. Only the decisions calibrated cross-check (~$0.27 est.) fits; no decisions retrain. Re-read the console before any sampling (planner-lora brief stops sampling at $146).
 - Route stays it2; this adapter is System One only (decisions-3).
