@@ -63,7 +63,9 @@ def main():
     c.add_argument("--prompt-file", required=True)
     c.add_argument("--repo", action="append", default=[])
     c.add_argument("--acu", type=int, default=None)
-    c.add_argument("--mode", default=None)
+    c.add_argument("--mode", default="fusion")
+    c.add_argument("--no-secrets", action="store_true")
+    c.add_argument("--tag", action="append", default=[])
     m = sub.add_parser("msg")
     m.add_argument("session_id")
     g = m.add_mutually_exclusive_group(required=True)
@@ -71,6 +73,9 @@ def main():
     g.add_argument("--file")
     s = sub.add_parser("status")
     s.add_argument("session_id")
+    lg = sub.add_parser("log")
+    lg.add_argument("session_id")
+    lg.add_argument("-n", type=int, default=3)
     a = ap.parse_args()
 
     env = load_env()
@@ -88,7 +93,22 @@ def main():
             body["max_acu_limit"] = a.acu
         if a.mode:
             body["devin_mode"] = a.mode
+        if a.no_secrets:
+            body.pop("session_secrets")
+        if a.tag:
+            body["tags"] = a.tag
         print(json.dumps(summary(call(env, "POST", "/sessions", body)), indent=2))
+    elif a.cmd == "log":
+        items, cursor = [], None
+        while True:
+            page = call(env, "GET", f"/sessions/{a.session_id}/messages"
+                        + (f"?after={cursor}" if cursor else ""))
+            items += page.get("items", [])
+            cursor = page.get("end_cursor")
+            if not page.get("has_next_page") or not cursor:
+                break
+        for it in items[-a.n:]:
+            print(f"--- [{it.get('source')}] {it.get('created_at', '')}\n{it.get('message', '')}\n")
     elif a.cmd == "msg":
         text = a.text if a.text is not None else Path(a.file).read_text()
         call(env, "POST", f"/sessions/{a.session_id}/messages", {"message": text})
