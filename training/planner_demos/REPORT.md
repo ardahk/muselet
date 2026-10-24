@@ -1,6 +1,6 @@
 # Planner teacher demonstrations v1 — report
 
-Code: `training/planner_demos/`. Data: private HF dataset `jonsnov/muselet-planner-demos-v1`. No Tinker runs.
+Code: `training/planner_demos/`. Data: private HF dataset `jonsnov/muselet-planner-demos-v1` @ 9453ff6 (code 99df4b6). No Tinker runs.
 
 ## Pipeline
 1. `build_states.py`: 130 v2-tune states (from `evals/planner_scenarios_v2.jsonl`) plus synthetic states from `states_a.py` /
