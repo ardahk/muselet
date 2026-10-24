@@ -50,3 +50,14 @@ def test_constrained_contexts():
     assert constrain("type_text", base, rng).focused.startswith(("textfield", "textarea"))
     assert constrain("open_app", base, rng) == base
     assert json.dumps(True)
+
+
+def test_ask_rule_verdict():
+    from muselet_train.ask_rule import verdict
+
+    assert verdict(["level"], "missing=level", ["level"]) == "ask"
+    assert verdict(["level"], "level=40", []) == "concrete"
+    assert verdict(["to", "body"], 'to="Dana" missing=body', ["body"]) == "ask"
+    assert verdict(["path"], 'path="~/Downloads" missing=path', ["path"]) == "concrete"
+    assert verdict([], "", None) == "concrete"
+    assert verdict(["to"], "", None) == "error"

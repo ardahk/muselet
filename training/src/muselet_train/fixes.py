@@ -68,7 +68,7 @@ def is_g3(r: dict) -> bool:
     return bool(r.get("g3")) or str(r.get("src", "")).startswith("g3")
 
 
-def build(out_run: str, sources: list[str], ask_run: str | None, seed: int) -> dict:
+def build(out_run: str, sources: list[str], ask_run: str | None, seed: int, ask_all: bool = False) -> dict:
     rng = random.Random(seed)
     route = [r for s in sources for r in _load(s, "route.jsonl")]
     args = [r for s in sources for r in _load(s, "args.jsonl")]
@@ -77,7 +77,8 @@ def build(out_run: str, sources: list[str], ask_run: str | None, seed: int) -> d
     if ask_run:
         keep = {(r["utterance"], r["src"]) for r in _load(ask_run, "teacher_adj.jsonl")
                 if (r.get("adjudication") or {}).get("verdict") == "keep"}
-        add = [{**r, "a1_ask_keep": True} for r in _load(ask_run, "route.jsonl") if (r["utterance"], r["src"]) in keep]
+        add = [{**r, "a1_ask_keep": (r["utterance"], r["src"]) in keep} for r in _load(ask_run, "route.jsonl")
+               if ask_all or (r["utterance"], r["src"]) in keep]
         utts = {r["utterance"] for r in add}
         add_args = [r for r in _load(ask_run, "args.jsonl") if r["utterance"] in utts]
         route, args = route + add, args + add_args
@@ -125,8 +126,9 @@ def main() -> None:
     ap.add_argument("--from", dest="sources", nargs="+", required=True)
     ap.add_argument("--ask-run")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--ask-all", action="store_true", help="add every ask-run route item (ask_rule decides later)")
     a = ap.parse_args()
-    rep = build(a.out, a.sources, a.ask_run, a.seed)
+    rep = build(a.out, a.sources, a.ask_run, a.seed, a.ask_all)
     print(json.dumps({k: v for k, v in rep.items() if k != "args_ungrounded_examples"}, indent=1))
 
 

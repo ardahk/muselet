@@ -133,6 +133,54 @@ def build_v2(run: str, seed: int = 0) -> list[dict]:
     return reqs
 
 
+# iteration 2 (lead-approved): targeted top-ups for the labels the main run got wrong; notes go in the {style}
+# slot so the prompt text stays exact.
+IT2_G1 = [
+    ("dark_mode", 10, "indirect needs about glare, night-time, eye strain or wanting everything darker or lighter, "
+                      "where switching the system appearance (dark/light mode) is the fix"),
+    ("set_brightness", 5, "indirect needs about the screen itself being too bright or too dim"),
+    ("sleep_display", 4, "the user wants the screen turned off right now, not dimmed and not dark mode"),
+    ("open_app", 10, "many verbs: fire up, pull up, bring up, get me into, launch, start, boot up, open up"),
+    ("find_file", 8, "the user lost or can't locate a file and wants it found, without asking to open it"),
+    ("open_file", 4, "the user names a specific file and wants it opened"),
+    ("create_reminder", 6, "'don't let me forget' / 'remind me' with a time; personal to-dos, not meetings"),
+    ("create_event", 4, "meetings, appointments and calendar entries with a time, not to-do reminders"),
+    ("media_control", 8, "generic playback commands (play, pause, toggle, resume, skip) for music or video in any app"),
+    ("premiere_command", 3, "playback commands for the Premiere Pro timeline (play, stop, play from playhead)"),
+]
+IT2_POLITE = "polite full sentence that names every required value explicitly"
+IT2_ASK_CALLS = 20
+IT2_ASK_STYLE = ("very short (2-4 words): name one skill's action but give none of the details it needs, "
+                 "or point at something unclear like 'it', 'him', 'the one from earlier'")
+
+
+def build_it2(run: str, seed: int = 0) -> list[dict]:
+    """Iteration-2 top-ups: indirect/contrast G1 for weak labels, polite-complete G1 for every skill with a
+    required argument (hard negatives for ASK), and terse ASK G2 (validated later by ask_rule)."""
+    rng = random.Random(seed)
+    by = {o.name: o for o in skills()}
+    reqs: list[dict] = []
+    for name, calls, note in IT2_G1:
+        for j in range(calls):
+            reqs.append({"id": f"g1-{name}-it2-{j}", "kind": "g1", "label": name, "style": f"{STYLES[j % len(STYLES)]}; {note}",
+                         "prompt": g1_prompt(by[name], f"{STYLES[j % len(STYLES)]}; {note}")})
+    for o in skills():
+        if any(a.get("required") for a in o.args):
+            reqs.append({"id": f"g1-{o.name}-it2polite", "kind": "g1", "label": o.name, "style": IT2_POLITE,
+                         "prompt": g1_prompt(o, IT2_POLITE)})
+    for j in range(IT2_ASK_CALLS):
+        reqs.append({"id": f"g2-ASK-it2-{j}", "kind": "g2", "label": "ASK", "style": IT2_ASK_STYLE,
+                     "prompt": g2_prompt("ASK", IT2_ASK_STYLE)})
+    for r in reqs:
+        oa = rng.random() < 0.3
+        r["provider"], r["model"] = ("openai", GEN_OPENAI) if oa else ("anthropic", GEN_ANTHROPIC)
+    d = DATA / run
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "requests.jsonl").write_text("".join(json.dumps(r) + "\n" for r in reqs))
+    print(f"{len(reqs)} requests -> {d}/requests.jsonl")
+    return reqs
+
+
 def _quota_pick(j: int, calls: int) -> str:
     """Deterministic largest-remainder allocation of MULTI_STEP focus domains over calls."""
     alloc: list[str] = []
@@ -347,7 +395,7 @@ def parse(run: str) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["build", "build_v2", "submit", "poll", "collect", "sync"])
+    ap.add_argument("cmd", choices=["build", "build_v2", "build_it2", "submit", "poll", "collect", "sync"])
     ap.add_argument("--run", required=True)
     ap.add_argument("--fraction", type=float, default=1.0)
     ap.add_argument("--wait", action="store_true")
@@ -357,6 +405,8 @@ def main() -> None:
         build(a.run, a.fraction, skip=tuple(a.skip))
     elif a.cmd == "build_v2":
         build_v2(a.run)
+    elif a.cmd == "build_it2":
+        build_it2(a.run)
     elif a.cmd == "sync":
         sync(a.run)
     elif a.cmd == "submit":

@@ -38,7 +38,10 @@ def route_items(run: str, teacher_files: tuple[str, ...] = (), stats: dict | Non
                 dropped: set[str] | None = None) -> list[RouteItem]:
     """Lead rules: ASK is kept only where the A1 adjudicator agreed (verdict keep); for MULTI_STEP and
     REFUSE the A1 label is used when it equals the teacher argmax, otherwise the item is dropped; other
-    labels apply A1 keep/relabel/drop as specified. Teacher scores only count if the context matches."""
+    labels apply A1 keep/relabel/drop as specified. Teacher scores only count if the context matches.
+    Iteration 2 (optional files in the run dir): ask_rule.jsonl replaces the A1 ASK rule (keep ASK only when a
+    required arg is missing and unnamed, else relabel to nearest_skill; one-hot); finance_check.jsonl reverts
+    MULTI_STEP->finance_review relabels that are not one of the four review tasks."""
     scored: dict[tuple[str, str], dict] = {}
     for f in teacher_files:
         for r in _load(run, f):
@@ -47,6 +50,8 @@ def route_items(run: str, teacher_files: tuple[str, ...] = (), stats: dict | Non
     st = stats if stats is not None else {}
     for k in ("ask_dropped", "relabeled", "dropped"):
         st.setdefault(k, collections.Counter())
+    rule = {(r["utterance"], r["src"]): r for r in _load(run, "ask_rule.jsonl")}
+    fin = {(r["utterance"], r["src"]): r["fits"] for r in _load(run, "finance_check.jsonl")}
     out = []
 
     def drop(r, why):
@@ -61,7 +66,16 @@ def route_items(run: str, teacher_files: tuple[str, ...] = (), stats: dict | Non
         adj = (t or {}).get("adjudication") or {}
         verdict, alab = adj.get("verdict"), adj.get("label")
         label = r["label"]
-        if label == "ASK":
+        if label == "ASK" and rule:
+            v = rule.get((r["utterance"], r["src"])) or {}
+            if v.get("verdict") == "concrete" and v.get("nearest_skill") in names:
+                st["relabeled"][f"ASK->{v['nearest_skill']}"] += 1
+                label = v["nearest_skill"]
+            elif v.get("verdict") != "ask":
+                drop(r, "ask_dropped")
+                continue
+            t = None
+        elif label == "ASK":
             if not (r.get("a1_ask_keep") or verdict == "keep"):
                 drop(r, "ask_dropped")
                 continue
@@ -69,6 +83,9 @@ def route_items(run: str, teacher_files: tuple[str, ...] = (), stats: dict | Non
             if verdict == "drop" or alab not in names or alab != t["teacher_argmax"]:
                 drop(r, "dropped")
                 continue
+            if alab == "finance_review" and fin.get((r["utterance"], r["src"])) is False:
+                st.setdefault("finance_reverted", collections.Counter())[label] += 1
+                alab, t = label, None
             if alab != label:
                 st["relabeled"][f"{label}->{alab}"] += 1
             label = alab
