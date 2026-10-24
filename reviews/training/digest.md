@@ -1,6 +1,6 @@
-# training lane digest — pass 30 (main fbd5aa0, cloud/data-pipeline 735686f, wip/local 2f26223, cloud/pitch-4 6393857, cloud/decisions 6d395df)
+# training lane digest — pass 31 (main b625ceb, cloud/data-pipeline 512cce0, wip/local 49f808f, cloud/decisions 6d395df)
 
-Open: 0 P0, 10 P1, 15 P2. Pass 30: training-38 P1->P2 (it2 rows have 0 CJK; normalizer unchanged). training-40 policy on main, disclosures on pitch-4. No new findings.
+Open: 0 P0, 10 P1, 13 P2. Pass 31: resolved training-38 (CJK per-character norm, tests 16 passed) and training-40 (pitch-4 disclosures merged). No new findings.
 
 ## Ranked open P0/P1
 1. training-29 P1 — short_edit1 rule mostly false positives; hard gate in train.py; blocks it2b decisions.
@@ -14,8 +14,8 @@ Open: 0 P0, 10 P1, 15 P2. Pass 30: training-38 P1->P2 (it2 rows have 0 CJK; norm
 9. training-8 / training-15 P1 — no per-label adjudication STOP gate; teacher subset skew.
 
 ## Next moves
-1. Make norm() Unicode-aware and narrow short_edit1; re-run evalcheck on main/it2/it2b.
-2. Quote it2 on full route_v1 + clean, split by length; add clean-subset notes for HobbyLM/DeskMind scores.
+1. Narrow short_edit1 (near-variant/stopword substitutions only); re-run evalcheck on it2b.
+2. Quote it2 on full route_v1 + clean, split by length.
 3. Explain MLX .913 vs Tinker .961 on clean route_v1 (tau vs quant).
 4. Implement decisions route replay from fixed route_train before any joint run.
 5. One shared Tinker spend ledger.
