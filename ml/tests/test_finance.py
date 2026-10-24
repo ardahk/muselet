@@ -141,11 +141,12 @@ def test_outlier_found_on_synthetic_statement_with_planted_charge():
 
 def test_refund_by_reversal_without_refund_word():
     text = "Date,Description,Amount,Balance\n2026-10-02,TARGET T-2187,-42.10,57.90\n" \
-           "2026-10-06,TARGET T-2187,42.10,100.00\n2026-10-07,VENMO FROM SAM,45.00,145.00\n"
+           "2026-10-06,TARGET T-2187,42.10,100.00\n2026-10-07,VENMO FROM SAM,45.00,145.00\n" \
+           "2026-10-08,IRS TREAS 310 TAX REFUND,80.00,225.00\n"
     t = fin.load_statement(text)
     assert fin.find_refunds(t) == [2]
     cats = fin.categorize(t, CATS)
-    assert cats[2] == ("Shopping", 1.0, "rule") and cats[3][0] == "Income"
+    assert cats[2] == ("Shopping", 1.0, "rule") and cats[3][0] == cats[4][0] == "Income"
     assert fin.category_spend(t, cats) == {"Shopping": D("0.00")}
 
 

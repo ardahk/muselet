@@ -50,6 +50,7 @@ def _phrases(rules: Mapping[str, list[str]]) -> list[tuple[tuple[str, ...], str]
 
 
 _RULES = _phrases(KEYWORDS)
+_INCOME_RULES = [(p, c) for p, c in _RULES if c == INCOME]
 
 
 def strip_refund_words(norm: str) -> str:
@@ -72,6 +73,11 @@ def _longest(toks: tuple[str, ...], table) -> tuple[int, str, tuple[str, ...]] |
     return best
 
 
+def is_income_text(description: str) -> bool:
+    """Payroll-like credits, matched before refund words are stripped ("TAX REFUND" is income)."""
+    return _longest(tuple(normalize_merchant(description).split()), _INCOME_RULES) is not None
+
+
 def rule_match(description: str, user_rules: Mapping[str, str] | None = None) -> tuple[str, str] | None:
     """(category, rule id) for a description: user rules first, then the longest keyword phrase."""
     toks = tuple(strip_refund_words(normalize_merchant(description)).split())
@@ -79,7 +85,7 @@ def rule_match(description: str, user_rules: Mapping[str, str] | None = None) ->
         hit = _longest(toks, [(tuple(normalize_merchant(k).split()), c) for k, c in user_rules.items()])
         if hit:
             return hit[1], "user:" + " ".join(hit[2])
-    hit = _longest(toks, _RULES)
+    hit = _longest(tuple(normalize_merchant(description).split()), _INCOME_RULES) or _longest(toks, _RULES)
     return (hit[1], "keyword:" + " ".join(hit[2])) if hit else None
 
 

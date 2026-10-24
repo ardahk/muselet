@@ -99,8 +99,8 @@ def reversed_debit(txns: list[Txn], row: int) -> int | None:
 
 def find_refunds(txns: list[Txn]) -> list[int]:
     """Credits whose text says REFUND/RETURN/REVERSAL, or that reverse an earlier debit of the same
-    merchant and amount."""
-    from .categorize import is_refund_text
+    merchant and amount. Income-like credits (payroll, tax refund) are not refunds of spending."""
+    from .categorize import is_income_text, is_refund_text
 
-    return [t.row for t in txns if t.amount > 0 and (is_refund_text(t.description)
-                                                     or reversed_debit(txns, t.row) is not None)]
+    return [t.row for t in txns if t.amount > 0 and not is_income_text(t.description)
+            and (is_refund_text(t.description) or reversed_debit(txns, t.row) is not None)]
