@@ -1,4 +1,4 @@
-# evals-safety digest — pass 51 (main@46b97f5)
+# evals-safety digest — pass 52 (main@46b97f5)
 
 Open: P0 0, P1 8, P2 11.
 
