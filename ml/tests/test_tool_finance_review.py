@@ -15,6 +15,11 @@ FIX = Path(__file__).resolve().parents[2] / "evals" / "fixtures" / "finance"
 RC_TRUTH = json.loads((FIX / "receipts.truth.json").read_text())
 BUDGET_TRUTH = json.loads((FIX / "budget_oct2026.truth.json").read_text())
 STMT_DOC, BUDGET_DOC = "bank_statement_oct2026", "budget_oct2026"
+STMT = f"{STMT_DOC}\tbank_statement_oct2026\tTable 1\tDate|Description|Amount|Balance"
+BUDGET = f"{BUDGET_DOC}\tBudget\tTable 1\tCategory|Budget|Actual|Remaining"
+PORTFOLIO = "portfolio\tHoldings\tTable 1\tTicker|Shares|Price|Value"
+STMT_REF = ns.table_ref(table="Table 1", sheet="bank_statement_oct2026", document=STMT_DOC)
+BUDGET_REF = ns.table_ref(table="Table 1", sheet="Budget", document=BUDGET_DOC)
 
 
 def numbers_tsv() -> str:
@@ -48,11 +53,12 @@ class FakeTracer:
 
 
 class FakeServer:
-    def __init__(self, docs=(f"{STMT_DOC}\t{STMT_DOC}", f"{BUDGET_DOC}\tBudget"), fail=None):
+    def __init__(self, docs=(STMT, BUDGET), fail=None, ocr=None):
         self.calls, self.bubbles, self.said, self.moods = [], [], [], []
         self.docs = list(docs)
         self.fail = fail or {}
         self.opened = []
+        self.ocr = ocr or {}
 
     async def rpc(self, method, params, timeout=30):
         self.calls.append((method, params))
@@ -66,11 +72,12 @@ class FakeServer:
         if method == "skill":
             path = params["args"]["path"]
             self.opened.append(Path(path).name)
-            self.docs.append(f"{STMT_DOC}\t{STMT_DOC}" if path.endswith(".csv") else f"{BUDGET_DOC}\tBudget")
+            self.docs.insert(0, STMT if path.endswith(".csv") else BUDGET)  # opened doc comes to the front
             return {"ok": True}
         if method == "ocr":
             await asyncio.sleep(0)
-            return {"ok": True, "text": ocr_text(RC_TRUTH[Path(params["path"]).name]), "lines": [], "ms": 40}
+            name = Path(params["path"]).name
+            return {"ok": True, "text": self.ocr.get(name, ocr_text(RC_TRUTH[name])), "lines": [], "ms": 40}
         raise AssertionError(method)
 
     async def say(self, text):
@@ -115,16 +122,20 @@ def test_all_rpc_sequence_bubbles_and_outcome(finance_dir):
     assert methods.count("ocr") == 8 and "skill" not in methods
     assert [m for m in methods if m != "ocr"] == ["act", "act", "act"]  # list, read, write
     list_s, read_s, write_s = scripts(srv)
-    assert list_s == ns.list_documents()
-    assert read_s == ns.read_tables([ns.table_ref(document=STMT_DOC), ns.table_ref(sheet="Budget", document=BUDGET_DOC)])
+    assert list_s == ns.list_tables()
+    assert read_s == ns.read_tables([STMT_REF, BUDGET_REF])
     assert all(p["lang"] == "applescript" and p["op"] == "script" for m, p in srv.calls if m == "act")
     assert sorted(Path(p["path"]).name for m, p in srv.calls if m == "ocr") == sorted(RC_TRUTH)
-    # One write: Category column (7 rows need review), open duplicate red, outlier orange, refunded pair green,
-    # budget Actual/Remaining with Needs review notes.
-    assert write_s.count("\ttell ") == 2 and f'tell table 1 of sheet "Budget" of document "{BUDGET_DOC}"' in write_s
+    # One write: Category column (7 rows need review), Receipt column, open duplicate red, outlier orange,
+    # refunded pair green, budget Actual/Remaining (resolved only) + a "Needs review" line for the 7 rows.
+    assert write_s.count("\ttell ") == 2 and f"tell {BUDGET_REF}" in write_s and f"tell {STMT_REF}" in write_s
     assert 'set value of cell 1 of column "E" to "Category"' in write_s
+    assert 'set value of cell 1 of column "F" to "Receipt"' in write_s and '"Receipt 7: $16.46 vs bank $16.64"' in write_s
     cats = write_s.split("set vals to {", 1)[1].split("}", 1)[0]
-    assert cats.count('"Needs review"') == 7 and "set notes to {" in write_s
+    assert cats.count('"Needs review"') == 7
+    assert 'set notes to {"", "", "", "", "", "", "", ""}' in write_s  # no model guess -> no category is partial
+    assert "set value of cell pendRow of column \"C\" to 95.09" in write_s
+    assert '"7 rows without a category (incl. $45.00 in credits)"' in write_s
     assert "repeat with r in {19, 20}\n\t\t\tset background color of row (contents of r) to {65535, 49087, 49087}" \
         in write_s
     assert "repeat with r in {86}\n\t\t\tset background color of row (contents of r) to {65535, 52428, 30840}" in write_s
@@ -148,8 +159,7 @@ def test_needs_review_is_written_not_guessed(finance_dir):
     write_s = scripts(srv)[-1]
     cats = write_s.split('set vals to {', 1)[1].split("}", 1)[0]
     assert cats.count('"Needs review"') == 7 and cats.count('"Groceries"') == 16  # 22 grocery rows - 6 Berkeley Bowl
-    notes = write_s.split("set notes to {", 1)[1].split("}", 1)[0]
-    assert notes.count('"Needs review"') >= 1 and '""' in notes
+    assert "if column count < 5 then set column count to 5" in write_s.split(f"tell {BUDGET_REF}")[1]
 
 
 def test_with_decision_model_budget_is_final(finance_dir):
@@ -161,9 +171,49 @@ def test_with_decision_model_budget_is_final(finance_dir):
     write_s = scripts(srv)[-1]
     acts = ", ".join(f"{Decimal(str(v)):.2f}" for v in BUDGET_TRUTH["actual"].values())
     assert outcome == "ok" and f"set acts to {{{acts}}}" in write_s
-    assert "set notes to" not in write_s and '"Needs review"' not in write_s
+    cats = write_s.split("set vals to {", 1)[1].split("}", 1)[0]
+    assert '"Needs review"' not in cats and "if pendRow > 0 then delete row pendRow" in write_s
+    assert 'set notes to {"", "", "", "", "", "", "", ""}' in write_s  # clears notes from an earlier run
     assert srv.said == ["Over on Dining and Shopping; 2 duplicates (1 refunded); 1 receipt mismatch."]
     assert orch.tracer.decisions[-1]["complete"] is True
+
+
+def test_low_confidence_guess_marks_exactly_that_category_partial(finance_dir):
+    def decide(text, options):
+        return {"Income": 0.5, "Dining": 0.5} if "VENMO" in text else {"Groceries": 0.55, "Dining": 0.45}
+
+    srv = FakeServer()
+    run(srv, "categorize", decide=decide)
+    write_s = scripts(srv)[-1]
+    assert 'set notes to {"", "Partial: 6 rows ($95.09) need review", "", "", "", "", "", ""}' in write_s
+    assert "if pendRow > 0 then delete row pendRow" in write_s  # nothing unassigned: Venmo was guessed Income
+    assert "set acts to {1625.00, 203.61," in write_s  # Groceries Actual excludes the 6 pending rows
+
+
+@pytest.mark.parametrize("docs", [(BUDGET, STMT), (PORTFOLIO, BUDGET, STMT)])
+def test_statement_found_by_header_not_front_document(finance_dir, docs):
+    srv = FakeServer(docs=docs)
+    outcome, _ = run(srv, "all")
+    assert outcome == "ok" and "skill" not in [m for m, _ in srv.calls]
+    assert scripts(srv)[1] == ns.read_tables([STMT_REF, BUDGET_REF])
+
+
+def test_only_budget_open_opens_statement(finance_dir):
+    srv = FakeServer(docs=(PORTFOLIO, BUDGET))
+    outcome, _ = run(srv, "receipts")
+    assert outcome == "ok"
+    assert [p for m, p in srv.calls if m == "skill"] == [
+        {"name": "open_file", "args": {"path": str(finance_dir / "bank_statement_oct2026.csv")}}]
+    assert scripts(srv)[2] == ns.read_tables([STMT_REF, BUDGET_REF])  # list, list after open, read
+
+
+def test_unreadable_receipt_is_reported(finance_dir):
+    srv = FakeServer(ocr={"receipt_08.png": "~~ 4 ~~\n"})
+    outcome, orch = run(srv, "receipts")
+    assert outcome == "ok"
+    assert srv.said == ["6 receipts match, 1 receipt mismatch, 1 unreadable."]
+    flag = next(f for f in orch.tracer.decisions[-1]["flags"] if f["kind"] == "receipt_unreadable")
+    assert flag["say"] == "Couldn't read receipt 8; check it?" and flag["detail"]["missing"] == ["merchant", "date", "total"]
 
 
 def test_no_document_open_opens_statement_then_budget(finance_dir):
@@ -180,19 +230,21 @@ def test_no_document_open_opens_statement_then_budget(finance_dir):
 
 
 def test_duplicates_task_only_highlights(finance_dir):
-    srv = FakeServer(docs=(f"{STMT_DOC}\t{STMT_DOC}",))
+    srv = FakeServer(docs=(STMT,))
     outcome, _ = run(srv, "duplicates")
     assert outcome == "ok" and [m for m, _ in srv.calls] == ["act", "act", "act"]
     read_s, write_s = scripts(srv)[1:]
-    assert read_s == ns.read_tables([ns.table_ref(document=STMT_DOC)])  # budget comes from the file on disk
+    assert read_s == ns.read_tables([STMT_REF])  # budget comes from the file on disk
     assert write_s.count("\ttell ") == 1 and "Category" not in write_s and "background color" in write_s
     assert srv.said == ["2 duplicates (1 refunded)."]
 
 
-def test_receipts_task_no_writes(finance_dir):
+def test_receipts_task_writes_receipt_column_only(finance_dir):
     srv = FakeServer()
     outcome, _ = run(srv, "receipts")
-    assert outcome == "ok" and [m for m, _ in srv.calls if m != "ocr"] == ["act", "act"]
+    assert outcome == "ok" and [m for m, _ in srv.calls if m != "ocr"] == ["act", "act", "act"]
+    write_s = scripts(srv)[-1]
+    assert 'column "E" to "Receipt"' in write_s and "Category" not in write_s and "background" not in write_s
     assert srv.said == ["6 receipts match, 1 receipt mismatch, 1 unmatched."]
 
 

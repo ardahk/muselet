@@ -5,8 +5,10 @@ writes the results back (Category column, highlights, budget Actual/Remaining) a
 OCR'd on the Mac. The LLM never computes or matches anything here; `decide` (the on-device decision model) is
 only consulted for merchants the keyword rules don't know, and rows it is unsure about stay "Needs review".
 
-Script calls: list documents, one read of every table, one write of everything (plus `open_file` when the
-statement or budget is not open yet). Receipt OCR runs concurrently with the Numbers read.
+Script calls: list every open table with its header row, one read of the statement + budget tables, one write
+of everything (plus `open_file` when the statement or budget is not open yet). The statement and the budget are
+found by their headers (Date/Description/Amount, Category/Budget) or the statement's file name, never by which
+document happens to be in front. Receipt OCR runs concurrently with the Numbers read.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from pathlib import Path
 
 from brain.finance import numbers_script as ns
 from brain.finance.categorize import Decide
+from brain.finance.evidence import receipt_label, usd
 from brain.finance.receipts import parse_receipt_text
 from brain.finance.report import NEEDS_REVIEW, analyze, jsonable
 from brain.finance.statement import load_budget, load_statement
@@ -26,7 +29,8 @@ TASKS = ("categorize", "duplicates", "receipts", "over_budget", "all")
 STATEMENT_FILE = "bank_statement_oct2026.csv"
 BUDGET_FILE = "budget_oct2026.xlsx"
 RECEIPTS_DIR = "Receipts"
-BUDGET_SHEET = "Budget"
+STATEMENT_HEADERS = frozenset({"date", "description", "amount"})
+BUDGET_HEADERS = frozenset({"category", "budget"})
 IMAGE_EXT = (".png", ".jpg", ".jpeg", ".heic", ".tiff", ".pdf")
 SHOW_PAUSE_S = 0.3  # let the viewer see an app that was just brought forward
 
@@ -59,24 +63,46 @@ async def _script(orch, code: str, fail_say: str) -> str:
     return str(res.get("output") or "")
 
 
-def _docs(output: str) -> list[tuple[str, list[str]]]:
+def _tables(output: str) -> list[dict]:
+    """list_tables output -> [{document, sheet, table, header}] (front document first)."""
     out = []
     for line in output.splitlines():
-        if line.strip():
-            name, _, sheets = line.partition("\t")
-            out.append((name, [s for s in sheets.split("|") if s]))
+        parts = line.split("\t")
+        if len(parts) >= 3 and parts[0]:
+            header = parts[3].split("|") if len(parts) > 3 else []
+            out.append({"document": parts[0], "sheet": parts[1], "table": parts[2], "header": header})
     return out
 
 
-def _budget_doc(docs) -> str | None:
-    return next((n for n, sheets in docs if any(s.lower() == BUDGET_SHEET.lower() for s in sheets)), None)
+def _has(t: dict, need: frozenset) -> bool:
+    return need <= {h.strip().lower() for h in t["header"]}
 
 
-async def _open(orch, path: Path, bubble: str, fail_say: str) -> list:
+def find_statement(tables: list[dict]) -> dict | None:
+    """The table whose header has Date/Description/Amount; else the first table of a document named like the
+    statement file. Never just the front document (it may be the budget or another client's portfolio)."""
+    hit = next((t for t in tables if _has(t, STATEMENT_HEADERS)), None)
+    stem = Path(STATEMENT_FILE).stem.lower()
+    return hit or next((t for t in tables if t["document"].lower().removesuffix(".csv") == stem), None)
+
+
+def find_budget(tables: list[dict]) -> dict | None:
+    return next((t for t in tables if _has(t, BUDGET_HEADERS)), None)
+
+
+def _ref(t: dict) -> str:
+    return ns.table_ref(table=t["table"], sheet=t["sheet"], document=t["document"])
+
+
+async def _list(orch, fail_say: str) -> list[dict]:
+    return _tables(await _script(orch, ns.list_tables(), fail_say))
+
+
+async def _open(orch, path: Path, bubble: str, fail_say: str) -> list[dict]:
     await orch.server.ui("acting", bubble)
     await _rpc(orch, "skill", {"name": "open_file", "args": {"path": str(path)}}, fail_say)
     await asyncio.sleep(SHOW_PAUSE_S)
-    return _docs(await _script(orch, ns.list_documents(), fail_say))
+    return await _list(orch, fail_say)
 
 
 async def _ocr_all(orch, folder: Path) -> list[dict]:
@@ -87,11 +113,9 @@ async def _ocr_all(orch, folder: Path) -> list[dict]:
     results = await asyncio.gather(*(_rpc(orch, "ocr", {"path": str(p)}, "Couldn't read the receipts")
                                      for p in files))
     orch.tracer.stage("finance_ocr", (time.perf_counter() - t) * 1000)
-    out = []
-    for p, res in zip(files, results, strict=True):
-        parsed = parse_receipt_text(res.get("text", ""), res.get("lines"))
-        out.append({"id": p.name, **parsed})
-    return out
+    # Unreadable receipts (no merchant/date/total) stay in the list; reconcile reports them as "unreadable".
+    return [{"id": p.name, **parse_receipt_text(res.get("text") or "", res.get("lines"))}
+            for p, res in zip(files, results, strict=True)]
 
 
 def summary_sentence(task: str, rep: dict) -> str:
@@ -117,14 +141,16 @@ def summary_sentence(task: str, rep: dict) -> str:
                          + (f" ({refunded} refunded)" if refunded else ""))
     if task in ("all", "receipts") and rep.get("receipts") is not None:
         st = [e["status"] for e in rep["receipts"].values()]
-        mm, nm = st.count("amount_mismatch"), st.count("no_match")
+        mm, nm, ur = st.count("amount_mismatch"), st.count("no_match"), st.count("unreadable")
         if task == "receipts":
             parts.append(f"{st.count('matched')} receipts match")
         if mm:
             parts.append(f"{mm} receipt mismatch{'es' if mm != 1 else ''}")
+        if ur:
+            parts.append(f"{ur} unreadable")
         if nm:
             parts.append(f"{nm} unmatched")
-        if not mm and not nm and task == "all":
+        if not mm and not nm and not ur and task == "all":
             parts.append("receipts all match")
     n_review = len(b.get("pending", {}).get("rows", []))
     if n_review and task in ("all", "categorize", "over_budget"):
@@ -139,13 +165,33 @@ def summary_sentence(task: str, rep: dict) -> str:
     return s[0].upper() + s[1:] + "."
 
 
+def receipt_column(rep: dict) -> list[str]:
+    """Per statement row: which receipt matched it, and how (written next to the statement)."""
+    out = {}
+    for rid, e in (rep.get("receipts") or {}).items():
+        if e["match_row"] is None:
+            continue
+        label = receipt_label(rid)
+        out[e["match_row"]] = (f"{label} matches" if e["status"] == "matched"
+                               else f"{label}: {usd(e['total'])} vs bank {usd(e['statement_amount'])}")
+    return [out.get(r["row"], "") for r in rep["rows"]]
+
+
 def write_blocks(task: str, rep: dict, header: list[str], statement_table: str, budget_table: str | None) -> list:
     blocks = []
     stmt_body: list[str] = []
+    cols = [h.strip().lower() for h in header]
+
+    def column(name: str) -> int:
+        if name.lower() not in cols:
+            cols.append(name.lower())
+        return cols.index(name.lower()) + 1
+
     if task in ("all", "categorize"):
-        col = next((i + 1 for i, h in enumerate(header) if h.strip().lower() == "category"), len(header) + 1)
         values = [NEEDS_REVIEW if r["source"] == "ask" else r["category"] for r in rep["rows"]]
-        stmt_body += ns.category_body(col, values)
+        stmt_body += ns.category_body(column("Category"), values)
+    if task in ("all", "receipts") and rep.get("receipts"):
+        stmt_body += ns.category_body(column("Receipt"), receipt_column(rep), header="Receipt")
     if task in ("all", "duplicates"):
         resolved = [r for d in rep["duplicate_status"] if d["status"] == "refunded"
                     for r in d["rows"] + [d["refund_row"]]]
@@ -155,8 +201,9 @@ def write_blocks(task: str, rep: dict, header: list[str], statement_table: str, 
         blocks.append((statement_table, stmt_body))
     if budget_table and task in ("all", "categorize", "over_budget"):
         b = rep["budget"]
-        notes = {c: NEEDS_REVIEW for c in b.get("needs_review", [])} if not rep["complete"] else None
-        blocks.append((budget_table, ns.budget_body(b["actual"], b["remaining"], notes=notes)))
+        notes, pending_row = ns.budget_review(b, NEEDS_REVIEW)  # complete -> clears old notes / pending line
+        blocks.append((budget_table, ns.budget_body(b["actual"], b["remaining"], notes=notes,
+                                                    pending_row=pending_row, pending_label=NEEDS_REVIEW)))
     return blocks
 
 
@@ -169,48 +216,50 @@ async def run(orch, args: dict, utterance: str, decide: Decide | None = None) ->
     try:
         root = finance_dir()
         await orch.server.ui("acting", "Looking for your statement in Numbers...")
-        docs = _docs(await _script(orch, ns.list_documents(), "Couldn't reach Numbers"))
-        if not docs:
-            docs = await _open(orch, root / STATEMENT_FILE, "Opening your bank statement...",
-                               "Couldn't open the bank statement")
-            if not docs:
-                raise ToolError("Couldn't open the bank statement", "Numbers has no document after open_file")
-        statement_doc = docs[0][0]
+        tables = await _list(orch, "Couldn't reach Numbers")
+        statement = find_statement(tables)
+        if statement is None:
+            tables = await _open(orch, root / STATEMENT_FILE, "Opening your bank statement...",
+                                 "Couldn't open the bank statement")
+            statement = find_statement(tables)
+            if statement is None:
+                raise ToolError("Couldn't find the bank statement", f"no Date/Description/Amount table in {tables}")
         if task in ("receipts", "all"):
             ocr_task = asyncio.ensure_future(_ocr_all(orch, root / RECEIPTS_DIR))
-        budget_doc = _budget_doc(docs)
-        if budget_doc is None and task in ("all", "categorize", "over_budget"):
-            docs = await _open(orch, root / BUDGET_FILE, "Opening your budget...", "Couldn't open the budget")
-            budget_doc = _budget_doc(docs)
-            if budget_doc is None:
-                raise ToolError("Couldn't find the budget sheet", f"no '{BUDGET_SHEET}' sheet in {docs}")
+        budget = find_budget(tables)
+        if budget is None and task in ("all", "categorize", "over_budget"):
+            tables = await _open(orch, root / BUDGET_FILE, "Opening your budget...", "Couldn't open the budget")
+            budget = find_budget(tables)
+            statement = find_statement(tables) or statement
+            if budget is None:
+                raise ToolError("Couldn't find the budget sheet", f"no Category/Budget table in {tables}")
 
         await orch.server.ui("acting", "Reading your statement...")
-        statement_table = ns.table_ref(document=statement_doc)
-        budget_table = ns.table_ref(sheet=BUDGET_SHEET, document=budget_doc) if budget_doc else None
+        statement_table = _ref(statement)
+        budget_table = _ref(budget) if budget else None
         t = time.perf_counter()
         out = await _script(orch, ns.read_tables([statement_table] + ([budget_table] if budget_table else [])),
                             "Couldn't read the statement")
         orch.tracer.stage("finance_read", (time.perf_counter() - t) * 1000)
-        tables = out.split("\x1e")
+        tsvs = out.split("\x1e")
         try:
-            txns = load_statement(tables[0])
-            budget = load_budget(tables[1]) if budget_table and len(tables) > 1 else (
+            txns = load_statement(tsvs[0])
+            budget_amounts = load_budget(tsvs[1]) if budget_table and len(tsvs) > 1 else (
                 load_budget(root / BUDGET_FILE) if (root / BUDGET_FILE).exists() else {})
         except (ValueError, IndexError) as e:
             raise ToolError("Couldn't read the statement", f"parse: {e}") from None
         if not txns:
             raise ToolError("The statement looks empty", "no rows")
-        header = tables[0].split("\n", 1)[0].split("\t")
+        header = tsvs[0].split("\n", 1)[0].split("\t")
 
         await orch.server.ui("thinking", f"Checking {len(txns)} transactions...")
         receipts = None
         if ocr_task is not None:
             await orch.server.ui("thinking", "Matching receipts to the statement...")
-            receipts = [r for r in await ocr_task if r["merchant"] and r["date"] and r["total"] is not None]
+            receipts = await ocr_task
             ocr_task = None
         t = time.perf_counter()
-        rep = analyze(txns, budget, receipts, decide=decide)
+        rep = analyze(txns, budget_amounts, receipts, decide=decide)
         orch.tracer.stage("finance_analyze", (time.perf_counter() - t) * 1000)
         orch.tracer.decision({"tool": "finance_review", "task": task, "complete": rep["complete"],
                               "flags": jsonable(rep["flags"])})

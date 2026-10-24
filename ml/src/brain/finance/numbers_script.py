@@ -113,8 +113,8 @@ def write_column(column, values: Sequence, *, start_row: int = 2, table=None, sh
 
 def write_budget(actual: Mapping[str, Decimal], remaining: Mapping[str, Decimal], *, category_column="A",
                  budget_column="B", actual_column="C", remaining_column="D", remaining_formula: bool = False,
-                 notes: Mapping[str, str] | None = None, note_column="E", table=None, sheet=None,
-                 document=None) -> str:
+                 notes: Mapping[str, str] | None = None, note_column="E", pending_row: Mapping | None = None,
+                 table=None, sheet=None, document=None) -> str:
     """Fill Actual and Remaining by looking up each category's row by name (row order may differ).
 
     With `notes` ({category: text}), also write a Note column (header "Note"; categories without a note get
@@ -123,19 +123,47 @@ def write_budget(actual: Mapping[str, Decimal], remaining: Mapping[str, Decimal]
     return _wrap(_table(table, sheet, document), budget_body(
         actual, remaining, category_column=category_column, budget_column=budget_column,
         actual_column=actual_column, remaining_column=remaining_column, remaining_formula=remaining_formula,
-        notes=notes, note_column=note_column))
+        notes=notes, note_column=note_column, pending_row=pending_row))
+
+
+def col_index(letter: str) -> int:
+    n = 0
+    for ch in letter.upper():
+        n = n * 26 + ord(ch) - 64
+    return n
 
 
 def budget_body(actual, remaining, *, category_column="A", budget_column="B", actual_column="C",
-                remaining_column="D", remaining_formula=False, notes=None, note_column="E") -> list[str]:
+                remaining_column="D", remaining_formula=False, notes=None, note_column="E",
+                pending_row: Mapping | None = None, pending_label: str = "Needs review") -> list[str]:
+    """Lines for `write_budget`. With `notes`, the table first grows to include `note_column` (a 4-column
+    imported budget has no column E), and a `pending_label` row holds unassigned pending spend: it is created
+    (one extra table row) when `pending_row` = {actual, note} is given, and deleted when it is not."""
     names = list(actual)
     rem = (f'("={budget_column}" & r & "-{actual_column}" & r)' if remaining_formula else "item k of rems")
     note_lines = []
     head = []
+    tail: list[str] = []
     if notes is not None:
+        nc = col_index(note_column)
         head = [f"set notes to {lst([notes.get(n, '') for n in names])}",
-                f"set value of cell 1 of {_col(note_column)} to {q('Note')}"]
+                f"if column count < {nc} then set column count to {nc}",
+                f"set value of cell 1 of {_col(note_column)} to {q('Note')}",
+                "set pendRow to 0"]
         note_lines = [f"\t\t\t\tset value of cell r of {_col(note_column)} to item k of notes"]
+        if pending_row:
+            tail = ["if pendRow is 0 then",
+                    "\tset row count to (row count + 1)",
+                    "\tset pendRow to row count",
+                    "end if",
+                    f"set value of cell pendRow of {_col(category_column)} to {q(pending_label)}",
+                    f"set value of cell pendRow of {_col(budget_column)} to \"\"",
+                    f"set value of cell pendRow of {_col(actual_column)} to {lit(pending_row['actual'])}",
+                    f"set value of cell pendRow of {_col(remaining_column)} to \"\"",
+                    f"set value of cell pendRow of {_col(note_column)} to {q(pending_row['note'])}"]
+        else:
+            tail = ["if pendRow > 0 then delete row pendRow"]
+    pend_check = ([f"\t\tif (c as text) is {q(pending_label)} then set pendRow to r"] if notes is not None else [])
     return [
         f"set names to {lst(names)}",
         f"set acts to {lst([actual[n] for n in names])}",
@@ -146,6 +174,7 @@ def budget_body(actual, remaining, *, category_column="A", budget_column="B", ac
         "repeat with r from 1 to count of cats",
         "\tset c to item r of cats",
         "\tif c is not missing value then",
+        *pend_check,
         "\t\trepeat with k from 1 to count of names",
         "\t\t\tif (c as text) is (item k of names) then",
         f"\t\t\t\tset value of cell r of {_col(actual_column)} to item k of acts",
@@ -156,8 +185,34 @@ def budget_body(actual, remaining, *, category_column="A", budget_column="B", ac
         "\t\tend repeat",
         "\tend if",
         "end repeat",
+        *tail,
         "return written",
     ]
+
+
+def budget_review(budget_report: Mapping, label: str = "Needs review") -> tuple[dict[str, str], dict | None]:
+    """(notes per category, pending row) for a budget with unresolved rows (finance-9): a note only on the
+    categories that pending rows were guessed into (their Actual is partial), and one extra line for pending
+    spend nobody could place. Complete budget -> ({}, None), which clears old notes and the extra line."""
+    pend = budget_report.get("pending") or {}
+    notes = {}
+    for c, p in (budget_report.get("partial") or {}).items():
+        n = len(p["rows"])
+        notes[c] = f"Partial: {n} row{'s' if n != 1 else ''} ({_usd(p['amount'])}) need review"
+    un = pend.get("unassigned") or {}
+    row = None
+    if un.get("rows"):
+        n = len(un["rows"])
+        note = f"{n} row{'s' if n != 1 else ''} without a category"
+        if un.get("credits"):
+            note += f" (incl. {_usd(un['credits'])} in credits)"
+        row = {"actual": Decimal(un["debits"]), "note": note}
+    return notes, row
+
+
+def _usd(v) -> str:
+    v = Decimal(v)
+    return f"{'-' if v < 0 else ''}${abs(v):,.2f}"
 
 
 def color_rows(colors: Mapping[int, tuple[int, int, int]], *, header_rows: int = 1, table=None, sheet=None,
@@ -226,15 +281,26 @@ def multi(blocks: Sequence[tuple[str, list[str]]]) -> str:
     return "\n".join(lines + ["end tell"]) + "\n"
 
 
-def list_documents() -> str:
-    """One line per open document, front first: `name<TAB>sheet|sheet|...` (empty text when none)."""
+def list_tables() -> str:
+    """One line per table of every open document, front document first:
+    `document<TAB>sheet<TAB>table<TAB>header1|header2|...` (row 1 as displayed; empty text when none open).
+    Lets the caller find the statement / budget by their headers instead of trusting the front document."""
     return "\n".join([
         "set out to {}",
         APP,
         "\trepeat with d in documents",
-        "\t\tset AppleScript's text item delimiters to \"|\"",
-        "\t\tset sheetNames to (name of every sheet of d) as text",
-        "\t\tset end of out to (name of d) & tab & sheetNames",
+        "\t\trepeat with s in sheets of d",
+        "\t\t\trepeat with t in tables of s",
+        "\t\t\t\tset hdr to {}",
+        "\t\t\t\trepeat with v in (formatted value of every cell of row 1 of t)",
+        "\t\t\t\t\tset v to contents of v",
+        "\t\t\t\t\tif v is missing value then set v to \"\"",
+        "\t\t\t\t\tset end of hdr to (v as text)",
+        "\t\t\t\tend repeat",
+        "\t\t\t\tset AppleScript's text item delimiters to \"|\"",
+        "\t\t\t\tset end of out to (name of d) & tab & (name of s) & tab & (name of t) & tab & (hdr as text)",
+        "\t\t\tend repeat",
+        "\t\tend repeat",
         "\tend repeat",
         "end tell",
         "set AppleScript's text item delimiters to linefeed",
@@ -328,11 +394,16 @@ def add_summary_table(rows: Sequence[Sequence], *, name: str = "Muselet Summary"
     ])
 
 
+def income_label(budget_report: Mapping) -> str:
+    n = len((budget_report.get("pending") or {}).get("credit_rows", []))
+    return f"Income (excl. {n} pending credit{'s' if n != 1 else ''})" if n else "Income"
+
+
 def summary_rows(report: Mapping) -> list[list]:
     """Two-column summary (Item, Value) from an `analyze` report."""
     st, b = report["statement"], report["budget"]
     rows: list[list] = [["Item", "Value"],
-                        ["Income", st["total_income"]], ["Spend", st["total_spend"]], ["Net", st["net"]],
+                        [income_label(b), st["total_income"]], ["Spend", st["total_spend"]], ["Net", st["net"]],
                         ["Over budget", ", ".join(b["over_budget"]) or "none"],
                         ["Duplicate charges", "; ".join(
                             f"rows {d['rows'][0]} & {d['rows'][1]}"
@@ -344,7 +415,7 @@ def summary_rows(report: Mapping) -> list[list]:
     if b.get("pending"):
         rows.append(["Needs review", f"{len(b['pending']['rows'])} rows"])
     rec = report.get("receipts") or {}
-    for status in ("matched", "amount_mismatch", "no_match"):
+    for status in ("matched", "amount_mismatch", "no_match", "unreadable"):
         ids = [k for k, e in rec.items() if e["status"] == status]
         if rec:
             rows.append([f"Receipts {status.replace('_', ' ')}", len(ids)])

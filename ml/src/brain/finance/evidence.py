@@ -99,6 +99,9 @@ def receipt(rid: str, e: dict) -> Flag:
     label = receipt_label(rid)
     rows = [e["match_row"]] if e["match_row"] else []
     delay = e.get("posting_delay_days")
+    if e["status"] == "unreadable":
+        return Flag("receipt_unreadable", [], "receipt:ocr_missing_" + "+".join(e.get("missing", [])),
+                    f"Couldn't read {label.lower()}; check it?", {"receipt": rid, **e})
     if e["status"] == "matched":
         rule = "receipt:merchant+amount+date" + (f"+{delay}d_posting" if delay else "")
         say = f"{label} matches row {e['match_row']}."

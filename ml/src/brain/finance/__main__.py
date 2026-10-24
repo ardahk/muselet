@@ -28,9 +28,13 @@ def ns_resolved(rep: dict) -> list[int]:
     return [r for d in rep["duplicate_status"] if d["status"] == "refunded" for r in d["rows"] + [d["refund_row"]]]
 
 
-def budget_notes(rep: dict) -> dict[str, str]:
-    """"Needs review" on every category an unresolved row could still flip; empty note elsewhere."""
-    return {c: NEEDS_REVIEW for c in rep["budget"].get("needs_review", [])}
+def write_budget_script(rep: dict) -> str:
+    """Final budget as is; with unresolved rows, notes on the partial categories plus a "Needs review" line."""
+    b = rep["budget"]
+    if rep["complete"]:
+        return ns.write_budget(b["actual"], b["remaining"])
+    notes, row = ns.budget_review(b, NEEDS_REVIEW)
+    return ns.write_budget(b["actual"], b["remaining"], notes=notes, pending_row=row)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -55,8 +59,7 @@ def main(argv: list[str] | None = None) -> int:
                                             resolved=ns_resolved(rep)),
             # Unresolved rows: the budget is written with a "Needs review" note on the categories they could
             # still flip (finance-9), never as if it were final.
-            "write_budget": ns.write_budget(rep["budget"]["actual"], rep["budget"]["remaining"],
-                                            notes=budget_notes(rep) if not rep["complete"] else None),
+            "write_budget": write_budget_script(rep),
             "summary": ns.add_summary_table(ns.summary_rows(rep)),
         }
     json.dump(jsonable(rep), sys.stdout, indent=1)

@@ -19,39 +19,55 @@ MISMATCH_REL = Decimal("0.25")
 NEAREST_DAYS = 7
 
 # Words that never identify a merchant on their own.
-GENERIC = frozenset(["COFFEE", "STORE", "STORES", "MKTP", "MARKETPLACE", "TRIP", "RIDE", "CO", "COMPANY", "INC", "LLC", "LTD", "CORP", "THE", "AND", "OF", "SHOP", "MARKET", "MKT", "US", "USA"])
-# Extra words that may follow a merchant name without making it a different merchant (store/location noise).
-NOISE = GENERIC | frozenset(["BERKELEY", "OAKLAND", "EMERYVILLE", "ALBANY", "ELCERRITO", "RICHMOND", "SF", "SAN", "FRANCISCO", "CA", "DOWNTOWN", "NORTH", "SOUTH", "EAST", "WEST", "AVE", "ST", "BLVD", "WAY", "PL", "RD"])
+GENERIC = frozenset(["COFFEE", "STORE", "STORES", "MKTP", "MARKETPLACE", "MARKET", "TRIP", "RIDE", "CO", "COMPANY", "INC", "LLC", "LTD", "CORP", "THE", "AND", "OF", "SHOP", "US", "USA", "COM", "WWW", "ONLINE", "PAYMENT", "PURCHASE", "GRILL", "MEXICAN", "KITCHEN", "CAFE", "RESTAURANT"])
+# Bank-descriptor abbreviations -> the word printed on receipts (applied per token, both sides).
+ALIASES = {"AMZN": "AMAZON", "WHOLEFDS": "WHOLE FOODS", "WFM": "WHOLE FOODS", "WHSE": "WHOLESALE",
+           "MKT": "MARKET", "PHARM": "PHARMACY", "SVC": "SERVICE", "SVCS": "SERVICE", "STN": "STATION",
+           "INTL": "INTERNATIONAL", "CTR": "CENTER", "DEPT": "DEPARTMENT", "WHLFDS": "WHOLE FOODS"}
+# A different product line of the same brand: one side having it and the other not means another merchant.
+SUB_BRANDS = frozenset(["EATS", "FUEL", "GAS", "PHARMACY", "ICLOUD", "BILL", "MUSIC", "PRIME", "CASH", "TV", "VIDEO", "ONE"])
+# Kept for callers that import it: words that may follow a merchant name as store/location noise.
+NOISE = GENERIC | frozenset(["BERKELEY", "OAKLAND", "EMERYVILLE", "ALBANY", "RICHMOND", "SF", "SAN", "FRANCISCO", "CA", "DOWNTOWN", "NORTH", "SOUTH", "EAST", "WEST", "AVE", "ST", "BLVD", "WAY", "PL", "RD"])
 
 
 def _tokens(name: str) -> list[str]:
-    return normalize_merchant(name).split()
+    out = []
+    for t in normalize_merchant(name).split():
+        out += ALIASES.get(t, t).split()
+    return out
 
 
 def _distinctive(toks: list[str]) -> list[str]:
-    return [t for t in toks if t not in GENERIC and len(t) > 1]
+    return [t for t in toks if t not in GENERIC and t not in SUB_BRANDS and len(t) > 1]
+
+
+def _same_word(a: str, b: str) -> bool:
+    """Equal, or one is a 4+ letter abbreviation (prefix) of the other: BERK ~ BERKELEY."""
+    return a == b or (min(len(a), len(b)) >= 4 and (a.startswith(b) or b.startswith(a)))
 
 
 def merchant_match(a: str, b: str) -> bool:
-    """Same merchant despite case, punctuation, store numbers, processor prefixes, location words and OCR typos.
+    """Same merchant despite case, punctuation, store numbers, processor prefixes (SQ *, TST*), descriptor
+    abbreviations (AMZN, WHOLEFDS, WHSE), extra location/branch words and OCR typos.
 
-    At least one distinctive (non-generic) word must agree, so PHILZ COFFEE != PEETS COFFEE; extra words on one
-    side are allowed only when they are store/location noise, so SAFEWAY != SAFEWAY FUEL and UBER != UBER EATS.
+    Every distinctive word of the side with fewer of them must appear on the other side (or be a 4+ letter
+    prefix of a word there), so PHILZ COFFEE != PEETS COFFEE and Chipotle Mexican Grill == CHIPOTLE. A sub-brand
+    word on only one side (EATS, FUEL, PHARMACY, ICLOUD...) means a different merchant: UBER != UBER EATS.
+    Equal-length names that differ by OCR typos match by a difflib ratio >= 0.85.
     """
     ta, tb = _tokens(a), _tokens(b)
     if not ta or not tb:
         return False
     if ta == tb or "".join(ta) == "".join(tb):
         return True
+    if (SUB_BRANDS & set(ta)) != (SUB_BRANDS & set(tb)):
+        return False
     da, db = _distinctive(ta), _distinctive(tb)
     if not da or not db:
         return False
-    short, long_ = (ta, tb) if len(da) <= len(db) else (tb, ta)
-    ds = _distinctive(short)
-    if ds and all(t in long_ for t in ds):
-        extra = [t for t in long_ if t not in short]
-        if all(t in NOISE or len(t) == 1 for t in extra):
-            return True
+    short, long_ = (da, db) if len(da) <= len(db) else (db, da)
+    if all(any(_same_word(t, u) for u in long_) for t in short):
+        return True
     if len(da) == len(db):
         return difflib.SequenceMatcher(None, " ".join(da), " ".join(db)).ratio() >= MERCHANT_RATIO
     return False
@@ -88,9 +104,16 @@ def reconcile_receipts(receipts: Iterable[dict] | Mapping[str, dict], txns: list
        single adjacent swap (`transposed_digits`) or the amounts differ by at most max($1, 25%) (a tip or a
        hold). Prefer a digit swap, then the earliest, then the closest amount.
     4. no_match otherwise. A same-merchant charge within 7 days is reported as `nearest` (a hint, not a match).
+    Receipts whose OCR gave no merchant, date or total are `unreadable` (reported, never dropped).
     """
     recs = _as_list(receipts)
-    parsed = [(r, parse_date(r["date"]), parse_money(r["total"])) for r in recs]
+    unreadable = {}
+    for r in recs:
+        missing = [k for k in ("merchant", "date", "total") if r.get(k) in (None, "")]
+        if missing:
+            unreadable[r["id"]] = {"match_row": None, "status": "unreadable", "merchant": r.get("merchant"),
+                                   "date": r.get("date"), "total": r.get("total"), "missing": missing}
+    parsed = [(r, parse_date(r["date"]), parse_money(r["total"])) for r in recs if r["id"] not in unreadable]
     debits = [t for t in txns if t.amount < 0]
     used: set[int] = set()
     result: dict[str, dict] = {}
@@ -137,7 +160,8 @@ def reconcile_receipts(receipts: Iterable[dict] | Mapping[str, dict], txns: list
             t = min(near, key=lambda t: (abs((t.date - d).days), abs(-t.amount - total)))
             entry["nearest"] = {"row": t.row, "date": t.date.isoformat(), "amount": -t.amount}
         result[r["id"]] = entry
-    return {r["id"]: result[r["id"]] for r, _, _ in parsed}
+    result |= unreadable
+    return {r["id"]: result[r["id"]] for r in recs}
 
 
 # --- OCR text -> {merchant, date, total} ---------------------------------------------------------------------

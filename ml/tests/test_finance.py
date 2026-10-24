@@ -249,17 +249,33 @@ def test_category_spend_and_budget_match_truth(txns, budget):
 
 def test_unresolved_rows_are_pending_not_guessed(txns, budget):
     # finance-9: a low-confidence guess must not count toward Groceries; the budget says what is pending.
-    cats = fin.categorize(txns, CATS, decide=lambda text, opts: {"Groceries": 0.55, "Income": 0.4})
+    def decide(text, opts):
+        return {"Income": 0.5, "Dining": 0.3} if "VENMO" in text else {"Groceries": 0.55, "Dining": 0.4}
+
+    cats = fin.categorize(txns, CATS, decide=decide)
     spend = fin.category_spend(txns, cats)
-    bowl = sum(-t.amount for t in txns if t.description == "BERKELEY BOWL")
+    bowl_rows = [t.row for t in txns if t.description == "BERKELEY BOWL"]
+    bowl = sum(-txns[r - 1].amount for r in bowl_rows)
     assert spend["Groceries"] == cents(ST_TRUTH["category_spend"]["Groceries"]) - bowl
     pend = fin.pending(txns, cats)
     assert pend["debits"] == bowl and pend["credits"] == D("45.00") and len(pend["rows"]) == 7
+    assert pend["by_category"] == {"Groceries": {"rows": bowl_rows, "amount": bowl}}
+    assert pend["income"]["amount"] == D("45.00") and pend["unassigned"]["rows"] == []
     rep = fin.budget_report(spend, budget, pend)
-    assert rep["over_budget"] == ["Dining", "Shopping"]  # certain: pending debits only add spend
-    # Categories that unresolved debits could push over budget (remaining < pending debits).
-    assert rep["needs_review"] == [c for c in CATS if D(0) <= rep["remaining"][c] < bowl]
-    assert "Groceries" not in rep["needs_review"] and "Rent" in rep["needs_review"]
+    assert rep["over_budget"] == ["Dining", "Shopping"]
+    # Exactly the category the pending rows were guessed into is partial; nothing else is marked.
+    assert rep["needs_review"] == ["Groceries"] and rep["partial"]["Groceries"]["amount"] == bowl
+    notes, row = ns.budget_review(rep)
+    assert notes == {"Groceries": "Partial: 6 rows ($95.09) need review"} and row is None
+
+
+def test_unguessed_pending_rows_get_their_own_budget_line(txns, budget):
+    cats = fin.categorize(txns, CATS)  # no model: nothing is guessed
+    rep = fin.budget_report(fin.category_spend(txns, cats), budget, fin.pending(txns, cats))
+    assert rep["needs_review"] == [] and len(rep["pending"]["unassigned"]["rows"]) == 7
+    notes, row = ns.budget_review(rep)
+    assert notes == {} and row == {"actual": D("95.09"), "note": "7 rows without a category (incl. $45.00 in credits)"}
+    assert ns.income_label(rep) == "Income (excl. 1 pending credit)"
 
 
 # --- receipts ----------------------------------------------------------------------------------------------
@@ -317,6 +333,16 @@ def test_reconcile_mismatch_is_bounded_and_survives_posting_delay():
     assert rec["d"]["status"] == "no_match"
 
 
+def test_unreadable_receipts_are_reported_not_dropped(txns):
+    rc = ocr_receipts()
+    rc[7] = {"id": "receipt_08.png", **fin.parse_receipt_text("~~ 4 ~~")}
+    rec = fin.reconcile_receipts(rc, txns)
+    assert list(rec) == list(RC_TRUTH) and rec["receipt_08.png"]["status"] == "unreadable"
+    assert rec["receipt_08.png"]["missing"] == ["merchant", "date", "total"]
+    flags = [f for f in fin.analyze(txns, dict.fromkeys(CATS, D(1)), rc)["flags"] if f["kind"] == "receipt_unreadable"]
+    assert [f["say"] for f in flags] == ["Couldn't read receipt 8; check it?"]
+
+
 def test_receipt_8_stays_no_match_next_to_other_coffee_shops(txns):
     rec = fin.reconcile_receipts(ocr_receipts(), txns)["receipt_08.png"]
     assert rec["status"] == "no_match" and "nearest" not in rec
@@ -337,7 +363,15 @@ def test_is_adjacent_swap(a, b, want):
                                       ("UBER", "UBER EATS", False), ("Blue Bottle Coffee Co.", "BLUE BOTTLE COFFEE", True),
                                       ("sweetgreen Berkeley", "SWEETGREEN", True), ("Target T-2187", "TARGET", True),
                                       ("TRADER JOFS", "TRADER JOE'S", True), ("COFFEE", "PEET'S COFFEE", False),
-                                      ("Safeway Store #1444", "SAFEWAY", True), ("PEETS", "PHILZ", False)])
+                                      ("Safeway Store #1444", "SAFEWAY", True), ("PEETS", "PHILZ", False),
+                                      # finance-20: receipt name vs bank descriptor
+                                      ("Shell", "SHELL OIL 57444", True), ("Whole Foods Market", "WHOLEFDS MKT 10234", True),
+                                      ("Amazon.com", "AMZN MKTP US*1A2B3", True), ("Costco Wholesale", "COSTCO WHSE #0123", True),
+                                      ("Philz Coffee", "TST* PHILZ COFFEE - BERK", True),
+                                      ("Chipotle Mexican Grill", "CHIPOTLE 1234", True),
+                                      ("SQ *BLUE BOTTLE COFFEE", "Blue Bottle Coffee Co.", True),
+                                      ("Costco Wholesale", "COSTCO GAS #0123", False), ("TRADER VICS", "TRADER JOE'S", False),
+                                      ("Whole Foods Market", "WHOLE EARTH BAKERY", False)])
 def test_merchant_match(a, b, want):
     assert fin.merchant_match(a, b) is want
 
@@ -381,7 +415,8 @@ def test_cli_without_answers_escalates(tmp_path):
     assert set(rep["numbers_scripts"]) == {"highlight", "write_budget", "summary"}
     assert all(s.startswith('tell application id "com.apple.Numbers"') for s in rep["numbers_scripts"].values())
     wb = rep["numbers_scripts"]["write_budget"]
-    assert 'set value of cell 1 of column "E" to "Note"' in wb and '"Needs review"' in wb
+    assert "if column count < 5 then set column count to 5" in wb and 'column "E" to "Note"' in wb
+    assert 'set value of cell pendRow of column "A" to "Needs review"' in wb
 
 
 def test_every_flag_carries_evidence(txns, budget):
@@ -582,13 +617,22 @@ def test_parsed_receipts_reconcile_to_truth(txns, columns):
 
 # --- Numbers scripts for the brain tool (golden) ----------------------------------------------------------
 
-def test_list_documents_golden():
-    assert ns.list_documents() == '''set out to {}
+def test_list_tables_golden():
+    assert ns.list_tables() == '''set out to {}
 tell application id "com.apple.Numbers"
 	repeat with d in documents
-		set AppleScript's text item delimiters to "|"
-		set sheetNames to (name of every sheet of d) as text
-		set end of out to (name of d) & tab & sheetNames
+		repeat with s in sheets of d
+			repeat with t in tables of s
+				set hdr to {}
+				repeat with v in (formatted value of every cell of row 1 of t)
+					set v to contents of v
+					if v is missing value then set v to ""
+					set end of hdr to (v as text)
+				end repeat
+				set AppleScript's text item delimiters to "|"
+				set end of out to (name of d) & tab & (name of s) & tab & (name of t) & tab & (hdr as text)
+			end repeat
+		end repeat
 	end repeat
 end tell
 set AppleScript's text item delimiters to linefeed
@@ -660,7 +704,8 @@ def test_multi_category_color_budget_golden():
         (ns.table_ref(document="stmt"), ns.category_body(5, ["Dining", "Needs review"])
          + ns.color_body(ns.highlight_colors([(1, 2)], [], resolved=[]))),
         (ns.table_ref(sheet="Budget", document="budget"),
-         ns.budget_body({"Rent": D("1625.00")}, {"Rent": D("25.00")}, notes={"Rent": "Needs review"})),
+         ns.budget_body({"Rent": D("1625.00")}, {"Rent": D("25.00")}, notes={"Rent": "Partial"},
+                        pending_row={"actual": D("95.09"), "note": "7 rows without a category"})),
     ])
     assert s == '''tell application id "com.apple.Numbers"
 	tell table 1 of sheet 1 of document "stmt"
@@ -678,13 +723,16 @@ def test_multi_category_color_budget_golden():
 		set names to {"Rent"}
 		set acts to {1625.00}
 		set rems to {25.00}
-		set notes to {"Needs review"}
+		set notes to {"Partial"}
+		if column count < 5 then set column count to 5
 		set value of cell 1 of column "E" to "Note"
+		set pendRow to 0
 		set cats to value of cells of column "A"
 		set written to 0
 		repeat with r from 1 to count of cats
 			set c to item r of cats
 			if c is not missing value then
+				if (c as text) is "Needs review" then set pendRow to r
 				repeat with k from 1 to count of names
 					if (c as text) is (item k of names) then
 						set value of cell r of column "C" to item k of acts
@@ -695,6 +743,15 @@ def test_multi_category_color_budget_golden():
 				end repeat
 			end if
 		end repeat
+		if pendRow is 0 then
+			set row count to (row count + 1)
+			set pendRow to row count
+		end if
+		set value of cell pendRow of column "A" to "Needs review"
+		set value of cell pendRow of column "B" to ""
+		set value of cell pendRow of column "C" to 95.09
+		set value of cell pendRow of column "D" to ""
+		set value of cell pendRow of column "E" to "7 rows without a category"
 		return written
 	end tell
 end tell
