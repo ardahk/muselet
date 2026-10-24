@@ -1,7 +1,8 @@
-# ux digest — pass 4 + self-poll 1 (wip/local d5d2d7d, main c2d2988)
+# ux digest — pass 4 + self-poll 2 (wip d5d2d7d, main c2d2988, cloud/brain-2 9f41c11)
 
 No cloud/* branch has lane edits of its own. Resolved: ux-5 (stale offline replay), ux-6 (ctx), ux-9 (ctx capture blocking), all on main too.
 Self-poll 1: main 17a2755 merged the System-2 planner loop, so ux-10/11/12 (and ux-1/2/3/8) now affect main as well. cloud/bench and cloud/grounding have no lane edits.
+Self-poll 2: cloud/brain-2 9f41c11 fixes ux-2 and ux-10 (shared object-naming _confirm_summary; my tests pass). Merging it is the cheapest win. ux-1 is still stuck there, and a timeout now reads "Okay, cancelled". Slot-fill adds more listening-while-mic-off cases (ux-12).
 New since pass 3: SkillHUD (native glass HUD for volume/brightness/dark/Wi-Fi/Bluetooth, honors Reduce Motion) and a timer-done bubble. Good demo polish.
 
 ## Open P0/P1 (ranked)
