@@ -5,6 +5,7 @@ import time
 from datetime import date, datetime, timezone
 
 from bench.harness.core import (
+    HarnessTimeout,
     evaluate_predicate,
     find_trace_record,
     outcome_matches,
@@ -44,6 +45,11 @@ class FakeRuntime:
         return {"frames": [], "confirm_count": 0}
 
 
+class HeldSlotTimeoutRuntime(FakeRuntime):
+    async def start_utterance(self, utterance):
+        raise HarnessTimeout("wait_for_utterance", False)
+
+
 def test_template_values_use_unpadded_dates_and_strict_next_friday():
     values = template_values(today=date(2026, 1, 2))
     assert values["tomorrow_ymd"] == "2026-1-3"
@@ -75,6 +81,36 @@ def test_precondition_failure_skips_every_later_case_step(tmp_path):
         assert [call[2] for call in runtime.calls if call[0] == "script"] == ["false"]
         assert not any(call[0] in ("utterance", "prepare_cleanup") for call in runtime.calls)
         assert runtime.calls[-1] == ("stop",)
+
+    asyncio.run(scenario())
+
+
+def test_held_slot_timeout_skips_all_teardown_and_is_not_scored(tmp_path):
+    async def scenario():
+        runtime = HeldSlotTimeoutRuntime()
+        result = await run_case({
+            "id": "timeout-case", "utterance": "hello",
+            "teardown": [{"shell": "must-not-run"}],
+            "restore": [{"get": "value", "set": "write {value}"}],
+        }, runtime, values={}, trace_path=tmp_path / "traces.jsonl")
+        assert result["status"] == "harness_timeout"
+        assert result["strict_pass"] is False
+        assert result["harness_timeout"] == {
+            "stage": "wait_for_utterance", "slot_released": False,
+        }
+        assert result["teardown_incomplete"] is True
+        assert any(
+            item.get("skipped") == "harness_timeout_slot_held"
+            for item in result["teardown_observations"]
+        )
+        assert any(
+            item.get("skipped") == "harness_timeout_slot_held"
+            for item in result["restore_observations"]
+        )
+        assert not any(
+            call[0] == "script" and call[2] in ("must-not-run", "write ok")
+            for call in runtime.calls
+        )
 
     asyncio.run(scenario())
 
@@ -186,6 +222,24 @@ def test_pass_k_excludes_skipped_repeats_and_reports_latency_quantiles():
     assert report["by_tier"]["T1"]["strict_pass_rate"] == 0.5
     assert report["false_done"] == 1
     assert report["latency_s"]["first_action_p50"] == 0.2
+
+
+def test_harness_timeout_is_excluded_from_rates_and_pass_k():
+    report = report_math([
+        {"id": "timed", "tier": "T2", "category": "apps", "kind": "open",
+         "status": "harness_timeout", "strict_pass": False},
+        {"id": "good", "tier": "T1", "category": "system", "kind": "volume",
+         "status": "passed", "strict_pass": True},
+        {"id": "pending", "tier": "T2", "pending": True, "category": "finance",
+         "kind": "fixture", "status": "passed", "strict_pass": True,
+         "first_action_latency_s": 0.1},
+    ], repeats=1)
+    assert report["executed"] == 1
+    assert report["pass^k"]["eligible"] == 1
+    assert report["harness_timeouts"] == {"count": 1, "ids": ["timed"]}
+    assert report["pending"]["by_tier"]["T2"]["strict_pass_rate"] == 1.0
+    assert report["by_tier"]["T1"]["executed"] == 1
+    assert report["by_tier"]["T2"]["executed"] == 0
 
 
 def test_trace_ends_case_and_final_check_records_verified_latency(tmp_path):

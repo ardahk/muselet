@@ -13,7 +13,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -22,7 +22,11 @@ if str(ROOT) not in sys.path:
 from bench.harness.core import report_math, resolve_templates, run_case, template_values
 from bench.harness.documents import document_apps_for_case
 from bench.harness.proxy import BenchProxy
-from bench.harness.runtime import HandsRuntime
+from bench.harness.runtime import (
+    HandsRuntime,
+    release_slot_for_case,
+    serve_timeout_supported,
+)
 from bench.harness.session import probe_session
 
 
@@ -50,6 +54,14 @@ def _values(args: argparse.Namespace) -> dict[str, str]:
     return template_values(sandbox=Path.home() / "MuseletSandbox")
 
 
+def _pending_report_only(case: dict[str, Any], args: argparse.Namespace) -> bool:
+    return bool(
+        case.get("pending")
+        and args.include_pending
+        and not getattr(args, "run_pending", False)
+    )
+
+
 def _filter_reasons(case: dict[str, Any], args: argparse.Namespace) -> list[str]:
     reasons = []
     if args.tier and case.get("tier") not in args.tier:
@@ -60,16 +72,24 @@ def _filter_reasons(case: dict[str, Any], args: argparse.Namespace) -> list[str]
         reasons.append("id filter")
     if case.get("manual") and not args.include_manual:
         reasons.append("manual (use --include-manual)")
-    if case.get("pending") and not args.include_pending:
-        reasons.append("pending (use --include-pending)")
+    if case.get("pending") and not args.include_pending and not getattr(
+        args, "run_pending", False
+    ):
+        reasons.append("pending (use --include-pending or --run-pending)")
     if case.get("online") and args.offline:
         reasons.append("online task skipped by --offline")
-    if case.get("requires_user_ok") and not args.allow_user_ok:
+    if (
+        case.get("requires_user_ok")
+        and not args.allow_user_ok
+        and not _pending_report_only(case, args)
+    ):
         reasons.append("requires user consent (use --allow-user-ok)")
     return reasons
 
 
-def _step_order(case: dict[str, Any]) -> list[str]:
+def _step_order(case: dict[str, Any], *, report_only: bool = False) -> list[str]:
+    if report_only:
+        return ["report only: no session probe, setup, or utterance"]
     steps = ["session: hands probe session (skip if locked/asleep)"]
     if case.get("precondition"):
         steps.append("precondition")
@@ -100,7 +120,9 @@ def _dry_run(cases: list[dict[str, Any]], args: argparse.Namespace) -> int:
         tier = str(case.get("tier", "unknown"))
         tier_counts[tier] = tier_counts.get(tier, 0) + 1
         reasons = _filter_reasons(case, args)
-        if not reasons:
+        pending_report = _pending_report_only(case, args)
+        report_only = pending_report and not reasons
+        if not reasons and not pending_report:
             selected_counts[tier] = selected_counts.get(tier, 0) + 1
         rows.append({
             "id": case["id"],
@@ -109,10 +131,15 @@ def _dry_run(cases: list[dict[str, Any]], args: argparse.Namespace) -> int:
             "document_apps": [
                 app.name for app in document_apps_for_case(case)
             ],
-            "filter": "skip" if reasons else "run",
-            "skip_reason": "; ".join(reasons) if reasons else None,
+            "filter": (
+                "report" if report_only else "skip" if reasons else "run"
+            ),
+            "skip_reason": (
+                "; ".join(reasons) if reasons else
+                "pending (use --run-pending to execute)" if report_only else None
+            ),
             "resolved": resolve_templates(case, values),
-            "step_order": _step_order(case),
+            "step_order": _step_order(case, report_only=pending_report),
         })
     print(json.dumps({
         "suite": str(args.suite),
@@ -139,6 +166,59 @@ def _git_sha() -> str:
 def _write_record(stream, record: dict[str, Any]) -> None:
     stream.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
     stream.flush()
+
+
+def _shell_rooted_case(case: dict[str, Any]) -> dict[str, Any]:
+    rooted = copy.deepcopy(case)
+    prefix = f"cd {shlex.quote(str(ROOT))} && "
+    for key in ("setup", "teardown"):
+        for step in rooted.get(key, []):
+            if isinstance(step, dict) and isinstance(step.get("shell"), str):
+                step["shell"] = prefix + step["shell"]
+    return rooted
+
+
+def _prepare_run_spec(
+    case: dict[str, Any],
+    *,
+    event_check: Callable[[Any, dict[str, Any]], Any] | None = None,
+) -> dict[str, Any]:
+    run_spec = case
+    if event_check is not None:
+        run_spec = copy.deepcopy(case)
+        run_spec["precondition"] = []
+        run_spec["teardown"] = []
+        run_spec["check"] = [event_check]
+    run_spec = _shell_rooted_case(run_spec)
+    run_spec["pre_setup_guard"] = _fixture_plan_guard(run_spec)
+    return run_spec
+
+
+def _fixture_plan_guard(case: dict[str, Any]):
+    async def guard(runtime, _result):
+        for step in case.get("setup", []):
+            command = step.get("shell") if isinstance(step, dict) else None
+            if not command or "setup_mac.sh" not in command or "--apply" not in command:
+                continue
+            dry_run = command.replace("--apply", "--dry-run")
+            try:
+                result = await runtime.run_script("shell", dry_run)
+                if result.get("ok") is False or result.get("exit_code", 0) != 0:
+                    return {
+                        "status": "skipped",
+                        "skip_reason": "fixture_plan_unverifiable",
+                    }
+                output = "\n".join(str(result.get(key, "")) for key in ("output", "stdout"))
+            except Exception as exc:
+                return {
+                    "status": "skipped",
+                    "skip_reason": "fixture_plan_unverifiable",
+                    "fixture_plan_error": str(exc),
+                }
+            if "differs: overwrite" in output:
+                return {"status": "skipped", "skip_reason": "fixture_would_overwrite"}
+        return None
+    return guard
 
 
 async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> int:
@@ -169,6 +249,7 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
             args.brain_url, port=args.proxy_port,
             safety_guard=not args.no_safety_guard,
         ) as proxy:
+            serve_timeout_flag = serve_timeout_supported(args.hands_bin)
             with results_path.open("w", encoding="utf-8") as output:
                 for repeat in range(1, args.repeat + 1):
                     for case in cases:
@@ -185,7 +266,29 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
                             "pending": case.get("pending"),
                             "unsafe": bool(args.no_safety_guard),
                         }
-                        session = probe_session(args.hands_bin)
+                        if _pending_report_only(case, args):
+                            reasons = _filter_reasons(case, args)
+                            record = base | {
+                                "status": "skipped",
+                                "strict_pass": False,
+                                "skip_reason": (
+                                    "; ".join(reasons) if reasons else
+                                    "pending (use --run-pending to execute)"
+                                ),
+                            }
+                            all_results.append(record)
+                            _write_record(output, record)
+                            continue
+                        try:
+                            session = probe_session(args.hands_bin)
+                        except Exception as exc:
+                            record = base | {
+                                "status": "failed", "strict_pass": False,
+                                "error": str(exc),
+                            }
+                            all_results.append(record)
+                            _write_record(output, record)
+                            continue
                         base.update(session)
                         if session["skip_reason"]:
                             record = base | {
@@ -227,24 +330,73 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
                             all_results.append(record)
                             _write_record(output, record)
                             continue
-                        await proxy.wait_disconnected()
-                        await proxy.begin_case(
-                            case["id"], case.get("confirm_reply"),
-                            allow_confirm_skills=set(case.get("allow_confirm_skills", [])),
-                        )
-                        runtime = HandsRuntime(
-                            proxy, args.hands_bin, out_dir / "hands-logs",
-                            f"{case['id']}-r{repeat}", cwd=ROOT,
-                        )
-                        (out_dir / "hands-logs").mkdir(exist_ok=True)
-                        event_before = (
-                            snapshot_bench_events() if _is_event_case(case) else []
-                        )
-                        run_spec = case
+                        try:
+                            slot_released = await release_slot_for_case(proxy)
+                        except Exception as exc:
+                            record = base | {
+                                "status": "failed", "strict_pass": False,
+                                "error": str(exc),
+                            }
+                            all_results.append(record)
+                            _write_record(output, record)
+                            continue
+                        if not slot_released:
+                            record = base | {
+                                "status": "harness_timeout",
+                                "strict_pass": False,
+                                "harness_timeout": {
+                                    "stage": "between_cases",
+                                    "slot_released": False,
+                                },
+                            }
+                            all_results.append(record)
+                            _write_record(output, record)
+                            continue
+                        try:
+                            await proxy.begin_case(
+                                case["id"], case.get("confirm_reply"),
+                                allow_confirm_skills=set(case.get("allow_confirm_skills", [])),
+                            )
+                        except Exception as exc:
+                            record = base | {
+                                "status": "failed", "strict_pass": False,
+                                "error": str(exc),
+                            }
+                            all_results.append(record)
+                            _write_record(output, record)
+                            continue
+                        try:
+                            runtime = HandsRuntime(
+                                proxy, args.hands_bin, out_dir / "hands-logs",
+                                f"{case['id']}-r{repeat}", cwd=ROOT,
+                            )
+                            (out_dir / "hands-logs").mkdir(exist_ok=True)
+                        except Exception as exc:
+                            record = base | {
+                                "status": "failed", "strict_pass": False,
+                                "error": str(exc),
+                            }
+                            all_results.append(record)
+                            _write_record(output, record)
+                            continue
+                        try:
+                            event_before = (
+                                snapshot_bench_events() if _is_event_case(case) else []
+                            )
+                        except Exception as exc:
+                            record = base | {
+                                "status": "failed", "strict_pass": False,
+                                "error": f"event snapshot failed: {exc}",
+                            }
+                            all_results.append(record)
+                            _write_record(output, record)
+                            try:
+                                await runtime.stop()
+                            except Exception:
+                                pass
+                            continue
+                        event_check = None
                         if _is_event_case(case):
-                            run_spec = copy.deepcopy(case)
-                            run_spec["precondition"] = []
-                            run_spec["teardown"] = []
                             expected_date = values.get("next_friday_ymd")
 
                             async def grade_bench_event(_runtime, _context):
@@ -262,7 +414,8 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
                                     "actual": {"created_in_bench_calendar": created},
                                 }
 
-                            run_spec["check"] = [grade_bench_event]
+                            event_check = grade_bench_event
+                        run_spec = _prepare_run_spec(case, event_check=event_check)
                         try:
                             record = await run_case(
                                 run_spec,
@@ -272,7 +425,10 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
                                 poll_interval=0.5,
                             )
                         except Exception as exc:
-                            await runtime.stop()
+                            try:
+                                await runtime.stop()
+                            except Exception:
+                                pass
                             record = {
                                 "id": case["id"], "tier": case.get("tier"),
                                 "category": case.get("category"),
@@ -283,13 +439,19 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
                             }
                         finally:
                             if _is_event_case(case):
-                                after = await asyncio.to_thread(snapshot_bench_events)
-                                before_ids = {row["id"] for row in event_before}
-                                await asyncio.to_thread(
-                                    delete_bench_events,
-                                    [row["id"] for row in after if row["id"] not in before_ids],
-                                )
+                                try:
+                                    after = await asyncio.to_thread(snapshot_bench_events)
+                                    before_ids = {row["id"] for row in event_before}
+                                    await asyncio.to_thread(
+                                        delete_bench_events,
+                                        [row["id"] for row in after if row["id"] not in before_ids],
+                                    )
+                                except Exception as exc:
+                                    record["event_cleanup_error"] = str(exc)
+                                    record["strict_pass"] = False
+                                    record["status"] = "failed"
                         record.update(base)
+                        record["hands_serve_timeout_flag"] = serve_timeout_flag
                         all_results.append(record)
                         _write_record(output, record)
     finally:
@@ -299,10 +461,12 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
     summary.update({
         "suite": str(args.suite),
         "git_sha": _git_sha(),
-        "pending_included": args.include_pending,
+        "pending_included": args.include_pending or getattr(args, "run_pending", False),
+        "run_pending": getattr(args, "run_pending", False),
         "manual_included": args.include_manual,
         "offline": args.offline,
         "allow_user_ok": args.allow_user_ok,
+        "hands_serve_timeout_flag": serve_timeout_flag,
         "safety_guard": not args.no_safety_guard,
         "unsafe": bool(args.no_safety_guard),
         "confirm_no_send_cases": [
@@ -373,7 +537,17 @@ def _print_summary(summary: dict[str, Any]) -> None:
         )
     )
     if summary["pending_cases"]:
-        print(f"pending cases reported separately: {len(summary['pending_cases'])}")
+        print("pending strict pass by tier")
+        for tier, stats in summary["pending"]["by_tier"].items():
+            rate = stats["strict_pass_rate"]
+            rate_text = "-" if rate is None else f"{rate:.1%}"
+            pass_k = stats["pass^k"]
+            latency = stats["latency_s"]
+            print(
+                f"{tier}: {stats['passed']}/{stats['executed']} strict ({rate_text}); "
+                f"pass^{pass_k['k']}={pass_k['passed']}/{pass_k['eligible']}; "
+                f"first-action p50={_format_pair(latency['first_action_p50'], latency['first_action_p95'])[0]}s"
+            )
 
 
 def _format_pair(first: float | None, second: float | None) -> tuple[str, str]:
@@ -400,7 +574,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--proxy-port", type=int, default=8790)
     parser.add_argument("--hands-bin", default="hands")
     parser.add_argument("--include-manual", action="store_true")
-    parser.add_argument("--include-pending", action="store_true")
+    parser.add_argument(
+        "--include-pending", action="store_true",
+        help="Report pending cases without executing them.",
+    )
+    parser.add_argument(
+        "--run-pending", action="store_true",
+        help="Execute pending cases through the normal guarded path.",
+    )
     parser.add_argument("--allow-user-ok", action="store_true")
     parser.add_argument("--offline", action="store_true")
     parser.add_argument("--dry-run", action="store_true")

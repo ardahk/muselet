@@ -38,6 +38,25 @@ HARNESS_POLL_INTERVAL_S = 0.5
 VERIFIED_LATENCY_KINDS = ("stateful", "answer", "none")
 
 
+class HarnessTimeout(RuntimeError):
+    def __init__(self, stage: str, slot_released: bool):
+        super().__init__(f"harness timed out during {stage}")
+        self.stage = stage
+        self.slot_released = bool(slot_released)
+
+
+def _mark_harness_timeout(result: dict[str, Any], exc: HarnessTimeout) -> bool:
+    result.update({
+        "status": "harness_timeout",
+        "strict_pass": False,
+        "harness_timeout": {
+            "stage": exc.stage,
+            "slot_released": exc.slot_released,
+        },
+    })
+    return not exc.slot_released
+
+
 def template_values(
     *, sandbox: Path | None = None, today: date | None = None
 ) -> dict[str, str]:
@@ -190,6 +209,8 @@ async def evaluate_predicate(
         actual = _output_text(result)
         passed, observed = _compare(actual, predicate)
         return {"predicate": predicate, "passed": passed, "actual": observed, "script_result": result}
+    except HarnessTimeout:
+        raise
     except Exception as exc:
         return {"predicate": predicate, "passed": False, "error": str(exc)}
 
@@ -380,6 +401,7 @@ async def run_case(
         "teardown_observations": [],
         "restore_observations": [],
     }
+    timeout_slot_held = False
     if _has_nonmechanical_precondition(precondition_steps):
         result["status"] = "skipped"
         result["skip_reason"] = "precondition not mechanical"
@@ -401,6 +423,16 @@ async def run_case(
             runtime,
             {"capture": runtime.snapshot(), "trace": None},
         )
+    except HarnessTimeout as exc:
+        timeout_slot_held = _mark_harness_timeout(result, exc)
+        if timeout_slot_held:
+            result["teardown_incomplete"] = True
+            result["teardown_observations"].extend(
+                {"step": step, "skipped": "harness_timeout_slot_held"}
+                for step in case.get("teardown", [])
+            )
+        await runtime.stop()
+        return result
     except Exception as exc:
         result["status"] = "skipped"
         result["skip_reason"] = "precondition error"
@@ -436,6 +468,16 @@ async def run_case(
             result["document_inventory_error"] = str(exc)
             await runtime.stop()
             return result
+        except HarnessTimeout as exc:
+            timeout_slot_held = _mark_harness_timeout(result, exc)
+            if not exc.slot_released:
+                result["teardown_incomplete"] = True
+                result["teardown_observations"].extend(
+                    {"step": step, "skipped": "harness_timeout_slot_held"}
+                    for step in case.get("teardown", [])
+                )
+            await runtime.stop()
+            return result
         result["document_baseline"] = document_baseline
         user_documents = foreign_items(document_baseline)
         if user_documents:
@@ -445,18 +487,81 @@ async def run_case(
             await runtime.stop()
             return result
 
+    guard = case.get("pre_setup_guard")
+    if callable(guard):
+        try:
+            guard_result = guard(runtime, result)
+            if inspect.isawaitable(guard_result):
+                guard_result = await guard_result
+        except HarnessTimeout as exc:
+            timeout_slot_held = _mark_harness_timeout(result, exc)
+            if not exc.slot_released:
+                result["teardown_incomplete"] = True
+                result["teardown_observations"].extend(
+                    {"step": step, "skipped": "harness_timeout_slot_held"}
+                    for step in case.get("teardown", [])
+                )
+            await runtime.stop()
+            return result
+        except Exception as exc:
+            guard_result = {
+                "status": "skipped",
+                "skip_reason": "fixture_plan_unverifiable",
+                "fixture_plan_error": str(exc),
+            }
+        if isinstance(guard_result, dict):
+            result.update(guard_result)
+            if guard_result.get("status") == "skipped":
+                await runtime.stop()
+                return result
+
     restore_values: list[tuple[dict[str, Any], str]] = []
+
+    async def abort_held_slot(
+        *,
+        teardown_steps: list[Any] | None = None,
+        restore_items: list[tuple[dict[str, Any], str]] | None = None,
+    ) -> dict[str, Any]:
+        teardown_steps = (
+            case.get("teardown", []) if teardown_steps is None else teardown_steps
+        )
+        restore_items = restore_values if restore_items is None else restore_items
+        result["teardown_incomplete"] = True
+        result["teardown_observations"].extend(
+            {"step": step, "skipped": "harness_timeout_slot_held"}
+            for step in teardown_steps
+        )
+        result["restore_observations"].extend(
+            {"set": item.get("set"), "skipped": "harness_timeout_slot_held"}
+            for item, _value in restore_items
+        )
+        try:
+            result["frames"] = runtime.snapshot().get(
+                "frames", result.get("frames", [])
+            )
+        finally:
+            await runtime.stop()
+        if hasattr(runtime, "hands_serve_summary"):
+            result["hands_serve_summary"] = runtime.hands_serve_summary
+        return result
+
     setup_error = None
+    setup_timeout: HarnessTimeout | None = None
     for item in case.get("restore", []):
         try:
             observed = await runtime.run_script("applescript", str(item["get"]))
             value = _output_text(observed)
             restore_values.append((item, value))
             result["restore_observations"].append({"get": item["get"], "value": value})
+        except HarnessTimeout as exc:
+            setup_timeout = exc
+            break
         except Exception as exc:
             result["restore_observations"].append({"get": item.get("get"), "error": str(exc)})
             setup_error = setup_error or f"restore-get failed: {exc}"
     for step in case.get("setup", []):
+        if setup_timeout:
+            break
         lang = next((key for key in _SCRIPT_LANGS if key in step), None)
         if lang is None:
             setup_error = setup_error or f"unsupported setup step: {step!r}"
@@ -464,6 +569,9 @@ async def run_case(
         try:
             script_result = await runtime.run_script(lang, str(step[lang]))
             result["setup_observations"].append({"step": step, "result": script_result})
+        except HarnessTimeout as exc:
+            setup_timeout = exc
+            break
         except Exception as exc:
             result["setup_observations"].append({"step": step, "error": str(exc)})
             setup_error = setup_error or f"setup failed: {exc}"
@@ -472,30 +580,40 @@ async def run_case(
         try:
             document_after_setup = await take_inventory(runtime.run_script, document_apps)
             result["document_after_setup"] = document_after_setup
+        except HarnessTimeout as exc:
+            setup_timeout = exc
         except Exception as exc:
             result["document_after_setup_error"] = str(exc)
 
     before_utterance = case.get("before_utterance")
-    if callable(before_utterance) and setup_error is None:
+    if callable(before_utterance) and setup_error is None and setup_timeout is None:
         try:
             hook_result = before_utterance(runtime, result)
             if inspect.isawaitable(hook_result):
                 hook_result = await hook_result
             result["before_utterance_observation"] = hook_result
         except Exception as exc:
-            setup_error = f"before-utterance setup failed: {exc}"
+            if isinstance(exc, HarnessTimeout):
+                setup_timeout = exc
+            else:
+                setup_error = f"before-utterance setup failed: {exc}"
 
     trace: dict[str, Any] | None = None
     try:
+        if setup_timeout is not None:
+            raise setup_timeout
         check_context: dict[str, Any] = {
             "capture": runtime.snapshot(), "trace": None, "utterance": utterance
         }
         if setup_error is None:
-            await runtime.start_utterance(utterance)
+            timeout_s = float(case.get("timeout_s", 30))
+            if "timeout_s" in inspect.signature(runtime.start_utterance).parameters:
+                await runtime.start_utterance(utterance, timeout_s=timeout_s)
+            else:
+                await runtime.start_utterance(utterance)
             capture = runtime.snapshot()
             t0 = getattr(runtime, "utterance_monotonic", None)
             started_wall = capture.get("utterance_wall")
-            timeout_s = float(case.get("timeout_s", 30))
             deadline = (t0 if t0 is not None else time.monotonic()) + timeout_s
             first_action_latency = None
             verified_latency = None
@@ -539,6 +657,8 @@ async def run_case(
                         hook_result = await hook_result
                     result["after_utterance_observation"] = hook_result
                 except Exception as exc:
+                    if isinstance(exc, HarnessTimeout):
+                        raise
                     result["after_utterance_error"] = str(exc)
                     result["status"] = "failed"
                     result["strict_pass"] = False
@@ -609,17 +729,35 @@ async def run_case(
             result["status"] = "failed"
             result["strict_pass"] = False
             await runtime.prepare_for_cleanup()
+    except HarnessTimeout as exc:
+        timeout_slot_held = _mark_harness_timeout(result, exc)
+        if exc.slot_released:
+            try:
+                await runtime.prepare_for_cleanup()
+            except HarnessTimeout as cleanup_exc:
+                timeout_slot_held = _mark_harness_timeout(result, cleanup_exc)
     except Exception as exc:
         result["error"] = str(exc)
         result["status"] = "failed"
         result["strict_pass"] = False
         await runtime.prepare_for_cleanup()
     finally:
+        if timeout_slot_held:
+            return await abort_held_slot()
+
+        def note_timeout(exc: HarnessTimeout) -> None:
+            nonlocal timeout_slot_held
+            timeout_slot_held = _mark_harness_timeout(result, exc)
+
         document_pre_teardown: dict[str, dict] | None = None
         if document_apps:
             try:
                 document_pre_teardown = await take_inventory(runtime.run_script, document_apps)
                 result["document_pre_teardown"] = document_pre_teardown
+            except HarnessTimeout as exc:
+                note_timeout(exc)
+                if timeout_slot_held:
+                    return await abort_held_slot()
             except Exception as exc:
                 result["document_pre_teardown_error"] = str(exc)
             created = created_items(
@@ -636,13 +774,17 @@ async def run_case(
                 result["teardown_incomplete"] = True
                 result["teardown_incomplete_items"] = incomplete
             cleanup_script = close_created_script(created)
-            if cleanup_script is not None:
+            if cleanup_script is not None and not timeout_slot_held:
                 try:
                     cleanup_result = await runtime.run_script("jxa", cleanup_script)
                     result["teardown_observations"].append({
                         "step": "close_created_documents",
                         "result": cleanup_result,
                     })
+                except HarnessTimeout as exc:
+                    note_timeout(exc)
+                    if timeout_slot_held:
+                        return await abort_held_slot()
                 except Exception as exc:
                     result["teardown_observations"].append({
                         "step": "close_created_documents",
@@ -662,6 +804,20 @@ async def run_case(
                         result["strict_pass"] = False
                         result["status"] = "failed"
                 except Exception as exc:
+                    if isinstance(exc, HarnessTimeout):
+                        note_timeout(exc)
+                        if timeout_slot_held:
+                            remaining_teardown = [
+                                pending for pending in case.get("teardown", [])
+                                if pending is not step
+                            ]
+                            return await abort_held_slot(
+                                teardown_steps=remaining_teardown,
+                            )
+                        result["teardown_observations"].append({
+                            "step": "callable", "error": str(exc),
+                        })
+                        continue
                     result["teardown_observations"].append({"step": "callable", "error": str(exc)})
                     result["strict_pass"] = False
                     result["status"] = "failed"
@@ -701,6 +857,20 @@ async def run_case(
                 script_result = await runtime.run_script(lang, script)
                 result["teardown_observations"].append({"step": step, "result": script_result})
             except Exception as exc:
+                if isinstance(exc, HarnessTimeout):
+                    note_timeout(exc)
+                    if timeout_slot_held:
+                        remaining_teardown = [
+                            pending for pending in case.get("teardown", [])
+                            if pending is not step
+                        ]
+                        return await abort_held_slot(
+                            teardown_steps=remaining_teardown,
+                        )
+                    result["teardown_observations"].append({
+                        "step": step, "error": str(exc),
+                    })
+                    continue
                 result["teardown_observations"].append({"step": step, "error": str(exc)})
                 result["strict_pass"] = False
                 result["status"] = "failed"
@@ -710,6 +880,21 @@ async def run_case(
                 script_result = await runtime.run_script("applescript", script)
                 result["restore_observations"].append({"set": script, "result": script_result})
             except Exception as exc:
+                if isinstance(exc, HarnessTimeout):
+                    note_timeout(exc)
+                    if timeout_slot_held:
+                        remaining_restores = [
+                            pair for pair in restore_values
+                            if pair[0] is not step
+                        ]
+                        return await abort_held_slot(
+                            teardown_steps=[],
+                            restore_items=remaining_restores,
+                        )
+                    result["restore_observations"].append({
+                        "set": script, "error": str(exc),
+                    })
+                    continue
                 result["restore_observations"].append({"set": script, "error": str(exc)})
                 result["strict_pass"] = False
                 result["status"] = "failed"
@@ -717,6 +902,8 @@ async def run_case(
             result["frames"] = runtime.snapshot().get("frames", result.get("frames", []))
         finally:
             await runtime.stop()
+    if hasattr(runtime, "hands_serve_summary"):
+        result["hands_serve_summary"] = runtime.hands_serve_summary
     return result
 
 
@@ -732,10 +919,11 @@ def _percentile(values: list[float], fraction: float) -> float | None:
     return ordered[lower] + (ordered[upper] - ordered[lower]) * (position - lower)
 
 
-def report_math(records: list[dict[str, Any]], repeats: int = 1) -> dict[str, Any]:
+def _report_math_section(records: list[dict[str, Any]], repeats: int = 1) -> dict[str, Any]:
     executed = [
         row for row in records
-        if row.get("status") != "skipped" and not row.get("ungradable")
+        if row.get("status") not in ("skipped", "harness_timeout")
+        and not row.get("ungradable")
     ]
     passed = [row for row in executed if row.get("strict_pass", row.get("pass", False))]
 
@@ -753,12 +941,14 @@ def report_math(records: list[dict[str, Any]], repeats: int = 1) -> dict[str, An
     for row in records:
         by_id.setdefault(str(row.get("id", "unknown")), []).append(row)
     pass_k = [
-        all(item.get("status") != "skipped" and not item.get("ungradable")
+        all(item.get("status") not in ("skipped", "harness_timeout")
+            and not item.get("ungradable")
             and item.get("strict_pass", item.get("pass", False))
             for item in rows)
         for rows in by_id.values()
         if len(rows) == repeats and all(
-            item.get("status") != "skipped" and not item.get("ungradable")
+            item.get("status") not in ("skipped", "harness_timeout")
+            and not item.get("ungradable")
             for item in rows
         )
     ]
@@ -771,7 +961,6 @@ def report_math(records: list[dict[str, Any]], repeats: int = 1) -> dict[str, An
         if row.get("kind") != "none"
         if (value := row.get("verified_latency_s", row.get("completion_latency_s"))) is not None
     ]
-    pending = [row for row in records if row.get("pending")]
     latency_by_kind = {}
     for kind in sorted({
         str(row.get("kind") or "unknown")
@@ -832,14 +1021,39 @@ def report_math(records: list[dict[str, Any]], repeats: int = 1) -> dict[str, An
             }),
         },
         "latency_by_kind": latency_by_kind,
-        "pending_cases": pending,
     }
+
+
+def report_math(records: list[dict[str, Any]], repeats: int = 1) -> dict[str, Any]:
+    pending = [row for row in records if row.get("pending")]
+    main = [row for row in records if not row.get("pending")]
+    summary = _report_math_section(main, repeats)
+    summary["pending_cases"] = pending
+    pending_summary = _report_math_section(pending, repeats)
+    pending_by_tier = {}
+    for tier in sorted({str(row.get("tier") or "unknown") for row in pending}):
+        group = [row for row in pending if str(row.get("tier") or "unknown") == tier]
+        tier_summary = _report_math_section(group, repeats)
+        pending_by_tier[tier] = {
+            **tier_summary["by_tier"].get(tier, _pass_stats(group)),
+            "pass^k": tier_summary["pass^k"],
+            "latency_s": tier_summary["latency_s"],
+        }
+    pending_summary["by_tier"] = pending_by_tier
+    summary["pending"] = pending_summary
+    timeouts = [row for row in records if row.get("status") == "harness_timeout"]
+    summary["harness_timeouts"] = {
+        "count": len(timeouts),
+        "ids": [row.get("id") for row in timeouts],
+    }
+    return summary
 
 
 def _pass_stats(rows: list[dict[str, Any]]) -> dict[str, Any]:
     eligible = [
         row for row in rows
-        if row.get("status") != "skipped" and not row.get("ungradable")
+        if row.get("status") not in ("skipped", "harness_timeout")
+        and not row.get("ungradable")
     ]
     passes = sum(bool(row.get("strict_pass", row.get("pass", False))) for row in eligible)
     return {

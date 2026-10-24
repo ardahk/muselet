@@ -59,20 +59,20 @@ class MultiStepEngine:
 
 
 class FakePlannerWorker:
-    def submit(self, fn, *args):
+    def submit(self, fn, *args, **kwargs):
         future = concurrent.futures.Future()
 
         def run():
             try:
-                future.set_result(fn(*args))
+                future.set_result(fn(*args, **kwargs))
             except BaseException as exc:
                 future.set_exception(exc)
 
         threading.Thread(target=run, daemon=True).start()
         return future
 
-    async def submit_async(self, fn, *args):
-        return await asyncio.to_thread(fn, *args)
+    async def submit_async(self, fn, *args, **kwargs):
+        return await asyncio.to_thread(fn, *args, **kwargs)
 
 
 class FakeHandsRuntime:
