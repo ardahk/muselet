@@ -19,6 +19,7 @@ import mlx_lm
 import numpy as np
 from tinker_cookbook.renderers import Message
 
+from .catalog import Catalog
 from .decision import DecisionEngine, _OnlineProbe, split_model  # noqa: F401
 from .dsl import action_line
 
@@ -133,8 +134,9 @@ class BatchCutter:
     """Streaming batch limits: <= 5 actions (a script block is one action),
     the 5th action's `expect` is kept (brain-11), a terminal op ends it."""
 
-    def __init__(self, max_actions: int = 5):
+    def __init__(self, max_actions: int = 5, skills=None):
         self.max, self.n, self.full, self.done = max_actions, 0, False, False
+        self.skills = Catalog.load().skills if skills is None else skills
 
     def push(self, line: str) -> str | None:
         """The line to emit, or None. Sets .done when the batch is over."""
@@ -143,7 +145,8 @@ class BatchCutter:
                 return None
             self.done = True
             return line if line.startswith("expect") else None
-        if not re.match(r"^(expect|#)", line) and action_line(line):
+        action = action_line(line, self.skills) or action_line(line)
+        if not re.match(r"^(expect|#)", line) and action:
             self.n += 1
             self.done = line.split()[0] in TERMINAL_OPS
             self.full = self.n >= self.max
@@ -371,7 +374,7 @@ class Planner:
         cur = mx.array([toks[self._cut:acut]])
         buf = ""
         lines: list[str] = []
-        cutter = BatchCutter()
+        cutter = BatchCutter(skills=self.catalog.skills)
         ttft = None
         n_decoded = 0
         in_script = False      # inside a `script ... """` block
