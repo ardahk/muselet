@@ -101,6 +101,37 @@ def test_calculator_mismatch_fails_but_says_answer_without_asking(tmp_path):
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("opened", [
+    {"ok": False, "error": "activation failed"},
+    {"ok": True, "expect_ok": False},
+    {"ok": True, "app": "TextEdit"},
+    {"ok": True, "diff_text": 'app: TextEdit | window: "Notes.rtf"'},
+    {"ok": True, "expect_ok": True, "diff_text": 'app: TextEdit | window: "Notes.rtf"'},
+])
+def test_brain25_calculator_keys_gated_on_calculator_frontmost(tmp_path, opened):
+    async def scenario():
+        orch, server, _ = _orchestrator(tmp_path, act=lambda p: opened)
+        outcome = await orch.handle_utterance("11 plus 4 on the calculator")
+        assert outcome["outcome"] == "failed"
+        assert _act_params(server) == [{"op": "open", "app": "Calculator",
+                                       "expect": 'app "Calculator"'}]
+    asyncio.run(scenario())
+
+
+def test_calculator_open_verified_before_keys(tmp_path):
+    def act(params):
+        if params["op"] == "open":
+            return {"ok": True, "expect_ok": True, "app": "Calculator",
+                    "diff_text": 'app: Calculator | window: "Calculator"'}
+        return {"ok": True, "output": "15"}
+
+    async def scenario():
+        orch, server, _ = _orchestrator(tmp_path, act=act)
+        assert (await orch.handle_utterance("11 plus 4 on the calculator"))["outcome"] == "ok"
+        assert any(a["op"] == "keys" for a in _act_params(server))
+    asyncio.run(scenario())
+
+
 def test_notes_arithmetic_remains_bubble_only(tmp_path):
     async def scenario():
         orch, server, tracer = _orchestrator(tmp_path)

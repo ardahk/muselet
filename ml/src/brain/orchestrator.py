@@ -1280,8 +1280,18 @@ class Orchestrator:
             source = parsed.expr or self._calculator_number(parsed.value)
             if parsed.expr is None and parsed.value < 0:
                 source = f"0-{self._calculator_number(abs(parsed.value))}"
+            opened = await self._calculator_act(
+                {"op": "open", "app": "Calculator",
+                 "expect": 'app "Calculator"'}, return_result=True)
+            apps = [opened["app"]] if opened.get("app") else []
+            apps.extend(re.findall(
+                r'^\s*[+~]?\s*app:\s*([^|\n]+)',
+                str(opened.get("diff_text") or ""), re.MULTILINE))
+            if opened.get("expect_ok") is False or opened.get("error") or any(
+                    str(app).strip().strip('"').casefold() != "calculator"
+                    for app in apps):
+                raise RuntimeError("Calculator is not frontmost")
             actions = [
-                {"op": "open", "app": "Calculator"},
                 {"op": "keys", "combo": "esc"},
                 *(
                     {"op": "keys", "combo": key}
