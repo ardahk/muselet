@@ -71,8 +71,9 @@ it:** `git log`, `gh pr list`, HF revisions, Tinker spend, and which processes a
 5. **Never train on eval sets:**
    - ScreenSpot-Pro, OSWorld-G, UI-Vision, GUIrilla-Gold, macOSWorld, MacAgentBench;
    - HobbyLM frozen/sealed tests, DeskMind Bench;
-   - our `evals/route_v1*`, `evals/route_v2`, `evals/live_t1`, the planner holdouts, `evals/planner_scenarios_v2`
-     v2-holdout, and any future memory holdout.
+   - our `evals/route_v1*`, `evals/route_v2`, `evals/live_t1`, and the planner holdouts, including
+     `evals/planner_scenarios_v2` v2-holdout;
+   - `evals/memory_followups.jsonl` and any future memory holdout.
    Decontamination means exact match, a shared 13-gram, and short-item edit ≤ 1, with CJK characters counted as
    tokens. It must report 0 hits before any competitor benchmark.
 6. **Tuning:**

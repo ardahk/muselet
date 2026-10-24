@@ -185,9 +185,10 @@ def denylist() -> tuple[set[str], list[str]]:
 
     offline_path = ROOT / "evals" / "planner_offline.py"
     live_path = ROOT / "evals" / "live_t1.jsonl"
+    memory_path = ROOT / "evals" / "memory_followups.jsonl"
     external_path = ROOT / "evals" / "external" / "utterances.jsonl"
     v2_path = ROOT / "evals" / "planner_scenarios_v2.jsonl"
-    for source in (offline_path, live_path, external_path, v2_path):
+    for source in (offline_path, live_path, memory_path, external_path, v2_path):
         if not source.is_file():
             raise FileNotFoundError(source)
     spec = importlib.util.spec_from_file_location("_planner_offline_for_denylist", offline_path)
@@ -216,6 +217,11 @@ def denylist() -> tuple[set[str], list[str]]:
             ids.add(row["id"])
         if row.get("utterance"):
             goals.append(normalize(row["utterance"]))
+
+    for row in _scenario_rows(memory_path):
+        if row.get("id"):
+            ids.add(row["id"])
+        goals.extend(normalize(turn["utterance"]) for turn in row["turns"] if turn.get("utterance"))
 
     for row in _scenario_rows(external_path):
         if row.get("id"):

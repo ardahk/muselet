@@ -170,3 +170,27 @@ def test_calc_setup_is_disclosed_in_dry_plan_and_run_metadata():
     assert replay._run_metadata([{"kind": "timer"}]) == {
         "timer_grading": "hands_timers_rpc",
     }
+
+
+def test_skip_record_preserves_setup_reason_over_session_none():
+    session = {"skip_reason": None, "session_probe": {"screen_locked": False}}
+    setup_skip = {
+        "status": "skipped", "strict_pass": False,
+        "skip_reason": "calc_setup_failed",
+        "calc_setup": "calculator_open_cleared",
+    }
+    rec = replay._skip_record(
+        {"id": "C01", "kind": "calc"}, 1, session, setup_skip)
+    assert rec["skip_reason"] == "calc_setup_failed"
+    assert rec["session_probe"] == {"screen_locked": False}
+    excluded = replay._skip_record(
+        {"id": "C01", "kind": "calc"}, 1, session,
+        {"skip_reason": replay._exclude_reason("calc")})
+    assert excluded["skip_reason"] == "harness_calc_checker_ax_blind"
+
+
+def test_excluded_kinds_parses_commas_and_alias():
+    assert replay._excluded_kinds("") == set()
+    assert replay._excluded_kinds("calculator") == {"calc"}
+    assert replay._excluded_kinds("calc, event") == {"calc", "event"}
+    assert replay._exclude_reason("event") == "excluded_kind:event"

@@ -208,6 +208,8 @@ form, and every ARGS utterance, against:
 | external/hobbylm/sealed-r4 | 125 |
 | external/hobbylm/system-settings | 15 |
 
+The current build gate also includes every turn utterance in `evals/memory_followups.jsonl`; the counts and results above are from the earlier run.
+
 Before: 156 hits, by rule {"short_edit1": 143, "exact": 13}, by eval {"route_v2": 2, "route_v1": 35, "external/hobbylm/sealed-r1": 30, "external/hobbylm/sealed-r2": 46, "external/hobbylm/sealed-r3": 18, "live_t1": 12, "external/hobbylm/sealed-r4": 13}. By source: gen exact 13, gen short_edit1 137, it2b short_edit1 6 (the 6 it2b hits are token-edit-1
 near-duplicates of route_v1 / HobbyLM sealed-r3 / live_t1 short items). All dropped (rule D).
 **After: 0 on every rule and every set.**
