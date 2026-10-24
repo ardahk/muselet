@@ -1,4 +1,7 @@
-# brain digest — pass 5, self-poll (2026-10-24T06:50Z)
+# brain digest — pass 6, self-poll (2026-10-24T07:12Z)
+Pass 6: only cloud/data-pipeline moved (8f0b9bc, Phase 1 trainer + export + training/scripts/mlx_parity.py). Nothing in ml/ changed. mlx_parity.py prefills the shared prefix once, deep-copies the cache for each row and reads the logits at choice_pos, the same scheme the runtime uses, so its numbers can stand in for runtime parity once a checkpoint exists. No new findings.
+
+## Pass 5 notes
 Pass 5: main c2d2988 now has the brain-5 fix. cloud/brain-2 9f41c11 (slots, calc, obsdiff, spec ARGS, confirm summaries): 15 suites pass (calc 77, slot_fill 37, confirm_summary 21, planner_loop 23...); it fixes brain-6 and partly fixes brain-13/brain-12. calc.answer probed with 44 utterances: no false positives on commands, arithmetic exact. cloud/grounding 42310cd grounder.py: coordinate math (norm1000 -> resized -> crop -> image px) checked, 114 tests pass, not wired into the orchestrator yet. No new findings.
 
 ## Pass 4 notes
