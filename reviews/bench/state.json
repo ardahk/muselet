@@ -1,12 +1,12 @@
 {
-  "pass": 18,
-  "ts": "2026-10-24T09:55:00Z",
+  "pass": 19,
+  "ts": "2026-10-24T10:10:00Z",
   "branches": {
     "main": "758a017",
-    "wip/local": "a3f82f1",
+    "wip/local": "630d661",
     "cloud/bench": "f584cb2",
     "cloud/data-pipeline": "80cb13f",
-    "cloud/decisions": "3a865a0",
+    "cloud/decisions": "c08a96d",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
     "cloud/finance-3": "31be399",
@@ -20,7 +20,8 @@
     "cloud/brain-2": "741465c",
     "cloud/brain-3": "14a3f52",
     "cloud/hobby-gaps": "929b931",
-    "cloud/brain-4": "dfb66a3"
+    "cloud/brain-4": "dfb66a3",
+    "cloud/brain-5": "003d1bb"
   },
-  "notes": "pass18: hobby-gaps ef95140/929b931 remove r4-specific calc word-problem parsing and disclose the 20 unhandled C-items in coverage (good for eval hygiene); replay.py unchanged, so bench-20/21 stay open. bench/tests 131 passed, 3 skipped, 1 failed: test_hobby_gaps timer test fails wherever mlx isn't installed (its fallback accepts only a 'libmlx.so' ImportError); test portability only. main: run_live skips event cases on calendar-probe exceptions (fine, another per-run skip covered by bench-16); calendar_probe nil-safe source; planner holdout grader now accepts `type #2 \"github.com\" enter` (valid action; changed after seeing holdout results, so re-grade all configs with --regrade). wip/local and brain-4: no lane diff."
+  "notes": "pass19: cloud/decisions c6f8491/c08a96d add the generic decisions data pipeline. training/decisions/decontam.py follows SPEC:82-87: JevBench public (pinned 609a664, original/easy/hard) + Typed Decisions test (pinned 80cb93a) + route_v1/live_t1/external utterances as word-13-gram refs; exact option-set drop; fails closed if a ref is missing and asserts 0 remaining overlaps. Pilot stopped at label, so decontam hasn't been run yet. server.py refactor (server_questions) is behaviour-neutral. bench/tests 126 passed, 2 skipped (tinker/torch/httpx test modules not collectable here). brain-5 and wip/local: no lane diff vs main. No new findings; bench-11 re-confirmed on decisions."
 }
