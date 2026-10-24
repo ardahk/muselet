@@ -2,18 +2,18 @@
 _Updated 2026-10-24 (planner-retrieval lane, PR #35)._
 
 **State**
-- Done: the code, tests and PR (ardahk/muselet#35, `cloud/planner-retrieval`, open, not merged). The repo has no CI.
+- Done: the code, tests and PR (ardahk/muselet#35, merged into `main`). The repo has no CI. Retrieval is off by default (`retrieval_k=0`).
 - Not run: any real model evaluation. Linux has no Metal, so pass rate and TTFT for k=0/1/2 are unknown. Nothing is in flight.
 
 **Next steps (Mac, Apple Silicon, one model process at a time)**
-1. `git checkout cloud/planner-retrieval && cd ml && uv sync && cd ..`
+1. `git checkout main && git pull && cd ml && uv sync && cd ..`
 2. Run the 12-run loop from the PR body section "Offline evaluation" (k=0/1/2 × v1-tune, v1-holdout, v1-holdout2, v2-holdout). Use tags `ret-k{k}-v1tune|v1holdout|v1holdout2|v2holdout`. Runs land in `runs/planner_offline/<tag>.json`.
 3. `uv run --project ml python evals/planner_retrieval_report.py --prefix ret` prints the table and the DECISION. Paste it into the PR.
 4. If the decision is k>0: a separate PR flips the `brain serve` default (`--planner-retrieval-k` in `ml/src/brain/cli.py`). Otherwise leave it at 0. Do not retune anything on the holdouts.
 5. Optional, exploratory, does not count toward the decision: the same loop with `--retrieval-bank hf@9453ff6`, tags `rethf-k{k}-...`, `--prefix rethf`.
 
 **Artifacts**
-- Branch `cloud/planner-retrieval`. Code commits `3717f02` (feature) and `9786fa4` (HF gz/@rev + chrome filler); later commits only touch this note.
+- Merged via #35 (branch `cloud/planner-retrieval`). Code commits `3717f02` (feature) and `9786fa4` (HF gz/@rev + chrome filler); later commits only touch this note.
 - HF dataset `jonsnov/muselet-planner-demos-v1@9453ff6` (private, from PR #33; file `bank.jsonl.gz`, 1194 rows, 1193 after the denylist).
 - Default bank: `split == "v2-tune"` rows of `evals/planner_scenarios_v2.jsonl` (130 rows, 129 kept).
 - No Tinker runs. No run dirs yet.
