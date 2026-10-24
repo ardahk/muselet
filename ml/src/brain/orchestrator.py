@@ -12,7 +12,7 @@ import re
 import threading
 import time
 
-from . import argfix, calc, dsl, obsdiff, pathfind, replies, slots
+from . import argfix, calc, dsl, obsdiff, pathfind, replies, sendgate, slots
 from .catalog import Catalog, CatalogError
 from .traces import Tracer
 
@@ -308,6 +308,7 @@ class Orchestrator:
         self._ms_kind = None
         self._last_epoch = None
         self._last_obs = None
+        self._last_url = None
         self._ctx = {"app": "none", "focused": "none", "selection": False,
                      "last_action": "none"}
         self._t_final = 0.0
@@ -902,7 +903,13 @@ class Orchestrator:
     _DANGEROUS_LABEL = re.compile(
         r"send|delete|remove|buy|purchase|pay|place order|post|publish|"
         r"erase|empty trash|replace|submit order", re.IGNORECASE)
+    _CONTAINER_ROLES = frozenset({
+        "application", "cell", "group", "layoutarea", "list", "outline",
+        "row", "scrollarea", "splitgroup", "table", "toolbar", "webarea",
+        "window",
+    })
     _DANGEROUS_COMBOS = {"cmd+delete", "cmd+opt+delete", "cmd+shift+d"}
+    _ENTER_COMBOS = {"return", "enter", "cmd+return", "keypad_enter"}
 
     def _speculative_route(self, text: str, ctx: dict | None = None):
         """Called for partial utterances — routes (and, for a confident
@@ -1097,6 +1104,27 @@ function run() {
                 return e.get("label", "")
         return ""
 
+    def _element_for_ref(self, ref):
+        if ref is None or not self._last_obs:
+            return None
+        return next((e for e in self._last_obs.get("elements", [])
+                     if e.get("ref") == ref), None)
+
+    def _enter_sends(self, ref=None, *, observed_focus=False) -> bool:
+        obs = self._last_obs or {}
+        element = self._element_for_ref(
+            obs.get("focused_ref") if observed_focus else ref)
+        role = element.get("role") if element else None
+        label = element.get("label") if element else None
+        if observed_focus and element is None:
+            focused = str(self._ctx.get("focused") or "")
+            match = re.fullmatch(r'\s*([^\s]+)\s+"(.*)"\s*', focused)
+            if match:
+                role, label = match.groups()
+        return sendgate.enter_sends(
+            obs.get("app") or self._ctx.get("app"), obs.get("window"),
+            role, label)
+
     def _app_name(self) -> str:
         return (self._last_obs or {}).get("app") or self._ctx.get("app") \
             or "this app"
@@ -1274,16 +1302,14 @@ function run() {
                     self._label_of(a.get("ref"))))
             elif op == "keys":
                 combo = str(a.get("combo", "")).lower()
-                needs = combo in self._DANGEROUS_COMBOS or (
-                    combo == "cmd+return"
-                    and (self._ctx.get("app") or "") in ("Mail", "Messages"))
+                needs = combo in self._DANGEROUS_COMBOS
+                if combo in self._ENTER_COMBOS:
+                    needs = needs or self._enter_sends(observed_focus=True)
             elif op == "type" and a.get("enter"):
                 needs = bool(self._DANGEROUS_LABEL.search(
                     self._label_of(a.get("ref"))))
                 if not needs:
-                    app = ((self._last_obs or {}).get("app")
-                           or self._ctx.get("app") or "")
-                    needs = app in ("Messages", "Mail", "Slack")
+                    needs = self._enter_sends(a.get("ref"))
             if needs and not self._take_confirm():
                 yes = await self.server.ask_confirm(
                     await self._confirm_summary(a))
@@ -1295,6 +1321,8 @@ function run() {
             r["_log"] = f"{dsl_line}-> {'ok' if r['status']=='ok' else 'failed: ' + r.get('error','?')}"
             return r
         # everything else: open, url, scroll -> act
+        if op == "url":
+            self._last_url = str(a.get("url") or "")
         params = {k: v for k, v in a.items() if k != "op"}
         params["op"] = op
         r = await self._rpc_action("act", params, a)
@@ -1376,6 +1404,23 @@ function run() {
         if pt.get("x") is None:
             return failed(f'target not found: "{target}"')
         gx, gy = to_global(pt, shot)
+        gate_info = await self._grounded_click_gate(gx, gy, shot, target)
+        if self.tracer.current is not None:
+            decision = {
+                "grounded_click_gate": gate_info["gate"],
+                "ms": gate_info["ms"],
+                "hit": gate_info["hit"],
+            }
+            if gate_info.get("error"):
+                decision["error"] = gate_info["error"]
+            self.tracer.current.setdefault("decisions", []).append(decision)
+        if gate_info["gate"] in {"context", "label", "ocr"} \
+                and not self._take_confirm():
+            yes = await self.server.ask_confirm(
+                _cap12(f'Click "{gate_info["what"]}"?'))
+            if not yes:
+                return {"status": "cancelled",
+                        "_log": f"{dsl_line}-> cancelled"}
         act = {"op": "click", "x": round(gx, 1), "y": round(gy, 1),
                "right": bool(a.get("right")), "double": bool(a.get("double"))}
         if a.get("expect"):
@@ -1385,6 +1430,102 @@ function run() {
         res = "ok" if r["status"] == "ok" else "failed: " + r.get("error", "?")
         r["_log"] = f"{dsl_line}-> {res} at {act['x']:g},{act['y']:g}"
         return r
+
+    @classmethod
+    def _smallest_decisive_element_at(cls, elements, gx: float, gy: float):
+        containing = []
+        for element in elements or []:
+            role = str(element.get("role") or "").strip().casefold()
+            label = str(element.get("label") or "").strip()
+            if not label or role in cls._CONTAINER_ROLES:
+                continue
+            frame = element.get("frame")
+            if not isinstance(frame, (list, tuple)) or len(frame) != 4:
+                continue
+            try:
+                x, y, width, height = (float(value) for value in frame)
+            except (TypeError, ValueError):
+                continue
+            if width < 0 or height < 0:
+                continue
+            if x <= gx <= x + width and y <= gy <= y + height:
+                containing.append((width * height, element))
+        return min(containing, key=lambda pair: pair[0])[1] if containing else None
+
+    @staticmethod
+    def _click_ocr_region(gx: float, gy: float, shot: dict) -> list[float]:
+        origin = shot.get("origin")
+        scale = float(shot.get("scale") or 1.0)
+        width, height = float(shot["width"]) / scale, float(shot["height"]) / scale
+        if not isinstance(origin, (list, tuple)) or len(origin) != 2 \
+                or scale <= 0 or width <= 0 or height <= 0:
+            raise ValueError("invalid screenshot window bounds")
+        ox, oy = float(origin[0]), float(origin[1])
+        cx = min(max(gx, ox), ox + width)
+        cy = min(max(gy, oy), oy + height)
+        x1, y1 = max(ox, cx - 80), max(oy, cy - 30)
+        x2, y2 = min(ox + width, cx + 80), min(oy + height, cy + 30)
+        return [x1, y1, x2 - x1, y2 - y1]
+
+    @staticmethod
+    def _ocr_text(result: dict) -> str:
+        payload = result.get("result")
+        if isinstance(payload, dict):
+            result = payload
+        text = result.get("text")
+        if isinstance(text, str):
+            return text
+        lines = result.get("lines") or []
+        return " ".join(
+            line.get("text", "") if isinstance(line, dict) else str(line)
+            for line in lines)
+
+    async def _grounded_click_gate(self, gx: float, gy: float, shot: dict,
+                                   target: str) -> dict:
+        started = time.perf_counter()
+
+        def result(gate, what, hit=None, error=None):
+            out = {"gate": gate, "what": what, "hit": hit,
+                   "ms": round((time.perf_counter() - started) * 1000, 2)}
+            if error is not None:
+                out["error"] = error
+            return out
+
+        if self._DANGEROUS_LABEL.search(target):
+            return result("target", target, target)
+
+        obs = self._last_obs or {}
+        app = obs.get("app") or self._ctx.get("app")
+        window_title = obs.get("window")
+        if sendgate.is_composer_app(app, window_title):
+            return result("context", target, app)
+        for value in (window_title, obs.get("url"), self._last_url):
+            if sendgate.is_payment_context(value):
+                return result("context", target, value)
+
+        element = self._smallest_decisive_element_at(
+            obs.get("elements"), gx, gy)
+        if element is not None:
+            label = str(element.get("label") or "").strip()
+            if self._DANGEROUS_LABEL.search(label):
+                return result("label", label, label)
+            return result("none", target, label)
+
+        try:
+            region = self._click_ocr_region(gx, gy, shot)
+            ocr_result = await self.server.rpc("ocr", {"region": region})
+            if not isinstance(ocr_result, dict):
+                raise RuntimeError("invalid OCR response")
+            if ocr_result.get("ok") is False or ocr_result.get("error"):
+                raise RuntimeError(str(ocr_result.get("error") or "OCR failed"))
+            text = self._ocr_text(ocr_result)
+            hit = sendgate.click_ocr_hit(text)
+            if hit:
+                return result("ocr", hit, hit)
+            snippet = " ".join(text.split()[:4]) or None
+            return result("none", target, snippet)
+        except Exception as e:  # noqa: BLE001 - fail closed on OCR failures
+            return result("ocr", target, error=str(e)[:200])
 
     def _take_confirm(self) -> bool:
         """Consume a pending model `confirm`: it covers one dangerous action."""
