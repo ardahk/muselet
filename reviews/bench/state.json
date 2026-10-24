@@ -1,11 +1,11 @@
 {
-  "pass": 16,
-  "ts": "2026-10-24T09:20:00Z",
+  "pass": 17,
+  "ts": "2026-10-24T09:40:00Z",
   "branches": {
-    "main": "2920225",
-    "wip/local": "3e03686",
+    "main": "28dc259",
+    "wip/local": "e1701a3",
     "cloud/bench": "f584cb2",
-    "cloud/data-pipeline": "5371185",
+    "cloud/data-pipeline": "80cb13f",
     "cloud/decisions": "3a865a0",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
@@ -18,7 +18,9 @@
     "cloud/pitch-2": "3303678",
     "cloud/grounding": "3441ee8",
     "cloud/brain-2": "741465c",
-    "cloud/brain-3": "14a3f52"
+    "cloud/brain-3": "14a3f52",
+    "cloud/hobby-gaps": "14ff59b",
+    "cloud/brain-4": "3aca368"
   },
-  "notes": "pass16: re-verified all open findings against main@2920225 (lead request). bench-16 open (fresh report_math repro, 1.0 vs 0.76). bench-11 raised to P1 (Tinker backend on cloud/decisions). bench-12 and bench-15 open on main. bench-14 branch-only (no training/src on main). bench-17 retracted (dedup.py writes the split after the eval filter). New: bench-18 (P1, main-run provenance) and bench-19 (P2, planner_offline tune=select). main lane merges: #8 bench is identical to cloud/bench f584cb2 except the run_muselet.py symlink-resolve fix (fine); grounder matches 3441ee8; planner_offline runtime-equivalent grading matches orchestrator dsl.action_line + MAX_BATCH. wip/local 3e03686 has no lane diff vs main."
+  "notes": "pass17: main 28dc259 planner holdout (bench-19 partial) + router_check ARGS; wip/local no lane diff vs main. data-pipeline 2319e72/80cb13f: decontam adds short_edit1 rule (tighter filter; fine), ARGS weighting. New branch hobby-gaps 14ff59b: bench-20 (timer grading asymmetric) and bench-21 (calc start state differs); bench/tests 131 passed, 3 skipped, 1 failed (test_hobby_gaps timer test: env-only, `brain` not on sys.path, so the test's ImportError fallback expects libmlx). brain-4: no lane files. All other open findings unchanged since pass 16."
 }
