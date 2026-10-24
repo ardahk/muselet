@@ -1,7 +1,9 @@
-# finance digest (Pass 49, 2026-10-24; main 18c139f; open findings re-verified after 8 merges)
+# finance digest (Pass 50, 2026-10-24; main 0b83c3b; verified-done reviewed for Numbers)
 Open P0: none.
 Open P1:
 - finance-27: by default, planner retrieval now puts rule-8-violating Numbers demos (per-cell loops, `tell application "Numbers"`, cell press/type) into every Numbers planner prompt (ml/src/brain/plan_bank.py, tools/serve_brain.sh:31, evals/planner_scenarios_v2.jsonl:193,217,239).
+
+- finance-30: verified-done never sees Numbers script results, so answer goals are likely rejected (ml/src/brain/orchestrator.py:1633-1690, 2655-2700).
 
 Open P2: finance-29 (W9 script gate confirms the prompt's SUMIF recipe, 'Duplicate' cell text and `set n to row count`), finance-28 (the 'all' summary drops the unmatched receipt and need-review count at the 12-word cap), finance-26 (both finance demo live cases skipped by default as 'pending'), finance-23 (advisor doc-by-path), finance-25 (4 s Numbers table poll on cold open), finance-24 (merchant prefix over-match), finance-15 (single filers / 401k-HSA-checking taxed), finance-17 (numbers written as words pass the phrasing filter).
 
@@ -10,4 +12,5 @@ Next moves:
 - The demo script (builder_docs_demo.md:9) includes finance review and advisor prep: clear the stale pending keys, or run `run_live.py --id t2-finance-dupes --id t2-advisor-prep --run-pending` with Numbers not running (this also settles finance-23/25).
 - Rehearse the finance demo cold once. Read finance_open_* ms from the traces and set the table-poll timeout from them.
 - finance-27 + finance-29 together: safety-bench28 already has the plan_bank denylist hook (UNSAFE_APPEND_IDS); adding the 3 v2 Numbers ids there is a one-line fix. Strip string literals before the Numbers branch of script_needs_confirm.
+- finance-30: put the script result and the done summary into the _verify_done state, and measure p_yes on one 'average of column C' run on the Mac.
 - Receipts: limit prefix matching to known abbreviations (finance-24).
