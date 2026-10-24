@@ -16,15 +16,17 @@ it acts, and the Mac does the thing.
 - **Instant commands** ("volume 30", "dark mode", "turn off Wi-Fi"): one on-device forward pass picks the skill in
   `{{route_ms_p50}}` ms; release to action in `{{instant_e2e_ms_p50}}` ms.
 - **Anything else** ("open Safari, search flights to Tokyo"): a local planner reads the macOS accessibility tree,
-  streams small action batches, and starts acting before it finishes thinking. Every step is checked against the
-  live UI.
+  streams small action batches, and starts acting before it finishes thinking. Steps carry `expect` checks against
+  the live accessibility tree.
 - **Finance, offline.** "Prep me for my meeting with the Hendersons" reads Calendar, the client folder, the
   portfolio in Numbers and last meeting's notes, then writes a brief to Notes and highlights the sheet: $118,151.60
   to rebalance, $30,825.00 harvestable losses (VXUS blocked by a wash sale until 2026-11-11), $61,400.00 Roth
-  room. "Reconcile my receipts" OCRs 8 receipts, matches 6, flags a transposed-digit total and one receipt with no
+  room. "Reconcile my receipts" OCRs 8 receipts on-device (Apple Vision, in
+  parallel), matches 6, flags a transposed-digit total and one receipt with no
   transaction. Every number comes from deterministic code with evidence; the model never does arithmetic.
 - **Premiere Pro**: "cut here", "add a marker", "export".
-- It **asks** when unsure and **confirms** before anything irreversible.
+- It **asks** when a request is ambiguous, hands low-confidence picks to the planner instead of acting, and
+  **confirms** before sending, deleting, buying or running shell scripts.
 
 ## How we built it
 - **App (Swift)**: menu-bar app, push-to-talk CGEventTap, FluidAudio Parakeet TDT v2 on the Neural Engine,
@@ -50,14 +52,16 @@ it acts, and the Mac does the thing.
 - `{{dm_muselet_strict}}`/39 on DeskMind Bench, `{{dm_muselet_false_done}}` false "done", step p50
   `{{dm_muselet_step_p50_s}}` s.
 - A full advisor meeting prep in `{{advisor_prep_s}}` s with Wi-Fi off.
+- `{{live_t1_pass}}`/43 live on-Mac tasks graded by final state, `{{live_false_done}}` false "done".
 
 ## What we learned
 Speed comes from not generating: one forward pass for routing, deterministic code for anything with a right
-answer, and a planner only for the long tail. Trust comes from verification: the harness, never the model, says
-"done".
+answer, and a planner only for the long tail. Trust comes from checks you can read:
+`expect` predicates against the live UI while it runs, and final-state grading in our evals.
 
 ## What's next
-Ship the grounder for apps the AX tree cannot see, more brain tools (expense reports, invoice matching), Google
+Verify the final state before every `done`, close the remaining script-confirm gaps, ship the grounder for apps
+the AX tree cannot see, more brain tools (expense reports, invoice matching), Google
 Sheets and Excel, and an advisor CRM connector that still never leaves the device.
 
 ## Built with

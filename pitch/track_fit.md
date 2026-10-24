@@ -22,7 +22,7 @@ with Wi-Fi off. Live demo, strict final-state graders, and head-to-head reruns o
 
 **Most Technically Advanced.** A Tinker-trained Qwen3.5-4B LoRA routes in one MLX forward pass over a cached
 static prefix (`{{route_ms_p50}}` ms), a streaming planner acts on the accessibility tree while it is still
-decoding, and every action carries an `expect` predicate checked against live UI state. STT runs on the Neural
+decoding, and actions carry `expect` predicates checked against live UI state. STT runs on the Neural
 Engine; training/runtime prompt rendering is token-identical.
 
 **Most Creative.** A mascot with a speech bubble and a ghost cursor that flies to each target before it clicks:
@@ -31,13 +31,15 @@ then deterministic code.
 
 **[Hyphenate] Autonomous Systems for Finance.** *Acts when confident*: the router dispatches `advisor_prep` /
 `finance_review` in one pass and deterministic `Decimal` engines do every calculation. *Escalates when not*: router
-`p < 0.55` asks, categorization below 0.6 becomes "ask", irreversible steps need confirmation. *Evidence*: every
+ambiguous requests get a question,
+router `p < 0.55` goes to the planner instead of acting, categorization below 0.6 becomes "ask", and sending,
+deleting and shell scripts wait for a yes. *Evidence*: every
 flag carries its rows/lots and the rule that fired (wash sale: the IRA buy 12 days earlier, IRS Pub. 550).
 *Existing systems*: Calendar, Finder, Numbers, Notes, a bank CSV and receipt photos; no migration, no cloud.
 
 **[Microsoft] Built for the Real World.** Built for people who cannot send data to a cloud model: an advisor with
 client portfolios, anyone with bank statements. Runs on a laptop with no network, on the apps they already use,
-and refuses to say "done" until the Mac's state proves it.
+its steps carry checks against the live UI, and we grade it on final state, not on what it says.
 
 **[Creao AI] Best AI-First Disruptor.** Savvy Intelligence sells advisor meeting prep as a platform you join; we
 do the same prep on the advisor's own Mac, in their own files, with no model provider in the loop. AI-first means

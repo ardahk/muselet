@@ -9,20 +9,24 @@ flowchart LR
   R -->|skill, p >= tau| N["Native skill<br/>skills/catalog.json"]
   R -->|executor: brain| B["Brain tool<br/>finance_review / advisor_prep<br/>Decimal engines + evidence"]
   R -->|MULTI_STEP| P["Planner<br/>AX tree -> DSL batches (<= 5)<br/>streams, acts while decoding"]
-  R -->|p < tau / ASK| Q["Ask: 'Did you mean A or B?'"]
-  R -->|risk: confirm| C["Confirm in bubble"]
-  N --> H["HandsKit<br/>native skill > AX action > keys > pixel click"]
+  R -->|p < tau: hint 'A or B'| P
+  R -->|ASK / missing arg| Q["Ask in bubble"]
+  N -->|risk: confirm| C["Confirm in bubble<br/>risky skills, send/delete/buy,<br/>shell + non-allowlisted scripts"]
+  P -->|risky action| C
+  N -->|safe| H["HandsKit<br/>native skill > AX action > keys > pixel click"]
   B --> H
   P --> H
   C --> H
-  H --> X["Verify<br/>expect predicates on live AX state"]
+  H --> X["Verify (actions with expect)<br/>predicate on live AX state"]
   X -->|fail| P
-  X -->|ok| M["Mascot bubble (<= 12 words)<br/>+ ghost cursor + trace"]
+  X -->|ok| M["Mascot bubble (<= 12 words)<br/>+ latency chip (ui.ms) + trace"]
   H -.screenshot only when AX is blind<br/>(<= 1 MP, own windows excluded).-> P
 ```
 
 Everything above runs on the Mac. The only sockets are loopback (brain `:8765`, Premiere bridge `:8766`).
 Models load with `local_files_only=True`.
+Gates are scoped, not universal: `verify` runs only for actions with an `expect`; planner `done` is accepted
+only alone in a clean batch, without a final-state check; confirm covers the cases in `claims.md` §2.
 
 ## Latency budget (instant command, release -> first action)
 
