@@ -23,13 +23,28 @@ _ALIASES = {
     "movies": "~/Movies",
     "movie": "~/Movies",
     "trash": "~/.Trash",
+    "photos": "~/Pictures",
+    "videos": "~/Movies",
+    "video": "~/Movies",
+    "icloud": "~/Library/Mobile Documents/com~apple~CloudDocs",
+    "icloud drive": "~/Library/Mobile Documents/com~apple~CloudDocs",
 }
+
+_LEAD = re.compile(r"^(?:(?:my|the|on|in|to|into)\s+)+", re.IGNORECASE)
+_TRAIL = re.compile(r"\s+folder$", re.IGNORECASE)
+PATH_ARGS = {"new_folder": ("parent",), "open_folder": ("path",),
+             "open_file": ("path",), "move_to_trash": ("path",),
+             "find_file": ("scope",)}
+
+
+def _spoken(value: str) -> str:
+    text = " ".join(str(value).strip().strip("\"'").split()).rstrip(" ,.!?")
+    text = _LEAD.sub("", text)
+    return _TRAIL.sub("", text)
 
 
 def alias(value: str, home: str | None = None) -> str:
-    name = " ".join(str(value).strip().lower().split())
-    if name.startswith("my "):
-        name = name[3:]
+    name = _spoken(value).lower()
     result = _ALIASES.get(name)
     if result is None:
         return str(value)
@@ -39,10 +54,36 @@ def alias(value: str, home: str | None = None) -> str:
 
 
 def is_alias(value: str) -> bool:
-    name = " ".join(str(value).strip().lower().split())
-    if name.startswith("my "):
-        name = name[3:]
-    return name in _ALIASES
+    return _spoken(value).lower() in _ALIASES
+
+
+def absolute(value, home: str | None = None) -> tuple[str | None, str]:
+    """Spoken folder name -> absolute path by code (brain-8).
+
+    Returns (path, how): how is ``absolute`` / ``tilde`` (passed through),
+    ``alias`` (well-known name, optionally plus a rest), ``home`` (relative
+    path that exists under the home dir), or ``unresolved`` (path None)."""
+    raw = str(value or "").strip()
+    if not raw:
+        return None, "unresolved"
+    if raw.startswith("/"):
+        return raw, "absolute"
+    if raw.startswith("~"):
+        return raw, "tilde"
+    home = str(home or os.path.expanduser("~"))
+    text = _spoken(raw)
+    head, sep, rest = text.partition("/")
+    mapped = _ALIASES.get(_TRAIL.sub("", head.strip()).lower())
+    if mapped is not None:
+        base = mapped.replace("~", home, 1) if mapped.startswith("~") \
+            else mapped
+        rest = rest.strip().strip("/")
+        return (os.path.join(base, rest) if sep and rest else base), "alias"
+    if text and not text.startswith(("/", "~")):
+        candidate = os.path.join(home, text)
+        if os.path.exists(candidate):
+            return candidate, "home"
+    return None, "unresolved"
 
 
 def object_phrase(skill: str, text: str) -> str | None:

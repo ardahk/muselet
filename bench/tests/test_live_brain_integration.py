@@ -426,9 +426,9 @@ def test_run_live_drives_real_brain_and_fake_hands_through_proxy(
             for line in suite_path.read_text(encoding="utf-8").splitlines()
         ]
         volume_case = next(case for case in suite_cases if case["id"] == "sys-vol-set")
-        confirm_case = next(
+        confirm_case = dict(next(
             case for case in suite_cases if case["id"] == "confirm-no-send"
-        )
+        ), manual=False)
         cases = [
             volume_case,
             confirm_case,

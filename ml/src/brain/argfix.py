@@ -22,6 +22,18 @@ def vague_delta(text: str) -> int | None:
     return magnitude if up else -magnitude
 
 
+def degree_delta(text: str) -> int | None:
+    """Signed lexicon step when the utterance has one unambiguous degree
+    word (small = 10, large = 30) and one direction; None otherwise. The
+    caller checks that no explicit number was spoken."""
+    up, down = bool(_UP.search(text)), bool(_DOWN.search(text))
+    small, large = bool(_SMALL.search(text)), bool(_LARGE.search(text))
+    if up == down or small == large:
+        return None
+    magnitude = 30 if large else 10
+    return magnitude if up else -magnitude
+
+
 def _normalized(text: str) -> str:
     text = text.lower().replace("’", "'")
     return " ".join(re.sub(r"[^a-z0-9\s']", " ", text).split())

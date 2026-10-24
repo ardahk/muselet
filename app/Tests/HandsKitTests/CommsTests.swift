@@ -230,7 +230,7 @@ final class IdentifyingTextsTests: XCTestCase {
         XCTAssertTrue(MessageHandles.recipientMatches(
             texts: MessagesComposer.identifyingTexts(
                 window: window, title: ""),
-            handle: handle, contactName: nil))
+            handle: handle, contactName: contactName))
 
         // A To field: label "To:", token child names the recipient —
         // and it still counts inside a prunable subtree.
@@ -244,7 +244,7 @@ final class IdentifyingTextsTests: XCTestCase {
             window: window2, title: "")
         XCTAssertTrue(texts2.contains("Arda Hoke"))
         XCTAssertTrue(MessageHandles.recipientMatches(
-            texts: texts2, handle: handle, contactName: nil))
+            texts: texts2, handle: handle, contactName: contactName))
     }
 
     func testTitleOnlyMatch() {
@@ -252,7 +252,7 @@ final class IdentifyingTextsTests: XCTestCase {
         XCTAssertTrue(MessageHandles.recipientMatches(
             texts: MessagesComposer.identifyingTexts(
                 window: window, title: "Arda Hoke"),
-            handle: handle, contactName: nil))
+            handle: handle, contactName: contactName))
     }
 
     func testEmptyTextsFail() {
