@@ -1,4 +1,4 @@
-# hands — digest (pass 36)
+# hands — digest (pass 37)
 
 Open findings were re-verified on main 2920225 in pass 15: hands-1 to 9 and 11 to 14 are resolved, and hands-15 is superseded.
 Pass 21 checks:
@@ -6,6 +6,9 @@ Pass 21 checks:
 - wip/local b63699f is identical to main.
 - cloud/brain-5 b752261 handles `not_frontmost` by reading the failure `result`. That works: RPC.swift returns r with r["error"], BrainConnection always sends `result`, and server.rpc returns it with ok=false.
 No new defects.
+Pass 37: open 0 P0, 2 P1, 3 P2. No new findings.
+- main fb2cfd0 merged cloud/bench-fix plus live-suite case edits; the changes are in bench/ and evals/ only. They add no new RPC methods to the HandsKit contract, and app/ and ml/src/brain are unchanged. wip/local 9ed6bc8 is identical to main.
+- Still open: P1 hands-18 (app-ui unchanged), P1 hands-19 (comms unchanged, HandsKit has no contacts/messages RPCs), P2 hands-20, P2 hands-16 (orchestrator.py:1078), P2 hands-10 (Act.swift:348).
 Pass 36: open 0 P0, 2 P1, 3 P2.
 - hands-17 RESOLVED on cloud/app-ui ae9ce5e: it merged main, uses main's config server code, and ConfigAck now reads `loaded`. Loaded, Off and failed-with-reason each show correctly.
 - Still open: P1 hands-18 (app-ui panel examples: runExample at AppDelegate.swift:242 is unchanged; no own-pid fallback in observe). P1 hands-19 (comms: still no HandsKit contacts_search/messages_* on any branch; comms.py unchanged since 956d4ac). P2 hands-20 (send_draft unchanged).
