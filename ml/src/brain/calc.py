@@ -10,6 +10,7 @@ import ast
 import math
 import operator
 import re
+from dataclasses import dataclass
 
 _ONES = {"zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
          "six": 6, "seven": 7, "eight": 8, "nine": 9}
@@ -21,6 +22,13 @@ _TENS = {"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60,
 _SCALES = {"thousand": 1_000, "million": 1_000_000, "billion": 1_000_000_000}
 _NUMWORDS = set(_ONES) | set(_TEENS) | set(_TENS) | set(_SCALES) | {"hundred"}
 _DIGITS = re.compile(r"^\d+(?:\.\d+)?$")
+
+
+@dataclass(frozen=True)
+class CalcResult:
+    answer: str
+    value: float | None
+    expr: str | None
 
 
 def _kind(w: str) -> str | None:
@@ -207,6 +215,11 @@ def convert(value: float, src: str, dst: str) -> tuple[float, str, str] | None:
 
 
 def _say_conv(v: float, src: str, dst: str) -> str | None:
+    result = _say_conv_result(v, src, dst)
+    return result[0] if result is not None else None
+
+
+def _say_conv_result(v: float, src: str, dst: str):
     c = convert(v, src, dst)
     if c is None:
         return None
@@ -216,8 +229,8 @@ def _say_conv(v: float, src: str, dst: str) -> str | None:
     if dd == "cups" and round(r, 2) == 1:
         dd = "cup"
     if sd.startswith("°"):
-        return f"{_fmt_num(v)}{sd} is {_fmt_num(r)}{dd}"
-    return f"{_fmt_num(v)} {sd} is {_fmt_num(r)} {dd}"
+        return f"{_fmt_num(v)}{sd} is {_fmt_num(r)}{dd}", r
+    return f"{_fmt_num(v)} {sd} is {_fmt_num(r)} {dd}", r
 
 
 # ---------- arithmetic ----------
@@ -235,6 +248,16 @@ _OP_WORDS = [
 ]
 _SPOKEN_OP = {"+": "plus", "-": "minus", "*": "times", "/": "divided by",
               "**": "to the power of"}
+
+
+def _simple_expression(s: str) -> str | None:
+    expression = s
+    for pattern, replacement in _OP_WORDS:
+        expression = re.sub(pattern, replacement, expression)
+    expression = re.sub(r"\s+", " ", expression).strip()
+    match = re.fullmatch(r"(\d+(?:\.\d+)?)\s*([+\-*/])\s*(\d+(?:\.\d+)?)",
+                         expression)
+    return f"{match.group(1)}{match.group(2)}{match.group(3)}" if match else None
 
 
 def _eval(node):
@@ -255,14 +278,15 @@ def _eval(node):
     raise ValueError("unsupported")
 
 
-def arithmetic(s: str) -> str | None:
+def arithmetic_result(s: str):
     """Digits-only text with op words -> 'x times y is z'."""
     m = re.match(rf"^(?:the )?square root of {NUM}$", s)
     if m:
         v = float(m.group(1))
         if v < 0:
             return None
-        return f"The square root of {_fmt_num(v)} is {_fmt_num(math.sqrt(v))}"
+        result = math.sqrt(v)
+        return f"The square root of {_fmt_num(v)} is {_fmt_num(result)}", result
     for pat, rep in (
             (rf"^add {NUM} (?:and|to) {NUM}$", r"\1 + \2"),
             (rf"^subtract {NUM} from {NUM}$", r"\2 - \1"),
@@ -280,7 +304,7 @@ def arithmetic(s: str) -> str | None:
     try:
         v = _eval(ast.parse(s, mode="eval"))
     except ZeroDivisionError:
-        return "You can't divide by zero"
+        return "You can't divide by zero", None
     except (SyntaxError, ValueError, OverflowError):
         return None
     if abs(v) >= 1e15:
@@ -289,7 +313,12 @@ def arithmetic(s: str) -> str | None:
     spoken = re.sub(r"\d+(?:\.\d+)?", lambda m: _fmt_num(float(m.group(0))),
                     spoken)
     out = f"{spoken} is {_fmt_num(v)}"
-    return out if len(out.split()) <= 12 else f"That's {_fmt_num(v)}"
+    return (out if len(out.split()) <= 12 else f"That's {_fmt_num(v)}"), v
+
+
+def arithmetic(s: str) -> str | None:
+    result = arithmetic_result(s)
+    return result[0] if result is not None else None
 
 
 # ---------- percentages ----------
@@ -314,7 +343,7 @@ def _a(n: float) -> str:
     return "An" if an else "A"
 
 
-def percent(s: str, money: bool) -> str | None:
+def percent_result(s: str, money: bool):
     fmt = _money if money else _fmt_num
     m = re.match(rf"^(?:an? |the )?{NUM} percent tip (?:on|for|of) (?:an? )?{NUM}$", s) \
         or re.match(rf"^(?:the )?tip (?:on|for) {NUM} at {NUM} percent$", s)
@@ -323,23 +352,26 @@ def percent(s: str, money: bool) -> str | None:
         if s.startswith(("tip", "the tip")):
             amt, p = p, amt
         tip = round(amt * p / 100 + 1e-9, 2)
+        total = amt + tip
         return (f"{_a(p)} {_fmt_num(p)}% tip on {_money(amt)} is {_money(tip)}, "
-                f"total {_money(amt + tip)}")
+                f"total {_money(total)}", total)
     m = re.match(rf"^{NUM} percent of {NUM}$", s)
     if m:
         p, x = map(float, m.groups())
-        return f"{_fmt_num(p)}% of {fmt(x)} is {fmt(p * x / 100)}"
+        value = p * x / 100
+        return f"{_fmt_num(p)}% of {fmt(x)} is {fmt(value)}", value
     m = re.match(rf"^{NUM} percent off (?:of )?{NUM}$", s) or \
         re.match(rf"^{NUM} (?:with |at )?{NUM} percent off$", s)
     if m:
         a, b = map(float, m.groups())
         p, x = (a, b) if "percent off" in s.split(m.group(2))[0] else (b, a)
-        return f"{_fmt_num(p)}% off {fmt(x)} is {fmt(x * (1 - p / 100))}"
+        value = x * (1 - p / 100)
+        return f"{_fmt_num(p)}% off {fmt(x)} is {fmt(value)}", value
     m = re.match(rf"^{NUM} (plus|minus) {NUM} percent$", s)
     if m:
         x, op, p = float(m.group(1)), m.group(2), float(m.group(3))
         r = x * (1 + p / 100) if op == "plus" else x * (1 - p / 100)
-        return f"{fmt(x)} {op} {_fmt_num(p)}% is {fmt(r)}"
+        return f"{fmt(x)} {op} {_fmt_num(p)}% is {fmt(r)}", r
     m = re.match(rf"^{NUM} is what percent(?:age)? of {NUM}$", s) or \
         re.match(rf"^what percent(?:age)? of {NUM} is {NUM}$", s)
     if m:
@@ -347,15 +379,22 @@ def percent(s: str, money: bool) -> str | None:
         part, whole = (a, b) if s[0].isdigit() or s[0] == "-" else (b, a)
         if whole == 0:
             return None
-        return f"{fmt(part)} is {_fmt_num(part / whole * 100)}% of {fmt(whole)}"
+        value = part / whole * 100
+        return f"{fmt(part)} is {_fmt_num(value)}% of {fmt(whole)}", value
     m = re.match(rf"^({'|'.join(_FRACTIONS)}) of {NUM}$", s)
     if m:
         f, x = _FRACTIONS[m.group(1)], float(m.group(2))
-        return f"{m.group(1).replace('1 ', 'one ')} of {fmt(x)} is {fmt(f * x)}"
+        value = f * x
+        return f"{m.group(1).replace('1 ', 'one ')} of {fmt(x)} is {fmt(value)}", value
     return None
 
 
-def conversion(s: str) -> str | None:
+def percent(s: str, money: bool) -> str | None:
+    result = percent_result(s, money)
+    return result[0] if result is not None else None
+
+
+def conversion_result(s: str):
     s = re.sub(r"\b(an?|one) (?=(?:degrees )?[a-z])", "1 ", s)
     m = re.match(rf"^(?:convert )?{NUM} (?:feet|foot|ft) {NUM}"
                  rf"(?: inch(?:es)?)? (?:to|in|into) {_U}$", s)
@@ -363,7 +402,7 @@ def conversion(s: str) -> str | None:
         ft, inch, dst = float(m.group(1)), float(m.group(2)), m.group(3)
         c = convert(ft * 12 + inch, "inches", dst)
         if c:
-            return f"{_fmt_num(ft)} ft {_fmt_num(inch)} in is {_fmt_num(c[0])} {c[2]}"
+            return f"{_fmt_num(ft)} ft {_fmt_num(inch)} in is {_fmt_num(c[0])} {c[2]}", c[0]
     for pat, order in (
             (rf"^(?:convert )?{NUM} {_U} (?:to|in|into|as) {_U}$", (0, 1, 2)),
             (rf"^how many {_U} (?:are |is )?(?:there )?(?:in|is|are|make|per) "
@@ -372,21 +411,51 @@ def conversion(s: str) -> str | None:
         m = re.match(pat, s)
         if m:
             g = m.groups()
-            return _say_conv(float(g[order[0]]), g[order[1]], g[order[2]])
+            return _say_conv_result(float(g[order[0]]), g[order[1]], g[order[2]])
     return None
 
 
-def answer(text: str) -> str | None:
-    """Exact spoken answer, or None (fall back to the model)."""
-    s, money = normalize(text)
+def conversion(s: str) -> str | None:
+    result = conversion_result(s)
+    return result[0] if result is not None else None
+
+
+def _strip_calculator_phrasing(text: str) -> str:
+    text = re.sub(
+        r"\b(?:on|in|with|using)\s+(?:the\s+)?calculator(?:\s+app)?\b",
+        " ", text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"\buse\s+(?:the\s+)?calculator(?:\s+app)?\s+(?:to|and)\b",
+        " ", text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"\bopen\s+(?:the\s+)?calculator(?:\s+app)?\s+and\b",
+        " ", text, flags=re.IGNORECASE)
+    return re.sub(r"\b(?:the\s+)?calculator(?:\s+app)?\b", " ", text,
+                  flags=re.IGNORECASE)
+
+
+def result(text: str) -> CalcResult | None:
+    """Return the spoken answer with its numeric value and keyable expression."""
+    source = _strip_calculator_phrasing(text)
+    s, money = normalize(source)
     s = _FILLER.sub("", s, count=1)
     s = _TAIL.sub("", s).strip()
     s = re.sub(r"^(?:the )?(?:answer to |result of )", "", s)
     if not s:
         return None
-    for fn in (lambda: percent(s, money), lambda: conversion(s),
-               lambda: arithmetic(s)):
-        out = fn()
-        if out:
-            return out
+    for fn in (lambda: percent_result(s, money),
+               lambda: conversion_result(s), lambda: arithmetic_result(s)):
+        parsed = fn()
+        if parsed is not None:
+            out, value = parsed
+            return CalcResult(out, value,
+                              _simple_expression(s) if value is not None else None)
+    return None
+
+
+def answer(text: str) -> str | None:
+    """Exact spoken answer, or None (fall back to the model)."""
+    parsed = result(text)
+    if parsed is not None:
+        return parsed.answer
     return None

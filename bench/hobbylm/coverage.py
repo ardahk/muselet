@@ -15,23 +15,20 @@ from bench.hobbylm.vendor import verify_provenance
 VENDORED_UPSTREAM = Path(__file__).resolve().parent / "upstream"
 DATASETS = ("r4", "r1", "r2", "r3", "calc", "settings")
 GAP_EVIDENCE = {
-    "Calculator/arithmetic has no executable skill or route": (
-        "skills/catalog.json:4-8,10-113; ml/src/brain/orchestrator.py:143-165; "
-        "app/Sources/HandsKit/Skills.swift:186-371",
+    "Arithmetic word problems not parsed by calc": (
+        "ml/tests/test_hobby_gaps.py:26-30; ml/src/brain/calc.py:437-453",
     ),
     "Native System Settings navigation is not implemented": (
-        "skills/catalog.json:4-8,10-113; ml/src/brain/orchestrator.py:143-165; "
-        "app/Sources/HandsKit/Skills.swift:186-371",
+        "skills/catalog.json:10-114; app/Sources/HandsKit/Skills.swift:360-520",
     ),
     "Event requests with people cannot create invitees": (
-        "skills/catalog.json:72-73; app/Sources/HandsKit/Skills.swift:571-584",
+        "skills/catalog.json:74-79; app/Sources/HandsKit/Skills.swift:922-944",
     ),
-    "Countdown timers have no executable start_timer implementation": (
-        "skills/catalog.json:69-70; app/Sources/HandsKit/Skills.swift:186-371",
-    ),
-    "Directional brightness has no relative adjustment skill": (
-        "skills/catalog.json:20-21; app/Sources/HandsKit/Skills.swift:206-211,439",
-    ),
+}
+UNHANDLED_R4_CALC = {
+    "C07", "C08", "C09", "C10", "C11", "C12", "C13", "C14", "C15",
+    "C17", "C20", "C22", "C23", "C24", "C25", "C26", "C27", "C28",
+    "C29", "C30",
 }
 
 
@@ -84,21 +81,15 @@ def _gap_ids(datasets, catalog):
     for dataset, rows in datasets.items():
         for ident, kind, text, expected in rows:
             gap = None
-            if kind == "calc" and not any(
-                skill in skills for skill in ("calculate", "calculator", "calculate_expression")
-            ):
-                gap = "Calculator/arithmetic has no executable skill or route"
-            elif kind == "settings":
+            if kind == "settings":
                 gap = "Native System Settings navigation is not implemented"
             elif kind == "event":
                 if _event_person(expected).casefold() != "none" and not (
                     {"attendee", "attendees", "invitee", "invitees"} & event_args
                 ):
                     result["Event requests with people cannot create invitees"][dataset].append(ident)
-            elif kind == "timer" and "start_timer" in skills:
-                gap = "Countdown timers have no executable start_timer implementation"
-            elif kind == "device" and expected.startswith("BRIGHTNESS_"):
-                gap = "Directional brightness has no relative adjustment skill"
+            elif kind == "calc" and ident in UNHANDLED_R4_CALC:
+                gap = "Arithmetic word problems not parsed by calc"
             if gap:
                 result[gap][dataset].append(ident)
     return result
@@ -206,24 +197,27 @@ def build(upstream: Path, catalog_path: Path) -> str:
         "## Audited but not ranked",
         "",
         "- EventKit `create_event` has no calendar argument and always uses the default calendar "
-        "(`skills/catalog.json:72-73`; `app/Sources/HandsKit/Skills.swift:575-584`). "
+        "(`skills/catalog.json:74-79`; `app/Sources/HandsKit/Skills.swift:922-944`). "
         "The replay harness therefore requires `Muselet Bench` to be a local default calendar; frozen tasks do not "
         "request choosing a different calendar.",
-        "- Relative `remind me in` / `ping me in` tasks are included in the timer gap (T02, T04, T07 in r4): "
-        "`create_reminder` requires a title and optional ISO due date, while `start_timer` has no HandsKit case. "
-        "No separate timer-vs-reminder count is added.",
+        "- Countdown timers are executable through `start_timer`; the replay grades its successful RPC result "
+        "and discloses whether timers were canceled. Relative reminder wording remains a live-routing risk.",
         "- Event text is routed through the catalog-backed `DecisionEngine.route` and `DecisionEngine.args`; "
         "datetime and duration arguments are normalized in `Orchestrator._coerce_typed`. No natural-language "
         "routing failure is claimed from the unused v0 regex router.",
         "- Relative volume, mute paraphrases, agenda lookup, and unknown-intent false positives are not "
         "ranked from the unused v0 regex router; these require live model evaluation.",
         "- Timezone-qualified date parsing and Hinglish are listed only as unverified live-evidence risks above.",
-        "- Catalog v2 also lists `bluetooth`, `lock_screen`, and `empty_trash` without HandsKit cases. "
-        "`finance_review` and `advisor_prep` have brain-side modules, but `Orchestrator._skill` does not "
-        "dispatch by the catalog `executor` field and HandsKit has no matching cases. These names do not "
-        "occur in the frozen HobbyLM sets, so they are not ranked here "
-        "(`skills/catalog.json:103-113`; `ml/src/brain/orchestrator.py:397-417`; "
-        "`app/Sources/HandsKit/Skills.swift:157,381-383`).",
+        "- Calculator arithmetic uses the existing deterministic grammar; unhandled r4 word problems are ranked "
+        "above. Timer, Bluetooth, lock-screen, "
+        "and empty-Trash paths are implemented in HandsKit. Brain-executor dispatch is present in the orchestrator. "
+        "Directional brightness uses brain-5's argument inference (`ml/src/brain/argfix.py:17-22`; "
+        "`ml/src/brain/orchestrator.py:537-558`) and HandsKit's `set_brightness {delta}` implementation "
+        "(`app/Sources/HandsKit/Skills.swift:418-435`). Event invitees and native System Settings navigation "
+        "remain unimplemented. "
+        "Evidence: `ml/src/brain/calc.py:437-453`; "
+        "`ml/src/brain/orchestrator.py:296-302,346-356,405-422,433-481,695-747`; "
+        "`app/Sources/HandsKit/Skills.swift:373-380,471-482`.",
         "",
     ])
     return "\n".join(lines)

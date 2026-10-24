@@ -23,6 +23,7 @@ from bench.harness.core import report_math, resolve_templates, run_case, templat
 from bench.harness.documents import document_apps_for_case
 from bench.harness.proxy import BenchProxy
 from bench.harness.runtime import HandsRuntime
+from bench.harness.session import probe_session
 
 
 def _load_suite(path: Path) -> list[dict[str, Any]]:
@@ -69,7 +70,7 @@ def _filter_reasons(case: dict[str, Any], args: argparse.Namespace) -> list[str]
 
 
 def _step_order(case: dict[str, Any]) -> list[str]:
-    steps = []
+    steps = ["session: hands probe session (skip if locked/asleep)"]
     if case.get("precondition"):
         steps.append("precondition")
     if case.get("restore"):
@@ -147,15 +148,8 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
     )
 
     event_allowed = False
+    event_probe_done = False
     event_skip_reason = "bench calendar not local default"
-    if any(_is_event_case(case) for case in cases):
-        try:
-            if args.setup_bench_calendar:
-                setup_bench_calendar()
-            event_allowed = is_local_default(probe_bench_calendar())
-        except Exception as exc:     # e.g. no Calendar (EventKit) access for this process: event cases skip, rest runs
-            event_skip_reason = f"calendar probe unavailable: {exc}"[:200]
-            print(f"warning: {event_skip_reason}; event cases will be skipped", file=sys.stderr)
     out_dir = args.out or Path("runs/bench/live") / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out_dir = out_dir if out_dir.is_absolute() else ROOT / out_dir
     out_dir.mkdir(parents=True, exist_ok=False)
@@ -191,6 +185,29 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
                             "pending": case.get("pending"),
                             "unsafe": bool(args.no_safety_guard),
                         }
+                        session = probe_session(args.hands_bin)
+                        base.update(session)
+                        if session["skip_reason"]:
+                            record = base | {
+                                "status": "skipped",
+                                "strict_pass": False,
+                                "skip_reason": session["skip_reason"],
+                            }
+                            all_results.append(record)
+                            _write_record(output, record)
+                            continue
+                        if _is_event_case(case) and not event_probe_done:
+                            event_probe_done = True
+                            try:
+                                if args.setup_bench_calendar:
+                                    setup_bench_calendar()
+                                event_allowed = is_local_default(probe_bench_calendar())
+                            except Exception as exc:
+                                event_skip_reason = f"calendar probe unavailable: {exc}"[:200]
+                                print(
+                                    f"warning: {event_skip_reason}; event cases will be skipped",
+                                    file=sys.stderr,
+                                )
                         if _is_event_case(case) and not event_allowed:
                             record = base | {
                                 "status": "skipped",

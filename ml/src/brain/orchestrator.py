@@ -6,6 +6,7 @@ Everything is traced and the app gets ui/say messages.
 
 import asyncio
 import logging
+import math
 import os
 import re
 import threading
@@ -384,6 +385,13 @@ class Orchestrator:
                 self._pending_task = None
                 outcome = await self._planner_loop(
                     goal, trace, answer=text)
+            elif (calc_result := calc.result(text)) is not None and \
+                    calc_result.value is not None and (
+                    str(self._ctx.get("app", "")).casefold() == "calculator"
+                    or re.search(r"\bcalculator\b", text, re.IGNORECASE) is not None
+                    ):
+                outcome = await self._deliver_calc(
+                    calc_result, trace, calculator=True)
             elif self.engine is not None:
                 outcome = await self._engine_route(text, trace)
             else:
@@ -395,10 +403,9 @@ class Orchestrator:
                           "args": plan["args"]}])
                 elif plan["kind"] == "batch":
                     outcome = await self.execute_actions(plan["actions"])
-                elif (ans := calc.answer(text)) is not None:
-                    trace["decisions"].append({"calc": ans})
-                    await self.server.say(ans)
-                    await self._end_ui("success")
+                elif (parsed := calc.result(text)) is not None:
+                    outcome = await self._deliver_calc(
+                        parsed, trace, calculator=False)
                 else:
                     await self._observe()
                     await self.server.say("I can't do that yet")
@@ -905,12 +912,14 @@ class Orchestrator:
         return res, (ext if gen == self._spec_gen else None)
 
     async def _answer(self, text: str, trace: dict) -> str:
-        ans = calc.answer(text)      # exact by code: never ask the model
-        if ans is not None:
-            trace["decisions"].append({"calc": ans})
-            await self.server.say(ans)
-            await self._end_ui("success")
-            return "ok"
+        parsed = calc.result(text)      # exact by code: never ask the model
+        if parsed is not None:
+            calculator = parsed.value is not None and (
+                str(self._ctx.get("app", "")).casefold() == "calculator"
+                or re.search(r"\bcalculator\b", text, re.IGNORECASE) is not None
+            )
+            return await self._deliver_calc(
+                parsed, trace, calculator=calculator)
         if self.planner is not None:
             from .planner import worker
             ans = await worker().submit_async(
@@ -922,6 +931,140 @@ class Orchestrator:
             await self.server.say("I'll answer that soon")
         await self._end_ui("success")
         return "ok"
+
+    async def _deliver_calc(self, parsed, trace: dict, *,
+                            calculator: bool) -> str:
+        target = "calculator" if calculator else "bubble"
+        trace["decisions"].append({
+            "calc": parsed.answer,
+            "calc_target": target,
+        })
+        if not calculator or parsed.value is None:
+            await self.server.say(parsed.answer)
+            await self._end_ui("success")
+            return "ok"
+
+        readback = None
+        matched = False
+        try:
+            source = parsed.expr or self._calculator_number(parsed.value)
+            if parsed.expr is None and parsed.value < 0:
+                source = f"0-{self._calculator_number(abs(parsed.value))}"
+            actions = [
+                {"op": "open", "app": "Calculator"},
+                {"op": "keys", "combo": "esc"},
+                *(
+                    {"op": "keys", "combo": key}
+                    for key in self._calculator_keys(source + "=")
+                ),
+            ]
+            for action in actions:
+                await self._calculator_act(action)
+            # This constant is code-authored read-back, not a model script.
+            code = self._calculator_readback_script()
+            result = await self._calculator_act(
+                {"op": "script", "lang": "jxa", "code": code},
+                return_result=True)
+            readback = self._readback_text(result)
+            normalized = re.sub(r"[\s,]", "", str(readback)).replace("\u2212", "-")
+            match = re.search(r"[-+]?\d+(?:\.\d+)?", normalized)
+            if match:
+                matched = math.isclose(
+                    float(match.group(0)), parsed.value, rel_tol=1e-9)
+        except Exception:
+            matched = False
+        trace["calc_readback"] = readback
+        await self.server.say(parsed.answer)
+        await self._end_ui("success" if matched else "confused")
+        return "ok" if matched else "failed"
+
+    @staticmethod
+    def _calculator_keys(text: str) -> list[str]:
+        return [
+            "shift+=" if char == "+" else "shift+8" if char == "*" else char
+            for char in text
+        ]
+
+    @staticmethod
+    def _calculator_number(value: float) -> str:
+        if value == 0:
+            return "0"
+        places = max(0, 11 - math.floor(math.log10(abs(value))))
+        return (f"{value:.{places}f}".rstrip("0").rstrip(".")
+                if places else f"{value:.0f}")
+
+    @staticmethod
+    def _calculator_readback_script() -> str:
+        return '''
+function run() {
+  try {
+    var process = Application("System Events").processes.byName("Calculator");
+    var windows = process.windows();
+    if (!windows.length) return "";
+    function find(node, depth) {
+      if (!node || depth > 10) return null;
+      try {
+        if (node.role() === "AXScrollArea" &&
+            node.description() === "Input") return node;
+      } catch (e) {}
+      try {
+        var children = node.uiElements();
+        for (var i = 0; i < children.length; i++) {
+          var found = find(children[i], depth + 1);
+          if (found) return found;
+        }
+      } catch (e) {}
+      return null;
+    }
+    var input = find(windows[0], 0);
+    if (!input) return "";
+    var children = input.uiElements();
+    for (var i = 0; i < children.length; i++) {
+      try {
+        if (children[i].role() === "AXStaticText") return children[i].value() || "";
+      } catch (e) {}
+    }
+    return "";
+  } catch (e) {
+    return "";
+  }
+}
+'''
+
+    @staticmethod
+    def _readback_text(result) -> str:
+        if isinstance(result, dict):
+            for key in ("output", "value", "stdout", "result"):
+                if key in result:
+                    value = result[key]
+                    if isinstance(value, dict):
+                        return Orchestrator._readback_text(value)
+                    if value is not None:
+                        return str(value)
+        return str(result) if result is not None else ""
+
+    async def _calculator_act(self, params: dict, *, return_result=False):
+        await self.server.ui("acting")
+        if self._ms_kind is None:
+            self._ms_kind = "skill"
+        if self._first_action_ms is None:
+            self._first_action_ms = (time.perf_counter() - self._t_final) * 1000
+        if self._last_epoch is not None:
+            params["epoch"] = self._last_epoch
+        started = time.perf_counter()
+        try:
+            result = await self.server.rpc("act", params, timeout=15)
+        except RuntimeError as exc:
+            self.tracer.rpc("act", params, {"error": str(exc)},
+                            (time.perf_counter() - started) * 1000)
+            raise
+        self.tracer.rpc("act", params, self._trace_res(result),
+                        (time.perf_counter() - started) * 1000)
+        if result.get("epoch"):
+            self._last_epoch = result["epoch"]
+        if not result.get("ok", False):
+            raise RuntimeError(str(result.get("error", "calculator act failed")))
+        return result if return_result else True
 
     def _label_of(self, ref: int | None) -> str:
         if ref is None or not self._last_obs:

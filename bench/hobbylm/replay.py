@@ -38,6 +38,7 @@ from bench.harness.documents import (
     take_inventory,
 )
 from bench.harness.runtime import HandsRuntime
+from bench.harness.session import probe_session
 from bench.hobbylm.vendor import verify_provenance
 
 DEFAULT_HOME = Path("/home/ubuntu/ext/hobbylm")
@@ -64,12 +65,15 @@ def plan(system: str, round_name: str, tasks: list[dict], repeats: int, port: in
             "repeat": repeat,
             **task,
             "port": port,
+            "session": "session: hands probe session (skip if locked/asleep)",
             "document_apps": [
                 app.name for app in document_apps_for_case({
                     "utterance": task["text"],
                     "category": task["kind"],
                 })
             ],
+            **({"calc_setup": "calculator_open_cleared"}
+               if task["kind"] == "calc" else {}),
         }
         for repeat in range(1, repeats + 1)
         for task in tasks
@@ -677,6 +681,15 @@ class _HobbyRuntime(HandsRuntime):
         self.start_state = None
         self.final_state = None
         self.last_trace = None
+        self.timer_calls = []
+        self.timer_start_calls = []
+        self.timer_grading = None
+        self.timer_teardown = None
+        self.timer_preexisting_ids = set()
+        self.timer_rpc_available = None
+        self.timer_after_snapshot = False
+        self.timer_rpc_error = None
+        self.started_timer_ids = []
 
     async def start_scripts(self):
         await super().start_scripts()
@@ -690,7 +703,224 @@ class _HobbyRuntime(HandsRuntime):
             allow_inflight=self.proxy.capture.active,
         )
         self.final_state = json.loads(result["output"])
+        if self.task["kind"] == "timer" and self.timer_after_snapshot:
+            self.final_state["timers"] = [
+                item["minutes"] for item in self.timer_calls
+            ]
         return self.final_state
+
+    async def capture_timer_baseline(self):
+        self.timer_start_calls = _timer_start_results(self.proxy.capture.frames)
+        try:
+            response = await self.run_rpc("timers", {})
+        except Exception as exc:
+            if not _rpc_method_absent(exc):
+                self.timer_rpc_error = str(exc)
+                raise
+            self.timer_rpc_available = False
+            self.timer_grading = "proxied_start_timer_ok_results"
+            return
+        self.timer_rpc_available = True
+        self.timer_grading = "hands_timers_rpc"
+        self.timer_preexisting_ids = {
+            item["id"] for item in _timer_rpc_items(response)
+            if item.get("id") is not None
+        }
+
+    async def capture_timer_after_case(self):
+        self.timer_start_calls = _timer_start_results(self.proxy.capture.frames)
+        if self.timer_rpc_available:
+            response = await self.run_rpc("timers", {})
+            self.timer_calls = [
+                item for item in _timer_rpc_items(response)
+                if item.get("id") not in self.timer_preexisting_ids
+            ]
+            self.timer_calls.sort(key=lambda item: str(item.get("fires_at", "")))
+        else:
+            self.timer_calls = self.timer_start_calls
+        self.started_timer_ids = list(dict.fromkeys(
+            [
+                item.get("id", item.get("timer_id"))
+                for item in self.timer_calls
+                if item.get("id", item.get("timer_id")) is not None
+            ] + [
+                item.get("timer_id") for item in self.timer_start_calls
+                if item.get("timer_id") is not None
+            ]
+        ))
+        self.timer_after_snapshot = True
+
+
+def _rpc_method_absent(error):
+    return bool(re.search(
+        r"(?:unknown[\s_-]+(?:rpc|method)|(?:rpc|method)[\s_-]+not[\s_-]+found|no such method)",
+        str(error),
+        re.IGNORECASE,
+    ))
+
+
+def _timer_rpc_items(reply):
+    value = reply.get("result", reply) if isinstance(reply, dict) else reply
+    if isinstance(value, dict):
+        timers = value.get("timers", [])
+    else:
+        timers = value
+    if not isinstance(timers, list):
+        return []
+    items = []
+    for timer in timers:
+        if not isinstance(timer, dict) or not isinstance(timer.get("minutes"), (int, float)):
+            continue
+        items.append({
+            "id": timer.get("id"),
+            "timer_id": timer.get("id"),
+            "minutes": round(timer["minutes"]),
+            "seconds": timer.get("total_s"),
+            "fires_at": timer.get("fires_at"),
+            "label": timer.get("label"),
+        })
+    return items
+
+
+def _rpc_result_value(frame):
+    value = frame.get("result")
+    if isinstance(value, list):
+        return {"timers": value}
+    if not isinstance(value, dict):
+        return {}
+    nested = value.get("result")
+    return {**value, **nested} if isinstance(nested, dict) else value
+
+
+def _timer_start_results(frames):
+    results = []
+    requests = [
+        frame["frame"] for frame in frames
+        if frame.get("direction") == "brain_to_hands"
+        and isinstance(frame.get("frame"), dict)
+        and frame["frame"].get("t") == "rpc"
+        and frame["frame"].get("method") == "skill"
+        and (frame["frame"].get("params") or {}).get("name") == "start_timer"
+    ]
+    for request in requests:
+        request_id = request.get("id")
+        response = next((
+            item["frame"] for item in frames
+            if item.get("direction") == "hands_to_brain"
+            and isinstance(item.get("frame"), dict)
+            and item["frame"].get("t") == "rpc_result"
+            and item["frame"].get("id") == request_id
+        ), None)
+        if not response or response.get("ok") is not True:
+            continue
+        value = _rpc_result_value(response)
+        args = (request.get("params") or {}).get("args") or {}
+        seconds = value.get("seconds")
+        if not isinstance(seconds, (int, float)):
+            from brain.decision import parse_duration
+            seconds = parse_duration(str(args.get("duration", "")))
+        if not isinstance(seconds, (int, float)):
+            continue
+        results.append({
+            "minutes": round(seconds / 60),
+            "seconds": seconds,
+            "timer_id": value.get("timer_id"),
+        })
+    return results
+
+
+async def _calculator_setup(runtime, helper, timeout_s=5.0):
+    try:
+        await runtime.run_script(
+            "applescript", 'tell application "Calculator" to activate')
+        await runtime.run_script(
+            "applescript", 'tell application "System Events" to key code 53')
+        deadline = asyncio.get_running_loop().time() + timeout_s
+        while asyncio.get_running_loop().time() < deadline:
+            remaining = deadline - asyncio.get_running_loop().time()
+            frontmost = await asyncio.wait_for(asyncio.to_thread(
+                helper.sh, "osascript", "-e",
+                'tell application "System Events" to get name of first process whose frontmost is true',
+            ), remaining)
+            if frontmost == "Calculator":
+                remaining = deadline - asyncio.get_running_loop().time()
+                display = await asyncio.wait_for(
+                    asyncio.to_thread(helper.display), max(0.001, remaining))
+            else:
+                display = None
+            if frontmost == "Calculator" and display == "0":
+                return True
+            await asyncio.sleep(min(0.1, max(0, deadline - asyncio.get_running_loop().time())))
+    except Exception:
+        return False
+    return False
+
+
+async def _prepare_calculator(runtime, helper, timeout_s=5.0):
+    await runtime.start_scripts()
+    return await _calculator_setup(runtime, helper, timeout_s=timeout_s)
+
+
+async def _calculator_case_setup(runtime, helper, timeout_s=5.0):
+    if await _prepare_calculator(runtime, helper, timeout_s=timeout_s):
+        return None
+    return {
+        "status": "skipped",
+        "strict_pass": False,
+        "skip_reason": "calc_setup_failed",
+        "calc_setup": "calculator_open_cleared",
+    }
+
+
+def _run_metadata(tasks):
+    metadata = {}
+    if any(task["kind"] == "calc" for task in tasks):
+        metadata["calc_setup"] = "calculator_open_cleared"
+    if any(task["kind"] == "timer" for task in tasks):
+        metadata["timer_grading"] = "hands_timers_rpc"
+    return metadata
+
+
+async def _timer_teardown(runtime, result):
+    timer_ids = list(runtime.started_timer_ids)
+    if not timer_ids:
+        runtime.timer_teardown = {
+            "timer_teardown": "no_case_timers_to_cancel",
+            "timer_ids": [],
+            "cancelled_ids": [],
+        }
+        return runtime.timer_teardown
+    cancelled_ids = []
+    errors = []
+    for timer_id in timer_ids:
+        try:
+            await runtime.run_rpc("timers_cancel", {"id": timer_id})
+            cancelled_ids.append(timer_id)
+        except Exception as exc:
+            message = str(exc)
+            if _rpc_method_absent(exc):
+                runtime.timer_rpc_available = False
+                runtime.timer_teardown = {
+                    "timer_teardown": "not_cancelled_no_timers_cancel_rpc",
+                    "timer_ids": timer_ids,
+                    "cancelled_ids": cancelled_ids,
+                    "errors": errors + [{"id": timer_id, "error": message}],
+                }
+                return runtime.timer_teardown
+            errors.append({"id": timer_id, "error": message})
+    runtime.timer_teardown = {
+        "timer_teardown": "timers_cancel",
+        "timer_ids": timer_ids,
+        "cancelled_ids": cancelled_ids,
+        "errors": errors,
+    }
+    return {
+        **runtime.timer_teardown,
+        **({"ok": False} if any(
+            not re.search(r"unknown_timer", item["error"], re.IGNORECASE)
+            for item in errors
+        ) else {}),
+    }
 
 
 def _hobby_predicates(helper, args, task):
@@ -701,6 +931,8 @@ def _hobby_predicates(helper, args, task):
 
     async def grade(runtime, context):
         current = await runtime.capture_state()
+        if task["kind"] == "timer" and not runtime.timer_after_snapshot:
+            return {"passed": False, "actual": {"timers": "awaiting post-case snapshot"}}
         runtime.last_trace = context.get("trace")
         first_action = (
             {"method": "act"}
@@ -725,7 +957,7 @@ def _hobby_predicates(helper, args, task):
     return grade, restore
 
 
-async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=False):
+async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=None):
     from bench.harness.proxy import BenchProxy
 
     run_root.mkdir(parents=True, exist_ok=True)
@@ -735,11 +967,34 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Fal
         for repeat in range(1, args.repeats + 1):
             for task in tasks:
                 run_id = f"{task['id']}-r{repeat}"
+                session = probe_session(args.hands_bin)
+                if session["skip_reason"]:
+                    rec = {
+                        "id": task["id"], "kind": task["kind"], "repeat": repeat,
+                        "status": "skipped", "strict_pass": False,
+                        **session,
+                        **({"timer_grading": "not_run_skipped"} if task["kind"] == "timer" else {}),
+                    }
+                    records.append(rec)
+                    print(json.dumps(rec, ensure_ascii=False), flush=True)
+                    continue
+                if task["kind"] == "event" and event_allowed is None:
+                    try:
+                        from bench.hobbylm.calendar_safety import (
+                            is_local_default, probe_bench_calendar,
+                            setup_bench_calendar,
+                        )
+                        if args.setup_bench_calendar:
+                            setup_bench_calendar()
+                        event_allowed = is_local_default(probe_bench_calendar())
+                    except Exception:
+                        event_allowed = False
                 if task["kind"] == "event" and not event_allowed:
                     rec = {
                         "id": task["id"], "kind": task["kind"], "repeat": repeat,
                         "status": "skipped", "strict_pass": False,
                         "skip_reason": "bench calendar not local default",
+                        **session,
                     }
                     records.append(rec)
                     print(json.dumps(rec, ensure_ascii=False), flush=True)
@@ -750,11 +1005,32 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Fal
                     proxy, args.hands_bin, run_root / "hands-logs", run_id,
                     helper=helper, task=task, replay_args=args, cwd=ROOT,
                 )
+                if task["kind"] == "calc":
+                    setup_skip = await _calculator_case_setup(runtime, helper)
+                    if setup_skip is not None:
+                        await runtime.stop()
+                        rec = {
+                            "id": task["id"], "kind": task["kind"],
+                            "repeat": repeat, "status": "skipped",
+                            **setup_skip,
+                            **session,
+                        }
+                        records.append(rec)
+                        print(json.dumps(rec, ensure_ascii=False), flush=True)
+                        continue
                 grade, restore = _hobby_predicates(helper, args, task)
                 case = {
                     "id": task["id"], "kind": task["kind"], "category": task["kind"],
                     "utterance": task["text"], "timeout_s": args.timeout,
-                    "check": [grade], "teardown": [restore],
+                    "check": [grade],
+                    **({
+                        "before_utterance": lambda runtime, _result: runtime.capture_timer_baseline(),
+                        "after_utterance": lambda runtime, _result: runtime.capture_timer_after_case(),
+                    } if task["kind"] == "timer" else {}),
+                    "teardown": (
+                        [_timer_teardown, restore]
+                        if task["kind"] == "timer" else [restore]
+                    ),
                 }
                 try:
                     result = await run_case(
@@ -802,23 +1078,56 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Fal
                     "trace": trace,
                     "frames": result.get("frames", []),
                     "first_action_method": first_action.get("method"),
-                    "grader_note": (
-                        "start_timer is currently not implemented and has no independently observable state"
-                        if task["kind"] == "timer" else None
-                    ),
+                    **session,
+                    **({"calc_setup": "calculator_open_cleared"}
+                       if task["kind"] == "calc" else {}),
+                    **({
+                        "timer_grading": runtime.timer_grading or "not_run",
+                        "timer_calls": runtime.timer_calls,
+                        "timer_start_calls": runtime.timer_start_calls,
+                        "timer_state": runtime.timer_calls,
+                        "timer_seconds": [
+                            item.get("seconds") for item in runtime.timer_calls
+                        ],
+                        "timer_ids": runtime.started_timer_ids,
+                        **({
+                            "timer_teardown": "not_run_skipped",
+                            "timer_ids": [],
+                            "cancelled_ids": [],
+                        } if result.get("status") == "skipped" else
+                            runtime.timer_teardown or {
+                                "timer_teardown": "not_run",
+                                "cancelled_ids": [],
+                            }),
+                    } if task["kind"] == "timer" else {}),
                 }
                 records.append(rec)
                 print(json.dumps(rec, ensure_ascii=False, default=str), flush=True)
     summary = report_math(records, args.repeats)
     summary["shared_harness"] = shared_report_math(records, args.repeats)
+    metadata = _run_metadata(tasks)
+    timer_records = [
+        record for record in records if record.get("kind") == "timer"
+    ]
+    if timer_records:
+        metadata["timer_grading_by_case"] = {
+            f"{record['id']}-r{record['repeat']}": record.get("timer_grading")
+            for record in timer_records
+        }
+    summary.update(metadata)
     payload = {
         "system": "muselet", "round": args.round, "port": args.port,
         "proxy_port": args.proxy_port,
+        "metadata": metadata,
         "first_action_method": "proxy wire timestamp from utterance frame to first act/skill RPC",
         "results": records, "summary": summary,
     }
     (run_root / "results.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, default=str) + "\n",
+        encoding="utf-8",
+    )
+    (run_root / "manifest.json").write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
     print(json.dumps(summary, ensure_ascii=False, indent=2))
@@ -829,16 +1138,7 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Fal
 def _muselet_run(args, tasks, run_root):
     if sys.platform != "darwin":
         raise RuntimeError("Muselet replay requires macOS desktop access and Accessibility permission")
-    from bench.hobbylm.calendar_safety import (
-        BENCH_CALENDAR, is_local_default, probe_bench_calendar,
-        setup_bench_calendar,
-    )
-
-    event_allowed = False
-    if any(task["kind"] == "event" for task in tasks):
-        if args.setup_bench_calendar:
-            setup_bench_calendar()
-        event_allowed = is_local_default(probe_bench_calendar())
+    from bench.hobbylm.calendar_safety import BENCH_CALENDAR
     sys.path.insert(0, str(args.hobby_home / "hobby"))
     import hobbymac_run as helper
     helper.TEST_CAL = BENCH_CALENDAR
@@ -876,7 +1176,7 @@ def _muselet_run(args, tasks, run_root):
             raise RuntimeError(f"benchmark brain did not listen on port {args.port}")
     try:
         return asyncio.run(
-            _run_muselet_cases(args, tasks, run_root, helper, event_allowed=event_allowed)
+            _run_muselet_cases(args, tasks, run_root, helper)
         )
     finally:
         if brain is not None and brain.poll() is None:
@@ -947,11 +1247,50 @@ async def _hobby_worker_document_guard(task, run_script=None):
     return result
 
 
-async def _run_hobby_worker_case(proc, helper, task, repeat, *, run_script=None):
+def _probe_hobby_event_calendar(setup_bench_calendar):
+    try:
+        from bench.hobbylm.calendar_safety import (
+            is_local_default, probe_bench_calendar,
+            setup_bench_calendar as setup_calendar,
+        )
+        if setup_bench_calendar:
+            setup_calendar()
+        return is_local_default(probe_bench_calendar())
+    except Exception:
+        return False
+
+
+async def _run_hobby_worker_case(
+    proc, helper, task, repeat, *, hands_bin="hands", event_allowed=None,
+    setup_bench_calendar=False, run_script=None, event_probe_cache=None,
+):
     record = {
         "id": task["id"], "kind": task["kind"], "expected": task["expected"],
         "text": task["text"],
     }
+    session = probe_session(hands_bin)
+    if session["skip_reason"]:
+        return {
+            **record, "repeat": repeat, "status": "skipped",
+            "strict_pass": False, "ungradable": False, **session,
+        }
+    record.update(session)
+    if task["kind"] == "event":
+        if event_probe_cache is not None:
+            if not event_probe_cache["checked"]:
+                event_probe_cache["allowed"] = _probe_hobby_event_calendar(
+                    setup_bench_calendar
+                )
+                event_probe_cache["checked"] = True
+            event_allowed = event_probe_cache["allowed"]
+        elif event_allowed is None:
+            event_allowed = _probe_hobby_event_calendar(setup_bench_calendar)
+    if task["kind"] == "event" and not event_allowed:
+        return {
+            **record, "repeat": repeat, "status": "skipped",
+            "strict_pass": False, "ungradable": False,
+            "skip_reason": "bench calendar not local default",
+        }
     document_guard = await _hobby_worker_document_guard(task, run_script)
     if document_guard.get("status") == "skipped":
         return {**record, "repeat": repeat, **document_guard}
@@ -1094,7 +1433,7 @@ async def _run_hobby_worker_case(proc, helper, task, repeat, *, run_script=None)
     }
 
 
-async def _run_hobby_worker(args, tasks, run_root, helper, *, event_allowed):
+async def _run_hobby_worker(args, tasks, run_root, helper, *, event_allowed=None):
     run_root.mkdir(parents=True, exist_ok=True)
     runner = args.hobby_home / ".venv/bin/python"
     worker = HERE / "hobby_worker.py"
@@ -1109,17 +1448,19 @@ async def _run_hobby_worker(args, tasks, run_root, helper, *, event_allowed):
     )
     stderr_task = asyncio.create_task(proc.stderr.read())
     records = []
+    event_probe_cache = {
+        "checked": event_allowed is not None,
+        "allowed": event_allowed,
+    }
     try:
         for repeat in range(1, args.repeats + 1):
             for task in tasks:
-                if task["kind"] == "event" and not event_allowed:
-                    record = {
-                        "id": task["id"], "kind": task["kind"], "repeat": repeat,
-                        "status": "skipped", "strict_pass": False, "ungradable": False,
-                        "skip_reason": "bench calendar not local default",
-                    }
-                else:
-                    record = await _run_hobby_worker_case(proc, helper, task, repeat)
+                record = await _run_hobby_worker_case(
+                    proc, helper, task, repeat, hands_bin=args.hands_bin,
+                    event_allowed=event_allowed,
+                    setup_bench_calendar=args.setup_bench_calendar,
+                    event_probe_cache=event_probe_cache,
+                )
                 records.append(record)
                 print(json.dumps(record, ensure_ascii=False, default=str), flush=True)
     finally:
@@ -1197,21 +1538,11 @@ def main(argv=None):
         )
     if sys.platform != "darwin":
         parser.error("HobbyLM replay requires macOS desktop access")
-    from bench.hobbylm.calendar_safety import (
-        BENCH_CALENDAR, is_local_default, probe_bench_calendar,
-        setup_bench_calendar,
-    )
-
-    event_allowed = False
-    if any(task["kind"] == "event" for task in tasks):
-        if args.setup_bench_calendar:
-            setup_bench_calendar()
-        event_allowed = is_local_default(probe_bench_calendar())
     helper = _load_parent_hobby_helper(args.hobby_home)
     run_root = Path("runs/bench/hobbylm/hobbylm") / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     try:
         return asyncio.run(
-            _run_hobby_worker(args, tasks, run_root, helper, event_allowed=event_allowed)
+            _run_hobby_worker(args, tasks, run_root, helper)
         )
     except (OSError, RuntimeError) as exc:
         parser.error(str(exc))

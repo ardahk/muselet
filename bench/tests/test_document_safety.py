@@ -342,8 +342,14 @@ def test_document_app_quit_is_limited_to_apps_not_running_at_baseline(tmp_path, 
     asyncio.run(scenario())
 
 
-def test_hobby_worker_document_skip_never_writes_task_to_worker():
+def test_hobby_worker_document_skip_never_writes_task_to_worker(monkeypatch):
     from bench.hobbylm.replay import _run_hobby_worker_case
+    from bench.hobbylm import replay
+
+    monkeypatch.setattr(
+        replay, "probe_session",
+        lambda _binary: {"skip_reason": None, "session_probe": {"screen_locked": False}},
+    )
 
     class FakeStdin:
         def __init__(self):
@@ -511,10 +517,16 @@ def test_hobby_restore_closes_only_finder_ids_absent_from_baseline():
     assert "front window" not in close_scripts[0]
 
 
-def test_deskmind_document_skip_is_logged_without_task_run_directory(tmp_path, capsys):
+def test_deskmind_document_skip_is_logged_without_task_run_directory(monkeypatch, tmp_path, capsys):
     from types import SimpleNamespace
 
-    from bench.deskmind.run_muselet import _guard_before_run
+    from bench.deskmind import run_muselet
+
+    _guard_before_run = run_muselet._guard_before_run
+    monkeypatch.setattr(
+        run_muselet, "probe_session",
+        lambda _binary: {"skip_reason": None, "session_probe": {"screen_locked": False}},
+    )
 
     textedit = next(app for app in DOCUMENT_APPS if app.name == "TextEdit")
     baseline = _all_apps_inventory(**{
