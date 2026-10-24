@@ -1,12 +1,12 @@
 {
-  "pass": 42,
-  "ts": "2026-10-24T21:15Z",
+  "pass": 43,
+  "ts": "2026-10-24T21:58Z",
   "branches": {
-    "main": "3876f3a",
-    "wip/local": "3cfa06d",
+    "main": "3772f7c",
+    "wip/local": "8fcf55f",
     "cloud/bench": "f584cb2",
-    "cloud/data-pipeline": "34aff30",
-    "cloud/decisions": "b78d778",
+    "cloud/data-pipeline": "830ba35",
+    "cloud/decisions": "f6fb133",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
     "cloud/finance-3": "31be399",
@@ -36,11 +36,13 @@
     "cloud/data-route": "42835ce",
     "cloud/data-planner": "ee8ae33",
     "cloud/brain-8": "4546d09",
-    "cloud/planner-demos": "9008990",
-    "cloud/clock-timers": "d060b5a",
+    "cloud/planner-demos": "39f563f",
+    "cloud/clock-timers": "8d779cc",
     "cloud/comms-2": "c65ee70",
-    "cloud/mascot-animal": "238db23",
-    "cloud/planner-retrieval": "9786fa4"
+    "cloud/mascot-animal": "4b7d95a",
+    "cloud/planner-retrieval": "7df32b1",
+    "cloud/data-decisions": "91de461",
+    "cloud/w9-safety": "d5fe82b"
   },
-  "notes": "pass38: main 7065dd3 merged comms + app-ui (no lane files besides AGENTS.md config message) and live_t1 grader changes -> bench-25 update (sys-vol-up-lot band widened post hoc; two genuine grader-bug fixes). bench-16/20/21 unchanged on main."
+  "notes": "pass43: main 3876f3a..3772f7c ships planner retrieval k=1 (plan_bank unchanged from 9786fa4) -> bench-29 update (19/130 same-screen top-1, 0 copyable), new bench-30 (gain headline). Lane bench/ only test_live_brain_integration changed (confirm case decoupled from manual live case; 18 pass on Linux). cloud/* bench branches have no commits ahead of main."
 }
