@@ -1,12 +1,14 @@
 {
-  "pass": 2,
-  "ts": "2026-10-24T05:45:00Z",
+  "pass": 3,
+  "ts": "2026-10-24T06:00:00Z",
   "last_reviewed": {
-    "main": "10793e0",
-    "wip/local": "1d7cc07",
-    "cloud/data-pipeline": "4cbb74a",
+    "main": "dec310b",
+    "wip/local": "cbc4879",
+    "cloud/data-pipeline": "8c7c023",
     "cloud/fixtures-docs": "4bf2291",
-    "cloud/finance": "f098120"
+    "cloud/finance": "529e9ff",
+    "cloud/advisor": "9432c30",
+    "cloud/bench": "8429245"
   },
-  "notes": "main 10793e0 now carries the app (6d3d0e9) == wip bcd3b75 lane files minus ctx work; ux-1..5,7,8 apply to main too. cloud/data-pipeline merges main (no lane edits of its own); cloud/finance and fixtures-docs: no lane files."
+  "notes": "main dec310b lane delta = catalog v2 only (bluetooth, lock_screen, empty_trash[confirm], finance_review, advisor_prep). cloud/* have no lane edits of their own (they are behind main). ux-6 resolved on wip, still open on main."
 }
