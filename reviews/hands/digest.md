@@ -1,4 +1,4 @@
-# hands — digest (pass 30)
+# hands — digest (pass 31)
 
 Open findings were re-verified on main 2920225 in pass 15: hands-1 to 9 and 11 to 14 are resolved, and hands-15 is superseded.
 Pass 21 checks:
@@ -6,6 +6,7 @@ Pass 21 checks:
 - wip/local b63699f is identical to main.
 - cloud/brain-5 b752261 handles `not_frontmost` by reading the failure `result`. That works: RPC.swift returns r with r["error"], BrainConnection always sends `result`, and server.rpc returns it with ok=false.
 No new defects.
+Pass 31: main 82d94d9 merged cloud/brain-6 (#21); orchestrator.py is identical to 780f49d, which I reviewed in pass 30. The new sendgate.py only adds browser names (Zen etc.) and makes no RPC/app changes; `app/` is unchanged. wip/local 5b3d695 is identical to main. hands-16 is now at orchestrator.py:988, and hands-10 is still at Act.swift:348.
 Pass 30: cloud/brain-6 780f49d adds send and grounded-click confirmation gates and an OCR probe. The probe sends `ocr {region:[x,y,w,h]}`, which matches RPC.swift:152-160. No defects. hands-10 and hands-16 are still open on main b625ceb.
 Pass 29: main b625ceb (spend guard, pitch-4 merge), wip/local 49f808f and cloud/data-pipeline 512cce0 have no app/ or protocol changes. hands-10 and hands-16 are still open on main.
 Pass 28: main fbd5aa0, wip/local 2f26223, cloud/data-pipeline 735686f and cloud/pitch-4 6393857 have no app/ or protocol changes (AGENTS.md benchmark policy, evalcheck, pitch). hands-10 and hands-16 are still open on main.
