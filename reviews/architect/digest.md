@@ -1,6 +1,6 @@
-# architect digest - pass 14 (2026-10-24T08:22Z)
-Reviewed: main 280715d, wip/local 38768f3, cloud/data-pipeline 1d65818, cloud/finance 529e9ff, cloud/finance-2 dfaf785, cloud/finance-3 31be399, cloud/fixtures-docs 4bf2291, cloud/bench 6e7cd09, cloud/advisor 9432c30, cloud/advisor-2 0a65f75, cloud/advisor-3 ca93147, cloud/pitch ad1b058, cloud/brain-2 741465c, cloud/brain-3 14a3f52, cloud/grounding 3441ee8.
-New on main: the live-test safety rule (runner-enforced preconditions; never touch user documents), observe window fallback, no typing into nothing, compiled skill scripts, and new HandsKit result fields. cloud/data-pipeline adds a route_v1 eval through a Tinker sampler.
+# architect digest - pass 15 (2026-10-24T08:33Z)
+Reviewed: main 280715d, wip/local 38768f3, cloud/data-pipeline 1d65818, cloud/finance 529e9ff, cloud/finance-2 dfaf785, cloud/finance-3 31be399, cloud/fixtures-docs 4bf2291, cloud/bench 2c57d7f, cloud/advisor 9432c30, cloud/advisor-2 0a65f75, cloud/advisor-3 ca93147, cloud/pitch ad1b058, cloud/brain-2 741465c, cloud/brain-3 14a3f52, cloud/grounding 3441ee8.
+Only cloud/bench moved (2c57d7f): bench cases now guard document apps and delegate closing case-authored documents, in line with the AGENTS.md live-test safety rule. No new findings; architect-8/10/11 unchanged.
 
 ## Open P0/P1 (ranked)
 1. architect-8 P1 - Phase-1 LoRA: no full run or base-model score yet; about 3.5 h to Sat 12:00 PDT - training/
