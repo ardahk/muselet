@@ -7,8 +7,9 @@ Read `AGENTS.md` first, then your lane brief below, then the old handoff notes i
 - **Deadline:** Cal Hacks submission Sun Oct 25 09:00 PDT. Freeze Sun 06:00 PDT (after that: bug fixes with tests
   only). Land work in small, reviewable PRs early rather than one big PR late.
 - **Tinker is nearly exhausted:** the console showed $136.22 of the $150 hard cap at 14:30 PDT Sat, and the API
-  (`python3 tools/tinker_spend.py`) lags by hours. **No new Tinker training runs, in any lane.** Sampling only where
-  your brief allows it, within the lane cap stated there. Estimate every sampling job's cost before running it
+  (`python3 tools/tinker_spend.py`) lags by hours. The user allows using the full $150; hard stop at $148.
+  **No new Tinker training run unless your brief explicitly approves one** (only the planner-lora lane has one).
+  Sampling only where your brief allows it, within the lane cap stated there. Estimate every sampling job's cost before running it
   (uncached prefill is about $0.33 per million tokens), log it in your PR, and abort if `tools/tinker_spend.py`
   reports month-to-date ≥ $140. Prefer exporting weights and letting the lead evaluate on the Mac (free).
 - **OpenAI / Anthropic:** about $130 of the $200-per-provider budget is already used across lanes; your brief
