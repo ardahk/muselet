@@ -1,0 +1,114 @@
+{
+ "evals": {
+  "route_v1": 140,
+  "live_t1": 43,
+  "external/deskmind/diag": 13,
+  "external/deskmind/dyn": 64,
+  "external/deskmind/proposals": 22,
+  "external/hobbylm/calc-tasks/dev": 4,
+  "external/hobbylm/calc-tasks/held-out": 30,
+  "external/hobbylm/sealed-r1": 95,
+  "external/hobbylm/sealed-r2": 95,
+  "external/hobbylm/sealed-r3": 107,
+  "external/hobbylm/sealed-r4": 125,
+  "external/hobbylm/system-settings": 15
+ },
+ "evals_empty_after_norm": {},
+ "route_train": {
+  "rows": 38162,
+  "pairs": 10,
+  "by_rule": {
+   "short_edit1": 10
+  },
+  "by_eval": {
+   "route_v1": 8,
+   "external/hobbylm/sealed-r2": 1,
+   "external/hobbylm/sealed-r3": 1
+  }
+ },
+ "route_val": {
+  "rows": 1216,
+  "pairs": 0,
+  "by_rule": {},
+  "by_eval": {}
+ },
+ "args_train": {
+  "rows": 25441,
+  "pairs": 0,
+  "by_rule": {},
+  "by_eval": {}
+ },
+ "args_val": {
+  "rows": 878,
+  "pairs": 0,
+  "by_rule": {},
+  "by_eval": {}
+ },
+ "affected": {
+  "route_v1": [
+   {
+    "idx": 8,
+    "utterance": "kill the sound"
+   },
+   {
+    "idx": 29,
+    "utterance": "close slack completely"
+   },
+   {
+    "idx": 30,
+    "utterance": "hide messages"
+   },
+   {
+    "idx": 67,
+    "utterance": "resume playback"
+   },
+   {
+    "idx": 112,
+    "utterance": "what's fifteen percent of eighty"
+   },
+   {
+    "idx": 120,
+    "utterance": "set volume too thirty"
+   },
+   {
+    "idx": 128,
+    "utterance": "kill bluetooth"
+   }
+  ],
+  "live_t1": [],
+  "external/deskmind/diag": [],
+  "external/deskmind/dyn": [],
+  "external/deskmind/proposals": [],
+  "external/hobbylm/calc-tasks/dev": [],
+  "external/hobbylm/calc-tasks/held-out": [],
+  "external/hobbylm/sealed-r1": [],
+  "external/hobbylm/sealed-r2": [
+   {
+    "idx": 231,
+    "utterance": "open calendar"
+   }
+  ],
+  "external/hobbylm/sealed-r3": [
+   {
+    "idx": 371,
+    "utterance": "decrese the sound"
+   }
+  ],
+  "external/hobbylm/sealed-r4": [],
+  "external/hobbylm/system-settings": []
+ },
+ "affected_counts": {
+  "route_v1": 7,
+  "live_t1": 0,
+  "external/deskmind/diag": 0,
+  "external/deskmind/dyn": 0,
+  "external/deskmind/proposals": 0,
+  "external/hobbylm/calc-tasks/dev": 0,
+  "external/hobbylm/calc-tasks/held-out": 0,
+  "external/hobbylm/sealed-r1": 0,
+  "external/hobbylm/sealed-r2": 1,
+  "external/hobbylm/sealed-r3": 1,
+  "external/hobbylm/sealed-r4": 0,
+  "external/hobbylm/system-settings": 0
+ }
+}

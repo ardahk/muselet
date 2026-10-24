@@ -20,3 +20,20 @@ def test_decontam_short_rule_applies_when_eval_is_short():
     idx = Index(["kill bluetooth"])
     assert idx.match("kill the bluetooth") is not None
     assert idx.match("please kill the bluetooth radio now") is None
+
+
+G07 = "在工作目录里新建一个名为 archive 的文件夹。不要做别的。"
+
+
+def test_cjk_compared_by_characters():
+    from muselet_train.decontam import norm
+    assert norm(G07).split()[:3] == ["在", "工", "作"] and "archive" in norm(G07).split()
+    assert norm("Set the Volume to 40!") == "set the volume to 40"
+    ev = [("external/deskmind/diag", 6, G07), ("external/deskmind/dyn", 0, "打开文件夹")]
+    assert overlaps(["unmute", "archive"], ev) == []
+    hits = overlaps([G07.replace("别的", "别了"), "打开文件"], ev)
+    assert {(h["eval_idx"], h["rule"]) for h in hits} == {(6, "ngram13"), (0, "short_edit1")}
+
+
+def test_empty_after_norm_never_matches():
+    assert overlaps(["unmute", "ok"], [("external/x", 0, "!!! ---")]) == []

@@ -15,6 +15,7 @@ import csv
 import json
 import random
 import re
+import unicodedata
 from pathlib import Path
 
 from muselet_train.gen import DATA
@@ -23,8 +24,16 @@ REPO = Path(__file__).resolve().parents[3]
 HOBBY = Path("/data/evals/hobbylm/data/frozen")
 
 
+_CJK = "\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uac00-\ud7af"
+_CJK_CHAR = re.compile(f"([{_CJK}])")
+_DROP = re.compile(f"[^a-z0-9' {_CJK}]")
+
+
 def norm(t: str) -> str:
-    return " ".join(re.sub(r"[^a-z0-9' ]", " ", t.lower()).split())
+    """Latin text: lowercase [a-z0-9'] words. CJK (Han, kana, Hangul) is kept and compared by characters: every CJK
+    character is its own token, so the word rules (exact, n-gram, short edit) apply per character."""
+    t = _CJK_CHAR.sub(r" \1 ", unicodedata.normalize("NFKC", t).lower())
+    return " ".join(_DROP.sub(" ", t).split())
 
 
 def _ngrams(seq, n: int) -> set:

@@ -1,7 +1,8 @@
 """Hard contamination gate: training utterances vs every route_v1 / live_t1 / evals/external utterance.
 
 Rules (any one is an overlap): normalized exact match; a shared word 13-gram; token edit distance <= 1 when
-either side has 5 tokens or fewer. Normalization = decontam.norm (lowercase, strip punctuation, collapse spaces).
+either side has 5 tokens or fewer. Normalization = decontam.norm (lowercase, strip punctuation, collapse spaces;
+CJK characters are kept and count as one token each). Eval items that normalize to nothing are never matched.
 
   python -m muselet_train.evalcheck --datums jonsnov/muselet-route-datums-main@2bd81d8 --out /data/diag/evalcheck_main
 """
@@ -41,7 +42,7 @@ def _grams(t: list[str]) -> set[tuple[str, ...]]:
 
 def overlaps(texts: list[str], evals: list[tuple[str, int, str]]) -> list[dict]:
     """(train text, eval item, rule) for every overlapping pair."""
-    ev = [(name, i, u, norm(u).split()) for name, i, u in evals]
+    ev = [(name, i, u, norm(u).split()) for name, i, u in evals if norm(u)]
     exact = collections.defaultdict(list)
     grams = collections.defaultdict(list)
     by_len = collections.defaultdict(list)
@@ -53,6 +54,8 @@ def overlaps(texts: list[str], evals: list[tuple[str, int, str]]) -> list[dict]:
     hits = []
     for t in dict.fromkeys(texts):
         tk = norm(t).split()
+        if not tk:
+            continue
         found = {}
         for e in exact.get(" ".join(tk), []):
             found.setdefault(e[:2], (e, "exact"))
@@ -71,7 +74,8 @@ def overlaps(texts: list[str], evals: list[tuple[str, int, str]]) -> list[dict]:
 def check_rows(route: list[dict], args: list[dict]) -> dict:
     """route rows: utterance (+ rendered_utterance, the ASR-noised text actually trained); args rows: utterance."""
     evals = eval_items()
-    rep, pairs = {"evals": dict(collections.Counter(e[0] for e in evals))}, []
+    rep, pairs = {"evals": dict(collections.Counter(e[0] for e in evals)),
+                  "evals_empty_after_norm": dict(collections.Counter(e[0] for e in evals if not norm(e[2])))}, []
     for kind, rows in (("route", route), ("args", args)):
         for split in ("train", "val"):
             sub = [r for r in rows if r.get("split", "train") == split]
