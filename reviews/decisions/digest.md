@@ -1,6 +1,6 @@
-# decisions — digest (pass 35)
+# decisions — digest (pass 36)
 
-Heads: cloud/decisions 08dae49 (unchanged), main a97fcba (router-it3 #52, W9 safety #46, docs-demo-2 #53), wip ac41cd2 (bench proxy only), planner-verify d22b9a9 (adds GenericMLXDecider.inline).
+Heads: cloud/decisions 08dae49 (unchanged), main 46b97f5 (harness proxy only), wip 719907a (== main), planner-verify d22b9a9 (unchanged; decisions-37 still live), live-cases fa9c374 (new evals/live_t2_new.jsonl).
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
