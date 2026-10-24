@@ -1,8 +1,8 @@
 {
- "pass": 46,
+ "pass": 47,
  "last_reviewed": {
-  "main": "806b0d4",
-  "wip/local": "6b1006e",
+  "main": "a97fcba",
+  "wip/local": "ac41cd2",
   "cloud/data-pipeline": "830ba35",
   "cloud/finance": "529e9ff",
   "cloud/finance-2": "dfaf785",
@@ -48,9 +48,9 @@
   "cloud/planner-demos-handoff": "e5e9903",
   "cloud/planner-retrieval-handoff": "f728b79",
   "cloud/w9-safety": "6aa332a",
-  "cloud/memory": "e96ec18",
+  "cloud/memory": "ba3dc0a",
   "cloud/memory-eval": "c05944e",
-  "cloud/memory-lt": "f0ea345",
+  "cloud/memory-lt": "cc056af",
   "cloud/docs-demo": "095d4ef",
   "cloud/planner-lora": "ceafe3d",
   "cloud/router-it3-serve": "b455d2c",
@@ -58,7 +58,10 @@
   "cloud/docs-demo-2": "fa79929",
   "cloud/hands-clock": "26d4427",
   "cloud/live-cases": "5c173f6",
-  "cloud/planner-think": "6d14a7a",
-  "cloud/planner-verify": "c9de7aa"
+  "cloud/planner-think": "3677348",
+  "cloud/planner-verify": "d22b9a9",
+  "cloud/brain-9": "3f9718b",
+  "cloud/safety-bench28": "a0c456e",
+  "cloud/safety-brain27": "ac43219"
  }
 }
