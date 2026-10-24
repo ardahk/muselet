@@ -1,15 +1,20 @@
-# architect digest - pass 45 (2026-10-24T21:15Z)
-Reviewed: cloud/advisor 9432c30, cloud/advisor-2 0a65f75, cloud/advisor-3 ca93147, cloud/app-ui ae9ce5e, cloud/bench f584cb2, cloud/bench-fix 4bcf0db, cloud/brain-2 741465c, cloud/brain-3 14a3f52, cloud/brain-4 dfb66a3, cloud/brain-5 b752261, cloud/brain-6 780f49d, cloud/brain-7 13432fe, cloud/brain-8 4546d09, cloud/clock-timers d060b5a, cloud/comms c94a407, cloud/comms-2 c65ee70, cloud/data-pipeline 34aff30, cloud/data-planner ee8ae33, cloud/data-route 42835ce, cloud/decisions b78d778, cloud/finance 529e9ff, cloud/finance-2 dfaf785, cloud/finance-3 31be399, cloud/fixtures-docs 4bf2291, cloud/grounder-wire afb12a6, cloud/grounding 3441ee8, cloud/hobby-gaps 156556e, cloud/mascot-animal 238db23, cloud/native-research fa88c22, cloud/pitch ad1b058, cloud/pitch-2 3303678, cloud/pitch-3 e203181, cloud/pitch-4 6393857, cloud/planner-demos 9008990, cloud/planner-retrieval 9786fa4, cloud/report dffa733, cloud/report-2 3c25e78, main 3876f3a, wip/local 3cfa06d.
-New: main adds the HandsKit windows probe (AX, never sends Apple Events), messages_people, fuzzy contacts and compose v2. The bench document inventory no longer sends Apple Events to chat, mail and browser apps (no Automation prompts mid-run). HobbyLM replay path fixes. comms-2 restricts verb-first parsing to message nouns. No new findings; Swift reviewed statically.
+# architect digest - pass 46 (2026-10-24T22:10Z)
+Reviewed: main 3772f7c, wip/local 8fcf55f (tree = main), every cloud/* head (handoff notes, decisions f6fb133, data-decisions 91de461, data-pipeline 830ba35).
+New: main ships planner retrieval k=1 (plan_bank.py) plus comms parser and clock-timers. cloud/* now holds cut-over handoff notes only. Tinker is at $136/$150, so no new training. Re-checked open findings: 8, 13, 24, 15, 16, 20 and 23 are still open (no goal check, no committed parity JSON, cli --model-name still 'muselet' on decisions/data-decisions with the tinker backend, it3 not served).
 
 ## Open P1 (ranked)
-1. architect-24 P1 - No generic goal-level done check - planner/skill done path
-2. architect-8 P1 - No Mac parity result; Tinker .961 vs MLX .913 on clean 103 unexplained - evals/router_check.py
-3. architect-13 P1 - Cloud Tinker System One backend reports as 'muselet' - bench/systemone/cli.py:42
-(P2: architect-23 it3 must ship with catalog v3 at runtime; architect-20 Chinese DeskMind goals; architect-15; architect-16)
+1. architect-29 P1 - No competitor benchmark number exists with 11 h left - pitch/claims.md
+2. architect-27 P1 - premiere_command sends shortcuts without Timeline focus, always reports success - app/Sources/HandsKit/Skills.swift
+3. architect-24 P1 - No generic goal-level done check - docs/REPORT.md / planner done path
+4. architect-28 P1 - Retrieval bank holds paraphrases of v2-holdout goals; ship gate inflated - ml/src/brain/plan_bank.py
+5. architect-26 P1 - Planner prompt teaches cmd+t as Premiere default transition - prompts/planner_system.md
+6. architect-13 P1 - System One tinker backend reports as 'muselet' - bench/systemone/cli.py
+7. architect-8 P1 - No Mac parity result for it2 - evals/router_check.py
+(P2: architect-30 first action waits for line 2; 23, 20, 15, 16)
 
 ## Highest-leverage next moves
-1. W1: serve it3 with catalog v3 behind one flag, plus a startup assertion that the catalog version matches. ~20 min.
-2. Add a goal-level done check and replay the 4 false_done cases. ~1 h.
-3. Fix the HobbyLM/DeskMind harness bug and run the competitor reruns.
-4. Run the it2 Mac parity check and commit the router_check JSON. ~20 min.
+1. Run the HobbyLM r4 replay (it2, strict), then DeskMind Bench. These are the only route to a measured "beats competitor" claim. ~1.5 h live.
+2. Re-run the decisions calibrated JevBench + TD eval (~1 h, ~$0.3). If it is >= .831 / .658, that is the System One win; otherwise say "DeskMind leads" in the pitch.
+3. Demo hardening for Premiere: shift+3 before shortcuts, fix cmd+t to cmd+d in the prompt, and rehearse 2:00-2:30 twice. ~20 min.
+4. Rebuild the retrieval bank with a paraphrase deny (Jaccard >= .5 vs holdouts) and re-run the k=0/1 v2-holdout gate before quoting +7.2. ~30 min.
+5. Flush the first planner action once line 2 is known not to be `expect`: ~0.2-0.3 s per planner turn. ~45 min.
