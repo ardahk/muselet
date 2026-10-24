@@ -6,7 +6,7 @@ import copy
 import json
 from typing import Any
 
-from brain.decision import AlphaChoiceRenderer, split_model
+from brain.choice_renderer import AlphaChoiceRenderer
 from brain.decision_chunking import chunk_options, combine_chunked
 from brain.vendor.tinker_decisions import Decision, DecisionRenderer
 
@@ -124,6 +124,7 @@ class GenericMLXDecider:
         import mlx.core as mx
         import mlx_lm
         from mlx_lm.models.cache import make_prompt_cache
+        from brain.decision import split_model
 
         self.mx = mx
         self.model, _ = mlx_lm.load(model_path)
