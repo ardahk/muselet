@@ -108,8 +108,11 @@ expect <predicate>                (applies to the previous action)
 ```
 
 ## Decision API (System 1)
-`decide(state, questions) -> distributions`. Question kinds: `choice` (<= 26 options, letters A-Z, read as
-`choice#<letter>` logits after a prefilled `choice#`), `bool`, `score`. Skills are shortlisted (embedding/BM25 top-K)
+`decide(state, questions) -> distributions`. Question kinds: `choice` (<= 58 options, ids from the alphabet
+`A-Z 0-9 b d e f h i j k l m n o p q r s t u v x y z` in that order, i.e. every id that encodes as one token
+after `choice#`; read as `choice#<id>` logits after a prefilled `choice#`), `bool`, `score`.
+Renderer is tinker-cookbook `qwen3_5` (assistant turn starts with an empty `<think>\n\n</think>\n\n` before
+the `choice#` prefill); `training/artifacts/route_render_samples.jsonl` is the token-level parity reference. Skills are shortlisted (embedding/BM25 top-K)
 before the choice question; special options always present: MULTI_STEP, ASK, REFUSE, ANSWER.
 Each question is prefilled on a snapshot of the cached state, so extra questions cost only their own tokens.
 
