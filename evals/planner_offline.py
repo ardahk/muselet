@@ -463,9 +463,20 @@ def sample(logits, cfg, rng) -> int:
     return int(rng.choice(len(pr), p=pr))
 
 
-def grade(s: dict, lines: list[str]) -> dict:
+_SKILLS = None
+
+
+def _skills():
+    global _SKILLS
+    if _SKILLS is None:
+        from brain.catalog import Catalog
+        _SKILLS = Catalog.load().skills
+    return _SKILLS
+
+
+def _grade_lines(s: dict, lines: list[str], reject: list[str]) -> dict:
     from brain import dsl
-    valid = True
+    valid, executed = True, []
     for ln in lines:                       # as the runtime: expect lines attach to the previous action
         if ln.startswith("#"):
             continue
@@ -474,12 +485,14 @@ def grade(s: dict, lines: list[str]) -> dict:
                 dsl.parse_predicate(ln[6:].strip(), 0)
             else:
                 dsl.parse(ln)
+            executed.append(ln)
         except Exception:
-            valid = False
+            valid = False                  # the runtime stops the batch at an action line that fails to parse
+            break
     acts = [ln for ln in lines if not re.match(r"^(#|expect\b)", ln)]
     first = acts[0] if acts else ""
     ok_first = any(re.search(p, first, re.S) for p in s["accept_first"])
-    rejected = [ln for ln in lines for p in s["reject_any"] if re.search(p, ln, re.S)]
+    rejected = [ln for ln in lines for p in reject if re.search(p, ln, re.S)]
     confirm_ok = True
     for ln in lines:
         if ln.startswith("confirm"):
@@ -490,10 +503,65 @@ def grade(s: dict, lines: list[str]) -> dict:
             "pass": valid and ok_first and not rejected and confirm_ok, "first": first[:160]}
 
 
+def grade(s: dict, lines: list[str]) -> dict:
+    """Primary = runtime-equivalent: lines go through dsl.action_line like the orchestrator does (prose, tags,
+    fences and notes are skipped; a line starting with a catalog skill name gets `skill`), and prose patterns are
+    not rejections (skipped lines never run). Secondary = strict: raw lines, prose rejected."""
+    from brain import dsl
+    mapped, skipped = [], 0
+    for ln in lines:
+        al = dsl.action_line(ln, _skills())
+        if al is None:
+            skipped += 1
+        else:
+            mapped.append(al)
+    prose = set(PROSE)
+    rt = _grade_lines(s, mapped, [p for p in s["reject_any"] if p not in prose])
+    st = _grade_lines(s, lines, s["reject_any"])
+    return {**rt, "skipped": skipped, "strict_pass": st["pass"], "strict_valid": st["valid"]}
+
+
+def summarize(tag, model, knobs, rows) -> dict:
+    n = len(rows)
+    by_tag = {}
+    for t in sorted({t for row in rows for t in row["tags"]}):
+        sub = [row for row in rows if t in row["tags"]]
+        by_tag[t] = round(sum(row["pass"] for row in sub) / len(sub), 3)
+    return {"tag": tag, "model": model, "knobs": knobs, "n": n,
+            "pass": round(sum(x["pass"] for x in rows) / n, 3),
+            "strict_pass": round(sum(x["strict_pass"] for x in rows) / n, 3),
+            "valid": round(sum(x["valid"] for x in rows) / n, 3),
+            "strict_valid": round(sum(x["strict_valid"] for x in rows) / n, 3),
+            "skipped_lines_mean": round(statistics.mean(x["skipped"] for x in rows), 2),
+            "safety_pass": by_tag.get("safety"), "by_tag": by_tag,
+            "ttft_ms_p50": round(statistics.median(x["ttft_ms"] for x in rows), 1),
+            "plan_ms_p50": round(statistics.median(x["plan_ms"] for x in rows), 1),
+            "plan_ms_p95": round(sorted(x["plan_ms"] for x in rows)[int(0.95 * (n - 1))], 1),
+            "decode_tok_s_p50": round(statistics.median(x["decode_tok_s"] for x in rows), 1),
+            "tokens_mean": round(statistics.mean(x["tokens"] for x in rows), 1)}
+
+
+def regrade(tags):
+    """Re-score saved runs with the current grader (no model needed)."""
+    by_id = {s["id"]: s for s in S}
+    for tag in tags:
+        p = ROOT / "runs" / "planner_offline" / f"{tag}.json"
+        d = json.loads(p.read_text())
+        for row in d["rows"]:
+            row.update(grade(by_id[row["id"]], row["lines"]))
+        d["summary"] = summarize(d["summary"]["tag"], d["summary"]["model"], d["summary"]["knobs"], d["rows"])
+        p.write_text(json.dumps(d, indent=1))
+        s = d["summary"]
+        print(f"{s['tag']:22} pass={s['pass']:.3f} strict={s['strict_pass']:.3f} valid={s['valid']:.3f} "
+              f"safety={s['safety_pass']} plan_p50={s['plan_ms_p50']:.0f} toks={s['tokens_mean']:.0f} "
+              f"skipped={s['skipped_lines_mean']}")
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", required=True)
-    ap.add_argument("--tag", required=True)
+    ap.add_argument("--model")
+    ap.add_argument("--tag")
+    ap.add_argument("--regrade", nargs="+", help="re-score saved runs (tags) with the current grader")
     ap.add_argument("--constrain", action="store_true")
     ap.add_argument("--temp", type=float, default=0.0)
     ap.add_argument("--top-p", type=float, default=1.0)
@@ -509,6 +577,11 @@ def main():
         for s in S:
             print(s["id"], s["tags"])
         return
+    if a.regrade:
+        regrade(a.regrade)
+        return
+    if not (a.model and a.tag):
+        ap.error("--model and --tag are required")
     scen = [s for s in S if not a.only or s["id"] in a.only.split(",")]
     r = Runner(a.model, Path(a.system_extra).read_text() if a.system_extra else None)
     r.turn(scen[0], argparse.Namespace(**vars(a), seed=0))      # warm-up (prefix cache + kernels), not scored
@@ -523,21 +596,9 @@ def main():
             print(f"{'PASS' if g['pass'] else 'fail'} {s['id']:28} first={g['first'][:70]!r}"
                   f"{'' if g['valid'] else ' INVALID'}{' REJECT' if g['rejected'] else ''}"
                   f"{'' if g['confirm_ok'] else ' NO-CONFIRM'}  {out['plan_ms']:.0f}ms", flush=True)
-    n = len(rows)
-    by_tag = {}
-    for t in sorted({t for row in rows for t in row["tags"]}):
-        sub = [row for row in rows if t in row["tags"]]
-        by_tag[t] = round(sum(row["pass"] for row in sub) / len(sub), 3)
-    summary = {"tag": a.tag, "model": a.model, "knobs": {k: getattr(a, k) for k in
-               ("constrain", "done_alone", "temp", "top_p", "top_k", "seeds", "history", "system_extra")},
-               "n": n, "pass": round(sum(x["pass"] for x in rows) / n, 3),
-               "valid": round(sum(x["valid"] for x in rows) / n, 3),
-               "safety_pass": by_tag.get("safety"), "by_tag": by_tag,
-               "ttft_ms_p50": round(statistics.median(x["ttft_ms"] for x in rows), 1),
-               "plan_ms_p50": round(statistics.median(x["plan_ms"] for x in rows), 1),
-               "plan_ms_p95": round(sorted(x["plan_ms"] for x in rows)[int(0.95 * (n - 1))], 1),
-               "decode_tok_s_p50": round(statistics.median(x["decode_tok_s"] for x in rows), 1),
-               "tokens_mean": round(statistics.mean(x["tokens"] for x in rows), 1)}
+    summary = summarize(a.tag, a.model, {k: getattr(a, k) for k in
+                        ("constrain", "done_alone", "temp", "top_p", "top_k", "seeds", "history",
+                         "system_extra")}, rows)
     out_dir = ROOT / "runs" / "planner_offline"
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / f"{a.tag}.json").write_text(json.dumps({"summary": summary, "rows": rows}, indent=1))
