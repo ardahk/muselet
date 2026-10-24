@@ -51,8 +51,10 @@ struct ProbeCmd: ParsableCommand {
     static var configuration = CommandConfiguration(
         commandName: "probe",
         abstract: "Read-only probes: bluetooth | volume | brightness | symbols | skill-targets | applescript | automation | control-center | timers | session")
-    @Argument(help: "bluetooth | volume | brightness | symbols | skill-targets | applescript | automation | control-center | timers | session")
+    @Argument(help: "bluetooth | volume | brightness | symbols | skill-targets | applescript | automation | control-center | timers | session | contacts")
     var what: String
+    @Option(help: "contacts: the search query")
+    var query: String = ""
     @Flag(help: "applescript: time the old per-argument compile path instead")
     var legacy = false
     @Flag(help: "control-center: open the panel to find the Bluetooth switch (never pressed; closed again)")
@@ -82,6 +84,14 @@ struct ProbeCmd: ParsableCommand {
             // Status for THIS process (the terminal), never prompts.
             var d: [String: Any] = [:]
             for (t, s) in Automation.statuses() { d[t.name] = "\(s)" }
+            printJSON(d)
+        case "contacts":
+            // The contacts_search RPC end to end in this process (may
+            // trigger the system Contacts prompt once).
+            let (ok, r, e) = ContactsSearch.rpc(query: query, limit: 5)
+            var d: [String: Any] = ["ok": ok]
+            if let r { d["result"] = r }
+            if let e { d["error"] = e }
             printJSON(d)
         case "control-center":
             Permissions.requireAX()

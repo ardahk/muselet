@@ -76,6 +76,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <string>muselet reads and creates reminders when you ask it to.</string>
   <key>NSBluetoothAlwaysUsageDescription</key>
   <string>muselet turns Bluetooth on or off when you ask it to.</string>
+  <key>NSContactsUsageDescription</key>
+  <string>Muselet looks up the person you ask it to message.</string>
 </dict>
 </plist>
 PLIST
@@ -91,6 +93,7 @@ cat > "$ENT" <<'ENTS'
   <key>com.apple.security.device.audio-input</key><true/>
   <key>com.apple.security.automation.apple-events</key><true/>
   <key>com.apple.security.personal-information.calendars</key><true/>
+  <key>com.apple.security.personal-information.addressbook</key><true/>
 </dict>
 </plist>
 ENTS
