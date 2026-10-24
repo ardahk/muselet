@@ -1,6 +1,6 @@
 tell application id "com.apple.Numbers"
 	set theDoc to missing value
-	repeat 100 times
+	repeat 40 times
 		repeat with d in documents
 			try
 				if POSIX path of ((file of d) as alias) is "<CLIENTS>/Henderson/portfolio.xlsx" then set theDoc to contents of d
