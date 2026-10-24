@@ -1,6 +1,6 @@
-# bench digest — pass 6 (self-poll, 2026-10-24T07:30Z)
+# bench digest — pass 7 (PULSE, 2026-10-24T07:40Z)
 
-P0: 0. Open P1: 6. Open P2: 3. Reviewed: cloud/bench@911a384, cloud/grounding@42310cd, cloud/data-pipeline@8f0b9bc, main@c2d2988, wip/local@d5d2d7d, cloud/brain-2@9f41c11.
+P0: 0. Open P1: 6. Open P2: 3. Reviewed: cloud/bench@911a384, cloud/grounding@42310cd, cloud/data-pipeline@8f0b9bc, main@c2d2988, wip/local@8874962, cloud/brain-2@9f41c11.
 
 ## Open P0/P1 (ranked)
 1. bench-8 — decontam/dedup crash on evals/external `text` rows; HobbyLM path hard-coded. The Phase 1 trainer now consumes route_dedup.jsonl, and the reports give no decontam count — training/src/muselet_train/{decontam,dedup,datums}.py
