@@ -1,5 +1,5 @@
 {
- "pass": 43,
+ "pass": 44,
  "reviewed": {
   "cloud/advisor": "9432c30",
   "cloud/advisor-2": "0a65f75",
@@ -45,8 +45,10 @@
   "cloud/planner-retrieval-handoff": "f728b79",
   "cloud/report": "dffa733",
   "cloud/report-2": "3c25e78",
-  "cloud/w9-safety": "d5fe82b",
-  "main": "3772f7c",
-  "wip/local": "8fcf55f"
+  "cloud/w9-safety": "50a3b25",
+  "main": "2a2c2a9",
+  "wip/local": "4f963a7",
+  "cloud/memory": "4b519b1",
+  "cloud/memory-eval": "c05944e"
  }
 }

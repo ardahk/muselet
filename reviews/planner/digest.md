@@ -1,9 +1,9 @@
-# planner lane — pass 43 (main 3772f7c, wip 8fcf55f)
+# planner lane — pass 44 (main 2a2c2a9, wip 4f963a7, w9-safety 50a3b25)
 
 Open P0: none.
 
 Open P1 (ranked):
-1. planner-30: JXA string-concat doShellScript bypasses script confirmation (ml/src/brain/orchestrator.py)
+1. planner-30: JXA string-concat doShellScript bypasses script confirmation (ml/src/brain/orchestrator.py). Fixed on w9-safety 50a3b25 (PR #46), still open on main.
 2. planner-31: Rule 14 'expect focused' (no ref) is rejected by HandsKit before acting (prompts/planner_system.md)
 3. planner-15 (reopened): read-only Numbers scripts still trigger CONFIRM; writes don't (ml/src/brain/orchestrator.py)
 4. planner-32: open_folder catalog lacks 'view'; demo 1 detours via planner (skills/catalog.json)
@@ -14,10 +14,12 @@ Open P1 (ranked):
 
 Highest-leverage next moves:
 - Add `view` to open_folder in catalog.json and the prompt example: demo 1 becomes one skill call.
-- Script policy: always confirm JXA that uses currentApplication or bracket access; drop `set .* to`/`format` from the Numbers-target check.
+- Merge w9-safety for planner-30, but narrow `\[` to string-key bracket access and make it JXA-only, and drop `\\`, `set .* to` and `format` for Numbers targets (planner-37, planner-15).
 - Fix rule 14 to say `expect focused #<ref>`, and run dsl.parse_predicate on streamed expect lines.
 - Skip the duplicate verify RPC when act returned expect_ok; make RPC verify poll for skill and script expects.
 - Replace the done-rejection planner turn with a harness re-observe.
+
+Pass 44 notes: main and wip/local don't change any lane files (main adds briefs only). w9-safety 50a3b25 does two things. It hardens _SCRIPT_BLOCK and target extraction, which fixes planner-30 but introduces planner-37 (false confirms on Numbers reads). It also resets _batch_confirmed after every non-confirm action, so a confirm covers only the very next action; that is stricter and fine, and planner-35 is unchanged. memory-eval adds memory_followups to the plan_bank decontamination denylist, which is good. memory doesn't touch this lane.
 
 Pass 43 notes: main 3876f3a..3772f7c in this lane is the comms channel redirect (compose_email/draft_email become send_message for messaging goals; planner `open Mail` is a terminal failure), the Clock hint, timers RPC, and k=1 plan_bank retrieval. Retrieval leakage was reviewed in pass 41: quote only v2-holdout. I found no new issues in that diff. The new findings come from re-walking demos 1 and 3 through the prompt, the DSL, the executor and HandsKit. wip/local has the same lane files as main. No cloud/* branch changed lane files since pass 42. I re-checked planner-24/26/27/28/6/25/29: the code is unchanged, so they stay open.
 
