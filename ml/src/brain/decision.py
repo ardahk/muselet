@@ -200,7 +200,9 @@ def split_model(model):
     """(transformer body taking token ids, lm_head) — same trick as
     bench/speed_lab.py. Inner model embeds + runs layers, returns hidden."""
     inner = getattr(model, "model", model)
-    lm_head = getattr(inner, "lm_head", None) or getattr(model, "lm_head", None)
+    lm = getattr(model, "language_model", None)     # mlx-lm VLM wrappers (qwen3_5, qwen3_5_moe)
+    lm_head = getattr(inner, "lm_head", None) or getattr(model, "lm_head", None) \
+        or getattr(lm, "lm_head", None)
     if lm_head is None:
         lm_head = inner.embed_tokens.as_linear   # tied weights
     return inner, lm_head
