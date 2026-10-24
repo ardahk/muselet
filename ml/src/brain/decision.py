@@ -11,8 +11,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 import dateparser as _dp
-import mlx.core as mx
-import mlx_lm
 import numpy as np
 from tinker_cookbook import model_info, renderers, tokenizer_utils
 
@@ -24,6 +22,13 @@ from .vendor.tinker_decisions import (
 from .durations import parse_duration
 
 SPECIAL = ["MULTI_STEP", "ASK", "REFUSE", "ANSWER"]
+
+
+def _mlx_core():
+    import mlx.core as mx
+
+    return mx
+
 
 ROUTE_SYSTEM = (
     "You are the intent router of an on-device macOS voice assistant. "
@@ -264,6 +269,8 @@ class RouteRenderer:
 class DecisionEngine:
     def __init__(self, model_path: str, catalog=None,
                  args_model_path: str | None = None):
+        import mlx_lm
+
         self.model_path = model_path
         self.model, self.tokenizer = mlx_lm.load(model_path)
         self.body, self.lm_head = split_model(self.model)
@@ -320,6 +327,7 @@ class DecisionEngine:
         """Cache = model state after prefilling every token before the user
         content (system message + user header). A sentinel user message marks
         the split point."""
+        mx = _mlx_core()
         sentinel = "SENTINELMARKER9Z"
         probe = Decision(text=sentinel, choices=self.options())
         toks = self.route_renderer.render(probe).tokens
@@ -331,6 +339,7 @@ class DecisionEngine:
     def _build_args_cache(self):
         """Same trick for the ARGS system message: static prefix ends where
         the user content starts."""
+        mx = _mlx_core()
         from tinker_cookbook.renderers import Message
         sentinel = "SENTINELMARKER9Z"
         msgs = [Message(role="system", content=ARGS_SYSTEM),
@@ -358,11 +367,13 @@ class DecisionEngine:
 
     def _logits_last(self, cache, tokens, body=None, lm_head=None):
         """Prefill `tokens` (ids) into cache; lm_head on the last position."""
+        mx = _mlx_core()
         out = (body or self.body)(tokens, cache=cache)
         logits = (lm_head or self.lm_head)(out[:, -1:, :]).astype(mx.float32)
         return logits[0, 0]
 
     def route(self, utterance: str, ctx: dict) -> RouteResult:
+        mx = _mlx_core()
         t0 = time.perf_counter()
         if self._route_cache is None:
             self._build_route_cache()
@@ -403,6 +414,7 @@ class DecisionEngine:
 
     def args(self, skill: str, utterance: str, ctx: dict) -> dict:
         """Extract skill args; returns dict (may contain 'missing')."""
+        mx = _mlx_core()
         t0 = time.perf_counter()
         if self._args_cache is None:
             self._build_args_cache()
