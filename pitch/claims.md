@@ -14,7 +14,7 @@ has not been run, the line stays out of the pitch. Mac = the demo MacBook Pro M5
 | `{{args_ms_p50}}` | ARGS extraction, median | same run / traces | `args_ms`, `decision.py:369-404` | 97 ms (r2; `runs/router/r2_self_clean.json`) |
 | `{{instant_e2e_ms_p50}}` | Release -> first HandsKit action for single-skill commands | traces of the segment-1 commands, 10 takes | `release_to_first_action_ms`, `ml/src/brain/orchestrator.py:295,300` | pending live run (screen was locked overnight) |
 | `{{browser_task_s}}` | "Find flights to Tokyo next Friday": release -> planner `done` | 5 takes, Chrome | trace `total` stage; also shown as the `ui.ms` chip | pending live run (screen was locked overnight) |
-| `{{live_t1_pass}}`/43, `{{live_false_done}}` | Live suite T1/T2 strict pass; runs where the agent said done but the final state check failed | `bench/live/run_live.py` on `evals/live_t1.jsonl`, designated Mac | runner output under `runs/` | pending live run (screen was locked overnight) |
+| `{{live_t1_pass}}`/43, `{{live_false_done}}` | Live suite T1/T2 strict pass; runs where the agent said done but the final state check failed | `bench/live/run_live.py` on `evals/live_t1.jsonl`, designated Mac | runner output under `runs/` | 2026-10-24, serving config (router it2 + tuned 4B planner, runner defaults, screen unlocked): T1 19/22 (86.4%), T2 1/5, false_done 4 (`runs/bench/live/20261024T161427Z`); 27 of 43 cases ran |
 | `{{planner_tok_s}}`, `{{planner_model}}` | Planner decode tok/s and the model picked | `bench/speed_lab.py --models <repo>` shape `plan` | `runs/speedlab/results.jsonl` | 83 tok/s, Qwen3.5-4B-4bit (`runs/planner_offline/`); model pick not yet reported |
 | `{{browser_task_s}}` | Utterance -> verified final state, segment 2 | traces, 5 takes, median | `runs/traces/` `total_ms` | pending live run (screen was locked overnight) |
 | `{{advisor_prep_s}}` | "Prep me for the Hendersons" -> final say, DEMO.md success checks pass | 5 takes | `runs/traces/` `total` stage; target <= 30 s (`cloud/tools_interface.md`) | pending live run (screen was locked overnight) |
@@ -22,10 +22,10 @@ has not been run, the line stays out of the pitch. Mac = the demo MacBook Pro M5
 | `{{premiere_s}}` | Cut + marker + export dialog | 5 takes | `runs/traces/` | pending live run (screen was locked overnight) |
 | `{{receipt_ocr_ms}}` | Apple Vision OCR per receipt | `ocr` RPC `ms` field | `app/Sources/HandsKit/OCR.swift:137` | ~150 ms per receipt, warm (run path not given) |
 | `{{cat_rule_acc}}`, `{{cat_ask_rows}}` | Finance categorize accuracy with rules only; rows escalated to ASK | `PYTHONPATH=ml/src python3 -m pytest ml/tests/test_finance.py -s` | `ml/src/brain/finance/categorize.py` | not run yet |
-| `{{hobby_muselet_pass}}`/125, `{{hobby_muselet_p50_s}}` | Muselet (router it2 only, §1b) on HobbyLM's 125 sealed-r4 live requests, strict final-state grading | `bench/hobbylm/replay.py --system muselet --round r4` | `runs/bench/hobbylm/` | pending morning run |
-| `{{hobby_rerun_pass}}`/125, `{{hobby_rerun_p50_s}}` | HobbyLM itself, same Mac, its published harness | `bench/hobbylm/replay.py --system hobbylm --round r4` | same | pending morning run |
-| `{{dm_muselet_strict}}`/39, `{{dm_muselet_false_done}}`, `{{dm_muselet_step_p50_s}}` | Muselet (router it2 only, §1b) on DeskMind Bench `diag` (13 tasks x 3), graded by `deskmind-bench score` | `bench/deskmind/README.md` (c) | `runs/bench/deskmind/` | pending morning run |
-| `{{dm_rerun_strict}}`/39, `{{dm_rerun_step_p50_s}}` | DeskMind G18b on the same Mac, their commands | `bench/deskmind/README.md` (a) | same | pending morning run |
+| `{{hobby_muselet_pass}}`/125, `{{hobby_muselet_p50_s}}` | Muselet (router it2 only, §1b) on HobbyLM's 125 sealed-r4 live requests, strict final-state grading | `bench/hobbylm/replay.py --system muselet --round r4` | `runs/bench/hobbylm/` | pending (morning replay blocked by a harness bug) |
+| `{{hobby_rerun_pass}}`/125, `{{hobby_rerun_p50_s}}` | HobbyLM itself, same Mac, its published harness | `bench/hobbylm/replay.py --system hobbylm --round r4` | same | pending (morning replay blocked by a harness bug) |
+| `{{dm_muselet_strict}}`/39, `{{dm_muselet_false_done}}`, `{{dm_muselet_step_p50_s}}` | Muselet (router it2 only, §1b) on DeskMind Bench `diag` (13 tasks x 3), graded by `deskmind-bench score` | `bench/deskmind/README.md` (c) | `runs/bench/deskmind/` | pending (morning replay blocked by a harness bug) |
+| `{{dm_rerun_strict}}`/39, `{{dm_rerun_step_p50_s}}` | DeskMind G18b on the same Mac, their commands | `bench/deskmind/README.md` (a) | same | pending (morning replay blocked by a harness bug) |
 | `{{act_ms_p50}}` | HandsKit act + settle, median | same traces as `{{instant_e2e_ms_p50}}` | `act_ms` + `settle_ms` in `rpc_result` | pending live run (screen was locked overnight) |
 | `{{stt_budget_ms}}`, `{{args_budget_ms}}`, `{{act_budget_ms}}`, `{{e2e_budget_ms}}` | Latency *targets* (not measurements); label "target" wherever shown | set by the lead from the speed-lab results | `architecture.md` budget table | targets, not set yet |
 | `{{model_disk_gb}}`, `{{peak_ram_gb}}` | Total local weights; peak RSS during the 3:00 demo | `du -sh` on the HF cache snapshots in use; Activity Monitor / `footprint` | Mac | pending live run (screen was locked overnight) |
@@ -51,15 +51,28 @@ r2 latency p50: route 52 ms, ARGS 97 ms. Always disclose: 37 of the 140 route_v1
 have a near-duplicate in training (§1b).
 
 **Planner**: Qwen3.5-4B-4bit, greedy, few-shot + DSL history + line-start constraint; offline planner bench
-(`evals/planner_offline.py`, 25 tune + 14 holdout scenarios, runtime-equivalent grading). Source: `runs/planner_offline/`.
+(`evals/planner_offline.py`, 25 tune + 14 holdout + 12 holdout2 scenarios, runtime-equivalent grading). Source:
+`runs/planner_offline/`. holdout2 was written after holdout-1 was used to derive prompt rules 16-18.
 
-| Config | Pass (tune) | Pass (holdout) | Plan p50 / turn | TTFT | Decode |
-|---|---|---|---|---|---|
-| Qwen3.5-4B-4bit, tuned | .84 | .57 | 139 ms | 72 ms | 83 tok/s |
-| Qwen3.5-4B-4bit, base config | .68 | .50 | – | – | – |
-| Qwen3.6-35B-A3B | .84 | .71 | ~310 ms | 128 ms | 82 tok/s |
+| Config | Pass (tune) | Pass (holdout) | Pass (holdout2) | Plan p50 / turn | TTFT | Decode |
+|---|---|---|---|---|---|---|
+| Qwen3.5-4B-4bit, shipped (rules 16-18) | .88 | .643 | .667 | 139 ms\* | 72 ms\* | 83 tok/s\* |
+| Qwen3.5-4B-4bit, base config | .68 | .50 | – | – | – | – |
+| Qwen3.6-35B-A3B | .84 | .71 | – | ~310 ms | 128 ms | 82 tok/s |
+
+\* Speed measured on the earlier tuned config (tune .84 / holdout .57); not re-measured for the shipped prompt.
 
 Say holdout alongside tune; the holdout set is the honest number.
+
+**Live suite** (`bench/live/run_live.py` on `evals/live_t1.jsonl`, serving config: router it2 + tuned 4B planner,
+runner defaults, screen unlocked). Source: `runs/bench/live/20261024T161427Z`. 27 of the 43 cases ran under runner defaults.
+
+| T1 strict | T2 strict | false_done | Confirms asked | First action p50 / p95 | Verified p50 / p95 |
+|---|---|---|---|---|---|
+| 19/22 (86.4%) | 1/5 | 4 | 3 | 193 / 812 ms | 704 ms / 4.1 s |
+
+Weakest category: files, 2/7. Quote T1 and T2 separately, with the case counts; HobbyLM r4 and DeskMind Bench are
+still pending.
 
 **System One decision benchmarks** (`bench/run_jevbench.sh`, `bench/run_typed_decisions.sh`):
 
@@ -87,9 +100,9 @@ Policy: `AGENTS.md:37-41`. "main-final" = the training data behind r1/r2; it2 = 
 |---|---|---|---|---|
 | route_v1 | 140 | 37 | 7 (all among the 37) | only on `evals/route_v1_clean.jsonl`: 103 cases, clean for both; say "37 of 140 excluded for short near-duplicates" |
 | live_t1 | 43 | 10 | 0 | it2 only |
-| HobbyLM sealed-r4 | 125 | 15 | 0 (all 125 ids checked) | it2 only; pending morning run |
+| HobbyLM sealed-r4 | 125 | 15 | 0 (all 125 ids checked) | it2 only; pending (morning replay blocked by a harness bug) |
 | HobbyLM sealed-r1 / r2 / r3 | 95 / 95 / 107 | 12 / 13 / 10 | 0 / 1 (A04) / 1 (D09) | not quoted |
-| DeskMind Bench `diag` | 13 tasks | 1 (not re-traced) | 0 real; the check reports 1 (G07-finder-newfolder), a normalizer artifact (below) | it2 only; pending morning run |
+| DeskMind Bench `diag` | 13 tasks | 1 (not re-traced) | 0 real; the check reports 1 (G07-finder-newfolder), a normalizer artifact (below) | it2 only; pending (morning replay blocked by a harness bug) |
 | DeskMind `dyn` | 64 | 16 (not re-traced) | 0 real; the check reports 16, the same artifact | not in the pinned comparison; not quoted |
 
 DeskMind artifact: `norm()` (`training/src/muselet_train/decontam.py:26` on PR #2) keeps only `[a-z0-9']` characters, and
@@ -157,8 +170,8 @@ Re-verified on `origin/main` @ 1d49478 (2026-10-24); line numbers are at that co
 | Clicky | MIT; needs Anthropic, AssemblyAI and ElevenLabs keys behind a Cloudflare Worker; push-to-talk streams audio to AssemblyAI, sends transcript + screenshot to Claude; cursor flies via `[POINT:x,y:label:screenN]` tags | https://github.com/farzaa/clicky (README, CLAUDE.md) |
 
 Not verified, do not say: that Savvy flags tax-loss harvesting or cash drag (not on the page); that Clicky
-cannot click; any DeskMind Bench or HobbyLM live-set number on our Mac until those reruns exist (pending
-morning run; router it2 only, §1b). The JevBench and typed-decisions reruns in §1a do exist.
+cannot click; any DeskMind Bench or HobbyLM live-set number on our Mac until those reruns exist (pending:
+the morning replay was blocked by a harness bug; router it2 only, §1b). The JevBench and typed-decisions reruns in §1a do exist.
 
 ## 4. Demo prerequisites (open items the script depends on)
 
