@@ -11,7 +11,7 @@
 #             (k=0 / k=1, v1-ho, v1-ho2, v2-ho), TTFT +44..72 ms; k=2 same gain but fails the +150 ms TTFT gate
 #             (pre-registered rule; cloud/handoff/notes/retrieval_eval.md)
 #   ESCALATE=1 adds Qwen3.6-35B-A3B as the escalation planner (~19 GB resident; off by default)
-# Usage: tools/serve_brain.sh [extra brain serve flags]   (PORT, ROUTER, ARGS_MODEL, PLANNER, TAU, RETRIEVAL_K, ESCALATE, MEMORY, MEMORY_LLM env)
+# Usage: tools/serve_brain.sh [extra brain serve flags]   (PORT, ROUTER, ARGS_MODEL, PLANNER, TAU, RETRIEVAL_K, ESCALATE, MEMORY, MEMORY_LLM, LONGTERM env)
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 BASE=mlx-community/Qwen3.5-4B-4bit
@@ -32,4 +32,5 @@ args=(--port "${PORT:-8765}" --model "$ROUTER" --tau "$TAU" --args-model "$ARGS_
 if [ "${ESCALATE:-0}" = "1" ]; then args+=(--planner-escalate-model mlx-community/Qwen3.6-35B-A3B-4bit); fi
 if [ "${MEMORY:-1}" = "0" ]; then args+=(--no-memory); fi
 if [ "${MEMORY_LLM:-1}" = "0" ]; then args+=(--no-memory-llm); fi
+if [ "${LONGTERM:-1}" = "0" ]; then args+=(--no-longterm); fi
 exec uv run --project ml brain serve "${args[@]}" "$@"

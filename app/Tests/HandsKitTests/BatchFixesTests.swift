@@ -273,6 +273,14 @@ final class BrainFramesTests: XCTestCase {
         XCTAssertNil(BrainInbound.decode(#"{"t":"confirm"}"#))
     }
 
+    func testDecodeMemoryItems() {
+        guard case .memory(let items)? = BrainInbound.decode(
+            #"{"t":"memory","items":[{"id":4,"type":"person","key":"mom","value":"Jane","created":12.5}]}"#)
+        else { return XCTFail("not decoded") }
+        XCTAssertEqual(items.first?["id"] as? Int, 4)
+        XCTAssertEqual(items.first?["value"] as? String, "Jane")
+    }
+
     func testConfirmCancelClearsOnlyTheMatchingConfirm() {
         XCTAssertTrue(ConfirmCancel.clears(pendingId: "c1", cancelId: "c1"))
         XCTAssertFalse(ConfirmCancel.clears(pendingId: "c2", cancelId: "c1"))   // stale cancel

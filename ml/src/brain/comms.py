@@ -565,7 +565,8 @@ async def _fail(orch, message: str) -> str:
 
 
 async def _preview(orch, name: str, handle: dict, body: str,
-                   contact_name: str | None = None) -> str:
+                   contact_name: str | None = None,
+                   memory_query: str | None = None) -> str:
     orch._comms = None
     orch._pending_task = None
     params = {"handle": handle["value"], "body": body}
@@ -627,6 +628,9 @@ async def _preview(orch, name: str, handle: dict, body: str,
         return await _fail(orch, message)
     if not result.get("sent"):
         return await _fail(orch, "Message didn't send")
+    note_person = getattr(orch, "_memory_note_person", None)
+    if memory_query and note_person:
+        note_person(memory_query, name)
     await orch.server.say(f"Sent to {name}")
     await orch._end_ui("success")
     return "ok"
@@ -709,6 +713,11 @@ async def send_message(orch, to, body, *, from_planner=False) -> str:
     if body is None or not str(body).strip():
         return await start(orch, {"to": to, "body": None}, "",
                            from_planner=from_planner)
+    memory_query = clean_query(str(to or ""))
+    remembered = getattr(orch, "_memory_person", lambda _query: None)(
+        memory_query)
+    if remembered:
+        to = remembered
     handle = verbatim_handle(to) or spoken_email(to)
     if handle:
         query = clean_query(str(to))
@@ -815,7 +824,7 @@ async def send_message(orch, to, body, *, from_planner=False) -> str:
         orch._comms = {
             "kind": "choose", "to": str(to), "body": str(body or ""),
             "opts": opts, "t": time.time(), "tries": 0,
-            "from_planner": from_planner,
+            "from_planner": from_planner, "memory_query": memory_query,
         }
         prompt = question(opts)
         _trace(orch, "ask", {
@@ -826,7 +835,7 @@ async def send_message(orch, to, body, *, from_planner=False) -> str:
         return "awaiting_user"
     opt = opts[0]
     return await _preview(orch, opt["name"], opt["handle"], str(body or ""),
-                          contact_name=opt["name"])
+                          contact_name=opt["name"], memory_query=memory_query)
 
 
 async def answer(orch, text: str) -> str:
@@ -961,6 +970,10 @@ async def answer(orch, text: str) -> str:
         return await _preview(orch, str(text), handle, pending["body"])
     if index is not None:
         opt = pending["opts"][index]
+        note_person = getattr(orch, "_memory_note_person", None)
+        if note_person:
+            note_person(pending.get("memory_query") or pending.get("to") or "",
+                        opt["name"])
         return await _preview(orch, opt["name"], opt["handle"],
                               pending["body"], contact_name=opt["name"])
 

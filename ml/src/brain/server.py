@@ -28,6 +28,7 @@ class BrainServer:
         self.on_hello = None          # async cb(screens)
         self.on_cancel = None         # async cb()
         self.on_config = None         # async cb(config) -> ack fields
+        self.on_memory = None         # async cb(memory request) -> items
 
     async def start(self):
         self._server = await websockets.serve(self._handler, self.host, self.port)
@@ -82,16 +83,40 @@ class BrainServer:
                        "loaded": bool(result.get("loaded", False))}
                 if result.get("reason"):
                     ack["reason"] = str(result["reason"])
+                if "memory" in msg:
+                    ack["memory"] = bool(
+                        result.get("memory", msg["memory"]))
                 await self.send(ack)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 log.exception("config handler failed")
-                await self.send({
+                error_ack = {
                     "t": "config_ack",
                     "escalate_planner": bool(
                         msg.get("escalate_planner", False)),
-                    "loaded": False, "reason": str(e)[:200]})
+                    "loaded": False, "reason": str(e)[:200]}
+                if "memory" in msg:
+                    error_ack["memory"] = bool(msg["memory"])
+                await self.send(error_ack)
+
+        asyncio.create_task(runner())
+
+    def _start_memory(self, msg: dict):
+        if self.on_memory is None:
+            return
+
+        async def runner():
+            try:
+                result = await self.on_memory(msg) or {}
+                await self.send({
+                    "t": "memory",
+                    "items": result.get("items", [])})
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("memory handler failed")
+                await self.send({"t": "memory", "items": []})
 
         asyncio.create_task(runner())
 
@@ -142,6 +167,8 @@ class BrainServer:
                         await self.on_cancel()
                 elif t == "config":
                     self._start_config(msg)
+                elif t == "memory":
+                    self._start_memory(msg)
         finally:
             log.info("app disconnected")
             self._ws = None

@@ -5,8 +5,8 @@ One JSON object per frame; `t` = message type.
 
 import json
 
-# App -> brain: hello, utterance, cancel, rpc_result, confirm_reply, config
-# Brain -> app: rpc, ui, say, confirm, confirm_cancel, config_ack
+# App -> brain: hello, utterance, cancel, rpc_result, confirm_reply, config, memory
+# Brain -> app: rpc, ui, say, confirm, confirm_cancel, config_ack, memory
 
 
 def encode(msg: dict) -> str:
@@ -68,3 +68,17 @@ def confirm(cid: str, summary: str) -> dict:
 
 def confirm_reply(cid: str, yes: bool) -> dict:
     return {"t": "confirm_reply", "id": cid, "yes": yes}
+
+
+def memory_request(op: str, q: str | None = None,
+                   id: int | None = None) -> dict:
+    frame = {"t": "memory", "op": op}
+    if q is not None:
+        frame["q"] = q
+    if id is not None:
+        frame["id"] = id
+    return frame
+
+
+def memory_items(items: list[dict]) -> dict:
+    return {"t": "memory", "items": items}

@@ -15,6 +15,11 @@ final class AppActions {
     /// Run a typed request (example prompts) as a final utterance.
     var runExample: (String) -> Void = { _ in }
     var setEscalatePlanner: (Bool) -> Void = { _ in }
+    var setLongtermMemory: (Bool) -> Void = { _ in }
+    var listMemory: () -> Void = {}
+    var searchMemory: (String) -> Void = { _ in }
+    var deleteMemory: (Int) -> Void = { _ in }
+    var clearMemory: () -> Void = {}
     /// Settings › Timers.
     var setUseClockTimers: (Bool) -> Void = { _ in }
     /// Re-run `timer_backend` (`refresh`: re-list shortcuts now).

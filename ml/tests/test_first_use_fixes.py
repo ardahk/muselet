@@ -300,6 +300,35 @@ def test_server_config_frame_ack(monkeypatch):
         "t": "config_ack", "escalate_planner": True, "loaded": True}]
 
 
+def test_server_memory_frame_reply(monkeypatch):
+    from brain.server import BrainServer
+
+    async def go():
+        server = BrainServer(port=0)
+        sent = []
+
+        async def send(msg):
+            sent.append(msg)
+
+        async def memory(msg):
+            assert msg == {"t": "memory", "op": "list"}
+            return {"items": [{
+                "id": 1, "type": "fact", "key": "tea",
+                "value": "green", "created": 1.0}]}
+
+        monkeypatch.setattr(server, "send", send)
+        server.on_memory = memory
+        server._start_memory({"t": "memory", "op": "list"})
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        return sent
+
+    assert asyncio.run(go()) == [{
+        "t": "memory", "items": [{
+            "id": 1, "type": "fact", "key": "tea",
+            "value": "green", "created": 1.0}]}]
+
+
 def test_site_and_browser_skill_rewrites():
     async def go():
         server = FakeServer()

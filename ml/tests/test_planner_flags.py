@@ -281,6 +281,7 @@ def test_cli_defaults():
     args, _ = cli.build_parser(["serve"])
     assert args.memory is True
     assert args.memory_llm is True
+    assert args.longterm is True
     assert cli.planner_opts(args) == {"done_alone": True,
                                       "few_shot": "prompts/planner_fewshot.md",
                                       "history": "dsl"}
@@ -290,16 +291,26 @@ def test_cli_memory_flags_and_planner_recent_prompt():
     args, _ = cli.build_parser(["serve", "--no-memory", "--no-memory-llm"])
     assert args.memory is False
     assert args.memory_llm is False
+    args, _ = cli.build_parser(["serve", "--no-longterm"])
+    assert args.longterm is False
 
     p = _planner()
     baseline = p.user_message("goal", "observation", None)
     assert baseline == 'Goal: "goal"\nobservation'
     assert p.user_message("goal", "observation", None, recent=None) == baseline
     assert p.user_message(
+        "goal", "observation", None, recent=None, memory=None) == baseline
+    assert p.user_message(
         "goal", "observation", None, hint="Open Safari",
         recent=["open Safari ok"]
     ) == ('Goal: "goal"\nHint: likely Open Safari\nRecent:\nopen Safari ok\n'
           'observation')
+    with_memory = p.user_message(
+        "goal", "observation", None, recent=["recent"],
+        memory=["Memory: person mom = Jane", "Memory: fact tea = green"])
+    assert with_memory.endswith(
+        "Recent:\nrecent\nMemory: person mom = Jane\n"
+        "Memory: fact tea = green\nobservation")
 
 
 def test_planner_complete_greedy_stops_at_newline():
