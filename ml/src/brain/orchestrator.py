@@ -40,6 +40,23 @@ def _norm(text: str) -> str:
     return " ".join(re.sub(r"[^\w\s']", " ", text.lower()).split())
 
 
+def _script_failure(error: str, res: dict | None) -> tuple[str, str]:
+    """(bubble, planner reason) for a failed script act: HandsKit sends
+    timed_out / exit_code / stderr and `script_failed: exit N: <stderr>`."""
+    res = res or {}
+    err = " ".join(str(res.get("stderr") or "").split())[:200]
+    if res.get("timed_out") or re.search(r"timed? ?out", error or ""):
+        return "That script timed out", "timed out" + (f"; stderr: {err}" if err else "")
+    code = res.get("exit_code")
+    if code is None and (m := re.search(r"exit (-?\d+)", error or "")):
+        code = int(m.group(1))
+    if code is None:
+        return "Script failed", error or "?"
+    if not err:
+        err = re.sub(r"^script_failed: exit -?\d+:? ?", "", error or "")[:200]
+    return "Script failed", f"exit {code}" + (f"; stderr: {err}" if err else "")
+
+
 def _headtail(s: str, n: int = 1500) -> str:
     """Script output for the planner: head + tail when longer than n."""
     if len(s) <= n:
@@ -72,6 +89,8 @@ def script_needs_confirm(lang: str, code: str) -> bool:
 
 
 class Orchestrator:
+    WEB_AX_WINDOW_S = 2.2     # Chrome's web AX tree lands ~2 s after a switch
+
     def __init__(self, server, catalog: Catalog | None = None,
                  tracer: Tracer | None = None, engine=None, tau: float = 0.55):
         self.server = server
@@ -86,6 +105,7 @@ class Orchestrator:
         self._ctx = {"app": "none", "focused": "none", "selection": False,
                      "last_action": "none"}
         self._t_final = 0.0
+        self._web_ax_t0 = None      # first web_ax_pending observe arrival
         self._first_action_ms: float | None = None
         self._batch_confirmed = False
         self._pending_task: dict | None = None
@@ -150,6 +170,7 @@ class Orchestrator:
         t0 = time.perf_counter()
         self._t_final = t0
         self._first_action_ms = None
+        self._web_ax_t0 = None
         self._ms_kind = None
         trace = self.tracer.begin(text)
         # utterance-frame ctx wins (app/focused/selection/online)
@@ -582,7 +603,13 @@ class Orchestrator:
                     return {"status": "cancelled"}
             r = await self._rpc_action(
                 "act", {"op": "script", "lang": lang, "code": code}, a)
-            r["_log"] = f"script -> {'ok' if r['status']=='ok' else 'failed: ' + r.get('error','?')}"
+            if r.get("status") == "failed":
+                bubble, why = _script_failure(r.get("error", "?"),
+                                              r.get("res"))
+                r["_log"] = f"script -> failed: {why}"
+                await self.server.say(bubble)
+            else:
+                r["_log"] = f"script -> {r['status']}"
             if r.get("status") == "ok":
                 out = r.get("res", {})
                 text_out = out.get("output") or out.get("stdout") or ""
@@ -1017,6 +1044,27 @@ class Orchestrator:
     # ---------- execution ----------
 
     async def _observe(self):
+        """observe; while Chrome fills its web AX tree (`web_ax_pending`,
+        ~2 s after the switch) wait out the window once and re-observe;
+        never a screenshot because of it."""
+        res = await self._observe_once()
+        if not res or not res.get("web_ax_pending"):
+            if res:
+                self._web_ax_t0 = None
+            return res
+        now = time.perf_counter()
+        if self._web_ax_t0 is None:
+            self._web_ax_t0 = now
+        await asyncio.sleep(max(0.0, self.WEB_AX_WINDOW_S
+                                - (now - self._web_ax_t0)))
+        res = await self._observe_once() or res
+        if self.tracer.current is not None:
+            tr = self.tracer.current
+            tr["web_ax_wait_ms"] = round(tr.get("web_ax_wait_ms", 0) + (
+                time.perf_counter() - now) * 1000, 1)
+        return res
+
+    async def _observe_once(self):
         t = time.perf_counter()
         try:
             res = await self.server.rpc(
@@ -1151,8 +1199,8 @@ class Orchestrator:
         self.tracer.rpc("act", params, self._trace_res(res),
                         (time.perf_counter() - t) * 1000)
         if not res.get("ok", False):
-            return await self._fail(res.get("error", "script failed"),
-                                  "Script failed")
+            err = res.get("error", "script failed")
+            return await self._fail(err, _script_failure(err, res)[0])
         return "ok"
 
     async def _skill(self, a: dict) -> str:
