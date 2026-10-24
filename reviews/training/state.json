@@ -1,10 +1,10 @@
 {
-  "pass": 38,
-  "ts": "2026-10-24T19:05:44Z",
+  "pass": 39,
+  "ts": "2026-10-24T19:20:27Z",
   "mode": "pulse",
   "last_reviewed": {
-    "main": "e56582b",
-    "wip/local": "73f7044",
+    "main": "fb2cfd0",
+    "wip/local": "9ed6bc8",
     "cloud/data-pipeline": "f8b721a",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -37,5 +37,6 @@
     "cloud/data-planner": "ee8ae33",
     "cloud/bench-fix": "4bcf0db"
   },
-  "next_id": 38
+  "next_id": 38,
+  "notes_pass39": "main fb2cfd0: evals/live_t1.jsonl changed only precondition/check/teardown/document_apps on 6 cases; all 43 utterances unchanged, so decontam gates and it2/it3cand overlap results stand. No lane findings."
 }

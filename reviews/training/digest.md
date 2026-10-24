@@ -1,6 +1,6 @@
-# training lane digest — pass 38 (cloud/data-route 42835ce, cloud/decisions 694c198, cloud/comms c94a407, main e56582b)
+# training lane digest — pass 39 (main fb2cfd0, cloud/data-route 42835ce, cloud/decisions 694c198, cloud/comms c94a407)
 
-Open: 0 P0, 12 P1, 14 P2. New: training-45 (P1). Fixes pending in it3cand for training-24/-25 (not yet trained).
+Open: 0 P0, 12 P1, 14 P2. Nothing new or resolved. main fb2cfd0 changed live_t1 preconditions/checks only (utterances unchanged; gates unaffected).
 
 ## Ranked open P0/P1
 1. training-44 P1 — it3cand trains draft_email (330) + compose_text (127) as routable; comms/main mark them router:false.
