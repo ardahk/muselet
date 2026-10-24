@@ -13,12 +13,12 @@ import Foundation
 ///    clamped 0...100, read back); `open_folder {view}`; `type_text` /
 ///    `type` into a keystroke app (Calculator, `via: "keystroke_app"`);
 ///    truthful launches (`not_frontmost`). See `Skills`.
-///  - `timers {}` -> `{timers: [{id, label (null if none), total_s, left_s,
-///    minutes, fires_at}]}`: Muselet-started timers (`start_timer`), soonest
-///    first; `minutes` = whole minutes left, rounded up.
+///  - `timers {}` -> Muselet timers plus optional `clock_ax` observations and
+///    Clock shortcut merge status; `timer_backend` reports AX/shortcut readiness.
 ///  - `timers_cancel {id?}` -> `{cancelled: [timer...], timers: [remaining...]}`:
-///    one timer, or every Muselet timer without `id`; an unknown id is
-///    ok=false `unknown_timer` (with the pending list).
+///    one timer, or every Muselet/Clock timer without `id`; an unknown id is
+///    ok=false `unknown_timer` (with the pending list). Clock AX cancel falls
+///    back to the optional Cancel shortcut.
 ///    (Timers are RPCs, not skills, so the catalog is unchanged.)
 ///  - Comms (`brain.comms` contract):
 ///    `contacts_search {query, limit=5}` -> `{matches, ms}` (`contacts_denied`);
@@ -183,8 +183,8 @@ public final class RPCHandler {
                 return (true, skills.timersReport(askClock: params["clock_status"] as? Bool ?? false), nil)
 
             case "timer_backend":
-                // {clock_ready, shortcuts, enabled, backend, cancel_ready, status_ready}
-                return (true, skills.clock.info(refresh: params["refresh"] as? Bool ?? false), nil)
+                // {clock_ready, clock_ax_ready, shortcuts, enabled, backend, cancel_ready, status_ready}
+                return (true, skills.timerBackendInfo(refresh: params["refresh"] as? Bool ?? false), nil)
 
             case "timers_cancel":
                 // No id: every Muselet timer. An id must name a pending timer.
@@ -198,9 +198,11 @@ public final class RPCHandler {
                 let c = skills.cancelTimersDetailed(id: id)
                 var r: [String: Any] = ["cancelled": c.cancelled, "timers": skills.timerList()]
                 if let id, c.unknown { return (false, r, "unknown_timer: \(id)") }
+                if !c.axReasons.isEmpty { r["clock_ax_reasons"] = c.axReasons }
                 if !c.unsupported.isEmpty {
                     r["unsupported"] = c.unsupported
-                    return (false, r, "unsupported: Clock timers need the \(ClockShortcut.cancel) shortcut")
+                    return (false, r,
+                            "unsupported: Clock timer cancel control not found (no \(ClockShortcut.cancel) shortcut)")
                 }
                 if !c.failed.isEmpty {
                     r["failed"] = c.failed
