@@ -75,8 +75,9 @@ Mac (M5 Pro, 64 GB, macOS 27). "Lead" = numbers reported by the lead from the Ma
 ### 2.5 Cost
 - **Tinker billed: $64.89 so far** (lead, 2026-10-24); hard cap $150 (`AGENTS.md`). Per-run estimates: pilots
   $1.93 each, `main` $29.45, it2 $30.44 (report config blocks; estimates, not bills).
-- **API generation for decisions** (OpenAI + Anthropic, separate from Tinker): $52.89 cumulative of a $57 cap
-  (`full_gen.md`). Projected Tinker cost of a 20k-decision run: $12.28 (`full_gen.md`).
+- **API generation for decisions** (OpenAI + Anthropic, separate from Tinker): $52.89 cumulative of the $57 cap in
+  `full_gen.md`. The user has since raised the cap: up to $120 for decisions, $200 per provider overall (lead,
+  2026-10-24). Projected Tinker cost of a 20k-decision run: $12.28 (`full_gen.md`).
 
 ## 3. How each model is evaluated
 
@@ -154,22 +155,27 @@ asked, latency. Safety guards (`bench/live/README.md`, `bench/RUNBOOK.md`):
 | JevBench public | base Qwen3.5-4B .719 | DeskMind brain-4b .831, brain-0.8b .723 | `pitch/claims.md` §1a |
 | Typed-decisions test | base .569 | brain-4b .658, brain-0.8b .540 | `pitch/claims.md` §1a |
 | Receipt OCR (Apple Vision, warm) | ~150 ms per receipt | - | `pitch/claims.md` §1 |
-| Live suite, HobbyLM r4, DeskMind Bench | pending | pending | §5 |
+| Live suite (`evals/live_t1.jsonl`), serving config: it2 + tuned 4B planner, runner defaults, screen unlocked; 27 of 43 cases ran | T1 **19/22 (86.4%)**, T2 1/5; files category 2/7 | - | lead; `runs/bench/live/20261024T161427Z` |
+| Live suite: false_done / confirms asked | 4 / 3 | - | same |
+| Live suite latency: first action p50 / p95; verified completion p50 / p95 | 193 / 812 ms; 704 ms / 4.1 s | - | same |
+| HobbyLM sealed-r4, DeskMind Bench (live) | pending | pending | §5 |
 
-`pitch/claims.md` §1a still shows the earlier planner numbers (.84 / .57); the table above uses the lead's newer
-shipped-4B numbers.
+Planner speed was measured on the earlier tuned config (tune .84 / holdout .57) and has not been re-measured for
+the shipped prompt.
 
 ## 5. Honest gaps
 - **DeskMind leads the System One benchmarks today:** brain-4b is ahead of our base model on JevBench (.831 vs .719)
   and typed-decisions (.658 vs .569). Even DeskMind's 0.8B edges our base 4B on JevBench (.723 vs .719); we are ahead of
   it only on typed-decisions (.569 vs .540). The decisions LoRA that targets this
   is not trained yet, and decontamination left only 301 code-gold states (no counting, multi-hop or long-policy).
-- **Live competitor runs are pending** (HobbyLM sealed-r4, DeskMind Bench: pending morning run), and so is the live
-  suite (the screen was locked overnight). No Muselet number exists on any competitor's own benchmark yet.
+- **Live competitor runs are pending** (HobbyLM sealed-r4, DeskMind Bench): a harness bug blocked the morning
+  replay. No Muselet number exists on any competitor's own benchmark yet.
+- **Live suite is weak on multi-step and files:** T2 1/5 and files 2/7, with 4 false_done (the agent said done but
+  the final-state check failed). Only 27 of the 43 cases ran under runner defaults.
 - **Planner holdouts trail tune** (.643 / .667 vs .88); the holdout numbers are the honest ones. 35B-A3B is better on
   holdout (.71) but about 2x slower per turn.
 - **Router weak spots** on it2 val: compose_email .720, media_control .800, open_folder .800, set_brightness .808.
-- **Not yet measured:** route p95, end-to-end release-to-action latency, memory / disk footprint, grounding on the
+- **Not yet measured:** route p95, memory / disk footprint, grounding on the
   full ScreenSpot-Pro or OSWorld-G.
 - **Safety is scoped, not universal:** Enter/Send gating covers recognized chat composers, and "done" needs a passing
   `expect` or fresh observation but there is no universal goal check (`pitch/claims.md` §2).
