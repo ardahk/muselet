@@ -73,6 +73,8 @@ uv run --project ml python bench/deskmind/run_muselet.py --dry-run
 # 3a Muselet shim (terminal A), then runners (terminal B), then stop the shim
 PYTHONPATH=ml/src uv run --project ml python -m bench.systemone.cli --host 127.0.0.1 --port 8793 \
   --backend mlx --model-path mlx-community/Qwen3.5-4B-4bit --model-name muselet
+# For a calibrated export, add --calibration runs/decisions/export/<name>/mlx4/calibration.json.
+# The same option works with --backend tinker; do not combine it with non-default temperature flags.
 bash bench/run_jevbench.sh --url http://127.0.0.1:8793 --model muselet
 bash bench/run_typed_decisions.sh --url http://127.0.0.1:8793 --model muselet
 # 3b DeskMind brain-0.8b (terminal A: (cd $DM/brain && uv run deskmind-brain-serve --predictor mlx:models/brain-0.8b --port 8794))

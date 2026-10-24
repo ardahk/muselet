@@ -14,6 +14,12 @@ The cloud sampler backend uses the shared Qwen renderer and is selected with
 `--backend tinker --model-path <base-model-or-tinker-uri>`. Install its optional SDK with
 `uv sync --project ml --extra tinker`; the project's existing `tinker-cookbook` pin is reused.
 
+For either the `mlx` or `tinker` backend, pass `--calibration <path>` to load
+`temperature_probs` and `temperature_conf` from a calibration JSON file. The file values
+calibrate the answer probabilities and confidence distribution separately. Do not combine
+`--calibration` with non-default `--temperature-probs` or `--temperature-conf` flags; without
+a file, the temperature flags remain available directly.
+
 The schemas in `examples/` and the stdlib parser in `schema.py` mirror DeskMind Brain's ordered choice criteria,
 ordinal score levels, request identity, normalization and confidence formulas. The additional `probabilities` member
 on `noul` answers is intentional: JevBench consumes `noul`, while Typed Decisions consumes that distribution.

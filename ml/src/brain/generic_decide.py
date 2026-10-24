@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 from typing import Any
 
 from brain.choice_renderer import AlphaChoiceRenderer
 from brain.decision_chunking import chunk_options, combine_chunked
+from brain.decision import split_model
 from brain.vendor.tinker_decisions import Decision, DecisionRenderer
 
 
@@ -55,6 +57,24 @@ def _common_prefix(renderings: list[Any]) -> int:
             break
         common += 1
     return common
+
+
+def _tempered(logits: list[float], temperature: float) -> list[float]:
+    if not math.isfinite(temperature) or temperature <= 0:
+        raise ValueError("temperature must be finite and positive")
+    if not logits:
+        return []
+    scaled = [float(value) / temperature for value in logits]
+    maximum = max(scaled)
+    exps = [math.exp(value - maximum) for value in scaled]
+    total = sum(exps)
+    return [value / total for value in exps]
+
+
+class DecisionDistributions(dict):
+    def __init__(self, probabilities: dict, confidence_distributions: dict):
+        super().__init__(probabilities)
+        self.confidence_distributions = confidence_distributions
 
 
 class GenericRenderer:
@@ -127,10 +147,22 @@ class GenericMLXDecider:
     "no Stream(gpu, 1) in current thread".
     """
 
-    def __init__(self, model_path: str):
+    def __init__(
+        self,
+        model_path: str,
+        temperature_probs: float = 1.0,
+        temperature_conf: float = 1.0,
+    ):
         import queue
         import threading
 
+        if (
+            not math.isfinite(temperature_probs) or not math.isfinite(temperature_conf)
+            or temperature_probs <= 0 or temperature_conf <= 0
+        ):
+            raise ValueError("temperatures must be positive")
+        self.temperature_probs = float(temperature_probs)
+        self.temperature_conf = float(temperature_conf)
         self._jobs: queue.Queue = queue.Queue()
         self._init_done: queue.Queue = queue.Queue()
         self._worker = threading.Thread(
@@ -193,9 +225,9 @@ class GenericMLXDecider:
     def decide(self, state: str, question: dict) -> dict[str, float]:
         return self.decide_many(state, {"decision": question})["decision"]
 
-    def _score_renderings(self, renderings: dict) -> tuple[dict, int]:
+    def _score_renderings(self, renderings: dict) -> tuple[dict, dict, int]:
         if not renderings:
-            return {}, 0
+            return {}, {}, 0
         shared_len = self.renderer.common_prefix(list(renderings.values()))
         static_len = len(self.renderer.static_tokens)
         if shared_len < static_len:
@@ -211,6 +243,7 @@ class GenericMLXDecider:
             input_tokens += len(shared_tokens)
 
         results = {}
+        confidence_results = {}
         for qid, rendering in renderings.items():
             cache = copy.deepcopy(shared_cache)
             suffix = rendering.tokens[shared_len:rendering.choice_pos]
@@ -223,28 +256,36 @@ class GenericMLXDecider:
                 raise RuntimeError("rendered decision has no dynamic prompt tokens")
             labels = list(rendering.label_tokens)
             token_ids = [rendering.label_tokens[label] for label in labels]
-            probabilities = self.mx.softmax(logits[self.mx.array(token_ids)], axis=0).tolist()
-            results[qid] = dict(zip(labels, (float(value) for value in probabilities), strict=True))
-        return results, input_tokens
+            label_logits = [float(value) for value in logits[self.mx.array(token_ids)].tolist()]
+            results[qid] = dict(zip(
+                labels, _tempered(label_logits, self.temperature_probs), strict=True
+            ))
+            confidence_results[qid] = dict(zip(
+                labels, _tempered(label_logits, self.temperature_conf), strict=True
+            ))
+        return results, confidence_results, input_tokens
 
-    def decide_many(self, state: str, questions: dict[str, dict]) -> dict[str, dict[str, float]]:
+    def decide_many(self, state: str, questions: dict[str, dict]) -> DecisionDistributions:
         return self._submit(lambda: self._decide_many(state, questions))
 
-    def _decide_many(self, state: str, questions: dict[str, dict]) -> dict[str, dict[str, float]]:
+    def _decide_many(self, state: str, questions: dict[str, dict]) -> DecisionDistributions:
         plans, decisions = self.renderer.prepare(state, questions)
         renderings = self.renderer.render_decisions(decisions)
-        conditional, input_tokens = self._score_renderings(renderings)
+        conditional, conditional_confidence, input_tokens = self._score_renderings(renderings)
 
         results = {}
+        confidence_results = {}
         stage_two = {}
         for qid, plan in plans.items():
             chunks = plan["chunks"]
             if not plan["keys"]:
                 results[qid] = {plan["fixed"]: 1.0}
+                confidence_results[qid] = {plan["fixed"]: 1.0}
                 continue
             distributions = [conditional[key] for key in plan["keys"]]
             if len(chunks) == 1:
                 results[qid] = distributions[0]
+                confidence_results[qid] = conditional_confidence[plan["keys"][0]]
                 continue
             winners = []
             for chunk, distribution in zip(chunks, distributions, strict=True):
@@ -253,7 +294,7 @@ class GenericMLXDecider:
             stage_two[qid] = Decision(text=plan["decision"].text, choices=winners)
 
         final_renderings = self.renderer.render_decisions(stage_two)
-        final_distributions, final_tokens = self._score_renderings(final_renderings)
+        final_distributions, final_confidence, final_tokens = self._score_renderings(final_renderings)
         for qid, decision in stage_two.items():
             plan = plans[qid]
             conditional_distributions = [
@@ -262,11 +303,17 @@ class GenericMLXDecider:
             results[qid] = combine_chunked(
                 plan["chunks"], conditional_distributions, final_distributions[qid]
             )
+            confidence_results[qid] = combine_chunked(
+                plan["chunks"],
+                [conditional_confidence[key] for key in plan["keys"]],
+                final_confidence[qid],
+            )
         self.last_input_tokens = input_tokens + final_tokens
-        return results
+        return DecisionDistributions(results, confidence_results)
 
 
 __all__ = [
-    "GenericMLXDecider", "GenericRenderer", "chunk_options",
+    "DecisionDistributions", "GenericMLXDecider", "GenericRenderer", "chunk_options",
     "combine_chunked", "_decision",
+    "_tempered",
 ]

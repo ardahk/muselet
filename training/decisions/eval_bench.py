@@ -38,12 +38,13 @@ def main(argv: list[str] | None = None) -> None:
     temperatures = {"temperature_probs": 1.0, "temperature_conf": 1.0}
     if args.calibration:
         temperatures.update(json.loads(args.calibration.read_text()))
-    shim = subprocess.Popen([
+    shim_command = [
         sys.executable, "-m", "bench.systemone.cli", "--backend", "tinker",
         "--model-path", args.sampler, "--port", str(args.port),
-        "--temperature-probs", str(temperatures["temperature_probs"]),
-        "--temperature-conf", str(temperatures["temperature_conf"]),
-    ], cwd=ROOT, env=os.environ.copy())
+    ]
+    if args.calibration:
+        shim_command.extend(["--calibration", str(args.calibration)])
+    shim = subprocess.Popen(shim_command, cwd=ROOT, env=os.environ.copy())
     try:
         wait_for_port(args.port, shim)
         url = f"http://127.0.0.1:{args.port}"

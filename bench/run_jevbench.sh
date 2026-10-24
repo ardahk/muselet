@@ -20,10 +20,12 @@ LIMIT=""
 START_SHIM=0
 BACKEND=fake
 MODEL_PATH=""
+CALIBRATION=""
 OUT_ROOT="$ROOT/runs/bench/jevbench"
+ORIGINAL_ARGS=("$@")
 
 usage() {
-  echo "Usage: $0 [--url URL | --start-shim] [--backend fake|mlx] [--model-path PATH] [--model NAME] [--limit N] [--out-root DIR]"
+  echo "Usage: $0 [--url URL | --start-shim] [--backend fake|mlx|tinker] [--model-path PATH] [--calibration PATH] [--model NAME] [--limit N] [--out-root DIR]"
 }
 
 while (($#)); do
@@ -33,6 +35,7 @@ while (($#)); do
     --start-shim) START_SHIM=1; shift ;;
     --backend) BACKEND="$2"; shift 2 ;;
     --model-path) MODEL_PATH="$2"; shift 2 ;;
+    --calibration) CALIBRATION="$2"; shift 2 ;;
     --model) MODEL="$2"; shift 2 ;;
     --limit) LIMIT="$2"; shift 2 ;;
     --out-root) OUT_ROOT="$2"; shift 2 ;;
@@ -41,6 +44,10 @@ while (($#)); do
 done
 if ((START_SHIM)) && [[ -n "$URL" ]]; then echo "Use either --url or --start-shim" >&2; exit 2; fi
 if ((!START_SHIM)) && [[ -z "$URL" ]]; then echo "Pass --url or --start-shim" >&2; exit 2; fi
+if [[ -n "$CALIBRATION" ]] && ((!START_SHIM)); then
+  echo "--calibration requires --start-shim" >&2
+  exit 2
+fi
 
 if [[ -n "${JEVBENCH_DIR:-}" ]]; then
   JEV="$JEVBENCH_DIR"
@@ -67,6 +74,7 @@ trap cleanup EXIT INT TERM
 if ((START_SHIM)); then
   shim_args=(--host 127.0.0.1 --port 8793 --backend "$BACKEND" --model-name "$MODEL")
   if [[ -n "$MODEL_PATH" ]]; then shim_args+=(--model-path "$MODEL_PATH"); fi
+  if [[ -n "$CALIBRATION" ]]; then shim_args+=(--calibration "$CALIBRATION"); fi
   PYTHONPATH="$ROOT:$ROOT/ml/src${PYTHONPATH:+:$PYTHONPATH}" "$PY" -m bench.systemone.cli "${shim_args[@]}" >"$RUN/shim.log" 2>&1 &
   SHIM_PID=$!
   URL=http://127.0.0.1:8793
@@ -83,8 +91,9 @@ PY
     sleep 0.1
   done
 fi
-printf '%q ' "$0" "$@" >"$RUN/command.txt"
-printf '\nPython: %s\nJevBench commit: %s\nURL: %s\nModel: %s\n' "$PY" "$PIN" "$URL" "$MODEL" >>"$RUN/command.txt"
+printf '%q ' "$0" "${ORIGINAL_ARGS[@]}" >"$RUN/command.txt"
+printf '\nPython: %s\nJevBench commit: %s\nURL: %s\nModel: %s\nCalibration: %s\n' \
+  "$PY" "$PIN" "$URL" "$MODEL" "${CALIBRATION:-none}" >>"$RUN/command.txt"
 for split in original easy hard; do
   dir="$RUN/$split"
   mkdir -p "$dir/raw"
