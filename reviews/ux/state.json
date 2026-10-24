@@ -1,9 +1,9 @@
 {
-  "pass": 29,
-  "ts": "2026-10-24T12:50:00Z",
+  "pass": 30,
+  "ts": "2026-10-24T13:02:00Z",
   "last_reviewed": {
-    "main": "b625ceb",
-    "wip/local": "49f808f",
+    "main": "82d94d9",
+    "wip/local": "5b3d695",
     "cloud/data-pipeline": "512cce0",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -27,5 +27,5 @@
     "cloud/pitch-4": "6393857",
     "cloud/brain-6": "780f49d"
   },
-  "notes": "pass 29: only brain-6 moved (send gate via _enter_sends, grounded-click safety gate with OCR probe). It widens ux-19 (a second unguarded ask_confirm at 1419). main b625ceb and wip 49f808f are unchanged."
+  "notes": "pass 30: main 82d94d9 merged brain-6 (#21) plus the sendgate browser list (outside the lane files); ux-19 is widened on main. wip matches main. 8 P2s open on main."
 }

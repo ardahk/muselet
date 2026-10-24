@@ -1,4 +1,4 @@
-# ux digest — pass 29 (main b625ceb, wip 49f808f, brain-6 780f49d) — 8 open P2s on main
+# ux digest — pass 30 (main 82d94d9, wip 5b3d695) — all 8 open P2s are on main
 
 All 13 P1s (ux-1 to ux-11, ux-13) are resolved on main, with file:line evidence in findings.jsonl (pass 14). No branch-only findings remain.
 Tests: test_planner_confirm_summary.py 3/3 PASS, and test_confirm_summary_names_object PASS. test_confirm_timeout_clears_app_confirm is stale: its fake ask_confirm doesn't emit confirm_cancel, and the real server.py:174 does.
@@ -15,7 +15,7 @@ None.
 - ux-16 (now on main) 'a bit brighter' bubble says 'Done'; use result['level'] — replies.py:52 — ml/src/brain/replies.py:48-52
 - ux-17 (now on main, partly fixed) Calculator replay: the answer bubble comes only after all keys and the read-back; a mismatch shows a confused face — orchestrator.py _deliver_calc
 - ux-18 (now on main) File disambiguation asks 'report.pdf or report.pdf?' — orchestrator.py:611-619
-- ux-19 (main; widened on brain-6 :1361,:1419) Grounded-click confirm timeout shows 'Something went wrong' — orchestrator.py _click_target
+- ux-19 (main :1361,:1419) Grounded-click confirm timeout shows 'Something went wrong' — orchestrator.py _click_target
 - ux-20 (now on main) First grounded click cold-loads eyes-4b with no feedback — orchestrator.py _get_grounder
 
 ## Highest-leverage next moves
