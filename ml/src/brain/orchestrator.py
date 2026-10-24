@@ -428,6 +428,8 @@ class Orchestrator:
         self._answer_history: list[str] = []
         self._last_action_error = None
         self._comms: dict | None = None
+        self._clock_hint_said = False
+        self._hint_task: asyncio.Task | None = None
         self._draft: dict | None = None
         self._script_output: str | None = None
         self._spec_norm = ""
@@ -2946,7 +2948,31 @@ function run() {
             return await self._web_answer(self._utterance, trace)
         await self.server.say(reply)
         await self._end_ui("success")
+        if name == "start_timer":
+            await self._clock_hint(res.get("result"))
         return "ok"
+
+    # Seconds the timer reply stays up before the setup hint replaces it.
+    CLOCK_HINT_DELAY_S = 3.0
+
+    async def _clock_hint(self, result) -> None:
+        """Once per brain session: the timer fell back to Muselet because
+        the Clock shortcut is missing -> point at Settings. Said after the
+        timer reply has been read, unless a new request started meanwhile."""
+        if self._clock_hint_said or not isinstance(result, dict) or \
+                result.get("fallback_reason") != "shortcut_missing":
+            return
+        self._clock_hint_said = True
+        if self.CLOCK_HINT_DELAY_S <= 0:
+            await self.server.say(replies.CLOCK_HINT)
+            return
+        t_final = self._t_final
+
+        async def later():
+            await asyncio.sleep(self.CLOCK_HINT_DELAY_S)
+            if self._t_final == t_final:
+                await self.server.say(replies.CLOCK_HINT)
+        self._hint_task = asyncio.ensure_future(later())
 
     def _web_question(self, text: str | None) -> bool:
         return bool(text) and self.planner is not None and \

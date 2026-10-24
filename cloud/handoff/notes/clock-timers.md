@@ -1,0 +1,49 @@
+## Handoff
+
+_Last updated: 2026-10-24, after PR #34 was opened (milestone: implementation complete, waiting on Mac verification)._
+
+**State**
+- Done: the full `cloud/builder_clock_timers.md` brief is implemented in one PR, [ardahk/muselet#34](https://github.com/ardahk/muselet/pull/34), on branch `cloud/clock-timers`. The implementation commit is `d060b5a` (rebased on `main` @ `e2472e2`).
+  - Swift, HandsKit: Clock backend, shortcut detection, fallback, cancel, merge, and the `timer_backend` RPC.
+  - Swift, app: Settings › Timers card.
+  - Python brain: per-backend replies and the once-per-session hint.
+  - Docs: `docs/CLOCK_TIMERS.md` and `AGENTS.md`.
+  - Tests: Swift and Python.
+- In flight: nothing on the agent side. The PR waits on the lead's Mac team.
+- **Swift has never been compiled.** The agent ran on Linux. Python passes: `ml/` 1310 passed / 55 skipped; bench timer tests 24 passed. The repo has no CI.
+
+**Exact next steps**
+1. On a Mac: `cd app && swift build && swift test`. Fix any compile errors. The most likely spots:
+   - the labeled-tuple append in `FakeShortcuts.runs` (`app/Tests/HandsKitTests/ClockTimersTests.swift`);
+   - `case true?` / `case false?` in `SettingsView.timerBadge`;
+   - the `var` captures in `ShortcutsCLI.exec` (`app/Sources/HandsKit/ClockTimers.swift`).
+2. Follow `docs/CLOCK_TIMERS.md` on macOS 27 and replace every "*unverified on macOS 27*" marker with the real action/field names.
+3. Run the lead's Mac checks, listed under "What the lead must verify on the Mac" in the PR body:
+   - `shortcuts run` latency, cold and warm, against the 10 s timeout;
+   - Clock shows and rings the timer;
+   - fallback and hint;
+   - toggle off means no `shortcuts` process;
+   - HobbyLM timer grading and teardown.
+4. Address review comments on #34. Never merge; the lead merges.
+
+**Artifacts**
+- Branch `cloud/clock-timers`. Implementation commit `d060b5a`; handoff notes added in `3446136` and later commits on the branch. PR #34.
+- No HF repos, Tinker runs, checkpoints or run dirs: there was no training or eval in this lane.
+- Python test env on Linux: `ml/.venv`, plus `uv pip install --python ml/.venv/bin/python "mlx-cpu==0.32.4"`. That install is needed only on Linux, where `libmlx.so` is missing. It is not committed.
+
+**Spend so far**
+- No Tinker, HF, OpenAI or Anthropic API spend; none of the provided keys were used.
+- Devin time: one session, about 2 h of work. The agent can't see exact credit usage.
+
+**Open questions for the lead**
+- Is the 3 s delay acceptable for the "Add the Clock shortcut in Settings…" hint? It is delayed so it doesn't instantly replace the timer bubble, and it is dropped if a new utterance arrives first.
+- Timeout risk: `shortcuts run` can time out (> 10 s) and still start the Clock timer, while Muselet also starts its own fallback timer, so two timers run. Keep this as is, or skip the fallback on timeout?
+- HobbyLM teardown of a Clock timer without `Muselet Cancel Timer` reports `unsupported` and leaves the real Clock timer running. Should the bench require the cancel shortcut, or force the toggle off?
+
+**Gotchas**
+- `SystemHooks.inert` uses `NoShortcuts`, so unit tests never launch `/usr/bin/shortcuts`. Only `.live` uses `ShortcutsCLI`. A new test that needs Clock behaviour should inject `FakeShortcuts` via `hooks.shortcuts`.
+- Clock timers are kept as `TimerRegistry` records with `backend:"clock"` and a no-op fire closure. They expire from the list on time but never ring in Muselet. That is how `timers` and the snapshot (`$TMPDIR/muselet-timers/<pid>.json`, read by bench/hobbylm) keep covering both backends.
+- `shortcuts list` is cached for 60 s and re-listed on a miss at most every 2 s. Any failed shortcut run invalidates the cache.
+- `timers` runs `Muselet Timer Status` only when a Clock record exists or `clock_status:true` is passed. This keeps HobbyLM baseline calls cheap.
+- The fallback bubble wording changed from "10 min" to "10 minutes". `ml/tests/test_review_fixes.py` was updated to match.
+- The Settings toggle is persisted as UserDefaults `muselet.clockTimers` (default true) and applied to `rpc.skills.clock.enabled` in `AppDelegate.wireActions`.

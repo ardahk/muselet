@@ -319,7 +319,7 @@ def test_done_after_verified_act_is_success(orch):
     ("open_app", {"app": "Safari"}, "Opened Safari"),
     ("dark_mode", {"on": True}, "Dark mode on"),
     ("mute", {"on": False}, "Unmuted"),
-    ("start_timer", {"duration": "600"}, "Timer set for 10 min"),
+    ("start_timer", {"duration": "600"}, "Timer set for 10 minutes"),
     ("move_to_trash", {"path": "/Users/a/Desktop/old.pdf"},
      "Moved old.pdf to Trash"),
     ("send_message", {"to": "Mom", "body": "hi"}, "Sent to Mom"),

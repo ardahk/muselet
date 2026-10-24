@@ -15,6 +15,11 @@ final class AppActions {
     /// Run a typed request (example prompts) as a final utterance.
     var runExample: (String) -> Void = { _ in }
     var setEscalatePlanner: (Bool) -> Void = { _ in }
+    /// Settings › Timers.
+    var setUseClockTimers: (Bool) -> Void = { _ in }
+    /// Re-run `timer_backend` (`refresh`: re-list shortcuts now).
+    var refreshTimerBackend: (Bool) -> Void = { _ in }
+    var openShortcuts: () -> Void = {}
 }
 
 /// Menu-bar panel: a simple home page; everything technical lives in Settings (gear).

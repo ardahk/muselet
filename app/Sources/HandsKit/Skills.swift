@@ -75,6 +75,8 @@ public struct SystemHooks {
     public var notify: (_ title: String, _ body: String) -> Void
     /// The pending timers changed (live: the `hands probe timers` snapshot file).
     public var timersChanged: ([TimerRegistry.Info]) -> Void
+    /// `/usr/bin/shortcuts` for Clock.app timers (inert: none installed).
+    public var shortcuts: ShortcutsRunning
 
     public init(bluetoothGet: @escaping () -> Bool?, bluetoothSet: @escaping (Bool) -> Bool,
                 bluetoothControlCenter: @escaping (Bool) throws -> Bool,
@@ -82,7 +84,8 @@ public struct SystemHooks {
                 brightnessGet: @escaping () -> Float?, brightnessSet: @escaping (Float) -> Bool,
                 playSound: @escaping (String) -> Void,
                 notify: @escaping (String, String) -> Void,
-                timersChanged: @escaping ([TimerRegistry.Info]) -> Void = { _ in }) {
+                timersChanged: @escaping ([TimerRegistry.Info]) -> Void = { _ in },
+                shortcuts: ShortcutsRunning = NoShortcuts()) {
         self.bluetoothGet = bluetoothGet
         self.bluetoothSet = bluetoothSet
         self.bluetoothControlCenter = bluetoothControlCenter
@@ -92,6 +95,7 @@ public struct SystemHooks {
         self.playSound = playSound
         self.notify = notify
         self.timersChanged = timersChanged
+        self.shortcuts = shortcuts
     }
 
     /// No side effects at all (unit tests start from this).
@@ -120,7 +124,8 @@ public struct SystemHooks {
                 }
             },
             notify: { title, body in Notifier.post(title: title, body: body) },
-            timersChanged: { TimerSnapshot.write($0) })
+            timersChanged: { TimerSnapshot.write($0) },
+            shortcuts: ShortcutsCLI())
     }
 }
 
@@ -300,6 +305,8 @@ public final class Skills {
 
     /// Muselet-started timers (`start_timer`; `timers` / `timers_cancel` RPCs).
     public let timers = TimerRegistry()
+    /// Clock.app backend for `start_timer` (Settings toggle + shortcut detection).
+    public let clock: ClockTimers
 
     /// Premiere Pro default keyboard shortcuts per `premiere_command`.
     public static let premiereKeys: [String: String] = [
@@ -329,6 +336,7 @@ public final class Skills {
         self.apps = apps
         self.hooks = hooks
         self.launcher = launcher
+        self.clock = ClockTimers(runner: hooks.shortcuts)
         timers.onChange = { [hooks] in hooks.timersChanged($0) }
     }
     public convenience init() {
@@ -338,16 +346,66 @@ public final class Skills {
     /// Number of timers scheduled and not yet fired.
     public var pendingTimers: Int { timers.count }
 
-    /// `timers {}` RPC: pending Muselet timers, soonest first
-    /// (`{id, label (null if none), total_s, left_s, minutes, fires_at}`).
+    /// Pending timers Muselet started (both backends), soonest first
+    /// (`{id, label (null if none), total_s, left_s, minutes, fires_at, backend}`).
     public func timerList(now: Date = Date()) -> [[String: Any]] {
         timers.list().map { TimerRegistry.dict($0, now: now) }
     }
 
+    /// `timers {}` RPC: `timerList` merged with Clock's current timer
+    /// (`Muselet Timer Status`, asked only when a Clock timer is on record or
+    /// `askClock`), plus `clock` (merge status) and `backend` (timer_backend).
+    public func timersReport(askClock: Bool = false, now: Date = Date()) -> [String: Any] {
+        let records = timerList(now: now)
+        var status: ClockShortcut.Status?
+        if askClock || records.contains(where: { $0["backend"] as? String == "clock" }),
+           let r = clock.runPlain(ClockShortcut.status) {
+            status = ClockShortcut.failureReason(r).map { ClockShortcut.Status.unknown($0) }
+                ?? ClockShortcut.parseStatus(r.stdout)
+        }
+        let merged = TimerMerge.merge(records, status: status)
+        return ["timers": merged.timers, "clock": merged.clock, "backend": clock.info()]
+    }
+
+    /// `timers_cancel` outcome. Clock timers are cancelled with
+    /// `Muselet Cancel Timer`; without it they are `unsupported` (kept).
+    public struct TimerCancel {
+        public var cancelled: [[String: Any]] = []
+        /// Clock timer ids that need the Cancel shortcut.
+        public var unsupported: [String] = []
+        /// Clock timer ids whose Cancel shortcut run failed, with the reason.
+        public var failed: [[String: Any]] = []
+        public var unknown = false
+    }
+
     /// `timers_cancel {id?}` RPC: cancel one timer, or all when `id` is nil.
-    /// Returns the cancelled timers (wire form; empty for an unknown id).
+    public func cancelTimersDetailed(id: String?, now: Date = Date()) -> TimerCancel {
+        var out = TimerCancel()
+        let targets = timers.list().filter { id == nil || $0.id == id }
+        if id != nil && targets.isEmpty { out.unknown = true; return out }
+        for t in targets where t.backend != "clock" {
+            out.cancelled += timers.cancel(id: t.id).map { TimerRegistry.dict($0, now: now) }
+        }
+        let clockTargets = targets.filter { $0.backend == "clock" }
+        if !clockTargets.isEmpty && !clock.has(ClockShortcut.cancel) {
+            out.unsupported = clockTargets.map(\.id)
+            return out
+        }
+        for t in clockTargets {
+            guard let r = clock.runPlain(ClockShortcut.cancel) else { out.unsupported.append(t.id); continue }
+            if let reason = ClockShortcut.failureReason(r) {
+                out.failed.append(["id": t.id, "reason": reason])
+                continue
+            }
+            out.cancelled += timers.cancel(id: t.id).map { TimerRegistry.dict($0, now: now) }
+        }
+        return out
+    }
+
+    /// Cancel one timer, or all when `id` is nil. Returns the cancelled
+    /// timers (wire form; empty for an unknown id).
     public func cancelTimers(id: String?, now: Date = Date()) -> [[String: Any]] {
-        timers.cancel(id: id).map { TimerRegistry.dict($0, now: now) }
+        cancelTimersDetailed(id: id, now: now).cancelled
     }
 
     public func def(_ name: String) -> SkillDef? { catalog[name] }
@@ -807,7 +865,24 @@ public final class Skills {
         return found ? total : nil
     }
 
+    /// Clock.app first (toggle on + `Muselet Start Timer` installed), else
+    /// the internal timer with `fallback_reason`. Both are kept in `timers`
+    /// (Clock: a record that never fires here), so the snapshot covers both.
     private func startTimer(seconds: Double, label: String?) -> [String: Any] {
+        var fallback: String?
+        if clock.enabled {
+            let attempt = clock.start(seconds: seconds)
+            if attempt.reason == nil {
+                let info = timers.start(seconds: seconds, label: label, backend: "clock") { _ in }
+                var r: [String: Any] = ["backend": "clock", "seconds": seconds, "ms": attempt.ms,
+                                        "fires_at": TimerRegistry.isoString(info.firesAt), "timer_id": info.id]
+                if let label { r["label"] = label }
+                return r
+            }
+            fallback = attempt.reason
+        } else {
+            fallback = "clock_off"
+        }
         let hooks = self.hooks
         let info = timers.start(seconds: seconds, label: label) { [weak self, weak delegate = self.delegate] _ in
             hooks.playSound("Glass")
@@ -815,7 +890,8 @@ public final class Skills {
             (self?.delegate ?? delegate)?.handsTimerFired(label: label)
         }
         var r: [String: Any] = ["fires_at": TimerRegistry.isoString(info.firesAt), "seconds": seconds,
-                                "timer_id": info.id]
+                                "timer_id": info.id, "backend": "muselet"]
+        if let fallback { r["fallback_reason"] = fallback }
         if let label { r["label"] = label }
         return r
     }

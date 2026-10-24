@@ -2,10 +2,11 @@ import AppKit
 import HandsKit
 import SwiftUI
 
-/// Settings page (behind the gear): Permissions, Models, Voice, Debug.
+/// Settings page (behind the gear): Permissions, Models, Voice, Timers, Debug.
 struct SettingsView: View {
     @ObservedObject var model: AppModel
     private let actions = AppActions.shared
+    @State private var showTimerSetup = false
 
     var body: some View {
         ScrollView {
@@ -13,6 +14,7 @@ struct SettingsView: View {
                 permissions
                 if PlannerSettings.supported { models }
                 voice
+                timers
                 debug
             }
             .padding(.bottom, 2)
@@ -118,6 +120,61 @@ struct SettingsView: View {
         case .downloading: Badge(text: "downloading", color: .orange)
         case .loading: Badge(text: "loading", color: .orange)
         case .idle: Badge(text: "idle", color: .secondary)
+        }
+    }
+
+    private var timers: some View {
+        Card(title: "Timers") {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: "timer").foregroundStyle(.secondary).frame(width: 18)
+                    Text(timerStatusText).font(.system(size: 12)).lineLimit(1)
+                    Spacer()
+                    timerBadge
+                    Button(showTimerSetup ? "Done" : "Set up") {
+                        showTimerSetup.toggle()
+                        if showTimerSetup { actions.refreshTimerBackend(true) }
+                    }
+                    .controlSize(.small)
+                }
+                Toggle(isOn: Binding(get: { model.useClockTimers },
+                                     set: { actions.setUseClockTimers($0) })) {
+                    Text("Use the Clock app for timers").font(.system(size: 12.5))
+                }
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                if showTimerSetup { timerSetup }
+            }
+        }
+    }
+
+    private var timerSetup: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(Array(TimerSettings.setupSteps.enumerated()), id: \.offset) { i, step in
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("\(i + 1).").font(.system(size: 11)).foregroundStyle(.secondary).monospacedDigit()
+                    Text(step).font(.system(size: 11)).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            HStack(spacing: 8) {
+                Button("Open Shortcuts") { actions.openShortcuts() }.controlSize(.small)
+                Button("Check again") { actions.refreshTimerBackend(true) }.controlSize(.small)
+            }
+            .padding(.top, 2)
+        }
+    }
+
+    private var timerStatusText: String {
+        guard let s = model.clockTimers else { return "Checking Shortcuts…" }
+        if !s.ready { return "Muselet timers (shortcut missing)" }
+        return model.useClockTimers ? "Timers go to the Clock app" : "Muselet timers"
+    }
+
+    @ViewBuilder private var timerBadge: some View {
+        switch model.clockTimers?.ready {
+        case true?: Badge(text: "Clock ready", color: .green)
+        case false?: Badge(text: "Shortcut missing", color: .orange)
+        case nil: Badge(text: "checking", color: .secondary)
         }
     }
 

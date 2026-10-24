@@ -129,6 +129,9 @@ final class AppModel: ObservableObject {
     /// Settings › Models (persisted by PlannerSettings) and the brain's config_ack.
     @Published var escalatePlanner = PlannerSettings.escalate
     @Published var configAck: ConfigAck?
+    /// Settings › Timers (persisted by TimerSettings) and the last `timer_backend` result.
+    @Published var useClockTimers = TimerSettings.useClock
+    @Published var clockTimers: ClockTimerStatus?
 
     func noteRequest(_ text: String) {
         lastRequest = text

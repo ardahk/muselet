@@ -128,8 +128,10 @@ RPC methods (HandsKit):
   `type`/`keys`/`click`/`type_text` fail with `screen_locked` while the lock screen is up.
 - `act {op:"keys", combo: brightness_up|brightness_down|volume_up|volume_down|mute|play_pause|next_track|previous_track}`
   posts media keys and reads the level back (`media_key, level_before, level, changed`, `muted`).
-- `timers {}` -> `{timers:[{id, label, total_s, left_s, minutes, fires_at}]}`; `timers_cancel {id?}` -> `{cancelled, timers}`
-  (`unknown_timer: <id>`). CLI: `hands probe timers`, `hands probe session` (screen_locked, display asleep, frontmost).
+- `timers {clock_status?}` -> `{timers:[{id, label, total_s, left_s, minutes, fires_at, backend}], clock, backend}`;
+  `timers_cancel {id?}` -> `{cancelled, timers}` (`unknown_timer: <id>`; Clock timers without the cancel shortcut:
+  `unsupported`); `timer_backend {refresh?}` -> `{clock_ready, shortcuts, enabled, backend}`. `start_timer` goes to
+  Clock.app via the user's `Muselet Start Timer` shortcut, else falls back to Muselet's timer (docs/CLOCK_TIMERS.md). CLI: `hands probe timers`, `hands probe session` (screen_locked, display asleep, frontmost).
 - `screenshot {window:true, max_pixels:1000000, region?}` -> `{path, width, height, origin:[x,y], scale}` (own windows excluded)
 - `verify {expect}` -> `{ok, observed}`
 - `ocr {path? | region?:[x,y,w,h]}` -> `{text, lines:[{text, frame}], ms}` (Apple Vision, accurate, en-US; region = screen points)

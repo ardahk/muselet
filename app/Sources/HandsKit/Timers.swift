@@ -11,6 +11,9 @@ public final class TimerRegistry {
         public let total: Double
         public let startedAt: Date
         public let firesAt: Date
+        /// "muselet" (fires here) or "clock" (a record of a Clock.app timer
+        /// started through the shortcut; it never fires here).
+        public var backend: String = "muselet"
     }
 
     private struct Entry {
@@ -37,10 +40,11 @@ public final class TimerRegistry {
     /// Schedule a timer; `fire` runs on the timer queue when it is due
     /// (wall clock: it keeps counting across system sleep, like a kitchen timer).
     @discardableResult
-    public func start(seconds: Double, label: String?, now: Date = Date(),
+    public func start(seconds: Double, label: String?, now: Date = Date(), backend: String = "muselet",
                       fire: @escaping (Info) -> Void) -> Info {
         let info = Info(id: "timer-\(UUID().uuidString.prefix(8).lowercased())", label: label,
-                        total: seconds, startedAt: now, firesAt: now.addingTimeInterval(seconds))
+                        total: seconds, startedAt: now, firesAt: now.addingTimeInterval(seconds),
+                        backend: backend)
         let t = DispatchSource.makeTimerSource(queue: queue)
         t.schedule(wallDeadline: .now() + seconds, leeway: .milliseconds(20))
         t.setEventHandler { [weak self, weak t] in
@@ -100,7 +104,7 @@ public final class TimerRegistry {
         onChange?(list())
     }
 
-    /// Wire form: {id, label (null if none), total_s, left_s, minutes, fires_at}.
+    /// Wire form: {id, label (null if none), total_s, left_s, minutes, fires_at, backend}.
     /// `minutes` = whole minutes left, rounded up ("about 7 minutes left");
     /// `left_s` = seconds left (1 decimal, never negative).
     public static func dict(_ i: Info, now: Date = Date()) -> [String: Any] {
@@ -109,6 +113,7 @@ public final class TimerRegistry {
         return [
             "id": i.id, "label": i.label ?? NSNull(), "total_s": i.total.rounded(to: 1), "left_s": left,
             "minutes": Int((left / 60).rounded(.up)), "fires_at": isoString(i.firesAt),
+            "backend": i.backend,
         ]
     }
 
@@ -155,7 +160,8 @@ public enum TimerSnapshot {
                 "timers": timers.map { i -> [String: Any] in
                     var d: [String: Any] = ["id": i.id, "total_s": i.total,
                                             "started_at": i.startedAt.timeIntervalSince1970,
-                                            "fires_at": i.firesAt.timeIntervalSince1970]
+                                            "fires_at": i.firesAt.timeIntervalSince1970,
+                                            "backend": i.backend]
                     if let l = i.label { d["label"] = l }
                     return d
                 },
@@ -193,7 +199,8 @@ public enum TimerSnapshot {
                 let started = (t["started_at"] as? NSNumber).map { Date(timeIntervalSince1970: $0.doubleValue) }
                     ?? firesAt.addingTimeInterval(-total)
                 let info = TimerRegistry.Info(id: id, label: t["label"] as? String, total: total,
-                                              startedAt: started, firesAt: firesAt)
+                                              startedAt: started, firesAt: firesAt,
+                                              backend: t["backend"] as? String ?? "muselet")
                 var d = TimerRegistry.dict(info, now: now)
                 d["pid"] = Int(pid)
                 d["process"] = process
