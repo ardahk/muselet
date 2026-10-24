@@ -1,21 +1,24 @@
 {
  "lane": "finance",
- "pass": 7,
- "ts": "2026-10-24T08:35:00Z",
+ "pass": 8,
+ "ts": "2026-10-24T08:55:00Z",
  "last_reviewed": {
-  "main": "4a74659",
-  "wip/local": "85c73ed",
+  "main": "76a03c1",
+  "wip/local": "34ddf5f",
   "cloud/finance": "529e9ff",
   "cloud/fixtures-docs": "4bf2291",
-  "cloud/data-pipeline": "9c526b1",
+  "cloud/data-pipeline": "0f3df7f",
   "cloud/advisor": "9432c30",
-  "cloud/bench": "c3ca0b3",
+  "cloud/bench": "6e7cd09",
   "cloud/finance-2": "dfaf785",
   "cloud/advisor-2": "0a65f75",
   "cloud/pitch": "ad1b058",
   "cloud/brain-2": "741465c",
-  "cloud/grounding": "3441ee8"
+  "cloud/grounding": "3441ee8",
+  "cloud/finance-3": "31be399",
+  "cloud/advisor-3": "ca93147",
+  "cloud/brain-3": "14a3f52"
  },
- "next_id": 25,
- "notes": "pass 7: main 4a74659 merged finance-2 (#7) and advisor-2 (#5); lane files are byte-identical to dfaf785 / 0a65f75. On main: 243 finance+advisor tests pass, finance and Henderson truth reconcile. Open findings unchanged (finance-23 P1; finance-15/17/24 P2), now present on main too."
+ "next_id": 26,
+ "notes": "pass 8: finance-3 164 tests pass; advisor-3 127 tests pass, Henderson truth reconciles. normalize_client probe: 10/10 spoken forms map to the right folder (Hendersons/Davises/Joneses/Rosses/Chris Moses/Hendricks). Calendar is now from .ics (no Automation prompt). main/wip: planner prompt lines 14-15 only (new-document recipe, no third retry), no Numbers recipe change."
 }

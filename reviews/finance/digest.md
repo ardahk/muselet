@@ -1,11 +1,10 @@
-# finance digest (pass 7, 2026-10-24T08:35Z; finance-2 + advisor-2 merged to main@4a74659, identical lane files)
-Open P0/P1, ranked:
-1. finance-23 P1 Advisor doc-by-path assumes Numbers exposes an imported xlsx's file (needs a 1-line Mac check); ml/src/brain/advisor/scripts.py (now on main)
+# finance digest (pass 8, 2026-10-24T08:55Z)
+Open P0/P1: none.
 
-Open P2: finance-24 (merchant prefix over-match), finance-15 (single filers / 401k-HSA-checking as taxable), finance-17 (numbers written as words pass the phrasing filter).
+Open P2: finance-23 (advisor doc-by-path; now degrades to 'skipped Numbers'), finance-25 (4 s Numbers table poll on cold open), finance-24 (merchant prefix over-match), finance-15 (single filers / 401k-HSA-checking as taxable), finance-17 (numbers written as words pass the phrasing filter).
 
 Next moves:
 - Lead, on the Mac: with portfolio.xlsx open, run `osascript -e 'tell application id "com.apple.Numbers" to POSIX path of ((file of front document) as alias)'`.
-- Rehearse the finance segment once on the Mac: list_tables over every table, then the Receipt column write.
-- Advisor: account_kind for 401(k)/403(b)/HSA/checking; a clear refusal for non-MFJ instead of KeyError.
+- Rehearse both segments once with Numbers not running; read finance_open_* and advisor numbers_ready ms from the traces and set the timeouts from them.
 - Receipts: limit prefix matching to known abbreviations.
+- Advisor: account_kind for 401(k)/403(b)/HSA/checking; clear refusal for non-MFJ.
