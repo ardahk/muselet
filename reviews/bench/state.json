@@ -1,9 +1,9 @@
 {
-  "pass": 43,
-  "ts": "2026-10-24T21:58Z",
+  "pass": 44,
+  "ts": "2026-10-24T22:15Z",
   "branches": {
-    "main": "3772f7c",
-    "wip/local": "8fcf55f",
+    "main": "2a2c2a9",
+    "wip/local": "4f963a7",
     "cloud/bench": "f584cb2",
     "cloud/data-pipeline": "830ba35",
     "cloud/decisions": "f6fb133",
@@ -42,7 +42,9 @@
     "cloud/mascot-animal": "4b7d95a",
     "cloud/planner-retrieval": "7df32b1",
     "cloud/data-decisions": "91de461",
-    "cloud/w9-safety": "d5fe82b"
+    "cloud/w9-safety": "50a3b25",
+    "cloud/memory": "4b519b1",
+    "cloud/memory-eval": "c05944e"
   },
-  "notes": "pass43: main 3876f3a..3772f7c ships planner retrieval k=1 (plan_bank unchanged from 9786fa4) -> bench-29 update (19/130 same-screen top-1, 0 copyable), new bench-30 (gain headline). Lane bench/ only test_live_brain_integration changed (confirm case decoupled from manual live case; 18 pass on Linux). cloud/* bench branches have no commits ahead of main."
+  "notes": "pass44: main 2a2c2a9 adds planner-lora brief (bench-31 new, bench-30 update on ship rule); memory-eval adds memory_followups to plan_bank denylist (bench-32: not in router evalcheck). w9-safety/memory: no lane files. HF planner-demos dataset is private, so the kept-demo screen overlap can't be checked here."
 }
