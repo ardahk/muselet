@@ -34,7 +34,8 @@ bash bench/run_typed_decisions.sh --url http://127.0.0.1:8793 --model brain-4b
 Start the System One shim and use the pinned DeskMind Bench Hands adapter:
 
 ```sh
-python3 -m bench.systemone.cli --host 127.0.0.1 --port 8793 --backend fake
+PYTHONPATH=ml/src uv run --project ml python -m bench.systemone.cli --host 127.0.0.1 --port 8793 \
+  --backend mlx --model-path mlx-community/Qwen3.5-4B-4bit --model-name muselet
 deskmind-bench run --set diag --repeats 3 --url http://127.0.0.1:8793 --label muselet-shim --out runs/deskmind/muselet-shim
 ```
 
