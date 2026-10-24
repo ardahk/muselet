@@ -15,6 +15,8 @@ APP = 'tell application id "com.apple.Numbers"'
 RED = (65535, 49087, 49087)
 ORANGE = (65535, 52428, 30840)
 WEEKEND = (61166, 61166, 65535)
+RESOLVED = (52428, 65535, 52428)  # a duplicate that was already refunded, and its refund
+RS = "character id 30"  # record separator between tables in one multi-table read
 
 
 def q(s) -> str:
@@ -111,14 +113,34 @@ def write_column(column, values: Sequence, *, start_row: int = 2, table=None, sh
 
 def write_budget(actual: Mapping[str, Decimal], remaining: Mapping[str, Decimal], *, category_column="A",
                  budget_column="B", actual_column="C", remaining_column="D", remaining_formula: bool = False,
-                 table=None, sheet=None, document=None) -> str:
-    """Fill Actual and Remaining by looking up each category's row by name (row order may differ)."""
+                 notes: Mapping[str, str] | None = None, note_column="E", table=None, sheet=None,
+                 document=None) -> str:
+    """Fill Actual and Remaining by looking up each category's row by name (row order may differ).
+
+    With `notes` ({category: text}), also write a Note column (header "Note"; categories without a note get
+    an empty cell), e.g. "Needs review" while some rows are still uncategorized.
+    """
+    return _wrap(_table(table, sheet, document), budget_body(
+        actual, remaining, category_column=category_column, budget_column=budget_column,
+        actual_column=actual_column, remaining_column=remaining_column, remaining_formula=remaining_formula,
+        notes=notes, note_column=note_column))
+
+
+def budget_body(actual, remaining, *, category_column="A", budget_column="B", actual_column="C",
+                remaining_column="D", remaining_formula=False, notes=None, note_column="E") -> list[str]:
     names = list(actual)
     rem = (f'("={budget_column}" & r & "-{actual_column}" & r)' if remaining_formula else "item k of rems")
-    return _wrap(_table(table, sheet, document), [
+    note_lines = []
+    head = []
+    if notes is not None:
+        head = [f"set notes to {lst([notes.get(n, '') for n in names])}",
+                f"set value of cell 1 of {_col(note_column)} to {q('Note')}"]
+        note_lines = [f"\t\t\t\tset value of cell r of {_col(note_column)} to item k of notes"]
+    return [
         f"set names to {lst(names)}",
         f"set acts to {lst([actual[n] for n in names])}",
         f"set rems to {lst([remaining[n] for n in names])}",
+        *head,
         f"set cats to value of cells of {_col(category_column)}",
         "set written to 0",
         "repeat with r from 1 to count of cats",
@@ -128,18 +150,23 @@ def write_budget(actual: Mapping[str, Decimal], remaining: Mapping[str, Decimal]
         "\t\t\tif (c as text) is (item k of names) then",
         f"\t\t\t\tset value of cell r of {_col(actual_column)} to item k of acts",
         f"\t\t\t\tset value of cell r of {_col(remaining_column)} to {rem}",
+        *note_lines,
         "\t\t\t\tset written to written + 1",
         "\t\t\tend if",
         "\t\tend repeat",
         "\tend if",
         "end repeat",
         "return written",
-    ])
+    ]
 
 
 def color_rows(colors: Mapping[int, tuple[int, int, int]], *, header_rows: int = 1, table=None, sheet=None,
                document=None) -> str:
     """Set the background color of statement rows ({row: (r, g, b)} with 16-bit channels)."""
+    return _wrap(_table(table, sheet, document), color_body(colors, header_rows=header_rows))
+
+
+def color_body(colors: Mapping[int, tuple[int, int, int]], *, header_rows: int = 1) -> list[str]:
     groups: dict[tuple, list[int]] = {}
     for row, rgb in sorted(colors.items()):
         groups.setdefault(tuple(rgb), []).append(row + header_rows)
@@ -150,16 +177,134 @@ def color_rows(colors: Mapping[int, tuple[int, int, int]], *, header_rows: int =
             f"\tset background color of row (contents of r) to {lst(rgb)}",
             "end repeat",
         ]
-    return _wrap(_table(table, sheet, document), body)
+    return body
+
+
+def highlight_colors(duplicates: Sequence[Sequence[int]] = (), outliers: Sequence[int] = (),
+                     weekend: Sequence[int] = (), resolved: Sequence[int] = ()) -> dict[int, tuple[int, int, int]]:
+    """Open duplicates red, outliers orange, refunded duplicates + their refund green, weekend light."""
+    colors: dict[int, tuple[int, int, int]] = {r: WEEKEND for r in weekend}
+    colors |= {r: RESOLVED for r in resolved}
+    colors |= {r: ORANGE for r in outliers}
+    colors |= {r: RED for pair in duplicates for r in pair if r not in resolved}
+    return colors
 
 
 def highlight_flags(duplicates: Sequence[Sequence[int]] = (), outliers: Sequence[int] = (),
-                    weekend: Sequence[int] = (), **kw) -> str:
+                    weekend: Sequence[int] = (), resolved: Sequence[int] = (), **kw) -> str:
     """Duplicates red, outliers orange, weekend charges light; stronger flags win on overlap."""
-    colors: dict[int, tuple[int, int, int]] = {r: WEEKEND for r in weekend}
-    colors |= {r: ORANGE for r in outliers}
-    colors |= {r: RED for pair in duplicates for r in pair}
-    return color_rows(colors, **kw)
+    return color_rows(highlight_colors(duplicates, outliers, weekend, resolved), **kw)
+
+
+def col_letter(n: int) -> str:
+    """1 -> A, 27 -> AA."""
+    out = ""
+    while n:
+        n, r = divmod(n - 1, 26)
+        out = chr(65 + r) + out
+    return out
+
+
+def category_body(column: int, values: Sequence, *, header: str = "Category", header_rows: int = 1) -> list[str]:
+    """Grow the table to `column` columns if needed, then write the header and one value per statement row."""
+    letter = col_letter(column)
+    return [
+        f"if column count < {column} then set column count to {column}",
+        f"set value of cell {header_rows} of column {q(letter)} to {q(header)}",
+        f"set vals to {lst(values)}",
+        "repeat with i from 1 to count of vals",
+        f"\tset value of cell (i + {header_rows}) of column {q(letter)} to item i of vals",
+        "end repeat",
+    ]
+
+
+def multi(blocks: Sequence[tuple[str, list[str]]]) -> str:
+    """One script that runs several `tell <target>` blocks (e.g. statement and budget documents)."""
+    lines = [APP]
+    for target, body in blocks:
+        lines += [f"\ttell {target}"] + ["\t\t" + b for b in body] + ["\tend tell"]
+    return "\n".join(lines + ["end tell"]) + "\n"
+
+
+def list_documents() -> str:
+    """One line per open document, front first: `name<TAB>sheet|sheet|...` (empty text when none)."""
+    return "\n".join([
+        "set out to {}",
+        APP,
+        "\trepeat with d in documents",
+        "\t\tset AppleScript's text item delimiters to \"|\"",
+        "\t\tset sheetNames to (name of every sheet of d) as text",
+        "\t\tset end of out to (name of d) & tab & sheetNames",
+        "\tend repeat",
+        "end tell",
+        "set AppleScript's text item delimiters to linefeed",
+        "set res to out as text",
+        "set AppleScript's text item delimiters to \"\"",
+        "return res",
+    ]) + "\n"
+
+
+ISO_HANDLERS = [
+    "on cellText(v, f)",
+    "\tif v is missing value then return \"\"",
+    "\tif class of v is date then",
+    "\t\tset m to (month of v) as integer",
+    "\t\tset d to day of v",
+    ("\t\treturn ((year of v) as text) & \"-\" & (text -2 thru -1 of (\"0\" & m)) & \"-\" & "
+    "(text -2 thru -1 of (\"0\" & d))"),
+    "\tend if",
+    "\tif f is missing value then return (v as text)",
+    "\treturn f as text",
+    "end cellText",
+    "",
+    "on tableTSV(vals, fvals, nc)",
+    "\tset out to {}",
+    "\tset rowVals to {}",
+    "\trepeat with i from 1 to count of vals",
+    "\t\tset end of rowVals to my cellText(item i of vals, item i of fvals)",
+    "\t\tif (count of rowVals) = nc then",
+    "\t\t\tset AppleScript's text item delimiters to tab",
+    "\t\t\tset end of out to rowVals as text",
+    "\t\t\tset rowVals to {}",
+    "\t\tend if",
+    "\tend repeat",
+    "\tset AppleScript's text item delimiters to linefeed",
+    "\tset s to out as text",
+    "\tset AppleScript's text item delimiters to \"\"",
+    "\treturn s",
+    "end tableTSV",
+    "",
+]
+
+
+def read_tables(targets: Sequence[str]) -> str:
+    """Read whole tables (each a `table ... of sheet ... of document ...` specifier) in one script.
+
+    The range is bounded by `row count` x `column count`, so the last row is never dropped. Dates are
+    coerced to ISO `YYYY-MM-DD` inside AppleScript; every other cell uses its formatted (displayed) value, so
+    amounts arrive as text, not binary reals. Tables are joined by ASCII 30, rows by LF, cells by TAB.
+    """
+    lines = list(ISO_HANDLERS) + ["set results to {}", APP]
+    for t in targets:
+        lines += [
+            f"\ttell {t}",
+            "\t\tset nr to row count",
+            "\t\tset nc to column count",
+            "\t\tset rng to range (\"A1:\" & (name of cell nc of row nr))",
+            "\t\tset vals to value of every cell of rng",
+            "\t\tset fvals to formatted value of every cell of rng",
+            "\tend tell",
+            "\tset end of results to my tableTSV(vals, fvals, nc)",
+        ]
+    lines += ["end tell", f"set AppleScript's text item delimiters to ({RS})", "set res to results as text",
+              "set AppleScript's text item delimiters to \"\"", "return res"]
+    return "\n".join(lines) + "\n"
+
+
+def table_ref(table=None, sheet=None, document=None) -> str:
+    """`table 1 of sheet 1 of document "x"`-style specifier (sheet None = first sheet, not the active one)."""
+    return f"{_ref('table', 1 if table is None else table)} of {_ref('sheet', 1 if sheet is None else sheet)} of " \
+           f"{_doc(document)}"
 
 
 def add_summary_table(rows: Sequence[Sequence], *, name: str = "Muselet Summary", sheet=None,
@@ -189,9 +334,15 @@ def summary_rows(report: Mapping) -> list[list]:
     rows: list[list] = [["Item", "Value"],
                         ["Income", st["total_income"]], ["Spend", st["total_spend"]], ["Net", st["net"]],
                         ["Over budget", ", ".join(b["over_budget"]) or "none"],
-                        ["Duplicate charges", "; ".join(f"rows {a} & {c}" for a, c in report["duplicates"]) or "none"],
+                        ["Duplicate charges", "; ".join(
+                            f"rows {d['rows'][0]} & {d['rows'][1]}"
+                            + (f" (refunded, row {d['refund_row']})" if d["status"] == "refunded" else "")
+                            for d in report["duplicate_status"]) or "none"],
                         ["Outliers", ", ".join(f"row {r}" for r in report["outliers"]) or "none"],
-                        ["Refunds", ", ".join(f"row {r}" for r in report["refunds"]) or "none"]]
+                        ["Refunds", ", ".join(f"row {r}" for r in report["refunds"]) or "none"],
+                        ["Weekend charges", len(report.get("weekend_charges", []))]]
+    if b.get("pending"):
+        rows.append(["Needs review", f"{len(b['pending']['rows'])} rows"])
     rec = report.get("receipts") or {}
     for status in ("matched", "amount_mismatch", "no_match"):
         ids = [k for k, e in rec.items() if e["status"] == status]

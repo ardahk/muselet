@@ -154,6 +154,17 @@ def statement_truth(rows: list[dict]) -> dict:
     outliers = [r["row"] for r in rows if r["desc"] == "APPLE STORE" and r["cents"] == -129900]
     refunds = [r["row"] for r in rows if r["desc"] == "AMAZON MKTP REFUND"]
     assert len(outliers) == 1 and len(refunds) == 1
+
+    # A duplicate pair is "refunded" when a later refund of the same merchant and amount exists.
+    by_row = {r["row"]: r for r in rows}
+    duplicate_status = []
+    for a, b in duplicates:
+        ra = by_row[a]
+        refund_row = next((r["row"] for r in rows if r["row"] in refunds and r["cents"] == -ra["cents"]
+                           and r["desc"].removesuffix(" REFUND") == ra["desc"] and r["date"] > ra["date"]), None)
+        duplicate_status.append({"rows": [a, b], "amount": round(-ra["cents"] / 100, 2),
+                                 "status": "refunded" if refund_row else "open", "refund_row": refund_row})
+    weekend = [r["row"] for r in rows if r["cents"] < 0 and dt.date.fromisoformat(r["date"]).weekday() >= 5]
     # Outlier is the only debit below the sampled ranges' minimum except rent.
     assert all(r["cents"] >= -12000 for r in rows if r["category"] not in ("Rent", "Income") and r["row"] not in outliers)
 
@@ -170,8 +181,10 @@ def statement_truth(rows: list[dict]) -> dict:
     return {
         "rows": [{"row": r["row"], "category": r["category"]} for r in rows],
         "duplicates": duplicates,
+        "duplicate_status": duplicate_status,
         "outliers": outliers,
         "refunds": refunds,
+        "weekend_charges": weekend,
         "category_spend": {c: round(v / 100, 2) for c, v in spend.items()},
         "total_income": round(income / 100, 2),
         "total_spend": round(total_spend / 100, 2),
@@ -247,7 +260,23 @@ ITEMS = {
     "CHEVRON": ["UNLEADED 87", "CAR WASH", "WATER 1L"],
     "PHILZ COFFEE": ["MINT MOJITO ICED", "TESORA", "PHILTERED SOUL"],
 }
-TAX_RATE = 0.1025
+# Merchant name as printed on the receipt (what OCR reads); differs from the bank descriptor.
+RECEIPT_NAME = {
+    "TRADER JOE'S": "Trader Joe's #127",
+    "SAFEWAY": "Safeway Store #1444",
+    "BERKELEY BOWL": "Berkeley Bowl #2",
+    "CHIPOTLE": "CHIPOTLE #2311",
+    "SWEETGREEN": "sweetgreen Berkeley",
+    "BLUE BOTTLE COFFEE": "Blue Bottle Coffee Co.",
+    "TARGET": "Target T-2187",
+    "CVS PHARMACY": "CVS/pharmacy #9921",
+    "CHEVRON": "Chevron #0091",
+    "PHILZ COFFEE": "Philz Coffee",
+}
+FUZZY_RECEIPTS = (2, 4)  # receipts printed with RECEIPT_NAME instead of the bank descriptor
+DELAYED_RECEIPT = 5  # dated the day before the charge posts
+TAX_RATE = 0.1025  # Berkeley sales tax; groceries are exempt in California
+MIN_ITEM_SHARE = 0.2
 
 
 def transpose_total(cents: int) -> int:
@@ -261,14 +290,24 @@ def transpose_total(cents: int) -> int:
     raise ValueError(cents)
 
 
+def tax_rate(merchant: str) -> float:
+    return 0.0 if CATEGORY_OF.get(merchant) == "Groceries" else TAX_RATE
+
+
 def split_items(merchant: str, total: int) -> tuple[list[tuple[str, int]], int, int]:
-    tax = round(total - total / (1 + TAX_RATE))
+    """Line items that add up to the subtotal; every item is at least MIN_ITEM_SHARE of it."""
+    rate = tax_rate(merchant)
+    tax = round(total - total / (1 + rate))
     subtotal = total - tax
-    n = rng.randint(2, 4)
+    n = 1 if subtotal < 700 else rng.randint(2, 3) if subtotal < 1500 else rng.randint(2, 4)
     names = rng.sample(ITEMS[merchant], min(n, len(ITEMS[merchant])))
     n = len(names)
-    cuts = sorted(rng.sample(range(1, subtotal), n - 1))
-    parts = [b - a for a, b in zip([0] + cuts, cuts + [subtotal])]
+    floor = -(-int(subtotal * MIN_ITEM_SHARE * 100) // 100)
+    spare = subtotal - n * floor
+    weights = [rng.random() for _ in range(n)]
+    parts = [floor + int(spare * w / sum(weights)) for w in weights]
+    parts[-1] += subtotal - sum(parts)
+    assert sum(parts) == subtotal and all(c >= subtotal * MIN_ITEM_SHARE for c in parts), (merchant, parts)
     return list(zip(names, parts)), subtotal, tax
 
 
@@ -284,7 +323,8 @@ def load_font(size: int) -> ImageFont.ImageFont:
     return ImageFont.load_default(size)
 
 
-def render_receipt(path: Path, merchant: str, date: str, items, subtotal: int, tax: int, total: int) -> None:
+def render_receipt(path: Path, merchant: str, date: str, items, subtotal: int, tax: int, total: int,
+                   printed_name: str) -> None:
     img = Image.new("RGB", (600, 900), "white")
     draw = ImageDraw.Draw(img)
     big, font = load_font(30), load_font(20)
@@ -302,7 +342,7 @@ def render_receipt(path: Path, merchant: str, date: str, items, subtotal: int, t
         draw.text((550 - draw.textlength(right, font=f), y), right, fill="black", font=f)
         y += dy
 
-    center(merchant, big, 50)
+    center(printed_name, big, 50)
     center(ADDRESSES[merchant], load_font(16), 40)
     d = dt.date.fromisoformat(date)
     center(f"{d.strftime('%m/%d/%Y')}  {rng.randint(8, 21):02d}:{rng.randint(0, 59):02d}", font, 60)
@@ -312,7 +352,8 @@ def render_receipt(path: Path, merchant: str, date: str, items, subtotal: int, t
         lr(name, money(c))
     center(rule, font, 40)
     lr("SUBTOTAL", money(subtotal))
-    lr(f"TAX {TAX_RATE * 100:.2f}%", money(tax))
+    rate = tax_rate(merchant)
+    lr(f"TAX {rate * 100:.2f}%" if rate else "TAX", money(tax))
     y += 10
     lr("TOTAL", money(total), big, 60)
     center("VISA **** 4417", font, 40)
@@ -333,20 +374,34 @@ def write_receipts(rows: list[dict]) -> dict:
     while len(str(-picks[6]["cents"])) < 3 or len(set(str(-picks[6]["cents"]))) < 2:
         picks[6] = rng.choice([c for c in cands if c not in picks])
 
+    def delay_ok(r: dict) -> bool:  # the receipt date (day before posting) has no charge from that merchant
+        d = dt.date.fromisoformat(r["date"]) - dt.timedelta(days=1)
+        return d.month == MONTH and (r["desc"], d.isoformat()) not in md_count
+
+    k = DELAYED_RECEIPT - 1
+    while not delay_ok(picks[k]):
+        picks[k] = rng.choice([c for c in cands if c not in picks and delay_ok(c)])
+
     truth = {}
     specs = []
     for i, r in enumerate(picks[:6], 1):
-        specs.append((i, r["desc"], r["date"], -r["cents"], r["row"], "matched"))
+        date = r["date"]
+        if i == DELAYED_RECEIPT:
+            date = (dt.date.fromisoformat(date) - dt.timedelta(days=1)).isoformat()
+        printed = RECEIPT_NAME[r["desc"]] if i in FUZZY_RECEIPTS else r["desc"]
+        specs.append((i, r["desc"], printed, date, -r["cents"], r["row"], "matched"))
     r7 = picks[6]
-    specs.append((7, r7["desc"], r7["date"], transpose_total(-r7["cents"]), r7["row"], "amount_mismatch"))
+    specs.append((7, r7["desc"], r7["desc"], r7["date"], transpose_total(-r7["cents"]), r7["row"], "amount_mismatch"))
     philz_total = rng.randint(450, 1400)
-    specs.append((8, "PHILZ COFFEE", rand_day(), philz_total, None, "no_match"))
+    specs.append((8, "PHILZ COFFEE", "PHILZ COFFEE", rand_day(), philz_total, None, "no_match"))
 
-    for i, merchant, date, total, row, status in specs:
+    for i, merchant, printed, date, total, row, status in specs:
         items, subtotal, tax = split_items(merchant, total)
         name = f"receipt_{i:02d}.png"
-        render_receipt(rdir / name, merchant, date, items, subtotal, tax, total)
-        entry = {"match_row": row, "status": status, "total": round(total / 100, 2), "merchant": merchant, "date": date}
+        render_receipt(rdir / name, merchant, date, items, subtotal, tax, total, printed)
+        entry = {"match_row": row, "status": status, "total": round(total / 100, 2), "merchant": printed, "date": date}
+        if i == DELAYED_RECEIPT:
+            entry["posting_delay_days"] = 1
         if status == "amount_mismatch":
             entry["statement_amount"] = round(-r7["cents"] / 100, 2)
             entry["transposed_digits"] = True
@@ -393,6 +448,11 @@ def check_spec(rows: list[dict], st: dict, bt: dict, rt: dict) -> None:
     assert [key(by_row[i]) for i in st["outliers"]] == [("2026-10-24", "APPLE STORE", -129900)]
     assert dt.date(2026, 10, 24).weekday() == 5
     assert [key(by_row[i]) for i in st["refunds"]] == [("2026-10-28", "AMAZON MKTP REFUND", 6499)]
+    status = {key(by_row[d["rows"][0]])[1]: (d["status"], d["refund_row"]) for d in st["duplicate_status"]}
+    assert status == {"UBER TRIP": ("open", None), "AMAZON MKTP": ("refunded", st["refunds"][0])}, status
+    assert st["weekend_charges"] == [r["row"] for r in rows if r["cents"] < 0
+                                     and dt.date.fromisoformat(r["date"]).weekday() >= 5]
+    assert st["outliers"][0] in st["weekend_charges"]
     assert sum(r["desc"] == "APPLE STORE" and r["cents"] == -129900 for r in rows) == 1
 
     # Receipts: 1-6 exact matches, 7 transposed-digit total, 8 PHILZ COFFEE with no match.
@@ -400,11 +460,19 @@ def check_spec(rows: list[dict], st: dict, bt: dict, rt: dict) -> None:
     md = {}
     for r in rows:
         md.setdefault((r["desc"], r["date"]), []).append(r)
+    # 1-6 match; FUZZY_RECEIPTS print the store name, DELAYED_RECEIPT is dated a day before the charge posts.
     for i in range(1, 7):
         e = rt[f"receipt_{i:02d}.png"]
         r = by_row[e["match_row"]]
-        assert e["status"] == "matched" and len(md[(e["merchant"], e["date"])]) == 1
-        assert (r["desc"], r["date"], -r["cents"]) == (e["merchant"], e["date"], cents(e["total"])), e
+        assert e["status"] == "matched" and len(md[(r["desc"], r["date"])]) == 1
+        printed = RECEIPT_NAME[r["desc"]] if i in FUZZY_RECEIPTS else r["desc"]
+        assert (e["merchant"] != r["desc"]) == (i in FUZZY_RECEIPTS)
+        delay = 1 if i == DELAYED_RECEIPT else 0
+        assert e.get("posting_delay_days", 0) == delay
+        posted = (dt.date.fromisoformat(e["date"]) + dt.timedelta(days=delay)).isoformat()
+        assert (r["desc"], r["date"], -r["cents"]) == (r["desc"], posted, cents(e["total"])) and e["merchant"] == printed
+        if delay:
+            assert (r["desc"], e["date"]) not in md
     e7 = rt["receipt_07.png"]
     r7 = by_row[e7["match_row"]]
     assert e7["status"] == "amount_mismatch" and e7["transposed_digits"] is True

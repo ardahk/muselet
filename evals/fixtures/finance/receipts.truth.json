@@ -10,7 +10,7 @@
     "match_row": 12,
     "status": "matched",
     "total": 8.41,
-    "merchant": "TRADER JOE'S",
+    "merchant": "Trader Joe's #127",
     "date": "2026-10-07"
   },
   "receipt_03.png": {
@@ -24,7 +24,7 @@
     "match_row": 56,
     "status": "matched",
     "total": 17.58,
-    "merchant": "BERKELEY BOWL",
+    "merchant": "Berkeley Bowl #2",
     "date": "2026-10-20"
   },
   "receipt_05.png": {
@@ -32,7 +32,8 @@
     "status": "matched",
     "total": 16.07,
     "merchant": "CHIPOTLE",
-    "date": "2026-10-20"
+    "date": "2026-10-19",
+    "posting_delay_days": 1
   },
   "receipt_06.png": {
     "match_row": 73,

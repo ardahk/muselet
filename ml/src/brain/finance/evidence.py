@@ -39,10 +39,17 @@ def receipt_label(rid: str) -> str:
     return f"Receipt {int(m.group(1))}" if m else f"Receipt {rid}"
 
 
-def duplicate(a: Txn, b: Txn) -> Flag:
-    return Flag("duplicate", [a.row, b.row], "duplicate:same_date+description+amount",
-                f"Charged twice: {short(a.description)} {usd(-a.amount)} on {day(a)}.",
-                {"date": a.date.isoformat(), "description": a.description, "amount": a.amount})
+def duplicate(a: Txn, b: Txn, refund: Txn | None = None) -> Flag:
+    """An open duplicate invites a dispute; a refunded one only says it was already settled."""
+    rule = "duplicate:same_date+description+amount"
+    detail = {"date": a.date.isoformat(), "description": a.description, "amount": a.amount,
+              "status": "refunded" if refund else "open", "refund_row": refund.row if refund else None}
+    if refund:
+        return Flag("duplicate", [a.row, b.row, refund.row], f"{rule};refunded_by_row{refund.row}",
+                    f"Charged twice: {short(a.description)} {usd(-a.amount)} {day(a)}, refunded {day(refund)}.",
+                    detail)
+    return Flag("duplicate", [a.row, b.row], rule,
+                f"Charged twice: {short(a.description)} {usd(-a.amount)} on {day(a)}.", detail)
 
 
 def outlier(t: Txn, z: Decimal, group: str, group_median: Decimal, z_min: Decimal, floor: Decimal) -> Flag:
@@ -76,6 +83,13 @@ def over_budget(cat: str, rows: list[int], budget: Decimal, actual: Decimal, rem
                 {"category": cat, "budget": budget, "actual": actual, "remaining": remaining})
 
 
+def pending_budget(rows: list[int], debits: Decimal, credits: Decimal, needs_review: list[str]) -> Flag:
+    n = len(rows)
+    return Flag("budget_pending", rows, "budget:unresolved_rows_not_counted",
+                f"{n} row{'s' if n != 1 else ''} need a category before the budget is final.",
+                {"debits": debits, "credits": credits, "needs_review": needs_review})
+
+
 def ask_category(desc: str, rows: list[int], guess: str, p: float, rule: str) -> Flag:
     say = f"Is {short(desc)} {guess}?" if p > 0 else f"Which category is {short(desc)}?"
     return Flag("ask_category", rows, rule, say, {"description": desc, "guess": guess, "p": round(p, 3)})
@@ -94,7 +108,7 @@ def receipt(rid: str, e: dict) -> Flag:
         say = (f"{label}: {usd(e['total'])} vs bank {usd(e['statement_amount'])}"
                + (", digits swapped." if swap else "."))
     else:
-        rule = "receipt:no_statement_row_with_merchant+date"
+        rule = "receipt:no_statement_row_with_merchant+date+amount"
         say = f"No bank charge for {label.lower()}, {short(e['merchant'], 2)}."
     return Flag(f"receipt_{e['status']}", rows, rule, say, {"receipt": rid, **e})
 
