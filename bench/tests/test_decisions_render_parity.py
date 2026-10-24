@@ -31,7 +31,7 @@ def test_training_datum_matches_systemone_renderer(renderer, kind, count):
     plans, decisions = renderer.prepare(str(request.state), {"q": server_question})
     assert len(plans["q"]["keys"]) == 1
     expected = renderer.render_decisions(decisions)[plans["q"]["keys"][0]]
-    datum, actual = render_question(renderer, str(request.state), server_question, target)
+    datum, actual = render_question(renderer, str(request.state), payload["questions"]["q"], target)
     chunks = datum.model_input.chunks
     actual_tokens = list(chunks[0].tokens)
     assert actual_tokens == expected.tokens[:expected.choice_pos]

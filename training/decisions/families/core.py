@@ -3,14 +3,23 @@ from __future__ import annotations
 import random
 
 DOMAINS = (
-    "insurance", "healthcare administration", "logistics", "IT operations",
-    "retail", "education", "travel", "finance", "human resources",
+    "insurance", "healthcare administration", "logistics", "IT operations", "retail",
+    "education", "travel", "finance", "human resources", "property management",
+    "customer support", "public services", "procurement", "software operations",
 )
-NAMES = ("Avery Chen", "Mina Patel", "Jordan Reyes", "Theo Brooks", "Nadia Ali", "Eli Morgan")
+NAMES = (
+    "Avery Chen", "Mina Patel", "Jordan Reyes", "Theo Brooks", "Nadia Ali", "Eli Morgan",
+    "Priya Shah", "Luis Romero", "Grace Kim", "Omar Haddad", "Sofia Laurent",
+    "Noah Williams", "Iris Nakamura", "Caleb Foster", "Amara Okafor", "Ravi Desai",
+)
 
 
 def choose_domain(rng: random.Random, domain: str) -> str:
     return domain if domain != "mixed" else rng.choice(DOMAINS)
+
+
+def article(noun: str) -> str:
+    return "an" if noun[:1].lower() in "aeiou" else "a"
 
 
 def choice_question(rng: random.Random, instructions: str, answer: str, options: dict[str, str]) -> dict:
@@ -18,28 +27,27 @@ def choice_question(rng: random.Random, instructions: str, answer: str, options:
     if answer not in options:
         raise ValueError("choice answer missing from options")
     requested = rng.randint(13, 26) if rng.random() < 0.05 else rng.randint(2, 12)
-    while len(options) < requested:
-        index = len(options) + 1
-        key = f"alternate_{index:02d}"
-        options[key] = f"Use the alternate procedure {index}, which does not satisfy the stated conditions."
-    items = list(options.items())
-    rng.shuffle(items)
+    requested = min(requested, len(options))
+    answer_row = (answer, options.pop(answer))
+    distractors = rng.sample(list(options.items()), requested - 1)
+    position = rng.randrange(requested)
+    items = [*distractors[:position], answer_row, *distractors[position:]]
     return {"type": "choice", "instructions": instructions, "criteria": dict(items)}, answer
 
 
 def make_question(rng: random.Random, qid: str, kind: str, instructions: str, answer: str,
                   choices: dict[str, str] | None = None, levels: list[str] | None = None):
     if kind == "choice":
-        options = choices or {
-            answer: "This action follows the stated facts and rules.",
-            "defer": "Defer the decision until more information is available.",
-            "reject": "Reject the request under the stated rules.",
-        }
-        question, gold = choice_question(rng, instructions, answer, options)
+        if choices is None:
+            raise ValueError("choice questions require question-specific option descriptions")
+        question, gold = choice_question(rng, instructions, answer, choices)
     elif kind == "noul":
+        if choices is None or set(choices) != {"false", "true"}:
+            raise ValueError("noul questions require question-specific false/true descriptions")
+        if answer not in choices:
+            raise ValueError("noul answer must be false or true")
         gold = answer
-        criteria = [("false", "The stated condition is not satisfied."),
-                    ("true", "The stated condition is satisfied.")]
+        criteria = list(choices.items())
         rng.shuffle(criteria)
         question = {"type": "noul", "instructions": instructions, "criteria": dict(criteria)}
     elif kind == "score":

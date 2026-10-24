@@ -5,6 +5,8 @@ import tinker
 
 from brain.generic_decide import GenericRenderer
 from brain.generic_decide import _decision
+from bench.systemone.schema import parse_request
+from bench.systemone.server import server_questions
 
 
 def _sparse(datum: tinker.Datum) -> tinker.Datum:
@@ -18,7 +20,9 @@ def _sparse(datum: tinker.Datum) -> tinker.Datum:
 
 
 def render_question(renderer: GenericRenderer, state: str, question: dict, target: dict[str, float]):
-    decision = _decision(state, question)
+    request = parse_request({"state": state, "questions": {"q": question}})
+    server_question = server_questions(request)["q"]
+    decision = _decision(state, server_question)
     labels = [label for label, _ in decision.choices]
     assert len(labels) <= 26, "decision generator exceeded the 26-option cap"
     distribution = {label: max(0.0, float(target.get(label, 0.0))) for label in labels}

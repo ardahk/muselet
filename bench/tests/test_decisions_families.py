@@ -1,10 +1,12 @@
 import random
+from collections import Counter, defaultdict
 from datetime import date
 
 import pytest
 
 from bench.systemone.schema import parse_request
 from training.decisions.families import GENERATORS, counting, multi_hop, numeric, probability, temporal
+from training.decisions.families.core import choice_question
 
 
 def test_temporal_hand_checked_gold_helpers():
@@ -39,3 +41,34 @@ def test_generated_records_are_valid_systemone_requests(family, generate):
     assert all(answer in request.questions[qid].options for qid, answer in item["gold"].items())
     if family == "long_policy":
         assert len(item["state"].split()) >= 1400
+
+
+def test_choice_gold_position_is_uniform_within_each_option_count():
+    rng = random.Random(814)
+    options = {f"result_{i}": f"Result {i} is the outcome under the stated rule." for i in range(26)}
+    observed = defaultdict(Counter)
+    for _ in range(8000):
+        question, gold = choice_question(rng, "Which result applies?", "result_0", options)
+        criteria = question["criteria"]
+        observed[len(criteria)][list(criteria).index(gold)] += 1
+
+    for option_count, counts in observed.items():
+        if option_count > 12 or sum(counts.values()) < 100:
+            continue
+        expected = sum(counts.values()) / option_count
+        assert all(abs(counts[position] - expected) < expected * 0.35
+                   for position in range(option_count))
+
+
+@pytest.mark.parametrize("family,generate", sorted(GENERATORS.items()))
+def test_generated_criteria_are_question_specific_and_articles_are_grammatical(family, generate):
+    item = generate(random.Random(1902), "mixed", 3, ["choice", "noul", "score"])
+    descriptions = []
+    for question in item["questions"].values():
+        criteria = question["criteria"]
+        descriptions.extend(criteria if isinstance(criteria, list) else criteria.values())
+    assert all("the stated condition is satisfied" not in text.lower() for text in descriptions)
+    assert all("the stated condition is not satisfied" not in text.lower() for text in descriptions)
+    assert "a insurance" not in item["state"].lower()
+    assert "a education" not in item["state"].lower()
+    assert "a it operations" not in item["state"].lower()
