@@ -43,7 +43,7 @@ from brain.comms import is_messaging, parse_message
     ("send Arda a text saying hi", {"to": "Arda", "body": "hi"}),
     ("shoot mom a message", {"to": "mom", "body": None}),
     ("drop Arda the text that says thanks", {"to": "Arda", "body": "thanks"}),
-    ("send Mom a note to say hello", None),
+    ("send Mom a note to say hello", {"to": "Mom", "body": "hello"}),
     ("tell Mom I love you", {"to": "Mom", "body": "I love you"}),
     ("tell Mom that I love you", {"to": "Mom", "body": "I love you"}),
     ("tell my friend we are running late",

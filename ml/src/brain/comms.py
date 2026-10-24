@@ -187,9 +187,6 @@ def _parse_message_text(text: str) -> dict | None:
                    flags=re.IGNORECASE).strip()
     if not value:
         return None
-    if re.match(r"^note\s+(?:that\b|to\s+(?:myself|self)\b)",
-                 value, re.IGNORECASE):
-        return None
 
     noun = _NOUN.pattern
     verb = rf"{_VERB}\s+"
@@ -219,14 +216,14 @@ def _parse_message_text(text: str) -> dict | None:
             to, _ = _split_rest(match.group(3))
             return _message_parts(to, " ".join(body_words))
 
-    match = re.match(rf"^({_NOUN.pattern})\s+(?:to\s+)?(.+)$", value,
+    match = re.match(rf"^({_MESSAGE_NOUN.pattern})\s+(?:to\s+)?(.+)$", value,
                      re.IGNORECASE)
     if match:
         to, body = _split_rest(match.group(2))
         return _message_parts(to, body)
 
     match = re.match(
-        rf"^{_VERB}\s+(.+?)\s+{article}({_MESSAGE_NOUN.pattern})"
+        rf"^{_VERB}\s+(.+?)\s+{article}({_NOUN.pattern})"
         rf"(?:\s+(?:saying|that says|which says|that reads|to say|and say|"
         rf"that|:)\s*(.+))?$", value, re.IGNORECASE)
     if match:
