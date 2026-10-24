@@ -1,10 +1,12 @@
 import asyncio
 import math
+import random
 
 import httpx
 import pytest
 
-from training.decisions.build import CODE_TEACHERS, _select_code_teacher, _teacher_distribution_stats
+from training.decisions.build import CODE_FAMILIES, CODE_TEACHERS, _gate_subset, _teacher_distribution_stats
+from training.decisions.families import GENERATORS
 from training.decisions.label import ApiClient, BudgetLedger, label_item
 
 
@@ -12,15 +14,16 @@ def test_permanent_4xx_disables_candidate_but_keeps_other_teachers(monkeypatch, 
     client = ApiClient()
     calls = []
 
-    async def fake_label(model, _state, _question, _ledger, decision_id=None):
+    async def fake_label(model, _state, _question, _ledger, decision_id=None, role=None):
         calls.append((model, decision_id))
-        if model == "gpt-4.1-mini":
+        if model == "gpt-5.4-nano":
             request = httpx.Request("POST", "https://api.example.test")
             response = httpx.Response(404, request=request)
             raise httpx.HTTPStatusError("not found", request=request, response=response)
-        return {"yes": 0.8, "no": 0.2}
+        return {"distribution": {"yes": 0.8, "no": 0.2}, "samples": ["yes"],
+                "valid_samples": 1, "majority": "yes", "failures": []}
 
-    monkeypatch.setattr(client, "label", fake_label)
+    monkeypatch.setattr(client, "sampled_label", fake_label)
     question = {
         "type": "choice",
         "instructions": "Choose.",
@@ -31,15 +34,15 @@ def test_permanent_4xx_disables_candidate_but_keeps_other_teachers(monkeypatch, 
 
     teacher, failures = asyncio.run(label_item(item, list(CODE_TEACHERS), client, ledger))
 
-    assert teacher["q1"]["gpt-4.1-mini"] is None
-    assert teacher["q1"]["gpt-4.1"] == {"yes": 0.8, "no": 0.2}
-    assert teacher["q2"]["gpt-4.1-mini"] is None
-    assert client.unavailable_models["gpt-4.1-mini"]["status_code"] == 404
+    assert teacher["q1"]["gpt-5.4-nano"] is None
+    assert teacher["q1"]["gpt-5.4-mini"] == {"yes": 0.8, "no": 0.2}
+    assert teacher["q2"]["gpt-5.4-nano"] is None
+    assert client.unavailable_models["gpt-5.4-nano"]["status_code"] == 404
     assert calls == [
-        ("gpt-4.1-mini", "sample:q1"),
-        ("gpt-4.1", "sample:q1"),
+        ("gpt-5.4-nano", "sample:q1"),
+        ("gpt-5.4-mini", "sample:q1"),
         ("claude-haiku-5-5", "sample:q1"),
-        ("gpt-4.1", "sample:q2"),
+        ("gpt-5.4-mini", "sample:q2"),
         ("claude-haiku-5-5", "sample:q2"),
     ]
     assert [failure["reason"] for failure in failures] == [
@@ -48,30 +51,20 @@ def test_permanent_4xx_disables_candidate_but_keeps_other_teachers(monkeypatch, 
     ]
 
 
-def test_failed_predictions_are_excluded_from_teacher_agreement():
-    records = [{
-        "id": "sample",
-        "family": "numeric",
-        "state": "state",
-        "questions": {"q1": {"type": "choice", "instructions": "Choose.", "criteria": {"A": "A", "B": "B"}}},
-        "gold": {"q1": "A"},
-        "teacher": {"q1": {
-            "gpt-4.1-mini": {"A": 0.99, "B": 0.01},
-            "gpt-4.1": None,
-            "claude-haiku-5-5": {"A": 0.1, "B": 0.9},
-        }},
-    }]
-
-    selected, report, disagreements = _select_code_teacher(
-        records, {"gpt-4.1": {"status_code": 404}}
-    )
-
-    assert selected == "gpt-4.1-mini"
-    assert report["numeric"]["gpt-4.1-mini"]["agreement"] == 1.0
-    assert report["_overall"]["gpt-4.1"]["total"] == 0
-    assert report["_overall"]["gpt-4.1"]["failed_calls"] == 1
-    assert report["_overall"]["gpt-4.1"]["unavailable"] is True
-    assert [row["model"] for row in disagreements] == ["claude-haiku-5-5"]
+def test_gate_subset_has_25_per_family_and_50_per_type():
+    records = [
+        GENERATORS[family](random.Random(index * 100 + item), "mixed", 3, ["choice", "noul", "score"])
+        for index, family in enumerate(CODE_FAMILIES)
+        for item in range(25)
+    ]
+    rows = _gate_subset(records, 814)
+    assert len(rows) == 150
+    assert {family: sum(row["item"]["family"] == family for row in rows) for family in CODE_FAMILIES} == {
+        family: 25 for family in CODE_FAMILIES
+    }
+    assert {kind: sum(row["type"] == kind for row in rows) for kind in ("choice", "noul", "score")} == {
+        "choice": 50, "noul": 50, "score": 50
+    }
 
 
 def test_teacher_target_sharpness_uses_each_distribution():
@@ -114,28 +107,48 @@ def test_permanent_4xx_releases_reserved_budget_and_marks_model(monkeypatch, tmp
     assert client.unavailable_models["gpt-4.1-mini"]["status_code"] == 404
 
 
-def test_claude_label_request_disables_thinking_for_short_answer(monkeypatch, tmp_path):
+def test_haiku_reasoning_label_uses_four_samples_and_extended_thinking(monkeypatch, tmp_path):
     client = ApiClient()
     ledger = BudgetLedger(5.0, tmp_path / "cost.jsonl", "test")
-    captured = {}
+    captured = []
 
     async def fake_post(_url, _headers, body):
-        captured.update(body)
+        captured.append(body.copy())
         return {"content": [{"type": "text", "text": "A"}],
                 "usage": {"input_tokens": 10, "output_tokens": 1}}
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "not-a-real-key")
     monkeypatch.setattr(client, "_post", fake_post)
-    text, usage = asyncio.run(client.generate(
-        "claude-haiku-5-5", "prompt", ledger, max_output_tokens=4,
-        role="teacher:claude-haiku-5-5", decision_id="sample:q1", temperature=1,
-    ))
+    question = {"type": "choice", "instructions": "Choose.", "criteria": {"yes": "Yes.", "no": "No."}}
+    result = asyncio.run(client.sampled_label("claude-haiku-5-5", "state", question, ledger, "sample:q1"))
+    assert result["valid_samples"] == 4
+    assert len(captured) == 4
+    assert all(body["thinking"] == {"type": "enabled", "budget_tokens": 1024} for body in captured)
+    assert all(body["temperature"] == 1 and body["max_tokens"] == 1200 for body in captured)
 
-    assert text == "A"
-    assert usage["output_tokens"] == 1
-    assert captured["thinking"] == {"type": "disabled"}
-    assert captured["temperature"] == 1
-    assert captured["max_tokens"] == 4
+
+@pytest.mark.parametrize("model", ["gpt-5.4-nano", "gpt-5.4-mini"])
+def test_gpt_reasoning_label_uses_low_effort_and_four_samples(model, monkeypatch, tmp_path):
+    client = ApiClient()
+    ledger = BudgetLedger(5.0, tmp_path / f"{model}.jsonl", "test")
+    captured = []
+
+    async def fake_post(_url, _headers, body):
+        captured.append(body.copy())
+        return {
+            "choices": [{"message": {"content": "Answer: A"}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 2},
+        }
+
+    monkeypatch.setenv("OPENAI_API_KEY", "not-a-real-key")
+    monkeypatch.setattr(client, "_post", fake_post)
+    question = {"type": "choice", "instructions": "Choose.", "criteria": {"yes": "Yes.", "no": "No."}}
+    result = asyncio.run(client.sampled_label(model, "state", question, ledger, "sample:q1"))
+
+    assert result["valid_samples"] == 4
+    assert len(captured) == 4
+    assert all(body["reasoning_effort"] == "low" for body in captured)
+    assert all(body["max_completion_tokens"] == 4000 for body in captured)
 
 
 def test_author_models_use_supported_low_cost_reasoning_modes(monkeypatch, tmp_path):

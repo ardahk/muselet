@@ -5,7 +5,9 @@ import json
 import math
 import os
 import random
+import re
 import threading
+from collections import Counter
 from pathlib import Path
 
 import httpx
@@ -22,13 +24,15 @@ Options:
 {options}
 Answer with the option id only."""
 
-# Official rates per 1M text tokens; source URLs are the provider pricing pages.
+# Official rates per 1M text tokens; Haiku 5.5 values are for prompts <=100k tokens.
 # OpenAI: https://developers.openai.com/api/docs/pricing
-# Anthropic: https://www.anthropic.com/claude-haiku-5-5 and https://www.anthropic.com/claude-sonnet-5-5
+# Anthropic: https://www.anthropic.com/claude-haiku-5-5 and https://docs.anthropic.com/en/docs/about-claude/pricing
 PRICES = {
     "gpt-4.1-mini": (0.40, 1.60),
     "gpt-4.1": (2.00, 8.00),
     "gpt-5.5": (5.00, 30.00),
+    "gpt-5.4-nano": (0.20, 1.25),
+    "gpt-5.4-mini": (0.75, 4.50),
     "claude-haiku-5-5": (0.10, 0.50),
     "claude-sonnet-5-5": (2.00, 10.00),
 }
@@ -39,8 +43,8 @@ class BudgetExceeded(RuntimeError):
 
 
 class BudgetLedger:
-    def __init__(self, budget: float, path: Path, run: str = "default"):
-        self.budget, self.path, self.run = budget, path, run
+    def __init__(self, budget: float, path: Path, run: str = "default", round_id: str | None = None):
+        self.budget, self.path, self.run, self.round_id = budget, path, run, round_id
         self.spent = self.reserved = 0.0
         self.lock = threading.Lock()
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -73,6 +77,8 @@ class BudgetLedger:
                "output_tokens": out_tokens, "input_usd_per_million": input_price,
                "output_usd_per_million": output_price, "cost_usd": cost, "role": role,
                "decision_id": decision_id}
+        if self.round_id:
+            row["round_id"] = self.round_id
         with self.lock:
             self.reserved -= estimate
             self.spent += cost
@@ -122,6 +128,11 @@ def answer_distribution(probabilities: dict[str, float] | None, ids: list[str],
     return {by_id[oid][1]: value for oid, value in probabilities.items()}
 
 
+def first_option_id(text: str, ids: list[str]) -> str | None:
+    pattern = re.compile(r"(?<![A-Za-z0-9])([A-Z])(?![A-Za-z0-9])")
+    return next((match.group(1) for match in pattern.finditer(text) if match.group(1) in ids), None)
+
+
 class ApiClient:
     def __init__(self, concurrency: int = 8):
         self.semaphore = asyncio.Semaphore(concurrency)
@@ -151,27 +162,36 @@ class ApiClient:
 
     async def generate(self, model: str, prompt: str, ledger: BudgetLedger, max_output_tokens: int = 2048,
                        role: str = "author", decision_id: str | None = None,
-                       temperature: float | None = None):
+                       temperature: float | None = None, reasoning_effort: str | None = None,
+                       thinking_budget: int | None = None):
         estimate = ledger.reserve(model, prompt, max_output_tokens)
         try:
             if model.startswith("gpt-"):
                 key = os.environ["OPENAI_API_KEY"]
                 body = {"model": model, "messages": [{"role": "user", "content": prompt}],
-                        "max_completion_tokens": max_output_tokens,
-                        "response_format": {"type": "json_object"}}
+                        "max_completion_tokens": max_output_tokens}
+                if role == "author":
+                    body["response_format"] = {"type": "json_object"}
                 if model == "gpt-5.5":
                     body["reasoning_effort"] = "none"
+                if reasoning_effort is not None:
+                    body["reasoning_effort"] = reasoning_effort
                 data = await self._post("https://api.openai.com/v1/chat/completions",
                                         {"Authorization": f"Bearer {key}"},
                                         body)
                 usage = data.get("usage", {})
-                result = data["choices"][0]["message"]["content"]
+                result = data["choices"][0]["message"].get("content") or ""
                 ledger.settle(estimate, model, usage, "openai", role, decision_id)
                 return result, usage
             key = os.environ["ANTHROPIC_API_KEY"]
             body = {"model": model, "max_tokens": max_output_tokens,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "thinking": {"type": "between_tools" if model == "claude-sonnet-5-5" else "disabled"}}
+                    "messages": [{"role": "user", "content": prompt}]}
+            if model == "claude-sonnet-5-5":
+                body["thinking"] = {"type": "between_tools"}
+            elif model == "claude-haiku-5-5" and role.startswith(("teacher:", "gate:")):
+                body["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget or 1024}
+            else:
+                body["thinking"] = {"type": "disabled"}
             if temperature is not None:
                 body["temperature"] = temperature
             data = await self._post("https://api.anthropic.com/v1/messages",
@@ -193,8 +213,68 @@ class ApiClient:
             ledger.cancel(estimate)
             raise
 
-    async def label(self, model: str, state: str, question: dict, ledger: BudgetLedger,
-                    decision_id: str | None = None) -> dict | None:
+    async def sampled_label(self, model: str, state: str, question: dict, ledger: BudgetLedger,
+                            decision_id: str | None = None, role: str | None = None) -> dict:
+        if model in self.unavailable_models:
+            return {"distribution": None, "samples": [], "valid_samples": 0, "majority": None,
+                    "failures": [{"reason": "candidate_unavailable",
+                                  "status_code": self.unavailable_models[model]["status_code"]}]}
+        prompt, ids = render_question(state, question)
+        rows = option_rows(question)
+        output_cap = 1200 if model == "claude-haiku-5-5" else 4000
+        effort = "low" if model in ("gpt-5.4-nano", "gpt-5.4-mini") else None
+        max_tokens = 1200 if model == "claude-haiku-5-5" else output_cap
+        sample_role = role or f"teacher:{model}"
+
+        async def call(index: int):
+            text, _ = await self.generate(
+                model, LABEL_SYSTEM + "\n\n" + prompt, ledger, max_output_tokens=max_tokens,
+                role=sample_role, decision_id=decision_id, temperature=1 if model == "claude-haiku-5-5" else None,
+                reasoning_effort=effort, thinking_budget=1024 if model == "claude-haiku-5-5" else None,
+            )
+            return index, text
+
+        outputs = await asyncio.gather(*(call(i) for i in range(4)), return_exceptions=True)
+        reverse = {option_id: key for option_id, key, _ in rows}
+        answers = []
+        failures = []
+        for index, output in enumerate(outputs):
+            if isinstance(output, Exception):
+                if isinstance(output, BudgetExceeded):
+                    raise output
+                if isinstance(output, httpx.HTTPStatusError):
+                    status = output.response.status_code
+                    if 400 <= status < 500 and status not in (408, 429):
+                        self.mark_unavailable(model, status)
+                failures.append({"sample": index + 1, "reason": f"{type(output).__name__}: {output}"})
+                continue
+            _, visible = output
+            option_id = first_option_id(visible, ids)
+            if option_id is None:
+                failures.append({"sample": index + 1, "reason": "no_valid_option_id"})
+                continue
+            answers.append(reverse[option_id])
+        counts = Counter(answers)
+        probabilities = {key: counts.get(key, 0) / len(answers) for _, key, _ in rows} if answers else None
+        if probabilities is not None:
+            from .build import floored
+            probabilities = floored(probabilities)
+        majority = None
+        if answers:
+            top_count = max(counts.values())
+            leaders = [key for key, count in counts.items() if count == top_count]
+            if len(leaders) == 1 and top_count > len(answers) / 2:
+                majority = leaders[0]
+        return {
+            "distribution": probabilities,
+            "samples": answers,
+            "valid_samples": len(answers),
+            "majority": majority,
+            "failures": failures,
+        }
+
+    async def classic_label(self, model: str, state: str, question: dict, ledger: BudgetLedger,
+                            decision_id: str | None = None) -> dict | None:
         if model in self.unavailable_models:
             return None
         prompt, ids = render_question(state, question)
@@ -203,14 +283,16 @@ class ApiClient:
             estimate = ledger.reserve(model, LABEL_SYSTEM + prompt, 1)
             try:
                 key = os.environ["OPENAI_API_KEY"]
-                data = await self._post("https://api.openai.com/v1/chat/completions",
-                                        {"Authorization": f"Bearer {key}"},
-                                        {"model": model, "messages": [{"role": "system", "content": LABEL_SYSTEM},
-                                         {"role": "user", "content": prompt}], "temperature": 0, "max_tokens": 1,
-                                         "logprobs": True, "top_logprobs": 20})
+                data = await self._post(
+                    "https://api.openai.com/v1/chat/completions",
+                    {"Authorization": f"Bearer {key}"},
+                    {"model": model, "messages": [{"role": "system", "content": LABEL_SYSTEM},
+                     {"role": "user", "content": prompt}], "temperature": 0, "max_tokens": 1,
+                     "logprobs": True, "top_logprobs": 20},
+                )
                 choice = data["choices"][0]
-                usage = data.get("usage", {})
-                ledger.settle(estimate, model, usage, "openai", f"teacher:{model}", decision_id)
+                ledger.settle(estimate, model, data.get("usage", {}), "openai",
+                             f"teacher:{model}", decision_id)
                 tokens = choice.get("logprobs", {}).get("content", [])
                 probabilities = id_distribution(tokens[0].get("top_logprobs", []) if tokens else [], ids)
             except httpx.HTTPStatusError as exc:
@@ -224,26 +306,31 @@ class ApiClient:
             except Exception:
                 ledger.cancel(estimate)
                 raise
-        else:
-            outputs = await asyncio.gather(*[
-                self.generate(model, LABEL_SYSTEM + "\n\n" + prompt, ledger, max_output_tokens=4,
-                              role=f"teacher:{model}", decision_id=decision_id, temperature=1)
-                for _ in range(3)
-            ], return_exceptions=True)
-            error = next((output for output in outputs if isinstance(output, Exception)), None)
-            if error:
-                raise error
-            counts = {oid: 0 for oid in ids}
-            for text, _ in outputs:
-                answer = text.strip().split()[0].strip(".,:;") if text.strip() else ""
-                if answer in counts:
-                    counts[answer] += 1
-            total = sum(counts.values())
-            probabilities = {key: value / total for key, value in counts.items()} if total else None
-        if probabilities is None:
-            return None
-        return {dict((oid, key) for oid, key, _ in rows)[oid]: value
-                for oid, value in probabilities.items()}
+            return answer_distribution(probabilities, ids, rows)
+
+        outputs = await asyncio.gather(*[
+            self.generate(model, LABEL_SYSTEM + "\n\n" + prompt, ledger, max_output_tokens=4,
+                          role=f"teacher:{model}", decision_id=decision_id, temperature=1)
+            for _ in range(3)
+        ], return_exceptions=True)
+        error = next((output for output in outputs if isinstance(output, Exception)), None)
+        if error:
+            raise error
+        counts = Counter()
+        for text, _ in outputs:
+            option_id = first_option_id(text, ids)
+            if option_id is not None:
+                counts[option_id] += 1
+        total = sum(counts.values())
+        probabilities = {key: counts.get(key, 0) / total for key in ids} if total else None
+        return answer_distribution(probabilities, ids, rows)
+
+    async def label(self, model: str, state: str, question: dict, ledger: BudgetLedger,
+                    decision_id: str | None = None) -> dict | None:
+        if model in ("gpt-5.4-nano", "gpt-5.4-mini", "claude-haiku-5-5"):
+            result = await self.sampled_label(model, state, question, ledger, decision_id)
+            return result["distribution"]
+        return await self.classic_label(model, state, question, ledger, decision_id)
 
 
 async def label_item(item: dict, models: list[str], client: ApiClient, ledger: BudgetLedger) -> tuple[dict, list[dict]]:
@@ -260,8 +347,26 @@ async def label_item(item: dict, models: list[str], client: ApiClient, ledger: B
                                  "attempted": False})
                 continue
             try:
-                distribution = await client.label(model, item["state"], question, ledger,
-                                                  decision_id=f"{item['id']}:{qid}")
+                if model in ("gpt-5.4-nano", "gpt-5.4-mini", "claude-haiku-5-5"):
+                    sampled = await client.sampled_label(
+                        model, item["state"], question, ledger,
+                        decision_id=f"{item['id']}:{qid}",
+                    )
+                    distribution = sampled["distribution"]
+                    item.setdefault("teacher_samples", {}).setdefault(qid, {})[model] = {
+                        "samples": sampled["samples"],
+                        "valid_samples": sampled["valid_samples"],
+                        "majority": sampled["majority"],
+                    }
+                    failures.extend({
+                        "id": item["id"], "qid": qid, "model": model,
+                        "sample": failure.get("sample"), "reason": failure["reason"],
+                    } for failure in sampled["failures"])
+                else:
+                    distribution = await client.classic_label(
+                        model, item["state"], question, ledger,
+                        decision_id=f"{item['id']}:{qid}",
+                    )
             except BudgetExceeded:
                 raise
             except httpx.HTTPStatusError as exc:
