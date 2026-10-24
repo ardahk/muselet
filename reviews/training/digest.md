@@ -1,22 +1,23 @@
-# training lane digest — pass 37 (main e56582b, cloud/data-pipeline f8b721a, cloud/decisions 43abfa3, cloud/comms 956d4ac, cloud/report-2 3c25e78)
+# training lane digest — pass 38 (cloud/data-route 42835ce, cloud/decisions 694c198, cloud/comms c94a407, main e56582b)
 
-Open: 0 P0, 11 P1, 14 P2. Nothing new or resolved. training-44 corrected: main parity is intact; the risk is it3 (catalog v3) vs main/comms router:false flags.
+Open: 0 P0, 12 P1, 14 P2. New: training-45 (P1). Fixes pending in it3cand for training-24/-25 (not yet trained).
 
 ## Ranked open P0/P1
-1. training-44 P1 — it3 catalog v3 routes compose_text + draft_email; main (compose_text) and comms (draft_email) mark them router:false; header parity only xfails on mismatch.
-2. training-43 P1 — frozen route_v2 has 0.4% <=3-word items; it3 selection blind to short commands.
-3. training-29 P1 — short_edit1 rule mostly false positives; hard gate; now also pre-filters the it3 pool (gate_filter) and thinned route_v2.
-4. training-37 P1 — route_v1_clean length-skewed; no full/short number for it2.
-5. training-5 P1 — shared Tinker cap; decisions + it3 runs both pending.
-6. training-26 P1 — pronoun ARGS treated as concrete.
-7. training-28 P1 — media_control contexts inside Premiere Pro.
-8. training-24 P1 — ASK undercoverage.
-9. training-25 P1 — weak labels media_control/dark_mode/find_file.
-10. training-8 / training-15 P1 — no adjudication STOP gate; teacher subset skew.
+1. training-44 P1 — it3cand trains draft_email (330) + compose_text (127) as routable; comms/main mark them router:false.
+2. training-45 P1 — it3cand ARGS: 15.7% audit noise fixed only on the 1,061 sampled rows; ~29k rows get deterministic rules only.
+3. training-29 P1 — short_edit1: 143 of 156 data-route gate drops ('text her' vs 'email her'); hard gate.
+4. training-43 P1 — route_v2 has 0.4% <=3-word items; it3 selection blind to short commands.
+5. training-37 P1 — route_v1_clean length-skewed; no full/short number for it2.
+6. training-5 P1 — shared Tinker cap; decisions pilots ran, it3 pending.
+7. training-8 / training-15 P1 — adjudicator sees gold; no per-label stop gate.
+8. training-24 P1 — ASK undercoverage (it3cand 451 -> 834, pending training).
+9. training-25 P1 — weak labels (re-judged in it3cand, pending training).
+10. training-26 P1 — pronoun ARGS treated as concrete (no change in data-route).
+11. training-28 P1 — media_control contexts inside Premiere Pro (partly via media group).
 
 ## Next moves
-1. Decide the it3 catalog; land it on main with matching router flags, new parity samples and the it3 router together.
-2. Add a short-command stratum to route_v2 (or report by length) before it3 selection.
-3. Narrow short_edit1.
-4. One shared Tinker ledger before decisions and it3 runs.
-5. Judge decisions H6 on route_val/route_v2.
+1. Settle the it3 catalog: either make draft_email/compose_text routable on main or drop them from it3cand before training.
+2. Re-audit 500 it3cand ARGS rows; full-pool ARGS re-judge for high-noise skills if residual > 8%.
+3. Narrow short_edit1 and restore the 137 dropped generated rows.
+4. Add a short-command stratum to route_v2 or report it by length.
+5. One shared Tinker ledger (record decisions pilot spend) before it3.
