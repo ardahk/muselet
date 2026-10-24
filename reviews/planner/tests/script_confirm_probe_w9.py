@@ -1,7 +1,7 @@
 import re,sys,types
 src=open('/tmp/w9orch.py').read()
 start=src.index('    _SCRIPT_BLOCK = re.compile'); end=src.index('    @staticmethod\n    def _read_sysctl')
-ns={'re':re}
+import unicodedata; ns={'re':re,'unicodedata':unicodedata}
 body="class O:\n"+src[start:end]
 exec(body,ns); O=ns['O']; o=O()
 cases={

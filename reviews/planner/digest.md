@@ -1,23 +1,26 @@
-# planner lane — pass 44 (main 2a2c2a9, wip 4f963a7, w9-safety 50a3b25)
+# planner lane — pass 45 (main ebdd639, wip eb1d232, w9-safety 2a7d0df, memory 5cd44e6, planner-lora ceafe3d)
 
 Open P0: none.
 
 Open P1 (ranked):
-1. planner-30: JXA string-concat doShellScript bypasses script confirmation (ml/src/brain/orchestrator.py). Fixed on w9-safety 50a3b25 (PR #46), still open on main.
+1. planner-30: JXA string-concat doShellScript bypasses script confirmation (ml/src/brain/orchestrator.py). Fixed on w9-safety (PR #46), still open on main.
 2. planner-31: Rule 14 'expect focused' (no ref) is rejected by HandsKit before acting (prompts/planner_system.md)
-3. planner-15 (reopened): read-only Numbers scripts still trigger CONFIRM; writes don't (ml/src/brain/orchestrator.py)
-4. planner-32: open_folder catalog lacks 'view'; demo 1 detours via planner (skills/catalog.json)
-5. planner-28: compose_text types model text with no sendgate (ml/src/brain/tools/compose_text.py)
-6. planner-24: Calculator keys posted before Calculator is frontmost (ml/src/brain/orchestrator.py)
-7. planner-29: v2 bench goals near-duplicate the few-shot examples (evals/planner_v2_*)
-8. planner-6: premiere_command unimplemented; catalog args mismatch the UXP bridge (app/Sources/HandsKit/Skills.swift)
+3. planner-38: Planner LoRA trained without few-shot/retrieval, but served with both by default (training/planner_lora/common.py, tools/serve_brain.sh)
+4. planner-15: read-only Numbers scripts still trigger CONFIRM (ml/src/brain/orchestrator.py). Not fixed by w9.
+5. planner-32: open_folder catalog lacks 'view', so demo 1 goes through the planner (skills/catalog.json)
+6. planner-28: compose_text types model text with no sendgate (ml/src/brain/tools/compose_text.py). Exposure grows with it3.
+7. planner-24: Calculator keys posted before Calculator is frontmost (ml/src/brain/orchestrator.py). Fixed on w9 4bbb6d8.
+8. planner-29: v2 bench goals near-duplicate the few-shot examples (evals/planner_v2_*)
+9. planner-6: premiere_command unimplemented; catalog args mismatch the UXP bridge (app/Sources/HandsKit/Skills.swift)
 
 Highest-leverage next moves:
-- Add `view` to open_folder in catalog.json and the prompt example: demo 1 becomes one skill call.
-- Merge w9-safety for planner-30, but narrow `\[` to string-key bracket access and make it JXA-only, and drop `\\`, `set .* to` and `format` for Numbers targets (planner-37, planner-15).
-- Fix rule 14 to say `expect focused #<ref>`, and run dsl.parse_predicate on streamed expect lines.
-- Skip the duplicate verify RPC when act returned expect_ok; make RPC verify poll for skill and script expects.
-- Replace the done-rejection planner turn with a harness re-observe.
+- Before any LoRA ship call, evaluate the adapter under the exact serve flags (few-shot, RETRIEVAL_K), or serve it with `--planner-fewshot none` and RETRIEVAL_K=0.
+- Merge w9-safety, but first narrow `\[` to JXA computed keys and drop `\\`, `set .* to` and `format` for Numbers targets (planner-37, planner-15).
+- Add `view` to open_folder in catalog.json and to the prompt example, so demo 1 is a single skill call.
+- Fix rule 14 to say `expect focused #<ref>`; run dsl.parse_predicate on streamed expect lines.
+- planner-verify brief: in the verify step, re-observe and verify on the harness side; don't spend a planner turn on it (planner-33).
+
+Pass 45 notes: main ebdd639 adds briefs only (planner-think, planner-verify, hands-clock, docs-demo, live-cases) and an AGENTS rule that planner steps may take a few seconds (p50 <= 3 s/step). wip/local has the same lane files as main. On w9-safety, the done-evidence commits were reverted, the Calculator frontmost gate fixes planner-24, and control/format characters in a script now force a confirm (fine). Trash resolution now requires an exact match, and installed apps are preferred over the site rewrite; I found no lane issues in those. memory/memory-lt adds working memory: a guarded LLM rewrite (the irreversible-verb guard blocks newly added send/delete/etc.), direct execution of safe skills only, and a `Recent:` block in the planner's dynamic message, so the static cache is intact. Screen text reaches the rewrite only as the URL's site, not the window title. Its one issue is planner-39 (latency). planner-lora gives planner-38. router-it3-serve widens planner-28. docs-demo and ui-polish don't touch this lane.
 
 Pass 44 notes: main and wip/local don't change any lane files (main adds briefs only). w9-safety 50a3b25 does two things. It hardens _SCRIPT_BLOCK and target extraction, which fixes planner-30 but introduces planner-37 (false confirms on Numbers reads). It also resets _batch_confirmed after every non-confirm action, so a confirm covers only the very next action; that is stricter and fine, and planner-35 is unchanged. memory-eval adds memory_followups to the plan_bank decontamination denylist, which is good. memory doesn't touch this lane.
 
