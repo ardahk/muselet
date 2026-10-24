@@ -948,6 +948,13 @@ class Orchestrator:
             r = await self._rpc_action("skill",
                                        {"name": a["name"],
                                         "args": a.get("args", {})}, a)
+            if r["status"] == "failed" and \
+                    r.get("error") == "not_frontmost":
+                await self._fail(
+                    "not_frontmost",
+                    replies.fail_text(a["name"], a.get("args", {}),
+                                      "not_frontmost"))
+                r["_terminal_failure"] = True
             r["_log"] = f"{dsl_line}-> {'ok' if r['status']=='ok' else 'failed: ' + r.get('error','?')}"
             return r
         if op == "script":
@@ -1213,7 +1220,9 @@ class Orchestrator:
                             if r["status"] != "ok":
                                 failed = True
                                 cancel.set()
-                                res_status = r["status"]
+                                res_status = ("terminal_failure"
+                                              if r.get("_terminal_failure")
+                                              else r["status"])
                                 fail_key = _action_key(a)
                     try:
                         acts = dsl.parse(line)
@@ -1239,7 +1248,9 @@ class Orchestrator:
                     last_exp_ok = bool(r.get("expect_ok"))
                     if r["status"] != "ok":
                         failed = True
-                        res_status = r["status"]
+                        res_status = ("terminal_failure"
+                                      if r.get("_terminal_failure")
+                                      else r["status"])
                         fail_key = _action_key(a)
                         cancel.set()
             info = await asyncio.wrap_future(fut)
@@ -1263,6 +1274,8 @@ class Orchestrator:
                 return "awaiting_user"
             if res_status == "cancelled":
                 return "cancelled"
+            if res_status == "terminal_failure":
+                return "failed"
             if res_status == "fallback":
                 return "fallback"     # brain tool not ready: one bubble (planner-18)
             # done is verified, never trusted (planner-13): alone in its batch
@@ -1561,6 +1574,8 @@ class Orchestrator:
                 ("ok", "error", "observed", "diff_text", "expect_ok",
                  "act_ms", "settle_ms", "epoch")
                 if k in res}
+        if res.get("error") == "not_frontmost" and "result" in res:
+            keep["result"] = res["result"]
         return keep
 
     async def _script(self, a: dict) -> str:
@@ -1639,10 +1654,20 @@ class Orchestrator:
             res = {"ok": False, "error": str(e)}
         self.tracer.rpc("skill", {"name": name, "args": args},
                         self._trace_res(res), (time.perf_counter() - t) * 1000)
+        if res.get("error") == "not_frontmost":
+            if self.tracer.current is not None:
+                self.tracer.current["decisions"].append(
+                    {"not_frontmost": {"skill": name,
+                                       "result": res.get("result")}})
+            return await self._fail(
+                "not_frontmost",
+                replies.fail_text(name, args, "not_frontmost"))
         if not res.get("ok", False) and name == "open_folder" and \
                 args.get("view"):
             error = str(res.get("error", "")).lower()
-            if "view" in error or "unknown arg" in error or "invalid" in error:
+            arg_rejection = "view" in error and (
+                "invalid params" in error or "unknown arg" in error)
+            if arg_rejection:
                 view = args["view"]
                 args = {key: value for key, value in args.items()
                         if key != "view"}

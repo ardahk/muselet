@@ -346,6 +346,11 @@ def test_failure_copy(err, frag):
     assert s.endswith(("?", ".")) and not s.endswith(".?")
 
 
+def test_not_frontmost_failure_copy():
+    assert replies.fail_text("open_app", {}, "not_frontmost") == \
+        "Opened it, but it didn't come to the front"
+
+
 def test_skill_success_says_specific_reply(orch):
     run(orch.execute_actions([{"op": "skill", "name": "set_volume",
                                "args": {"level": 30}}]))

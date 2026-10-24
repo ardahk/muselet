@@ -207,7 +207,9 @@ def test_open_folder_extracts_finder_view(tmp_path, text, view):
 def test_open_folder_retries_without_view_and_sends_key_combo(tmp_path):
     def response(params):
         if "view" in params["args"]:
-            return {"ok": False, "error": "unknown arg view"}
+            return {"ok": False, "error":
+                    "invalid params: open_folder: view must be "
+                    "list|icons|columns|gallery"}
         return {"ok": True, "result": {}}
 
     text = "open my downloads as a list"
@@ -222,6 +224,49 @@ def test_open_folder_retries_without_view_and_sends_key_combo(tmp_path):
     assert ("act", {"op": "keys", "combo": "cmd+2"}) in server.rpcs
     assert any({"view_fallback": "list"} in trace["decisions"]
                for trace in _traces(o.tracer))
+
+
+@pytest.mark.parametrize("name,text,args", [
+    ("open_app", "open finder", {"app": "Finder"}),
+    ("open_folder", "open my downloads", {"path": "downloads"}),
+])
+def test_not_frontmost_skill_fails_honestly(tmp_path, name, text, args):
+    result = {"path": "/Users/test/Downloads"}
+    server = ResultServer({
+        name: {"ok": False, "error": "not_frontmost", "result": result}})
+    o, _ = _orch(tmp_path, {text: (name, 0.95)},
+                 {(name, text): args}, server)
+
+    outcome = run(o.handle_utterance(text))
+
+    assert outcome["outcome"] == "failed"
+    assert server.said[-1] == "Opened it, but it didn't come to the front"
+    assert server.uis[-1] == "confused"
+    assert "success" not in server.uis
+    assert o._ctx["last_action"] == "none"
+    trace = _traces(o.tracer)[-1]
+    assert {"not_frontmost": {"skill": name, "result": result}} \
+        in trace["decisions"]
+    assert any(rpc["result"].get("error") == "not_frontmost" and
+               rpc["result"].get("result") == result for rpc in trace["rpc"])
+
+
+def test_open_folder_not_frontmost_does_not_send_view_fallback_keys(tmp_path):
+    text = "open my downloads as a list"
+    server = ResultServer({
+        "open_folder": {"ok": False, "error": "not_frontmost",
+                        "result": {"path": "/Users/test/Downloads"}}})
+    o, _ = _orch(tmp_path, {text: ("open_folder", 0.95)},
+                 {("open_folder", text): {"path": "downloads"}}, server)
+
+    outcome = run(o.handle_utterance(text))
+
+    assert outcome["outcome"] == "failed"
+    assert server.said[-1] == "Opened it, but it didn't come to the front"
+    assert _skill_rpcs(server) == [
+        ("open_folder", {"path": "downloads", "view": "list"})]
+    assert not any(method == "act" and params.get("op") == "keys"
+                   for method, params in server.rpcs)
 
 
 def test_open_folder_without_view_words_has_no_view_arg(tmp_path):
@@ -434,6 +479,27 @@ def test_compound_new_folder_prefers_result_path(tmp_path):
         "open_folder", {"path": result_path})
 
 
+def test_compound_new_folder_followup_not_frontmost_fails_honestly(tmp_path):
+    text = "create a folder on my desktop called trip photos and open it"
+    first = "create a folder on my desktop called trip photos"
+    result_path = str(tmp_path / "actual" / "trip photos")
+    server = ResultServer({
+        "new_folder": {"ok": True, "result": {"path": result_path}},
+        "open_folder": {"ok": False, "error": "not_frontmost",
+                        "result": {"path": result_path}},
+    })
+    o, _ = _orch(
+        tmp_path, {first: ("new_folder", 0.95)},
+        {("new_folder", first): {"parent": "my desktop",
+                                 "name": "trip photos"}}, server)
+
+    outcome = run(o.handle_utterance(text))
+
+    assert outcome["outcome"] == "failed"
+    assert server.said[-1] == "Opened it, but it didn't come to the front"
+    assert server.uis[-1] == "confused"
+
+
 def test_compound_screenshot_then_open_uses_result_path(tmp_path):
     text = "take a screenshot and open it"
     screenshot_path = str(tmp_path / "capture.png")
@@ -446,6 +512,24 @@ def test_compound_screenshot_then_open_uses_result_path(tmp_path):
     assert _skill_rpcs(server) == [
         ("take_screenshot", {}),
         ("open_file", {"path": screenshot_path})]
+
+
+def test_compound_screenshot_followup_not_frontmost_fails_honestly(tmp_path):
+    text = "take a screenshot and open it"
+    screenshot_path = str(tmp_path / "capture.png")
+    server = ResultServer({
+        "take_screenshot": {"ok": True, "result": {"path": screenshot_path}},
+        "open_file": {"ok": False, "error": "not_frontmost",
+                      "result": {"path": screenshot_path}},
+    })
+    o, _ = _orch(tmp_path, {"take a screenshot": ("take_screenshot", 0.95)},
+                 {("take_screenshot", "take a screenshot"): {}}, server)
+
+    outcome = run(o.handle_utterance(text))
+
+    assert outcome["outcome"] == "failed"
+    assert server.said[-1] == "Opened it, but it didn't come to the front"
+    assert server.uis[-1] == "confused"
 
 
 def test_compound_screenshot_without_result_path_fails_friendly(tmp_path):
