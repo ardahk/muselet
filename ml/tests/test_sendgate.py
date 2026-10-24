@@ -140,3 +140,11 @@ def test_declined_type_enter_is_cancelled_without_act(tmp_path):
     assert result["status"] == "cancelled"
     assert server.confirms
     assert "act" not in server.methods()
+
+
+def test_zen_browser_web_composer_counts():
+    """The user's default browser is Zen: a Gmail/Slack tab there is a composer."""
+    from brain.sendgate import is_composer_app
+    assert is_composer_app("Zen", "Inbox - Gmail")
+    assert is_composer_app("Zen Browser", "general | Slack")
+    assert not is_composer_app("Zen", "Wikipedia")

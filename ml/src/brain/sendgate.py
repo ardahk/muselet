@@ -17,7 +17,7 @@ _BUNDLE_IDS = {
 }
 _BROWSER_NAMES = (
     "Safari", "Google Chrome", "Chrome", "Arc", "Firefox", "Microsoft Edge",
-    "Brave Browser",
+    "Brave Browser", "Zen", "Zen Browser", "Vivaldi", "Opera", "Orion",
 )
 _COMPOSER_RE = re.compile(
     r"\b(?:" + "|".join(re.escape(name) for name in _COMPOSER_NAMES) + r")\b",
