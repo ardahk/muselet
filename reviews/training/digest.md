@@ -1,22 +1,21 @@
-# training lane digest — pass 46 (main 2a2c2a9, wip/local 4f963a7, memory-eval c05944e)
+# training lane digest — pass 47 (main ebdd639, router-it3-serve b455d2c, planner-lora ceafe3d)
 
-Open: 1 P0, 14 P1, 15 P2. New: training-49 (memory-eval gate crash) and training-50 (spend threshold conflict).
+Open: 0 P0, 14 P1, 16 P2. training-44 is resolved on cloud/router-it3-serve (MUSELET_ROUTE_CATALOG, v3 parity test). New: training-51 (P2). Spend: planner-lora used about $5.84, so MTD is about $142-144.
 
 ## Ranked open P0/P1
-1. training-44 P0 — it3 needs catalog v3. Runtime env var differs, and main's draft_email index is 29 vs 37 in v3, so special-option ids would shift (after_it3.sh, ml/src/brain/catalog.py).
-2. training-50 P1 — spend thresholds conflict ($140 guard/common, $142/$146 planner-lora, $148 user); the stop message goes to one session (tools/tinker_spend.py).
-3. training-49 P1 — memory-eval gate appends 2-tuples; overlaps() raises ValueError, so route rebuild is broken (training/data_route/build.py).
-4. training-47 P1 — route_v2 gate misses mid-length paraphrases; 13-gram rule can't fire on 640/955 items (evalcheck.py).
-5. training-48 P1 — merge_it3cand keeps source splits; val3/tau may be inflated (it3gen.py).
-6. training-45 P1 — it3 ARGS audit noise fixed only on the 1,061 sampled rows.
-7. training-29 P1 — short_edit1 over-drops short commands.
-8. training-43 / training-37 P1 — route_v2 and route_v1_clean blind to short commands.
-9. training-8 / training-15 P1 — adjudicator sees gold; no per-label stop gate.
-10. training-24 / 25 / 26 / 28 P1 — ASK undercoverage, weak labels, pronoun ARGS, media_control in Premiere.
+1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
+2. training-49 P1 — memory-eval gate appends 2-tuples; overlaps() raises ValueError, so route rebuild is broken (training/data_route/build.py).
+3. training-47 P1 — route_v2 gate misses mid-length paraphrases; 13-gram rule can't fire on 640/955 items (evalcheck.py).
+4. training-48 P1 — merge_it3cand keeps source splits; val3/tau may be inflated (router_check drops only exact it2-train rows).
+5. training-45 P1 — it3 ARGS audit noise fixed only on the 1,061 sampled rows.
+6. training-29 P1 — short_edit1 over-drops short commands.
+7. training-43 / training-37 P1 — route_v2 and route_v1_clean blind to short commands.
+8. training-8 / training-15 P1 — adjudicator sees gold; no per-label stop gate.
+9. training-24 / 25 / 26 / 28 P1 — ASK undercoverage, weak labels, pronoun ARGS, media_control in Premiere.
 
 ## Next moves
-1. Serve it3 only with MUSELET_SKILLS=training/artifacts/catalog_v3.json (or byte-match main's catalog to v3), parity test on v3 samples, mismatch = fail.
-2. CPU near-dup audit of the v3m pool vs route_v2 (char5/bigram); apply the ship rule on the clean subset.
-3. Regroup v3m by MinHash family before fitting tau on val3.
-4. Spend: unify thresholds to the $148 stop (training-50); ~$10 headroom, ~$10 headroom vs the ~$138 estimate. Enough for evals and parity, not for another training run. Read the console before each sampler call.
-5. Re-audit 500 it3 ARGS rows.
+1. Read the Tinker console before any more sampling; about $4 left to $148. Unify thresholds.
+2. Merge router-it3-serve, then run test_route_parity v3 + router_check val/route_v2 on the Mac (free).
+3. CPU near-dup audit of the v3m pool vs route_v2; apply the it3 ship rule on the clean subset.
+4. Fix the memory-eval gate tuple shape before any route rebuild.
+5. Send planner-lora step 36 and step 72 to the Mac holdout matrix; dev can't pick between them.
