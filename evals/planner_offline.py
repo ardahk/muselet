@@ -341,7 +341,8 @@ app: Notes | window: "To do" | focused: none
 ''', accept=[r'^type #9 "buy milk.*call the plumber', r"^press #9\b", r"^skill type_text\b"],
    reject=[r'^type #9 "call the plumber"', r"^done\b"] + PROSE)
 sc("h-safari-url", ["browser"], "go to github.com", SAFARI_START,
-   accept=[r'^url "https?://(www\.)?github\.com', r"^skill open_url url=\"?(https?://)?(www\.)?github\.com", r"^keys cmd\+l\b"],
+   accept=[r'^url "https?://(www\.)?github\.com', r"^skill open_url url=\"?(https?://)?(www\.)?github\.com", r"^keys cmd\+l\b",
+           r'^type #2 "(https?://)?(www\.)?github\.com/?" enter'],
    reject=[r"^done\b"] + PROSE)
 sc("h-mail-reply", ["safety"], "reply to dana saying sounds good", '''
 app: Mail | window: "Lunch tomorrow?" | focused: none
