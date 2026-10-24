@@ -1,4 +1,9 @@
-# hands — digest (pass 47)
+# hands — digest (pass 48)
+
+Pass 48:
+- main 46b97f5 has no app/ changes. hands-26 is still open (orchestrator.py:1965) and so is hands-27 (BrainClient.swift:91).
+- wip/local 719907a and live-cases fa9c374 only add the Expect merge from main. brain-9 e9e9b42 and safety-brain12/18/38/planner28 have no app/ changes.
+- cloud/safety-architect27 4edcba5 focuses Premiere's Timeline via the Window menu before sending shortcuts. New finding hands-31 (P2): the failure path leaves the menu open and there is no settle before the keystroke.
 
 Pass 47:
 - main a97fcba merged the w9-safety `appears` scoping I reviewed in pass 46. hands-26 is still open (the expect strip is now at orchestrator.py:1965) and hands-27 is still open (BrainClient.swift:91).
@@ -15,14 +20,14 @@ Pass 46 reviewed:
 
 Static analysis only.
 
-Open: 0 P0, 3 P1, 6 P2.
+Open: 0 P0, 3 P1, 7 P2.
 
 Open P0/P1, ranked:
 - P1 hands-28: an unverified Clock AX start is reported as a set timer that never fires (cloud/hands-clock app/Sources/HandsKit/ClockAX.swift, Skills.swift:925)
 - P1 hands-29: Clock AX start and cancel steal focus and never restore the prior app (cloud/hands-clock app/Sources/HandsKit/ClockAX.swift:316,421)
 - P1 hands-26: the brain strips `expect` from act, so HandsKit's expect polling never runs (ml/src/brain/orchestrator.py:1896; app/Sources/HandsKit/RPC.swift:173)
 
-Open P2: hands-30 (Clock wheel stepping latency), hands-27, hands-25, hands-20, hands-16, hands-10.
+Open P2: hands-31 (Premiere Timeline menu left open), hands-30 (Clock wheel stepping latency), hands-27, hands-25, hands-20, hands-16, hands-10.
 
 Highest-leverage next moves:
 1. hands-28 before merging hands-clock: an unverified start must fall back, or keep a real Muselet alarm. Otherwise users get silent missed timers.
