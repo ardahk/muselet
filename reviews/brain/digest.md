@@ -1,25 +1,23 @@
-# Brain lane digest, pass 41 (2026-10-24T21:10Z)
+# Brain lane digest, pass 42 (2026-10-24T21:25Z)
 
-Heads: main 27ebd13, wip/local 4585ce4, cloud/comms-2 265c86d, cloud/planner-retrieval 9786fa4,
-cloud/clock-timers d060b5a, cloud/mascot-animal 238db23, cloud/data-pipeline 34aff30, cloud/decisions b78d778.
+Heads moved: main 3876f3a, wip/local 3cfa06d, cloud/comms-2 c65ee70. Others unchanged since pass 41.
 
 Counts (open): P0 0 / P1 9 / P2 10.
 
-Tests (serial; a parallel run showed spurious failures from shared state):
-main 1347 passed; comms-2 1462 passed; planner-retrieval 1366 passed; clock-timers 1362 passed.
-Review repros: 30 failed on main and on every new branch (brain-35/36 included).
+Tests (serial): main 1347 passed; bench 165 passed; comms-2 1462 passed; wip/local 1470 passed.
+Review repros: 30 failed on main (unchanged); test_brain_pass41.py 5 failed on comms-2@c65ee70 and wip/local.
 
 ## Changes this pass
-- New brain-38 (P1, comms-2): comms.parse_message runs before the router and hijacks 'tell finder ...', 'tell spotify ...',
-  'text size bigger'; 'send a message to John on Slack' composes 'on Slack' into John's Messages conversation.
-- brain-22: planner-retrieval's retrieved examples use the marked history form next to DSL live history.
-- brain-37: retrieval block is another prompt shape the planner demos don't cover.
-- main 27ebd13: create_event datetimes now carry the local offset (catalog.py); no finding.
-- clock-timers: delayed one-time Clock hint; no finding. mascot-animal, decisions, data-pipeline: outside lane.
+- main 3876f3a: Swift only (messages_people RPC, fuzzy contacts_search, compose v2 with name, windows probe) plus
+  bench document-safety/hobbylm changes. Outside the Python lane; messages_people + fuzzy are what comms-2 calls, so
+  comms-2 no longer depends on unmerged Swift. No brain code changed, every open finding stands.
+- comms-2 c65ee70: does not fix brain-38. 'note' moves into the '<verb> X a note' form: 'send me a note' -> to 'me',
+  'send finder a note' -> to 'finder'. brain-38 refreshed.
+- wip/local: comms-2 plus newer local comms.py ('saying ... to X', 'tell X to Y' split). Same brain-38 repros fail.
 
 ## Top open
 1. brain-35 P1 permission gate uses the pre-batch observation (main).
-2. brain-38 P1 message parser hijacks non-messaging commands (comms-2).
+2. brain-38 P1 message parser hijacks non-messaging commands (comms-2, wip/local).
 3. brain-25 P1 calculator keys can land in the frontmost app.
 
 Other open P1: brain-29, brain-30, brain-24, brain-16, brain-22, brain-17.
