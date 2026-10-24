@@ -1,8 +1,8 @@
-# Brain lane digest — pass 36 (2026-10-24T19:20Z)
+# Brain lane digest — pass 37 (2026-10-24T19:35Z)
 
-main e56582b = PR #25 (brain-7) + PR #23; wip/local 73f7044 == main in ml/ and skills/. cloud/comms c94a407 and
-cloud/app-ui ae9ce5e merged main (suites 1257 / 1222 passed). New: cloud/data-planner ee8ae33 (planner bench v2),
-cloud/bench-fix 4bcf0db (bench harness), cloud/data-route 42835ce (training data). cloud/decisions 694c198: checkpoints log.
+main fb2cfd0 = e56582b + cloud/bench-fix (harness timeout recovery, --run-pending, HobbyLM replay helper) + live_t1
+final-state checks and "no user Finder windows" preconditions. wip/local 9ed6bc8 == main. No ml/, prompts/ or skills/
+change, so every open finding stands (review suite 27 failed / 25 passed). bench/tests: 162 passed, 2 skipped.
 
 Open: P0 0 | P1 8 | P2 8
 
@@ -24,10 +24,9 @@ against cf53292 the snapshot was identical. Pass-35 "main@cf53292" results were 
 - brain-34 (decisions) — lazy import drops `decision.mlx_lm`; 4 test_args_model tests error.
 - brain-27, brain-28 (sendgate gaps), brain-8, 12, 14, 18, 19 unchanged.
 
-## Resolved this pass
-- brain-31 — app-ui adopted brain-7's server/cli and parses `loaded`: "Loaded" / "Off" / reason.
-
 ## No findings
+- bench-fix on main: the event-graded calendar case still drops its AppleScript precondition (unchanged
+  behaviour, moved into _prepare_run_spec); it is gated by is_local_default(probe_bench_calendar()) instead.
 - data-planner v2: validator OK (260 scenarios, 130/130 split, 0 failing, 0 goals shared with v1 or across splits);
   runner reuses planner_offline grade; no holdout goal appears in prompts/planner_fewshot.md.
 - bench-fix, data-route: outside the lane.
