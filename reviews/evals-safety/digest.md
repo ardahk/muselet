@@ -1,4 +1,4 @@
-# evals-safety digest — pass 33 (main@82d94d9)
+# evals-safety digest — pass 34 (main@5292608)
 
 Open: P0 0 · P1 2 · P2 9   (resolved this pass: -6 and -30, brain-6 merged)
 
@@ -14,3 +14,5 @@ P2: -8, -12, -20, -21, -22, -23, -24, -28, -31.
 3. Report planner holdout2 with the prompt sha (-31).
 4. Add positive state checks to the 8 trace-only live cases (-24).
 5. Leave Tinker headroom for billing lag on any large late run (-23).
+
+Pass 34: main 5292608 only updates the AGENTS.md DeskMind overlap note (0 real, CJK-aware gate), which is consistent with -32 being resolved. wip/local matches main. No code changes, so -25 and -11 stand.
