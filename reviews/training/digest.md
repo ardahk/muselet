@@ -16,5 +16,5 @@ Open: 1 P0, 12 P1, 15 P2. New: training-47 and training-48. training-44 escalate
 1. Serve it3 only with MUSELET_SKILLS=training/artifacts/catalog_v3.json (or byte-match main's catalog to v3), parity test on v3 samples, mismatch = fail.
 2. CPU near-dup audit of the v3m pool vs route_v2 (char5/bigram); apply the ship rule on the clean subset.
 3. Regroup v3m by MinHash family before fitting tau on val3.
-4. Spend headroom to the $140 stop is ~$2: no Tinker eval reruns; read tinker_spend.py first.
+4. Spend: hard stop now $148, ~$10 headroom vs the ~$138 estimate. Enough for evals and parity, not for another training run. Read the console before each sampler call.
 5. Re-audit 500 it3 ARGS rows.
