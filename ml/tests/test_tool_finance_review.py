@@ -53,12 +53,15 @@ class FakeTracer:
 
 
 class FakeServer:
-    def __init__(self, docs=(STMT, BUDGET), fail=None, ocr=None):
+    def __init__(self, docs=(STMT, BUDGET), fail=None, ocr=None, open_delay=0):
         self.calls, self.bubbles, self.said, self.moods = [], [], [], []
         self.docs = list(docs)
         self.fail = fail or {}
         self.opened = []
         self.ocr = ocr or {}
+        self.open_delay = open_delay  # list calls after open_file that still see no new document
+        self.loading: list[list] = []
+        self.list_calls = 0
 
     async def rpc(self, method, params, timeout=30):
         self.calls.append((method, params))
@@ -67,12 +70,19 @@ class FakeServer:
             kind = "list" if "repeat with d in documents" in code else "read" if "on cellText" in code else "write"
             if kind in self.fail:
                 return self.fail[kind]
+            if kind == "list":
+                self.list_calls += 1
+                for item in self.loading:
+                    if item[1] == 0:
+                        self.docs.insert(0, item[0])  # opened doc comes to the front
+                    item[1] -= 1
+                self.loading = [i for i in self.loading if i[1] >= 0]
             out = {"list": "\n".join(self.docs), "read": numbers_tsv(), "write": "8"}[kind]
             return {"ok": True, "output": out}
         if method == "skill":
             path = params["args"]["path"]
             self.opened.append(Path(path).name)
-            self.docs.insert(0, STMT if path.endswith(".csv") else BUDGET)  # opened doc comes to the front
+            self.loading.append([STMT if path.endswith(".csv") else BUDGET, self.open_delay])
             return {"ok": True}
         if method == "ocr":
             await asyncio.sleep(0)
@@ -100,7 +110,7 @@ def finance_dir(tmp_path, monkeypatch):
     shutil.copy(FIX / "budget_oct2026.xlsx", tmp_path)
     shutil.copytree(FIX / "receipts", tmp_path / "Receipts")
     monkeypatch.setenv("MUSELET_FINANCE_DIR", str(tmp_path))
-    monkeypatch.setattr(fr, "SHOW_PAUSE_S", 0)
+    monkeypatch.setattr(fr, "POLL_S", 0.001)
     return tmp_path
 
 
@@ -150,7 +160,9 @@ def test_all_rpc_sequence_bubbles_and_outcome(finance_dir):
     ev = orch.tracer.decisions[-1]
     assert ev["tool"] == "finance_review" and ev["complete"] is False
     assert all(f["rule"] and f["say"] for f in ev["flags"])
-    assert {"finance_read", "finance_analyze", "finance_write", "finance_ocr", "finance_review"} <= set(orch.tracer.stages)
+    assert {"finance_list", "finance_read", "finance_ocr_wait", "finance_analyze", "finance_write", "finance_ocr",
+            "finance_review"} <= set(orch.tracer.stages)
+    assert "finance_open_statement" not in orch.tracer.stages
 
 
 def test_needs_review_is_written_not_guessed(finance_dir):
@@ -214,6 +226,35 @@ def test_unreadable_receipt_is_reported(finance_dir):
     assert srv.said == ["6 receipts match, 1 receipt mismatch, 1 unreadable."]
     flag = next(f for f in orch.tracer.decisions[-1]["flags"] if f["kind"] == "receipt_unreadable")
     assert flag["say"] == "Couldn't read receipt 8; check it?" and flag["detail"]["missing"] == ["merchant", "date", "total"]
+
+
+def test_polls_until_opened_statement_table_exists(finance_dir):
+    # Live bug: Numbers was still opening the CSV, so the first listing after open_file was empty.
+    srv = FakeServer(docs=(), open_delay=2)  # empty, empty, then the table
+    outcome, orch = run(srv, "duplicates")
+    assert outcome == "ok"
+    assert [m for m, _ in srv.calls] == ["act", "skill", "act", "act", "act", "act", "act"]  # list, open, 3 polls, read, write
+    assert srv.list_calls == 4 and scripts(srv)[4] == ns.read_tables([STMT_REF])
+    wait = next(d for d in orch.tracer.decisions if d.get("wait"))
+    assert wait == {**wait, "wait": "Date/Description/Amount", "polls": 3, "found": True}
+    assert {"finance_list", "finance_open_statement", "finance_read", "finance_write"} <= set(orch.tracer.stages)
+
+
+def test_polling_gives_up_after_timeout(finance_dir, monkeypatch):
+    monkeypatch.setattr(fr, "POLL_TIMEOUT_S", 0.05)
+    monkeypatch.setattr(fr, "POLL_S", 0.01)
+    srv = FakeServer(docs=(), open_delay=10_000)
+    outcome, orch = run(srv, "duplicates")
+    assert outcome == "failed" and srv.said == ["Couldn't open the bank statement"]
+    assert 2 <= srv.list_calls <= 8 and "no Date/Description/Amount table after" in orch.tracer.decisions[-1]["error"]
+
+
+def test_polls_for_budget_table_too(finance_dir):
+    srv = FakeServer(docs=(STMT,), open_delay=1)
+    outcome, orch = run(srv, "over_budget")
+    assert outcome == "ok" and srv.list_calls == 3  # initial, empty poll, budget appears
+    assert scripts(srv)[3] == ns.read_tables([STMT_REF, BUDGET_REF])
+    assert "finance_open_budget" in orch.tracer.stages
 
 
 def test_no_document_open_opens_statement_then_budget(finance_dir):

@@ -32,7 +32,9 @@ RECEIPTS_DIR = "Receipts"
 STATEMENT_HEADERS = frozenset({"date", "description", "amount"})
 BUDGET_HEADERS = frozenset({"category", "budget"})
 IMAGE_EXT = (".png", ".jpg", ".jpeg", ".heic", ".tiff", ".pdf")
-SHOW_PAUSE_S = 0.3  # let the viewer see an app that was just brought forward
+# Numbers opens a document asynchronously: after `open_file`, poll the open tables until the one we need exists.
+POLL_S = 0.15
+POLL_TIMEOUT_S = 4.0
 
 
 def finance_dir() -> Path:
@@ -94,15 +96,57 @@ def _ref(t: dict) -> str:
     return ns.table_ref(table=t["table"], sheet=t["sheet"], document=t["document"])
 
 
+class Steps:
+    """Wall time of each step into the trace as `finance_<step>` stages (ms)."""
+
+    def __init__(self, orch):
+        self.orch = orch
+
+    def __call__(self, name: str):
+        return _Step(self.orch, name)
+
+
+class _Step:
+    def __init__(self, orch, name):
+        self.orch, self.name = orch, name
+
+    def __enter__(self):
+        self.t = time.perf_counter()
+        return self
+
+    def __exit__(self, *exc):
+        self.orch.tracer.stage(f"finance_{self.name}", (time.perf_counter() - self.t) * 1000)
+        return False
+
+
 async def _list(orch, fail_say: str) -> list[dict]:
     return _tables(await _script(orch, ns.list_tables(), fail_say))
 
 
-async def _open(orch, path: Path, bubble: str, fail_say: str) -> list[dict]:
+async def wait_for_table(orch, find, what: str, fail_say: str) -> list[dict]:
+    """Poll every POLL_S for up to POLL_TIMEOUT_S until `find(tables)` matches (every sheet and table of every
+    open document is listed each time). Returns the tables listing; raises ToolError on timeout."""
+    deadline = time.monotonic() + POLL_TIMEOUT_S
+    polls = 0
+    t0 = time.perf_counter()
+    while True:
+        tables = await _list(orch, fail_say)
+        polls += 1
+        if find(tables) is not None:
+            break
+        if time.monotonic() + POLL_S > deadline:
+            orch.tracer.decision({"tool": "finance_review", "wait": what, "polls": polls, "found": False})
+            raise ToolError(fail_say, f"no {what} table after {POLL_TIMEOUT_S:.1f} s ({polls} polls): {tables}")
+        await asyncio.sleep(POLL_S)
+    orch.tracer.decision({"tool": "finance_review", "wait": what, "polls": polls, "found": True,
+                          "ms": round((time.perf_counter() - t0) * 1000, 1)})
+    return tables
+
+
+async def _open(orch, path: Path, bubble: str, fail_say: str, find, what: str) -> list[dict]:
     await orch.server.ui("acting", bubble)
     await _rpc(orch, "skill", {"name": "open_file", "args": {"path": str(path)}}, fail_say)
-    await asyncio.sleep(SHOW_PAUSE_S)
-    return await _list(orch, fail_say)
+    return await wait_for_table(orch, find, what, fail_say)
 
 
 async def _ocr_all(orch, folder: Path) -> list[dict]:
@@ -215,32 +259,31 @@ async def run(orch, args: dict, utterance: str, decide: Decide | None = None) ->
     ocr_task: asyncio.Task | None = None
     try:
         root = finance_dir()
+        step = Steps(orch)
         await orch.server.ui("acting", "Looking for your statement in Numbers...")
-        tables = await _list(orch, "Couldn't reach Numbers")
+        with step("list"):
+            tables = await _list(orch, "Couldn't reach Numbers")
+        if find_statement(tables) is None:
+            with step("open_statement"):
+                tables = await _open(orch, root / STATEMENT_FILE, "Opening your bank statement...",
+                                     "Couldn't open the bank statement", find_statement, "Date/Description/Amount")
         statement = find_statement(tables)
-        if statement is None:
-            tables = await _open(orch, root / STATEMENT_FILE, "Opening your bank statement...",
-                                 "Couldn't open the bank statement")
-            statement = find_statement(tables)
-            if statement is None:
-                raise ToolError("Couldn't find the bank statement", f"no Date/Description/Amount table in {tables}")
         if task in ("receipts", "all"):
             ocr_task = asyncio.ensure_future(_ocr_all(orch, root / RECEIPTS_DIR))
         budget = find_budget(tables)
         if budget is None and task in ("all", "categorize", "over_budget"):
-            tables = await _open(orch, root / BUDGET_FILE, "Opening your budget...", "Couldn't open the budget")
+            with step("open_budget"):
+                tables = await _open(orch, root / BUDGET_FILE, "Opening your budget...", "Couldn't open the budget",
+                                     find_budget, "Category/Budget")
             budget = find_budget(tables)
             statement = find_statement(tables) or statement
-            if budget is None:
-                raise ToolError("Couldn't find the budget sheet", f"no Category/Budget table in {tables}")
 
         await orch.server.ui("acting", "Reading your statement...")
         statement_table = _ref(statement)
         budget_table = _ref(budget) if budget else None
-        t = time.perf_counter()
-        out = await _script(orch, ns.read_tables([statement_table] + ([budget_table] if budget_table else [])),
-                            "Couldn't read the statement")
-        orch.tracer.stage("finance_read", (time.perf_counter() - t) * 1000)
+        with step("read"):
+            out = await _script(orch, ns.read_tables([statement_table] + ([budget_table] if budget_table else [])),
+                                "Couldn't read the statement")
         tsvs = out.split("\x1e")
         try:
             txns = load_statement(tsvs[0])
@@ -256,11 +299,11 @@ async def run(orch, args: dict, utterance: str, decide: Decide | None = None) ->
         receipts = None
         if ocr_task is not None:
             await orch.server.ui("thinking", "Matching receipts to the statement...")
-            receipts = await ocr_task
+            with step("ocr_wait"):
+                receipts = await ocr_task
             ocr_task = None
-        t = time.perf_counter()
-        rep = analyze(txns, budget_amounts, receipts, decide=decide)
-        orch.tracer.stage("finance_analyze", (time.perf_counter() - t) * 1000)
+        with step("analyze"):
+            rep = analyze(txns, budget_amounts, receipts, decide=decide)
         orch.tracer.decision({"tool": "finance_review", "task": task, "complete": rep["complete"],
                               "flags": jsonable(rep["flags"])})
 
@@ -270,9 +313,8 @@ async def run(orch, args: dict, utterance: str, decide: Decide | None = None) ->
         blocks = write_blocks(task, rep, header, statement_table, budget_table)
         if blocks:
             await orch.server.ui("acting", "Writing results to Numbers...")
-            t = time.perf_counter()
-            await _script(orch, ns.multi(blocks), "Couldn't write to Numbers")
-            orch.tracer.stage("finance_write", (time.perf_counter() - t) * 1000)
+            with step("write"):
+                await _script(orch, ns.multi(blocks), "Couldn't write to Numbers")
 
         await orch.server.say(summary_sentence(task, rep))
         await orch.server.ui("success")
