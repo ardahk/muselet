@@ -1,21 +1,21 @@
 {
  "lane": "finance",
- "pass": 5,
- "ts": "2026-10-24T08:00:00Z",
+ "pass": 6,
+ "ts": "2026-10-24T08:20:00Z",
  "last_reviewed": {
-  "main": "c2d2988",
-  "wip/local": "8874962",
+  "main": "d8ad966",
+  "wip/local": "85ec0df",
   "cloud/finance": "529e9ff",
   "cloud/fixtures-docs": "4bf2291",
-  "cloud/data-pipeline": "8f0b9bc",
+  "cloud/data-pipeline": "b8c0604",
   "cloud/advisor": "9432c30",
   "cloud/bench": "911a384",
-  "cloud/finance-2": "f4ae461",
-  "cloud/advisor-2": "ec98013",
-  "cloud/pitch": "454a563",
-  "cloud/brain-2": "9f41c11",
-  "cloud/grounding": "42310cd"
+  "cloud/finance-2": "dfaf785",
+  "cloud/advisor-2": "0a65f75",
+  "cloud/pitch": "ad1b058",
+  "cloud/brain-2": "741465c",
+  "cloud/grounding": "3441ee8"
  },
- "next_id": 23,
- "notes": "pass 4: finance-2 144 tests pass and its truth (incl. duplicate_status, weekend, fuzzy/delayed receipts) reconciles with tests/recompute_truth.py; advisor-2 65 tests pass. finance-4/6/7/8/10/11/12 resolved. main/wip: nothing new in lane besides the planner line already reviewed. | self-poll 07:20Z: main/wip/bench/brain-2/grounding have no finance/advisor lane changes (brain-2 only adds an advisor_prep 'Which client?' slot prompt); open list unchanged. | self-poll 07:40Z: only cloud/data-pipeline moved (training reports); finance_review route val acc 0.000/0.250 in Phase-1 pilots, noted in digest as a risk for the data lane. | pass 5 (PULSE 07:07Z): only wip/local moved (orchestrator _script now calls the self.script_needs_confirm method, which exists at :466; plus builder briefs). No lane changes; all open findings re-checked unchanged at their pass-4 SHAs."
+ "next_id": 25,
+ "notes": "pass 6: finance-2 dfaf785 161 tests pass, truth reconciles; advisor-2 0a65f75 82 tests pass, Henderson truth reconciles (reserves list). main/wip: planner row-formula loop recipe is correct."
 }
