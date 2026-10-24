@@ -99,11 +99,11 @@ class Catalog:
                         f"{name}: {val!r} not in {spec.get('values')}")
                 return val
             if t == "datetime":
-                if isinstance(val, datetime):
-                    return val.isoformat()
-                s = str(val)
-                datetime.fromisoformat(s)  # raises on bad input
-                return s
+                d = val if isinstance(val, datetime) else \
+                    datetime.fromisoformat(str(val))  # raises on bad input
+                if d.tzinfo is None:
+                    d = d.astimezone()
+                return d.isoformat(timespec="seconds")
             if t == "duration":
                 if isinstance(val, bool):
                     raise ValueError(val)

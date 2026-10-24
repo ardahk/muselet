@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import pytest
 
 from brain.catalog import Catalog, CatalogError
@@ -62,7 +64,12 @@ def test_confirmed_passthrough(cat):
 def test_datetime(cat):
     out = cat.validate_args("create_event",
                             {"title": "x", "start": "2026-10-24T10:00:00"})
-    assert out["start"] == "2026-10-24T10:00:00"
+    local = datetime.fromisoformat("2026-10-24T10:00:00").astimezone()
+    assert out["start"] == local.isoformat(timespec="seconds")
+    assert datetime.fromisoformat(out["start"]).tzinfo is not None
+    out = cat.validate_args("create_event", {
+        "title": "x", "start": "2026-10-24T10:00:00+02:00"})
+    assert out["start"] == "2026-10-24T10:00:00+02:00"
     with pytest.raises(CatalogError):
         cat.validate_args("create_event", {"title": "x", "start": "whenever"})
 
