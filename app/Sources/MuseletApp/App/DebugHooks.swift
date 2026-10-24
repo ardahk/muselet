@@ -1,0 +1,83 @@
+import AppKit
+import HandsKit
+
+/// Local demo/debug hooks over DistributedNotificationCenter ("ai.muselet.debug").
+/// They only drive the UI (mascot, bubble, ghost-cursor preview) — no OS
+/// actions are executed. See app/scripts/debug_ui.sh.
+final class DebugHooks {
+    private var observer: NSObjectProtocol?
+
+    init(model: AppModel, ghost: GhostCursor, mascot: MascotController, brain: BrainConnection,
+         rpc: RPCHandler) {
+        observer = DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("ai.muselet.debug"), object: nil, queue: .main) { n in
+            let info = n.userInfo ?? [:]
+            let cmd = info["cmd"] as? String ?? ""
+            func num(_ k: String) -> CGFloat? {
+                if let d = info[k] as? NSNumber { return CGFloat(d.doubleValue) }
+                if let s = info[k] as? String, let d = Double(s) { return CGFloat(d) }
+                return nil
+            }
+            FileLog.shared.raw("debug hook: \(cmd)")
+            switch cmd {
+            case "ghost":
+                // Fly to an explicit CG rect (global, top-left points).
+                guard let x = num("x"), let y = num("y") else { return }
+                let rect = CGRect(x: x, y: y, width: num("w") ?? 1, height: num("h") ?? 1)
+                let label = info["label"] as? String
+                let op = info["op"] as? String ?? "press"
+                let ok = (info["ok"] as? String).map { $0 != "false" } ?? true
+                Self.preview(ghost: ghost, op: op, frame: rect, label: label, ok: ok)
+            case "ghost-ax":
+                // Observe the frontmost window via HandsKit and preview a press
+                // on the element whose label contains `label` (or the first button).
+                let want = (info["label"] as? String)?.lowercased()
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let (ok, result, err) = rpc.handle(method: "observe",
+                                                       params: ["scope": "focused_window", "max_nodes": 150])
+                    guard ok, let r = result as? [String: Any],
+                          let els = r["elements"] as? [[String: Any]] else {
+                        FileLog.shared.raw("debug ghost-ax observe failed: \(err ?? "?")")
+                        return
+                    }
+                    let pick = els.first { e in
+                        guard let l = (e["label"] as? String)?.lowercased(), !l.isEmpty else { return false }
+                        if let w = want { return l.contains(w) }
+                        return (e["role"] as? String) == "button"
+                    }
+                    guard let e = pick, let f = e["frame"] as? [Double], f.count == 4 else {
+                        FileLog.shared.raw("debug ghost-ax: no matching element")
+                        return
+                    }
+                    Self.preview(ghost: ghost, op: "press",
+                                 frame: CGRect(x: f[0], y: f[1], width: f[2], height: f[3]),
+                                 label: e["label"] as? String, ok: true)
+                }
+            case "say":
+                brain.onSay?(info["text"] as? String ?? "Hello!")
+            case "ui":
+                brain.onUI?(info["mascot"] as? String, info["bubble"] as? String)
+            case "confirm":
+                brain.onConfirm?("debug-\(Int(Date().timeIntervalSince1970))",
+                                 info["summary"] as? String ?? "Send the message to Mom?")
+            case "status":
+                let p = Permissions.snapshot()
+                FileLog.shared.raw("status brain=\(model.brainStatus) stt=\(model.sttState) ptt=\(model.pushToTalkActive) "
+                    + "ax=\(p.accessibility) screen=\(p.screenRecording) mic=\(p.microphone) input=\(p.inputMonitoring) "
+                    + "mascot=\(mascot.anchorCG())")
+            default:
+                break
+            }
+        }
+    }
+
+    /// Same call sequence HandsKit uses around an act: willAct -> wait -> didAct.
+    static func preview(ghost: GhostCursor, op: String, frame: CGRect, label: String?, ok: Bool) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let lead = ghost.handsWillAct(op: op, frame: frame, label: label)
+            usleep(UInt32(lead * 1_000_000))
+            usleep(180_000)   // stand-in for act + settle
+            ghost.handsDidAct(op: op, frame: frame, ok: ok)
+        }
+    }
+}
