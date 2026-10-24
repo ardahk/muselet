@@ -1,5 +1,5 @@
-# architect digest - pass 49 (2026-10-24T22:55Z)
-Reviewed: main 806b0d4 (memory eval set + scorer merged, docs-demo #51, hobbylm --exclude-kind, live harness local-time grading, brain-9 brief), wip/local, planner-verify c9de7aa, planner-think 6d14a7a (THINK=0 default; ok), hands-clock 26d4427 (Swift uncompiled), live-cases 5c173f6, memory e96ec18 (rules tuned on split=tune only; holdout literal scan: generic words only), decisions 08dae49, docs-demo-2, w9-safety 6aa332a.
+# architect digest - pass 50 (2026-10-24T23:08Z)
+Reviewed: main a97fcba (merged it3 opt-in #52, W9 safety #46, docs-demo-2 #53), wip/local, brain-9 3f9718b (hidden 'browser' arg skipped by arg_signature, so router/ARGS/planner render parity holds; planner warm task), safety-bench28 a0c456e (3 unsafe retrieval demos excluded), safety-brain27 ac43219 (composer-click confirm), planner-verify d22b9a9 (architect-33 unchanged), planner-think 3677348 (merge only), memory/memory-lt. No new findings. architect-23 resolved.
 
 ## Open P1 (ranked)
 1. architect-29 - No competitor benchmark number exists - pitch/claims.md
@@ -11,7 +11,7 @@ Reviewed: main 806b0d4 (memory eval set + scorer merged, docs-demo #51, hobbylm 
 7. architect-26 - Planner prompt teaches cmd+t as Premiere transition - prompts/planner_system.md
 8. architect-13 - System One tinker backend reports as 'muselet' - bench/systemone/cli.py
 9. architect-8 - No Mac parity result for it2 - evals/router_check.py
-(P2: 31, 30, 23 (fix on router-it3-serve), 20, 15, 16)
+(P2: 31 still on main after W9 merge, 30, 20, 15, 16)
 
 ## Highest-leverage next moves
 1. Run HobbyLM r4 (it2) on the Mac without --exclude-kind and quote passes/125 with skips counted as fails (architect-32). ~1.5 h. This is the only competitor claim within reach.
