@@ -1,4 +1,6 @@
-# decisions — digest (pass 7)
+# decisions — digest (pass 8)
+
+Pass 8: data-pipeline 8881d38 docstring only; wip/local 4350185 Swift only (outside lane); no new findings; all open findings re-checked, unchanged.
 
 Heads: main 758a017, cloud/decisions c08a96d (new: generic decisions data pipeline + lead SPEC), cloud/data-pipeline 80cb13f, brain-5 003d1bb (parse_duration move only in lane), wip/local 630d661 (no lane diff).
 Resolved: decisions-1, -2 (decisions decontam re-run on pinned JevBench + TD: 0/0 on 300 generated records), -6 (render parity test).
