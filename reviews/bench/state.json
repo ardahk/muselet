@@ -1,9 +1,9 @@
 {
-  "pass": 37,
-  "ts": "2026-10-24T19:35:00Z",
+  "pass": 38,
+  "ts": "2026-10-24T20:15:00Z",
   "branches": {
-    "main": "fb2cfd0",
-    "wip/local": "9ed6bc8",
+    "main": "7065dd3",
+    "wip/local": "e29ea7c",
     "cloud/bench": "f584cb2",
     "cloud/data-pipeline": "f8b721a",
     "cloud/decisions": "694c198",
@@ -36,5 +36,5 @@
     "cloud/data-route": "42835ce",
     "cloud/data-planner": "ee8ae33"
   },
-  "notes": "pass37: main fb2cfd0 merged bench-fix 4bcf0db (reviewed pass 36; bench-16 extension, bench-20/21 now unchanged on main) and edited live_t1 (Finder no-windows preconditions; finance/advisor final-state checks) -> bench-25 update. wip mirrors main; no other lane changes."
+  "notes": "pass38: main 7065dd3 merged comms + app-ui (no lane files besides AGENTS.md config message) and live_t1 grader changes -> bench-25 update (sys-vol-up-lot band widened post hoc; two genuine grader-bug fixes). bench-16/20/21 unchanged on main."
 }
