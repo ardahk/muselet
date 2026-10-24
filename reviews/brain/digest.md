@@ -1,9 +1,8 @@
 # brain lane digest — pass 47 (2026-10-24T22:59:53Z)
 
-Open: P0 1 / P1 9 / P2 10. main a97fcba (w9-safety merged), wip/local ac41cd2 (still on main@806b0d4).
+Open: P0 0 / P1 9 / P2 10. main a97fcba (w9-safety merged), wip/local ac41cd2 (still on main@806b0d4).
 
 ## Open P0/P1 (ranked)
-- brain-39 [P0] Restart/shut down/log out/empty scripts run without CONFIRM — `ml/src/brain/orchestrator.py` (cloud/w9-safety@50a3b25)
 - brain-38 [P1] Deterministic message parser hijacks non-messaging commands and other-channel requests — `ml/src/brain/comms.py` (cloud/comms-2@c65ee70)
 - brain-16 [P1] abs_level misreads times, durations, percentages and unrelated words — `ml/src/brain/orchestrator.py` (main@fb2cfd0@003d1bb)
 - brain-17 [P1] Compound check runs serial route passes before speculative reuse — `ml/src/brain/orchestrator.py` (main@fb2cfd0@003d1bb)
