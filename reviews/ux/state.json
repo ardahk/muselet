@@ -1,9 +1,9 @@
 {
-  "pass": 4,
-  "ts": "2026-10-24T07:30:00Z",
+  "pass": 5,
+  "ts": "2026-10-24T07:10:00Z",
   "last_reviewed": {
     "main": "c2d2988",
-    "wip/local": "d5d2d7d",
+    "wip/local": "8874962",
     "cloud/data-pipeline": "8f0b9bc",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -15,5 +15,5 @@
     "cloud/grounding": "42310cd",
     "cloud/brain-2": "9f41c11"
   },
-  "notes": "self-poll 2: cloud/brain-2 fixes ux-2/ux-10 (not merged yet). No other lane changes."
+  "notes": "pass 5 (PULSE resumed): wip 8874962 lane delta is only a script_needs_confirm call fix; no new findings."
 }

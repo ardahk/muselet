@@ -1,4 +1,4 @@
-# ux digest — pass 4 + self-poll 2 (wip d5d2d7d, main c2d2988, cloud/brain-2 9f41c11)
+# ux digest — pass 5 (wip 8874962, main c2d2988, cloud/brain-2 9f41c11)
 
 No cloud/* branch has lane edits of its own. Resolved: ux-5 (stale offline replay), ux-6 (ctx), ux-9 (ctx capture blocking), all on main too.
 Self-poll 1: main 17a2755 merged the System-2 planner loop, so ux-10/11/12 (and ux-1/2/3/8) now affect main as well. cloud/bench and cloud/grounding have no lane edits.
