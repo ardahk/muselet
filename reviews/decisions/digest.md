@@ -1,6 +1,6 @@
-# decisions — digest (pass 37)
+# decisions — digest (pass 38)
 
-Heads: cloud/decisions c88b613 (results.md + calibrated bench: calibration hurts, serve T=1 -> decisions-31 resolved), main 46b97f5, wip 719907a, planner-verify d22b9a9 (decisions-37 still live).
+Heads: cloud/decisions c88b613, main 18c139f (planner-lora/think, live-cases, safety merged), wip 719907a, planner-lora 79f0a97 (MLX export only, no Tinker spend), planner-verify d22b9a9 (decisions-37 still live). Budget: about $136.22 + $5.84 = $142.06 MTD estimated, $5.9 under the $148 stop.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
