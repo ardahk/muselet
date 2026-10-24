@@ -1,12 +1,12 @@
-# planner lane — pass 8 (main 4a74659 = brain-2 + finance-2 + advisor-2 + grounding + pitch merged; wip 85c73ed)
+# planner lane — pass 9 (main 76a03c1, wip 34ddf5f, cloud/brain-3 14a3f52, finance-3 31be399, advisor-3 ca93147)
 
-Resolved: planner-4, -9, -13, -16 and -18 are now on main, and planner-11 is fixed on wip.
-Non-MLX tests on main: 224 passed (dsl, orchestrator, catalog, finance, tool_finance_review). test_planner_loop needs mlx, so I couldn't run it on Linux.
-wip 85c73ed changes reviewed with no issues: the Expect `appears` no longer matches menu-bar items, shell timeout/exit handling, and the truncated flag that breaks the diff chain.
+Reviewed with no issues: main's prompt rules 14-15 (cmd+n for a new document; never repeat a failed action a third time), brain-3's action_line filter and skill auto-prefix (prose/tags are no longer counted toward the 5-action cap), the script failure copy, absolute volume, compound fast path, and finance-3's poll for the opened table.
 
-## Open P1
-1. planner-6 P1 — Premiere runs via keyboard shortcuts only. The UXP bridge (8766) isn't connected, so marker/razor/export results can't be verified — app/Sources/HandsKit/Skills.swift
+## Open P1 (ranked)
+1. planner-20 P1 — Harness's own done-rejection counts toward the 3-failed-turns loop guard, so a recovered task can end in "I'm stuck" — ml/src/brain/orchestrator.py@brain-3 L1080-1105
+2. planner-6 P1 — Premiere runs via keyboard shortcuts only; the 8766 UXP bridge isn't connected, so results can't be verified — app/Sources/HandsKit/Skills.swift
 
 ## Highest-leverage next moves
-- Premiere demo: give each premiere_command an expect (the Export dialog `appears "Export"`, a marker panel count). Alternatively, connect the bridge's add_marker/export_sequence so the result can be verified.
-- Run test_planner_loop on the Mac (needs MLX) before the demo. It covers the streaming/done/fallback paths I could only check by reading the code.
+- brain-3: exclude the done-rejection turn from fail_streak before merging (a one-line flag).
+- Premiere: add an expect to each premiere_command (`appears "Export"`), or connect the bridge for add_marker and export_sequence.
+- Run test_planner_loop on the Mac (MLX) with one case: fail, fail, then done.
