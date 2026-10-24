@@ -1,6 +1,6 @@
-# decisions — digest (pass 13)
+# decisions — digest (pass 14)
 
-Heads: main 7147694 (MLX worker thread in generic_decide, planner holdout-2: OK), data-pipeline 9b36081 (it2 report: non-candidate, judged on route_val only: OK), pitch-3 e203181 (route_acc moved to route_v1_clean with disclosure: partial fix of decisions-20), cloud/decisions 6d395df unchanged.
+Heads: main 04c3930 (pitch-3 + grounder-wire merged; route_acc on route_v1_clean: partial fix of decisions-20), wip/local aec8fbf (no lane diff), others unchanged.
 
 ## Open P0/P1
 1. decisions-20 P0 Shipped router trained on near-duplicates of 37 route_v1, 10 live_t1 cases — pitch/claims.md:13,17
