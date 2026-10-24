@@ -1,5 +1,6 @@
 """brain serve — WS server + stdin REPL (each line = one final utterance).
-brain eval-route — run the router over eval cases and write a JSON report."""
+brain eval-route — run the router over eval cases and write a JSON report.
+brain trace-stats — p50/p95 latency report over runs/traces."""
 
 import argparse
 import asyncio
@@ -68,7 +69,7 @@ async def serve(port: int = 8765, model: str | None = None,
         await orch.handle_utterance(text, ctx)
 
     server.on_utterance = on_utt
-    server.on_partial = lambda t, c=None: orch._speculative_route(t)
+    server.on_partial = lambda t, c=None: orch._speculative_route(t, c)
     print(f"brain listening on ws://127.0.0.1:{server.port}", flush=True)
     print("type an utterance + enter (headless mode)", flush=True)
 
@@ -210,8 +211,18 @@ def main():
     e.add_argument("--model", default=None)
     e.add_argument("--cases", required=True)
     e.add_argument("--out", default="runs/evals")
+    t = sub.add_parser("trace-stats", help="p50/p95 latency report over traces")
+    t.add_argument("--since", default=None, help="ISO date/time lower bound")
+    t.add_argument("--path", default="runs/traces",
+                   help="trace dir or .jsonl file")
+    t.add_argument("--json", action="store_true", help="print JSON")
     args = ap.parse_args()
-    if args.cmd == "serve":
+    if args.cmd == "trace-stats":
+        from . import tracestats
+        rep = tracestats.stats(tracestats.load(args.path, args.since))
+        print(json.dumps(rep, indent=2) if args.json
+              else tracestats.format_report(rep))
+    elif args.cmd == "serve":
         m = _resolve_model(args.model)
         asyncio.run(serve(args.port, m, args.planner_model))
     elif args.cmd == "eval-route":

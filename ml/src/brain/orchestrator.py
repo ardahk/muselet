@@ -6,11 +6,12 @@ Everything is traced and the app gets ui/say messages.
 
 import asyncio
 import logging
+import os
 import re
 import threading
 import time
 
-from . import dsl
+from . import calc, dsl, obsdiff, slots
 from .catalog import Catalog, CatalogError
 from .traces import Tracer
 
@@ -32,6 +33,23 @@ def _num(tok: str) -> int | None:
     if tok.isdigit():
         return int(tok)
     return _WORD_NUM.get(tok)
+
+
+def _norm(text: str) -> str:
+    return re.sub(r"\s+", " ", text.strip().lower())
+
+
+def _excerpt(text, n: int) -> str:
+    """first n words of text (ellipsis when cut)."""
+    w = str(text or "").split()
+    return " ".join(w[:max(1, n)]) + ("…" if len(w) > max(1, n) else "")
+
+
+def _cap12(s: str) -> str:
+    w = s.split()
+    if len(w) <= 12:
+        return s
+    return " ".join(w[:12]).rstrip(",.:;?\"") + "?"
 
 
 def script_needs_confirm(lang: str, code: str) -> bool:
@@ -64,8 +82,12 @@ class Orchestrator:
         self._script_output: str | None = None
         self._spec_norm = ""
         self._spec_fut = None
+        self._spec_gen = 0
         self._current_goal = ""
         self._done_summary = None
+        self._slot: dict | None = None     # {skill, args, missing, t, ...}
+        self._utterance = ""
+        self._diff_chain: list[str] | None = None
 
     # ---------- v0 router ----------
 
@@ -127,8 +149,14 @@ class Orchestrator:
         outcome = "ok"
         try:
             await self.server.ui("thinking")
+            self._utterance = text
+            if self._slot and \
+                    time.time() - self._slot["t"] >= slots.SLOT_TTL_S:
+                self._slot = None
+            if self._slot:
+                outcome = await self._slot_answer(text, trace)
             # a pending ask keeps task state for 90 s: next utterance answers it
-            if self._pending_task and \
+            elif self._pending_task and \
                     time.time() - self._pending_task["t"] < 90:
                 goal = self._pending_task["goal"]
                 self._pending_task = None
@@ -145,6 +173,10 @@ class Orchestrator:
                           "args": plan["args"]}])
                 elif plan["kind"] == "batch":
                     outcome = await self.execute_actions(plan["actions"])
+                elif (ans := calc.answer(text)) is not None:
+                    trace["decisions"].append({"calc": ans})
+                    await self.server.say(ans)
+                    await self.server.ui("success")
                 else:
                     await self._observe()
                     await self.server.say("I can't do that yet")
@@ -174,20 +206,24 @@ class Orchestrator:
             self._ctx["last_action"] = label
         return out
 
-    async def _engine_route(self, text: str, trace: dict) -> str:
+    async def _engine_route(self, text: str, trace: dict, pre=None) -> str:
         from .planner import worker
-        # reuse a speculative route when the final text matches the last
-        # partial (architect-5a)
-        norm = re.sub(r"\s+", " ", text.strip().lower())
+        # reuse a speculative route (+ARGS) when the final text matches the
+        # last partial (architect-5a)
+        norm = _norm(text)
         spec_hit = False
-        if self._spec_fut is not None and norm == self._spec_norm:
-            res = await asyncio.wrap_future(self._spec_fut)
+        spec_ext = None
+        if pre is not None:
+            res = pre
+        elif self._spec_fut is not None and norm == self._spec_norm:
+            res, spec_ext = await asyncio.wrap_future(self._spec_fut)
             spec_hit = True
         else:
             res = await worker().submit_async(
                 self.engine.route, text, dict(self._ctx))
         self._spec_fut = None
         self._spec_norm = ""
+        self._spec_gen += 1
         top5 = sorted(res.probs.items(), key=lambda kv: -kv[1])[:5]
         trace["decisions"].append({"route_probs": top5, "p_top": res.p_top,
                                    "route_ms": res.ms.get("route_ms"),
@@ -214,16 +250,31 @@ class Orchestrator:
                 return await self._brain_tool(label, {}, text)
             return await self.execute_actions(
                 [{"op": "skill", "name": label, "args": {}}])
-        t_args = time.perf_counter()
-        ext = self.engine.args(label, text, self._ctx)
-        trace["decisions"].append({"args_ms": ext["ms"].get("args_ms"),
-                                   "raw": ext.get("_raw")})
-        if "missing" in ext:
-            await self.server.say(f"What {ext['missing']} should I use?")
-            await self.server.ui("confused")
-            return "awaiting_user"
+        if spec_ext is not None:
+            ext = spec_ext
+        else:
+            ext = await worker().submit_async(
+                self.engine.args, label, text, dict(self._ctx))
+        trace["decisions"].append({"args_ms": ext.get("ms", {}).get("args_ms"),
+                                   "raw": ext.get("_raw"),
+                                   "spec_args": spec_ext is not None})
         raw_args = {k: v for k, v in ext.items()
                     if k not in ("ms", "_raw", "missing")}
+        return await self._run_skill(label, raw_args, text, trace)
+
+    def _missing(self, name: str, args: dict) -> list[str]:
+        return [a["name"] for a in (self.catalog.get(name) or {}).get("args", [])
+                if a.get("required") and args.get(a["name"]) in (None, "")]
+
+    async def _run_skill(self, label: str, raw_args: dict, text: str,
+                         trace: dict) -> str:
+        """fallback table -> slot fill for still-missing args -> execute."""
+        spec = self.catalog.get(label) or {}
+        raw_args = slots.fill_defaults(label, raw_args, text)
+        missing = self._missing(label, raw_args)
+        if missing:
+            return await self._start_slot(label, raw_args, missing, text,
+                                          trace)
         # last_action in the training format, from raw ARGS strings
         # (e.g. 'open_app app=Safari', 'start_timer duration="10 minutes"')
         parts = " ".join(
@@ -237,8 +288,79 @@ class Orchestrator:
                 [{"op": "skill", "name": label, "args": args}])
         if out == "ok":
             self._ctx["last_action"] = f"{label} {parts}".strip()
-            self.engine.last_action = self._ctx["last_action"]
+            if self.engine is not None:
+                self.engine.last_action = self._ctx["last_action"]
         return out
+
+    def _arg_spec(self, skill: str, arg: str) -> dict:
+        return next((a for a in (self.catalog.get(skill) or {}).get("args", [])
+                     if a.get("name") == arg), {})
+
+    async def _start_slot(self, skill: str, args: dict, missing: list[str],
+                          text: str, trace: dict) -> str:
+        """ask for the first missing arg; the next final utterance fills it."""
+        self._slot = {"skill": skill, "args": dict(args),
+                      "missing": list(missing), "t": time.time(),
+                      "utterance": text, "tries": 0}
+        trace["slot_fill"] = True
+        trace["decisions"].append({"slot_fill": {"skill": skill,
+                                                 "missing": list(missing)}})
+        a = self._arg_spec(skill, missing[0])
+        await self.server.say(slots.question(skill, missing[0], a.get("type")))
+        await self.server.ui("listening")
+        return "awaiting_user"
+
+    async def _slot_answer(self, text: str, trace: dict) -> str:
+        slot = self._slot
+        trace["slot_fill"] = True
+        self._spec_fut, self._spec_norm = None, ""
+        if slots.CANCEL.match(text.strip()):
+            self._slot = None
+            trace["decisions"].append({"slot_fill": "cancelled"})
+            await self.server.say("Okay, cancelled")
+            await self.server.ui("idle")
+            return "cancelled"
+        # a different-looking command cancels the slot and runs normally
+        if self.engine is not None:
+            from .planner import worker
+            pre = await worker().submit_async(
+                self.engine.route, text, dict(self._ctx))
+            if pre.top != slot["skill"] and self.catalog.get(pre.top) \
+                    and pre.p_top >= 0.8:
+                self._slot = None
+                trace["decisions"].append({"slot_fill": "superseded",
+                                           "by": pre.top})
+                return await self._engine_route(text, trace, pre=pre)
+        else:
+            plan = self.route(text)
+            if plan["kind"] == "skill" and plan["name"] != slot["skill"]:
+                self._slot = None
+                trace["decisions"].append({"router": plan,
+                                           "slot_fill": "superseded"})
+                return await self.execute_actions(
+                    [{"op": "skill", "name": plan["name"],
+                      "args": plan["args"]}])
+        arg = slot["missing"][0]
+        a = self._arg_spec(slot["skill"], arg)
+        val = slots.clean_answer(text, a.get("type"))
+        trace["decisions"].append({"slot_fill": {
+            "skill": slot["skill"], "arg": arg, "value": val}})
+        if not slots.valid(a.get("type"), val, a):
+            slot["tries"] += 1
+            if slot["tries"] >= 2:
+                self._slot = None
+                await self.server.say("Sorry, I didn't catch that")
+                await self.server.ui("confused")
+                return "failed"
+            slot["t"] = time.time()
+            await self.server.say(slots.question(slot["skill"], arg,
+                                                 a.get("type")))
+            await self.server.ui("listening")
+            return "awaiting_user"
+        self._slot = None
+        args = dict(slot["args"], **{arg: val})
+        return await self._run_skill(slot["skill"], args, slot["utterance"],
+                                     trace)
 
     @staticmethod
     def _human(name: str) -> str:
@@ -254,19 +376,40 @@ class Orchestrator:
         r"erase|empty trash|replace|submit order", re.I)
     _DANGEROUS_COMBOS = {"cmd+delete", "cmd+opt+delete", "cmd+shift+d"}
 
-    def _speculative_route(self, text: str):
-        """Called for partial utterances — routes ahead on the MLX worker,
-        keyed by normalized text."""
+    def _speculative_route(self, text: str, ctx: dict | None = None):
+        """Called for partial utterances — routes (and, for a confident
+        skill, extracts ARGS) ahead on the MLX worker, keyed by normalized
+        text. A newer partial supersedes: the stale job skips its ARGS."""
         if self.engine is None:
             return
-        norm = re.sub(r"\s+", " ", text.strip().lower())
-        if norm and norm != getattr(self, "_spec_norm", None):
+        norm = _norm(text)
+        if norm and norm != self._spec_norm:
             self._spec_norm = norm
+            self._spec_gen += 1
+            c = dict(self._ctx)
+            for k in ("app", "focused", "selection", "online"):
+                if ctx and k in ctx:
+                    c[k] = ctx[k]
             from .planner import worker
             self._spec_fut = worker().submit(
-                self.engine.route, text, dict(self._ctx))
+                self._spec_job, text, c, self._spec_gen)
+
+    def _spec_job(self, text: str, ctx: dict, gen: int):
+        """worker thread: (route, args|None)."""
+        res = self.engine.route(text, ctx)
+        if res.p_top < self.tau or gen != self._spec_gen or \
+                not (self.catalog.get(res.top) or {}).get("args"):
+            return res, None
+        ext = self.engine.args(res.top, text, ctx)
+        return res, (ext if gen == self._spec_gen else None)
 
     async def _answer(self, text: str, trace: dict) -> str:
+        ans = calc.answer(text)      # exact by code: never ask the model
+        if ans is not None:
+            trace["decisions"].append({"calc": ans})
+            await self.server.say(ans)
+            await self.server.ui("success")
+            return "ok"
         if self.planner is not None:
             from .planner import worker
             ans = await worker().submit_async(
@@ -287,24 +430,57 @@ class Orchestrator:
                 return e.get("label", "")
         return ""
 
+    def _app_name(self) -> str:
+        return (self._last_obs or {}).get("app") or self._ctx.get("app") \
+            or "this app"
+
     async def _confirm_summary(self, a: dict) -> str:
-        """<=12-word summary built from resolved args."""
-        if a["op"] == "confirm":
-            return a.get("summary", "Continue?")[:80]
-        if a["op"] == "skill":
+        """<=12-word summary that names the object (recipient + first body
+        words, file name, app)."""
+        op = a["op"]
+        if op == "confirm":
+            return _cap12(str(a.get("summary") or "Continue?").strip('"'))
+        if op == "skill":
             n, ar = a["name"], a.get("args", {})
-            if n == "send_message":
-                return f"Text {ar.get('to')}: \"{str(ar.get('message'))[:30]}\"?"
+            if n in ("send_message", "compose_email"):
+                to = str(ar.get("to") or "them")
+                verb = "Text" if n == "send_message" else "Email"
+                body = ar.get("body") or ar.get("subject") or ""
+                left = 12 - 1 - len(to.split())
+                if not body or left < 1:
+                    return _cap12(f"{verb} {to}?")
+                return f'{verb} {to}: "{_excerpt(body, left)}"?'
             if n == "move_to_trash":
-                return f"Move {ar.get('path')} to Trash?"
+                p = str(ar.get("path") or "this file").rstrip("/")
+                return _cap12(f"Move {os.path.basename(p) or p} to Trash?")
+            if n == "empty_trash":
+                return "Empty the Trash permanently?"
             if n == "quit_app":
-                return f"Quit {ar.get('app')}?"
-            return (self.catalog.get(n) or {}).get("description", n)[:60] + "?"
-        if a["op"] == "press":
-            return f"Press \"{self._label_of(a.get('ref'))}\"?"
-        if a["op"] == "script":
-            return f"Run a {a.get('lang')} script?"
-        return "Continue?"
+                return _cap12(f"Quit {ar.get('app') or self._app_name()}?")
+            human = self._human(n).capitalize()
+            obj = " ".join(str(v) for k, v in ar.items() if k != "confirmed")
+            return _cap12(f"{human} {_excerpt(obj, 6)}?" if obj else
+                          f"{human} in {self._app_name()}?")
+        app = self._app_name()
+        if op == "press":
+            label = self._label_of(a.get("ref")) or f"#{a.get('ref')}"
+            return _cap12(f'Press "{_excerpt(label, 5)}" in {app}?')
+        if op == "keys":
+            return _cap12(f"Press {a.get('combo')} in {app}?")
+        if op == "type":
+            send = " and send" if a.get("enter") else ""
+            return _cap12(f'Type "{_excerpt(a.get("text"), 5)}"{send} in {app}?')
+        if op == "script":
+            code = str(a.get("code") or "")
+            m = re.search(r'(?:tell\s+application\s+(?:id\s+)?"|'
+                          r'Application\(\s*[\'"])([^"\']+)', code, re.I)
+            lang = {"applescript": "AppleScript", "jxa": "JXA"}.get(
+                a.get("lang"), a.get("lang") or "a")
+            if m:
+                return _cap12(f"Run {lang} on {m.group(1)}?")
+            first = code.strip().split("\n")[0]
+            return _cap12(f'Run {lang} command "{_excerpt(first, 6)}"?')
+        return _cap12(f"Continue in {app}?")
 
     async def _exec_one(self, a: dict) -> dict:
         """Execute one DSL action. Returns
@@ -317,7 +493,7 @@ class Orchestrator:
             await self.server.ui("listening")
             return {"status": "awaiting_user", "_log": f"{dsl_line}-> ask"}
         if op == "confirm":
-            yes = await self.server.ask_confirm(a["summary"])
+            yes = await self.server.ask_confirm(await self._confirm_summary(a))
             if not yes:
                 await self.server.say("Okay, cancelled")
                 return {"status": "cancelled",
@@ -334,9 +510,11 @@ class Orchestrator:
             await self.server.ui("confused")
             return {"status": "failed", "_log": f"{dsl_line}-> refused"}
         if op == "wait":
+            self._diff_chain = None
             await asyncio.sleep(a["ms"] / 1000)
             return {"status": "ok", "_log": f"{dsl_line}-> ok"}
         if op == "skill":
+            self._diff_chain = None
             a = dict(a)
             a.get("args", {}).pop("confirmed", None)   # model can't self-confirm
             spec = self.catalog.get(a["name"]) or {}
@@ -426,9 +604,20 @@ class Orchestrator:
         except RuntimeError as e:
             self.tracer.rpc(method, params, {"error": str(e)},
                             (time.perf_counter() - t) * 1000)
+            self._diff_chain = None
             return {"status": "failed", "error": str(e)}
         self.tracer.rpc(method, params, self._trace_res(res),
                         (time.perf_counter() - t) * 1000)
+        if res.get("epoch"):
+            self._last_epoch = res["epoch"]
+        # act diffs chain into the next planner observation (skills and
+        # full/truncated re-observations break the chain -> fresh observe)
+        if self._diff_chain is not None:
+            if method == "act" and isinstance(res.get("diff_text"), str) \
+                    and not res.get("full") and not res.get("truncated"):
+                self._diff_chain.append(res["diff_text"])
+            else:
+                self._diff_chain = None
         if not res.get("ok", False):
             return {"status": "failed",
                     "error": res.get("error", "?"), "res": res}
@@ -509,15 +698,28 @@ class Orchestrator:
         prev_had_failure = False
         done_rejected = False
         obs_text = ""
+        diffs: list[str] | None = None
         for turn in range(12):
             if time.perf_counter() - t_start > 60:
                 break
-            obs = await self._observe()
-            if obs:
-                obs_text = obs["text"]
-                self._last_obs = obs
-            elif not obs_text:
-                obs_text = "(no observation available)"
+            if diffs is not None and self._last_obs:
+                # last batch's act diffs describe the UI: skip the observe RPC
+                for d in diffs:
+                    obs_text = obsdiff.apply_diff(obs_text, d)
+                self._last_obs = dict(
+                    self._last_obs, text=obs_text, diff_text="\n".join(diffs),
+                    elements=obsdiff.elements(
+                        obs_text, self._last_obs.get("elements")))
+                trace["decisions"].append({"obs_from_diff": turn,
+                                           "n_diffs": len(diffs)})
+            else:
+                obs = await self._observe()
+                if obs:
+                    obs_text = obs["text"]
+                    self._last_obs = obs
+                elif not obs_text:
+                    obs_text = "(no observation available)"
+            self._diff_chain = []
             q: asyncio.Queue = asyncio.Queue()
             cancel = threading.Event()
             loop = asyncio.get_running_loop()
@@ -600,6 +802,8 @@ class Orchestrator:
                 "decode_tok_s": round(info["decode_tok_s"], 1),
                 "tokens": info["tokens"]})
             last_batch = batch_log or None
+            diffs = self._diff_chain if n_executed else None
+            self._diff_chain = None
             if res_status == "awaiting_user":
                 self._pending_task = {"goal": text, "t": time.time()}
                 return "awaiting_user"
@@ -770,7 +974,8 @@ class Orchestrator:
                 await self.server.ui("listening")
                 return "awaiting_user"
             if op == "confirm":
-                yes = await self.server.ask_confirm(a["summary"])
+                yes = await self.server.ask_confirm(
+                    await self._confirm_summary(a))
                 if not yes:
                     await self.server.say("Okay, cancelled")
                     return "cancelled"
@@ -821,7 +1026,8 @@ class Orchestrator:
     async def _script(self, a: dict) -> str:
         lang, code = a["lang"], a["code"]
         if self.script_needs_confirm(lang, code):
-            yes = await self.server.ask_confirm(f"Run a {lang} script?")
+            yes = await self.server.ask_confirm(
+                await self._confirm_summary(a))
             if not yes:
                 await self.server.say("Okay, cancelled")
                 return "cancelled"
@@ -842,6 +1048,12 @@ class Orchestrator:
 
     async def _skill(self, a: dict) -> str:
         name, args = a["name"], a.get("args", {})
+        args = slots.fill_defaults(name, args, self._utterance)
+        missing = self._missing(name, args)
+        if missing and self.catalog.get(name):
+            trace = self.tracer.current or {"decisions": []}
+            return await self._start_slot(name, args, missing,
+                                          self._utterance, trace)
         try:
             args = self.catalog.validate_args(name, args)
         except CatalogError as e:
@@ -849,9 +1061,11 @@ class Orchestrator:
             return "failed"
         spec = self.catalog.get(name) or {}
         if spec.get("risk") == "confirm" and not args.get("confirmed"):
-            await self.server.ui("thinking", self._summary(name, args))
+            summary = await self._confirm_summary(
+                {"op": "skill", "name": name, "args": args})
+            await self.server.ui("thinking", summary)
             try:
-                yes = await self.server.ask_confirm(self._summary(name, args))
+                yes = await self.server.ask_confirm(summary)
             except RuntimeError:
                 yes = False
             if not yes:

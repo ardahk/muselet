@@ -396,3 +396,93 @@ def test_script_policy_matrix():
     num3 = ('tell application "Numbers"\n'
             'do shell script "echo hi"\nend tell')
     assert o.script_needs_confirm("applescript", num3)
+
+
+# ---------- act diffs feed the next turn (no observe RPC) ----------
+
+from fakes import FakeServer  # noqa: E402
+
+_OBS0 = 'app: Finder | window: "Recents" | focused: #4\n#1 button "Back"\n' \
+        '#4 textfield "Search" value=""'
+
+
+def _diff_orch(tmp_path, turns, act):
+    srv = FakeServer(act=act, observe=lambda: {
+        "epoch": 1, "app": "Finder", "window": "Recents", "focused_ref": 4,
+        "elements": [{"ref": 1, "role": "button", "label": "Back",
+                      "frame": [0, 0, 10, 10]}], "text": _OBS0, "ax_ms": 1})
+    o = Orchestrator(srv, Catalog.load(), Tracer(tmp_path / "t"))
+    o.planner = FakePlanner(turns)
+    return o
+
+
+def test_turn_obs_from_act_diff_without_observe(tmp_path):
+    diffs = iter(['~ #4 value="hel"', '+ #31 button "Export"\n- #1'])
+    o = _diff_orch(tmp_path, [['type #4 "hel"', 'press #31'], ['done "ok"']],
+                   lambda p: {"ok": True, "epoch": 2,
+                              "diff_text": next(diffs)})
+    tr = trace_for(o)
+    assert run(o._planner_loop("search", tr)) == "ok"
+    assert o.server.methods() == ["observe", "act", "act"]
+    obs2 = o.planner.user_msgs[1]["obs"]
+    assert obs2 == ('app: Finder | window: "Recents" | focused: #4\n'
+                    '#4 textfield "Search" value="hel"\n#31 button "Export"')
+    assert o._last_obs["text"] == obs2
+    assert {"obs_from_diff": 1, "n_diffs": 2} in tr["decisions"]
+
+
+def test_empty_diff_still_reused(tmp_path):
+    o = _diff_orch(tmp_path, [["press #1"], ['done "ok"']],
+                   lambda p: {"ok": True, "diff_text": ""})
+    assert run(o._planner_loop("go", trace_for(o))) == "ok"
+    assert o.server.methods().count("observe") == 1
+    assert o.planner.user_msgs[1]["obs"] == _OBS0
+
+
+@pytest.mark.parametrize("res", [
+    {"ok": True, "diff_text": "", "full": True},
+    {"ok": True, "diff_text": "~ #4 value=\"x\"", "truncated": True},
+    {"ok": True},                                   # no diff_text
+])
+def test_full_truncated_or_missing_diff_observes(tmp_path, res):
+    o = _diff_orch(tmp_path, [["press #1"], ['done "ok"']], lambda p: res)
+    assert run(o._planner_loop("go", trace_for(o))) == "ok"
+    assert o.server.methods() == ["observe", "act", "observe"]
+
+
+def test_skill_in_batch_breaks_diff_chain(tmp_path):
+    o = _diff_orch(tmp_path, [["press #1", "skill mute on=true"], ['done "ok"']],
+                   lambda p: {"ok": True, "diff_text": ""})
+    assert run(o._planner_loop("go", trace_for(o))) == "ok"
+    assert o.server.methods() == ["observe", "act", "skill", "observe"]
+
+
+def test_failed_turn_with_diff_reuses_it(tmp_path):
+    seq = iter([{"ok": False, "error": "expect_failed: x",
+                 "diff_text": '~ #4 value="a"'},
+                {"ok": True, "diff_text": ""}])
+    o = _diff_orch(tmp_path, [["press #1"], ["press #4"], ['done "ok"']],
+                   lambda p: next(seq))
+    assert run(o._planner_loop("go", trace_for(o))) == "ok"
+    assert o.server.methods() == ["observe", "act", "act"]
+    assert 'value="a"' in o.planner.user_msgs[1]["obs"]
+
+
+def test_answer_by_code_skips_model(tmp_path):
+    o = _diff_orch(tmp_path, [['done "x"']], lambda p: {"ok": True})
+    called = []
+    o.planner.generate = lambda *a: called.append(a) or "model"
+    tr = trace_for(o)
+    assert run(o._answer("what's 15 percent of 80", tr)) == "ok"
+    assert o.server.said == ["15% of 80 is 12"] and not called
+    assert {"calc": "15% of 80 is 12"} in tr["decisions"]
+    run(o._answer("who wrote Hamlet", tr))
+    assert len(called) == 1 and o.server.said[-1] == "model"
+
+
+def test_regex_fallback_answers_math(tmp_path):
+    o = _diff_orch(tmp_path, [['done "x"']], lambda p: {"ok": True})
+    o.planner = None
+    assert run(o.handle_utterance("what's 7 times 8")) == {"outcome": "ok"}
+    assert o.server.said == ["7 times 8 is 56"]
+    assert "observe" not in o.server.methods()
