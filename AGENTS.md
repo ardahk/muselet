@@ -53,7 +53,12 @@ One JSON object per frame; `t` = message type.
 
 App -> brain:
 - `{"t":"hello","screens":[{"id":1,"frame":[x,y,w,h],"scale":2.0}]}`
-- `{"t":"utterance","id":"u1","text":"...","final":false}` (partials allow speculative prefill; `final:true` commits)
+- `{"t":"utterance","id":"u1","text":"...","final":false,"ctx":{"app":"Notes","focused":"textarea \"Note body\"","selection":false,"online":true}}`
+  (partials allow speculative prefill; `final:true` commits). `ctx` is captured by the app at push-to-talk
+  key-down, before any Muselet UI appears: `app` = frontmost app's localized name; `focused` = the focused
+  element as `<role> "<label>"` using the observation role names (or `none`); `selection` = focused element
+  has non-empty `AXSelectedText`; `online` = current network reachability (no blocking probe). The brain owns
+  `last_action` (`<skill> key=value ...` with the raw extracted arg strings, e.g. `start_timer duration="10 minutes"`).
 - `{"t":"cancel"}`
 - `{"t":"rpc_result","id":"r1","ok":true,"result":{...}}` or `{"t":"rpc_result","id":"r1","ok":false,"error":"..."}`
 - `{"t":"confirm_reply","id":"c1","yes":true}`
