@@ -49,8 +49,24 @@ deskmind-bench table runs/bench/deskmind/muselet/score.json
 ```
 
 Each run folder contains `manifest.json`, `run.json`, `trace.jsonl`, and `ws/`;
-grading is repeated from the final workspace by `deskmind-bench score`. Muselet
-must be connected to a live brain server. This live workflow is not run on Linux.
+grading is repeated from the final workspace by `deskmind-bench score`. The
+runner unpacks the pinned fixture, applies each task's `reset_apps` and ordered
+`stage` commands with `$WS` bound to that run's workspace, opens Finder on the
+workspace when the task has no explicit stage, and passes `task.goal` exactly
+as loaded by the pinned `load_task` (trimmed only as that loader trims it).
+Local Safari fixture pages are served over loopback HTTP, matching the pinned
+Hands staging behavior; those per-run servers are stopped after each trial.
+Task wall-clock budgets begin after fixture staging and app setup, as they do
+in the pinned runner. TextEdit reset closes only documents under this runner's
+workspace, and reset-app checks do not launch apps that were not already open.
+The pinned suite requires macOS `AppleLanguages` to include `zh-Hans`, which
+the runner checks before replay. Since Muselet receives the app context from
+the live desktop rather than a task-app override, the primary staged app is
+opened in the foreground; secondary staged apps use `open -g`. This differs
+from Bench's pinned-window observation but ensures the Muselet utterance starts
+with the task's declared app frontmost. The task definitions have no `vars`;
+the pinned grader's `${NAME}` substitutions apply only to grader predicates,
+not to the goal sent to the planner. This live workflow is not run on Linux.
 
 ## Task definitions
 

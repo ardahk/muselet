@@ -4,15 +4,20 @@
 from __future__ import annotations
 
 import argparse
+import http.server
 import json
 import os
+import re
+import shlex
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_BENCH = Path("/home/ubuntu/ext/deskmind-ai__bench")
@@ -24,6 +29,9 @@ def make_plan(tasks, repeats, port, runs_dir):
             "task_id": task.id,
             "goal": task.goal,
             "fixture": task.fixture,
+            "app": task.app,
+            "reset_apps": task.reset_apps,
+            "stage": task.stage,
             "repeat": repeat,
             "workspace": str(runs_dir / task.id / f"repeat-{repeat}" / "ws"),
             "hands": ["hands", "serve", "--url", f"ws://127.0.0.1:{port}", "--utterance", task.goal],
@@ -39,6 +47,175 @@ def _trace_snapshot(trace_path: Path, offset: int) -> list[str]:
     with trace_path.open("r", encoding="utf-8") as stream:
         stream.seek(offset)
         return [line for line in stream if line.strip()]
+
+
+class _WorkspacePageServer:
+    def __init__(self, workspace: Path):
+        root = workspace.resolve()
+        self.workspace = root
+
+        class Handler(http.server.SimpleHTTPRequestHandler):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, directory=str(root), **kwargs)
+
+            def send_head(self):
+                path = Path(self.translate_path(self.path)).resolve()
+                if (self.headers.get("Host", "").lower() not in server.hosts
+                        or root not in path.parents
+                        or any(part.startswith(".") for part in path.relative_to(root).parts)
+                        or not path.is_file()):
+                    self.send_error(404)
+                    return None
+                return super().send_head()
+
+            def list_directory(self, path):
+                self.send_error(404)
+                return None
+
+            def log_message(self, *args):
+                pass
+
+        server = self
+        self.httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.httpd.daemon_threads = True
+        self.port = self.httpd.server_address[1]
+        self.hosts = {f"127.0.0.1:{self.port}", f"localhost:{self.port}"}
+        self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
+        self.thread.start()
+
+    def url(self, path: Path) -> str:
+        relative = path.absolute().relative_to(self.workspace)
+        self.page_url = f"http://127.0.0.1:{self.port}/{quote(relative.as_posix())}"
+        return self.page_url
+
+    def close(self):
+        self.httpd.shutdown()
+        self.httpd.server_close()
+        self.thread.join(timeout=5)
+
+
+def _stage_app_names(task) -> list[str]:
+    return [
+        match.group(1)
+        for command in task.stage
+        for match in re.finditer(r"open\s+(?:-g\s+)?-a\s+\"?([\w ]+?)\"?\s", command + " ")
+    ]
+
+
+def _app_running(process_name: str) -> bool:
+    try:
+        return subprocess.run(
+            ["/usr/bin/pgrep", "-x", process_name],
+            capture_output=True, timeout=5,
+        ).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _close_app_windows(bundle: str, runs_dir: Path):
+    app_name = {
+        "com.apple.finder": "Finder",
+        "com.apple.textedit": "TextEdit",
+        "com.apple.safari": "Safari",
+    }.get(bundle.lower(), bundle.rsplit(".", 1)[-1])
+    if not _app_running(app_name):
+        return
+    if bundle.lower() == "com.apple.textedit":
+        script = (
+            f'tell application "TextEdit" to close (every document whose path starts with '
+            f'{json.dumps(str(runs_dir.resolve()) + "/")}) saving no'
+        )
+        subprocess.run(["osascript", "-e", script], check=True, timeout=30, capture_output=True)
+        return
+    script = (
+        f'tell application id {json.dumps(bundle)}\n'
+        "  repeat with i from (count of windows) to 1 by -1\n"
+        "    try\n"
+        "      close window i\n"
+        "    end try\n"
+        "  end repeat\n"
+        "end tell"
+    )
+    subprocess.run(["osascript", "-e", script], check=True, timeout=30, capture_output=True)
+
+
+def _stage_task(task, workspace: Path, runs_dir: Path, page_servers: list[_WorkspacePageServer]):
+    for bundle in task.reset_apps:
+        _close_app_windows(bundle, runs_dir)
+
+    stage_apps = _stage_app_names(task)
+    if task.app.lower() == "com.apple.finder" or any(name.lower() == "finder" for name in stage_apps):
+        script = (
+            'tell application "Finder"\n'
+            "  repeat with i from (count of Finder windows) to 1 by -1\n"
+            "    try\n"
+            "      set p to POSIX path of ((target of Finder window i) as alias)\n"
+            f"      if p starts with {json.dumps(str(runs_dir.resolve()) + '/')} then close Finder window i\n"
+            "    end try\n"
+            "  end repeat\n"
+            "end tell"
+        )
+        subprocess.run(["osascript", "-e", script], check=True, timeout=30, capture_output=True)
+
+    commands = list(task.stage)
+    for command in commands:
+        browser = re.search(r"open\s+(?:-g\s+)?-a\s+['\"]?Safari['\"]?\s+(.+)$", command)
+        if browser:
+            argument = browser.group(1).strip().strip("'\"")
+            path = Path(argument.replace("$WS", str(workspace)))
+            if not path.is_absolute():
+                path = workspace / path
+            if path.is_file():
+                page_server = _WorkspacePageServer(workspace)
+                page_servers.append(page_server)
+                command = command[:browser.start(1)] + shlex.quote(page_server.url(path))
+
+        app_match = re.search(r"open\s+(?:-g\s+)?-a\s+['\"]?([\w ]+?)['\"]?\s", command + " ")
+        app_names = {
+            "com.apple.finder": "finder",
+            "com.apple.textedit": "textedit",
+            "com.apple.safari": "safari",
+        }
+        primary = app_match and app_match.group(1).strip().lower() == app_names.get(task.app.lower())
+        command = re.sub(r"(^|[;&|]\s*)open\s+(?!-g)", r"\1open -g ", command) if not primary else command
+        if primary:
+            command = re.sub(r"(^|[;&|]\s*)open\s+(?:-g\s+)?", r"\1open ", command)
+        if re.search(r"open (?:-g )?-a \"?TextEdit\"?\s", command + " ") and "--args" not in command:
+            command += " --args -ApplePersistenceIgnoreState YES"
+        subprocess.run(
+            ["/bin/sh", "-c", command], cwd=workspace,
+            env={**os.environ, "WS": str(workspace)},
+            check=True, timeout=30, capture_output=True, text=True,
+        )
+        time.sleep(1.2)
+
+    if not task.stage and task.app.lower() == "com.apple.finder":
+        subprocess.run(["open", str(workspace)], check=True, timeout=30, capture_output=True)
+    elif not task.stage:
+        subprocess.run(["open", "-b", task.app], check=True, timeout=30, capture_output=True)
+
+
+def _close_staged_pages(page_servers: list[_WorkspacePageServer]):
+    if not page_servers:
+        return
+    script = "\n".join(
+        f'tell application "Safari" to close (every document whose URL is {json.dumps(server.page_url)})'
+        for server in page_servers if hasattr(server, "page_url")
+    )
+    if script and _app_running("Safari"):
+        try:
+            subprocess.run(["osascript", "-e", script], timeout=15, capture_output=True)
+        except (OSError, subprocess.SubprocessError):
+            pass
+
+
+def _require_zh_hans():
+    result = subprocess.run(
+        ["defaults", "read", "-g", "AppleLanguages"],
+        check=True, capture_output=True, text=True, timeout=10,
+    )
+    if "zh-Hans" not in result.stdout:
+        raise RuntimeError("DeskMind diag-v25 requires macOS AppleLanguages to include zh-Hans")
 
 
 def main(argv=None):
@@ -77,6 +254,7 @@ def main(argv=None):
         return 0
     if sys.platform != "darwin":
         parser.error("live DeskMind Bench replay requires macOS, Accessibility permissions, and a running brain server")
+    _require_zh_hans()
     binary = shutil.which(args.hands_command) or args.hands_command
     fixtures = args.bench_dir / "fixtures"
     args.runs_dir.mkdir(parents=True, exist_ok=True)
@@ -101,7 +279,11 @@ def main(argv=None):
             started = time.monotonic()
             log_path = run_dir / "hands.log"
             trace_records = []
+            page_servers = []
             try:
+                _stage_task(task, ws, args.runs_dir, page_servers)
+                trace_offset = trace_path.stat().st_size if trace_path.is_file() else 0
+                started = time.monotonic()
                 with log_path.open("w", encoding="utf-8") as log:
                     process = subprocess.Popen(
                         command, cwd=ws, stdout=log, stderr=subprocess.STDOUT,
@@ -130,9 +312,13 @@ def main(argv=None):
                 state = "completed" if trace_records and json.loads(trace_records[-1]).get("outcome") == "ok" else (
                     "failed" if trace_records else "timeout"
                 )
-            except OSError as exc:
+            except (OSError, subprocess.SubprocessError) as exc:
                 state, detail = "failed", str(exc)
                 log_path.write_text(detail, encoding="utf-8")
+            finally:
+                _close_staged_pages(page_servers)
+                for page_server in page_servers:
+                    page_server.close()
             trace_lines = trace_records
             (run_dir / "trace.jsonl").write_text("".join(trace_lines), encoding="utf-8")
             run = {
