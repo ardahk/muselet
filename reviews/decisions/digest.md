@@ -1,22 +1,21 @@
-# decisions — digest (pass 4)
+# decisions — digest (pass 5)
 
-Heads: main 2920225, cloud/decisions 3a865a0 (new: Tinker System One backend), cloud/data-pipeline 5371185.
-All open findings re-verified (pass-3 lines in findings.jsonl): none fixed. Branch-only (still live): decisions-1, -9, -10 (cloud/data-pipeline).
-Pass 4: wip/local 3e03686 has no lane-file diff vs main; cloud/pitch-2 citations re-checked (decision.py:390-410 route, orchestrator.py:171,364 tau) OK. Verified OK: tinker_backend.py scores row choice_pos-1 like vendor tinker_decisions.py:36-49 and imports GenericRenderer.
+Heads: main 28dc259, cloud/data-pipeline 80cb13f, cloud/decisions 3a865a0, cloud/brain-4 3aca368, wip/local e1701a3 (no lane diff vs main).
+Resolved this pass: decisions-9 (abstract it2 prompts + short_edit1 decontam + val-only selection; re-ran the matcher).
+Checked OK: data-pipeline 80cb13f ARGS datums weight only answer+<|im_end|>, matching DecisionEngine.args prefilled think block (test_route_render.py); brain-4 split ARGS model uses its own tokenizer/body/lm_head end to end; router_check ARGS e2e matches cli.eval_route rules.
 
 ## Open P0/P1
-0. decisions-13 P1 route_acc claimed as top-1 but eval-route accuracy is tau-gated — ml/src/brain/cli.py / pitch/claims.md:13
 1. decisions-1 P1 Decontam index lacks JevBench/typed-decisions; no 13-gram or option-set test — training/src/muselet_train/decontam.py (data-pipeline)
 2. decisions-12 P1 cloud/decisions forked pre-f584cb2; merge drops scorer, venv and split_model fixes — ml/src/brain/decision.py
-3. decisions-9 P1 it2 terse-ASK top-up targets route_v1 ASK items; decontam misses swaps — training/src/muselet_train/gen.py (data-pipeline)
-4. decisions-3 P1 Route regression would be measured with the wrong renderer and n=140 — cloud/builder_decisions.md
-5. decisions-5 P1 Before/after numbers would mix MLX-4bit and Tinker-bf16 — cloud/builder_decisions.md
-6. decisions-10 P1 it2 retrain plan has no token/$ estimate — training/reports/phase1_it2_plan.md (data-pipeline)
+3. decisions-13 P1 route_acc claimed as top-1 but eval-route accuracy is tau-gated — ml/src/brain/cli.py / pitch/claims.md:13
+4. decisions-10 P1 it2 retrain plan has no token/$ estimate — training/reports/phase1_it2_plan.md (data-pipeline)
+5. decisions-3 P1 Route regression would be measured with the wrong renderer and n=140 — cloud/builder_decisions.md
+6. decisions-5 P1 Before/after numbers would mix MLX-4bit and Tinker-bf16 — cloud/builder_decisions.md
 7. decisions-4 P1 noul option order flips with criteria presence — ml/src/brain/generic_decide.py
 8. decisions-2 P1 Identical-option-set rule undefined/degenerate — cloud/builder_decisions.md
 
 ## Highest-leverage next moves
-- Rebase cloud/decisions on main before anything is merged (decisions-12).
-- Land a decisions decontam (JevBench@609a664 + td@80cb93a, 13-gram + defined option-set rule) before generation.
-- Baseline = TinkerDecider base_model on the same backend; route regression via eval_route/router_check, paired on val.
-- Strip route_v1 wording from IT2_ASK_STYLE; post it2 est_usd and get the >$25 OK.
+- Rebase cloud/decisions on main before merging (decisions-12).
+- Add JevBench@609a664 + typed-decisions@80cb93a text, 13-gram and a defined option-set rule to decontam before decisions data is generated.
+- Quote accuracy_top1_ungated as router top-1 in the pitch (decisions-13).
+- Put est_usd/tokens + lead OK in phase1_it2_plan.md before launching it2 (decisions-10).
