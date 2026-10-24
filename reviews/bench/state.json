@@ -1,12 +1,12 @@
 {
-  "pass": 21,
-  "ts": "2026-10-24T10:40:00Z",
+  "pass": 22,
+  "ts": "2026-10-24T10:55:00Z",
   "branches": {
-    "main": "d514300",
-    "wip/local": "b63699f",
+    "main": "26ff05b",
+    "wip/local": "2c79363",
     "cloud/bench": "f584cb2",
-    "cloud/data-pipeline": "f13aa6d",
-    "cloud/decisions": "c08a96d",
+    "cloud/data-pipeline": "eae3b7e",
+    "cloud/decisions": "91a62c2",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
     "cloud/finance-3": "31be399",
@@ -19,9 +19,9 @@
     "cloud/grounding": "3441ee8",
     "cloud/brain-2": "741465c",
     "cloud/brain-3": "14a3f52",
-    "cloud/hobby-gaps": "929b931",
+    "cloud/hobby-gaps": "861b991",
     "cloud/brain-4": "dfb66a3",
     "cloud/brain-5": "b752261"
   },
-  "notes": "pass21: main d514300 merges brain-4 (split ROUTE/ARGS models, planner knobs as flags) plus HandsKit batch-5 (timers/timers_cancel RPC, lock-screen guard) and serve_brain.sh; no bench/evals lane diff. bench-20 updated: hobby-gaps should use the new timers RPC instead of the nonexistent list_timers/cancel_timers skills. data-pipeline f39efe4/f13aa6d: export untie-head fix and ARGS eval empty-rate (not lane). brain-5 and wip/local: no lane diff. No new findings."
+  "notes": "pass22: hobby-gaps 861b991 merges main and moves Muselet timer grading to the timers RPC with timers_cancel teardown (bench-20 Muselet side fixed; HobbyLM side still ungradable). bench-21 unchanged. main 26ff05b: brain-5 merge, argfix, route parity reference for catalog v2 (training/artifacts); no bench/evals diff. decisions 91a62c2: reasoning-teacher gate + paraphrase in gen; decontam stage still runs on records_labeled (build.py:521), i.e. after paraphrase; fine. data-pipeline eae3b7e: plan doc only. wip/local: no lane diff. No new findings."
 }
