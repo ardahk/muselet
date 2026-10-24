@@ -1,9 +1,9 @@
 {
-  "pass": 25,
-  "ts": "2026-10-24T11:40:00Z",
+  "pass": 26,
+  "ts": "2026-10-24T11:55:00Z",
   "branches": {
-    "main": "7147694",
-    "wip/local": "5764a0d",
+    "main": "04c3930",
+    "wip/local": "aec8fbf",
     "cloud/bench": "f584cb2",
     "cloud/data-pipeline": "9b36081",
     "cloud/decisions": "6d395df",
@@ -25,5 +25,5 @@
     "cloud/grounder-wire": "afb12a6",
     "cloud/pitch-3": "e203181"
   },
-  "notes": "pass25: main 7147694: generic_decide MLX worker thread (reviewed on wip/local in pass 24), planner_offline holdout2 (12) + few_shot=None (harness owns system prompt; runtime few-shot reproducible via --system-extra prompts/planner_fewshot.md, same '\\n\\n' join as Planner) -> bench-19 update. grounder-wire afb12a6 (new): click \"<target>\" DSL -> window screenshot -> Grounder.alocate (native zoom) -> to_global(pt, shot) -> act click; pixel->global mapping matches Screenshot.swift; screenshots deleted; offload to MLX worker; run_screenspot path unchanged. test_grounder_wire needs mlx (collection error on this VM). pitch-3: no lane diff. data-pipeline: it2 report marks it2 non-candidate (gate). wip/local: no lane diff vs main. bench-16/20/21 unchanged on main. No new findings."
+  "notes": "pass26: main 04c3930 merges grounder-wire (#19, = afb12a6 reviewed pass 25) and pitch-3 (#18, pitch/claims.md with measured values), adopts planner rules 16-18, adds route_v1_clean_both (103). claims.md: router on route_v1_clean with 37-case disclosure (ok); System One table discloses DeskMind lead (ok); HobbyLM/DeskMind live rows pending; grounding 200-subset claim not reproducible from code -> bench-15 raised to P1; planner holdout-1 numbers stale/consumed -> bench-19 update. wip/local: no lane diff vs main. No new IDs."
 }
