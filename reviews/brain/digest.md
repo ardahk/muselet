@@ -1,4 +1,18 @@
-# brain lane digest — pass 29 (2026-10-24T12:32Z)
+# brain lane digest — pass 30 (2026-10-24T12:50Z)
+
+Pass 30: main b625ceb and wip/local 49f808f unchanged. New cloud/brain-6 780f49d (2 commits on main: sendgate.py send/payment
+predicates; Enter gate via focused element/app; grounded-click gate = target words -> composer/payment context -> smallest labeled
+AX element at the point -> OCR 160x60pt region, OCR failure fails closed). brain-6 suite: 1197 passed / 2 skipped / 1 deselected
+(real_model). Review repros on brain-6: 14 failed / 25 passed (all open findings except brain-27 untouched).
+
+Open: P0 0, P1 5, P2 7.
+- brain-27 (P2): still open on main; brain-6 closes the common case. Residual: unlisted composer (Outlook native/web, LinkedIn)
+  + blind AX + icon-only send -> no confirm (test_brain_pass30.py).
+- brain-28 (P2, new, brain-6): browser titles containing Teams/Zoom/Signal/Messages/Mail/Chat count as composers, so every
+  Enter and grounded click there asks to confirm ('nba teams - Google Search'). Speed cost + confirm fatigue.
+Note: Mail/Slack/Messages native now confirm every `keys return` (incl. newlines in a Mail body) - by design, flag for demo flows.
+
+## Pass 29 (2026-10-24T12:32Z)
 
 Pass 29: main b625ceb (merged cloud/pitch-4: claims.md contamination disclosures; review_pulse spend-guard state) and wip/local
 49f808f (= main); no brain-lane changes, every open finding stands. cloud/data-pipeline 512cce0: decontam compares CJK by
@@ -56,4 +70,4 @@ Open: P0 0, P1 5, P2 6.  Resolved this pass: brain-26 on main (separate `_init_d
 2. Exact-only path matches for trash/move; fuzzy -> ASK (brain-24).
 3. Anchor abs_level markers to the property; reject times/durations (brain-16).
 4. dsl.action_line: reject `-> ok|failed` suffixes (brain-22).
-5. OCR/AX-hit-test the grounded point before clicking dangerous-looking targets (brain-27).
+5. Merge brain-6 after tightening browser-title matching (brain-28); extend composer list (brain-27 residual).
