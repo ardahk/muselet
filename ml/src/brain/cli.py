@@ -104,6 +104,8 @@ async def serve(port: int = 8765, model: str | None = None,
         planner = make_planner(pmodel, engine, planner_kw)
     orch = Orchestrator(server, Catalog.load(), Tracer(), engine=engine)
     orch.planner = planner
+    orch.escalate_model = escalate_model or \
+        "mlx-community/Qwen3.6-35B-A3B-4bit"
     if grounder is not None:
         orch.grounder_cfg = grounder or None      # {} = disabled
     if orch.grounder_cfg:                         # lazy: weights load on the first `click "<target>"`
@@ -123,6 +125,11 @@ async def serve(port: int = 8765, model: str | None = None,
         await orch.handle_utterance(text, ctx)
 
     server.on_utterance = on_utt
+    async def on_config(msg):
+        return await orch.set_escalation(
+            bool(msg.get("escalate_planner", False)))
+
+    server.on_config = on_config
     server.on_partial = lambda t, c=None: orch._speculative_route(t, c)
     print(f"brain listening on ws://127.0.0.1:{server.port}", flush=True)
     print("type an utterance + enter (headless mode)", flush=True)
