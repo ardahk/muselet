@@ -1,6 +1,6 @@
 {
-  "pass": 53,
-  "ts": "2026-10-24T23:50:00Z",
+  "pass": 54,
+  "ts": "2026-10-25T00:08:00Z",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
@@ -15,7 +15,7 @@
     "cloud/brain-6": "780f49d",
     "cloud/brain-7": "13432fe",
     "cloud/brain-8": "4546d09",
-    "cloud/brain-9": "e9e9b42",
+    "cloud/brain-9": "2590811",
     "cloud/clock-timers": "8d779cc",
     "cloud/clock-timers-handoff": "9643f94",
     "cloud/comms": "c94a407",
@@ -25,7 +25,7 @@
     "cloud/data-pipeline": "830ba35",
     "cloud/data-planner": "ee8ae33",
     "cloud/data-route": "42835ce",
-    "cloud/decisions": "c88b613",
+    "cloud/decisions": "ae36620",
     "cloud/docs-demo": "095d4ef",
     "cloud/docs-demo-2": "fa79929",
     "cloud/finance": "529e9ff",
@@ -40,9 +40,9 @@
     "cloud/live-cases": "fa9c374",
     "cloud/mascot-animal": "4b7d95a",
     "cloud/mascot-animal-handoff": "3aa6bd0",
-    "cloud/memory": "ba3dc0a",
+    "cloud/memory": "711c0fe",
     "cloud/memory-eval": "c05944e",
-    "cloud/memory-lt": "cc056af",
+    "cloud/memory-lt": "4794e8a",
     "cloud/native-research": "fa88c22",
     "cloud/pitch": "ad1b058",
     "cloud/pitch-2": "3303678",
@@ -54,7 +54,7 @@
     "cloud/planner-retrieval": "7df32b1",
     "cloud/planner-retrieval-handoff": "f728b79",
     "cloud/planner-think": "3677348",
-    "cloud/planner-verify": "d22b9a9",
+    "cloud/planner-verify": "484f5e7",
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/router-it3-serve": "b455d2c",
@@ -64,10 +64,10 @@
     "cloud/safety-brain18": "9aa2e4c",
     "cloud/safety-brain27": "ac43219",
     "cloud/safety-brain38": "54ca8f6",
-    "cloud/safety-planner28": "fb4a45a",
+    "cloud/safety-planner28": "e3abc5e",
     "cloud/ui-polish": "e8bceef",
     "cloud/w9-safety": "6aa332a",
-    "main": "18c139f",
-    "wip/local": "719907a"
+    "main": "0b83c3b",
+    "wip/local": "e4f4331"
   }
 }
