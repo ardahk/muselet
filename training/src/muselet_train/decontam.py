@@ -2,6 +2,7 @@
 
 Drop a route or ARGS item if, against ANY eval utterance, its normalized text is equal, char-5-gram
 Jaccard >= 0.5, token-bigram Jaccard >= 0.6, or token-8-gram Jaccard >= 0.6 (both texts >= 12 tokens).
+Items of <= 5 tokens are also dropped within token-level edit distance 1 of any eval utterance (decisions-9).
   python -m muselet_train.decontam --run R
 Rewrites route.jsonl / args.jsonl in place (originals kept as *.pre_decontam.jsonl).
 """
@@ -65,11 +66,28 @@ def eval_utterances() -> list[tuple[str, str]]:
     return out
 
 
+SHORT = 5
+
+
+def tok_edit_le1(a: list[str], b: list[str]) -> bool:
+    """Token-level Levenshtein distance <= 1."""
+    if abs(len(a) - len(b)) > 1:
+        return False
+    if len(a) == len(b):
+        return sum(x != y for x, y in zip(a, b)) <= 1
+    s, t = (a, b) if len(a) < len(b) else (b, a)
+    return any(t[:i] + t[i + 1:] == s for i in range(len(t)))
+
+
 class Index:
     def __init__(self, texts: list[str] | list[tuple[str, str]]):
         pairs = [t if isinstance(t, tuple) else ("", t) for t in texts]
         self.evals = [Feats(t, src) for src, t in pairs if norm(t)]
         self.exact = {e.text: e for e in self.evals}
+        self.by_len = collections.defaultdict(list)
+        for e in self.evals:
+            if len(e.toks) <= SHORT + 1:
+                self.by_len[len(e.toks)].append(e)
         self.by_c5 = collections.defaultdict(list)
         for i, e in enumerate(self.evals):
             for g in e.c5:
@@ -88,6 +106,11 @@ class Index:
                 return "bigram", e
             if f.g8 and e.g8 and _j(f.g8, e.g8) >= 0.6:
                 return "tok8", e
+        if len(f.toks) <= SHORT:
+            for n in (len(f.toks) - 1, len(f.toks), len(f.toks) + 1):
+                for e in self.by_len.get(n, ()):
+                    if tok_edit_le1(f.toks, e.toks):
+                        return "short_edit1", e
         return None
 
 
@@ -102,12 +125,16 @@ def run(run_name: str, seed: int) -> dict:
         if not src.exists():
             (d / f"{name}.jsonl").rename(src)
         rows = [json.loads(ln) for ln in src.read_text().splitlines() if ln.strip()]
-        kept, drop, by_src = [], collections.Counter(), collections.Counter()
+        kept, drop, by_src, by_rule = [], collections.Counter(), collections.Counter(), collections.Counter()
+        short = collections.Counter()
         for r in rows:
             m = idx.match(r["utterance"])
             if m:
                 drop[r[lab_key]] += 1
                 by_src[m[1].src] += 1
+                by_rule[m[0]] += 1
+                if m[0] == "short_edit1":
+                    short[r[lab_key]] += 1
                 pairs.append({"set": name, "label": r[lab_key], "rule": m[0], "train": r["utterance"],
                               "eval": m[1].text, "eval_source": m[1].src})
             else:
@@ -115,6 +142,8 @@ def run(run_name: str, seed: int) -> dict:
         (d / f"{name}.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in kept))
         rep["dropped"][name] = dict(sorted(drop.items()))
         rep["dropped_by_eval_source"][name] = dict(sorted(by_src.items()))
+        rep.setdefault("dropped_by_rule", {})[name] = dict(by_rule)
+        rep.setdefault("short_edit1_by_label", {})[name] = dict(short.most_common())
         rep[f"{name}_in"], rep[f"{name}_kept"] = len(rows), len(kept)
     rep["pairs"] = random.Random(seed).sample(pairs, min(10, len(pairs)))
     (d / "decontam.json").write_text(json.dumps(rep, indent=1, ensure_ascii=False))

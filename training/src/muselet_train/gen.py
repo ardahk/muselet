@@ -135,23 +135,22 @@ def build_v2(run: str, seed: int = 0) -> list[dict]:
 
 # iteration 2 (lead-approved): targeted top-ups for the labels the main run got wrong; notes go in the {style}
 # slot so the prompt text stays exact.
-IT2_G1 = [
-    ("dark_mode", 10, "indirect needs about glare, night-time, eye strain or wanting everything darker or lighter, "
-                      "where switching the system appearance (dark/light mode) is the fix"),
-    ("set_brightness", 5, "indirect needs about the screen itself being too bright or too dim"),
-    ("sleep_display", 4, "the user wants the screen turned off right now, not dimmed and not dark mode"),
-    ("open_app", 10, "many verbs: fire up, pull up, bring up, get me into, launch, start, boot up, open up"),
-    ("find_file", 8, "the user lost or can't locate a file and wants it found, without asking to open it"),
+IT2_G1 = [  # notes describe the contrast from the catalog definitions; no wording taken from any eval set
+    ("dark_mode", 10, "the fix is switching the system appearance theme; vary how indirectly the need is put"),
+    ("set_brightness", 5, "about the display's light level, said directly or as a complaint"),
+    ("sleep_display", 4, "the display should go to sleep immediately, as opposed to dimming it or changing the theme"),
+    ("open_app", 10, "vary the verb and sentence shape widely; most items should not use the word 'open'"),
+    ("find_file", 8, "the user wants a file's location found, with no request to open it"),
     ("open_file", 4, "the user names a specific file and wants it opened"),
-    ("create_reminder", 6, "'don't let me forget' / 'remind me' with a time; personal to-dos, not meetings"),
-    ("create_event", 4, "meetings, appointments and calendar entries with a time, not to-do reminders"),
-    ("media_control", 8, "generic playback commands (play, pause, toggle, resume, skip) for music or video in any app"),
-    ("premiere_command", 3, "playback commands for the Premiere Pro timeline (play, stop, play from playhead)"),
+    ("create_reminder", 6, "personal to-dos the user wants to be nudged about later, as opposed to calendar meetings"),
+    ("create_event", 4, "meetings, appointments and calendar entries, as opposed to personal to-do nudges"),
+    ("media_control", 8, "transport controls for whatever is currently playing, in any app other than Premiere Pro"),
+    ("premiere_command", 3, "transport and timeline commands while editing in Premiere Pro"),
 ]
 IT2_POLITE = "polite full sentence that names every required value explicitly"
 IT2_ASK_CALLS = 20
-IT2_ASK_STYLE = ("very short (2-4 words): name one skill's action but give none of the details it needs, "
-                 "or point at something unclear like 'it', 'him', 'the one from earlier'")
+IT2_ASK_STYLE = ("short: a request for one skill whose required argument is absent, or given only as a pronoun "
+                 "or a vague reference")
 
 
 def build_it2(run: str, seed: int = 0) -> list[dict]:

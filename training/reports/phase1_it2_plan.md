@@ -16,16 +16,21 @@ Data changes:
    playback vs Premiere timeline playback, polite-complete requests for every skill with a required argument
    (ASK hard negatives), and terse missing-argument ASK.
 
-Before = `main` (sampler_weights/main-final). Val numbers are compared on the same split: main-final is re-scored
-on the v2it2 val split, because the split changed.
+Selection rule (evals-safety-27): every hypothesis and every checkpoint choice is judged on route_val (the
+held-out val split) only. The it2 val split is pinned to main's split (`dedup --pin-split-from`): items main held
+out stay in val, so main-final and it2 are compared on the same held-out items. route_v1 is reported once, at the
+end, as the final number, flagged "not used for selection".
 
-| # | Hypothesis | Confirmed if |
+Style notes in the top-up prompts are written from the catalog definitions; they quote no eval wording (decisions-9).
+Decontam additionally drops items of <= 5 tokens within token edit distance 1 of any eval utterance.
+
+| # | Hypothesis | Confirmed if (route_val, same split for main-final and it2) |
 |---|---|---|
-| H1 | Constrained contexts + playback top-up fix media_control -> premiere_command | media_control val acc >= 0.85; <= 1 media_control->premiere_command val error; every route_v1 media_control item correct |
-| H2 | Rule-validated + terse ASK teaches missing-argument ASK without eating complete requests | route_v1 ASK >= 6/8; val ASK acc >= 0.70; route_v1 non-ASK items predicted ASK <= 2 |
-| H3 | Strict finance check removes generic spreadsheet work from finance_review | MULTI_STEP->finance_review val errors <= 1% of MULTI_STEP val; 0 route_v1 MULTI_STEP items predicted finance_review; finance_review val acc >= 0.90 and route_v1 finance_review items correct |
-| H4 | Indirect dark_mode coverage + contrast fixes dark_mode -> sleep_display/set_brightness | dark_mode val acc >= 0.85; <= 1 dark_mode->sleep_display val error |
-| H5 | open_app verb paraphrases fix open_app -> MULTI_STEP | every route_v1 open_app item correct |
+| H1 | Constrained contexts + playback top-up fix media_control -> premiere_command | media_control val acc >= 0.85; <= 1 media_control->premiere_command error |
+| H2 | Rule-validated ASK teaches missing-argument ASK without eating complete requests | ASK val acc >= 0.70; non-ASK val items predicted ASK <= 1% of val |
+| H3 | Strict finance check removes generic spreadsheet work from finance_review | MULTI_STEP->finance_review errors <= 1% of MULTI_STEP val; finance_review val acc >= 0.90 |
+| H4 | Indirect dark_mode coverage + contrast fixes dark_mode -> sleep_display/set_brightness | dark_mode val acc >= 0.85; <= 1 dark_mode->sleep_display error |
+| H5 | open_app verb variety fixes open_app -> MULTI_STEP | open_app val acc >= 0.95; <= 1 open_app->MULTI_STEP error |
 | H6 | find_file/open_file and create_reminder/create_event contrasts help both | find_file and create_reminder val acc >= 0.85 |
 | H7 | Control: set_volume / change_volume data unchanged | both >= 0.85 val acc (no regression) |
-| H8 | Overall | val top-1 > main-final on the same split; route_v1 top-1 >= 0.90; ECE <= 0.03; ARGS EM >= 0.87 |
+| H8 | Overall | val top-1 > main-final; val ECE <= 0.03; ARGS EM >= 0.87 |

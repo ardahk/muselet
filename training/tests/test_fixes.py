@@ -61,3 +61,14 @@ def test_ask_rule_verdict():
     assert verdict(["path"], 'path="~/Downloads" missing=path', ["path"]) == "concrete"
     assert verdict([], "", None) == "concrete"
     assert verdict(["to"], "", None) == "error"
+
+
+def test_short_edit1_decontam():
+    from muselet_train.decontam import Index
+
+    idx = Index([("route_v1", "shoot him a text"), ("route_v1", "set the volume"), ("route_v1", "remind me")])
+    assert idx.match("shoot her a text")[0] in ("short_edit1", "char5", "bigram")
+    assert idx.match("set volume")
+    assert idx.match("remind me later")
+    assert idx.match("set the volume to forty percent please") is None
+    assert idx.match("open the trash") is None
