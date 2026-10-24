@@ -45,6 +45,9 @@ grounder = Qwen3.5-4B grounding LoRA (Tinker) vs deskmind/eyes-4b vs GUI-Owl-1.5
 - Wait for UI settle (AX notification or 2 stable samples) instead of fixed sleeps.
 - Start executing the first parsed action while the planner is still decoding.
 - Every live failure becomes a permanent regression test (failure-replay gate).
+- Keep System-1 speed on hard tasks: frequent multi-step workflows become catalog skills with `executor: brain`
+  (router picks them in one forward pass; deterministic Python tools do the work and drive HandsKit), and the
+  planner is the fallback for everything else.
 
 ## Process + protocol
 `brain` (Python) runs a WebSocket server on `ws://127.0.0.1:8765`; the app connects as client.
@@ -80,6 +83,7 @@ RPC methods (HandsKit):
 - `skill {name, args}` -> `{ok, result?, error?, ms}`
 - `screenshot {window:true, max_pixels:1000000, region?}` -> `{path, width, height, origin:[x,y], scale}` (own windows excluded)
 - `verify {expect}` -> `{ok, observed}`
+- `ocr {path? | region?:[x,y,w,h]}` -> `{text, lines:[{text, frame}], ms}` (Apple Vision, accurate, en-US; region = screen points)
 - `apps {}` -> `{running:[...], installed:[...]}`
 
 ## Observation text format (what models see)
