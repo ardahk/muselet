@@ -1,9 +1,9 @@
-# training lane digest — pass 39 (main fb2cfd0, cloud/data-route 42835ce, cloud/decisions 694c198, cloud/comms c94a407)
+# training lane digest — pass 40 (main 7065dd3, cloud/data-route 42835ce, cloud/decisions 694c198)
 
-Open: 0 P0, 12 P1, 14 P2. Nothing new or resolved. main fb2cfd0 changed live_t1 preconditions/checks only (utterances unchanged; gates unaffected).
+Open: 0 P0, 12 P1, 14 P2. Nothing new or resolved. main merged comms: draft_email and compose_text are both router:false on main (training-44). live_t1 utterances unchanged.
 
 ## Ranked open P0/P1
-1. training-44 P1 — it3cand trains draft_email (330) + compose_text (127) as routable; comms/main mark them router:false.
+1. training-44 P1 — it3cand trains draft_email (330) + compose_text (127) as routable; main marks both router:false (comms merged).
 2. training-45 P1 — it3cand ARGS: 15.7% audit noise fixed only on the 1,061 sampled rows; ~29k rows get deterministic rules only.
 3. training-29 P1 — short_edit1: 143 of 156 data-route gate drops ('text her' vs 'email her'); hard gate.
 4. training-43 P1 — route_v2 has 0.4% <=3-word items; it3 selection blind to short commands.
