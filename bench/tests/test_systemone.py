@@ -231,6 +231,17 @@ class SystemOneTests(unittest.TestCase):
         self.assertEqual(noul["probabilities"], {"false": 0.4, "true": 0.6})
         self.assertEqual(from_answer(request.questions["noul"], noul), {"false": 0.4, "true": 0.6})
 
+    def test_confidence_temperature_can_differ_from_probability_temperature(self):
+        request = parse_request({"state": "s", "questions": {
+            "choice": {"type": "choice", "instructions": "pick", "criteria": {"a": "A", "b": "B"}},
+        }})
+        answer = build_answer(
+            request.questions["choice"], {"a": 0.9, "b": 0.1},
+            confidence_distribution={"a": 0.5, "b": 0.5},
+        )
+        self.assertEqual(answer["probabilities"], {"a": 0.9, "b": 0.1})
+        self.assertEqual(answer["confidence"], 0.0)
+
     def test_fake_server_accepts_all_examples_and_schema_validates_responses(self):
         server = make_server("127.0.0.1", 0, FakeDecider(), "muselet")
         thread = threading.Thread(target=server.serve_forever, daemon=True)
