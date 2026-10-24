@@ -1,0 +1,20 @@
+{
+  "as_of": "2026-10-23",
+  "scope": "investment accounts (taxable + IRAs); the Savings account is the household liquidity bucket",
+  "targets_pct": {
+    "US equity": "40",
+    "Intl equity": "20",
+    "Bonds": "35",
+    "Cash": "5"
+  },
+  "groups_pct": {
+    "Equity": {
+      "classes": [
+        "US equity",
+        "Intl equity"
+      ],
+      "target": "60"
+    }
+  },
+  "rebalance_band_pp": "5"
+}

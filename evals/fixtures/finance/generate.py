@@ -25,14 +25,26 @@ OPENING_CENTS = 312055
 
 rng = random.Random(1337)
 
+# Variable spending: merchant -> (category, row count, min cents, max cents). Debits are negative.
+# A student month: many small coffee/BART rows, a few bigger grocery runs, little shopping.
+# Counts sum to N_ROWS minus the fixed rows below.
 SAMPLED = {
-    "Groceries": (["TRADER JOE'S", "SAFEWAY", "BERKELEY BOWL"], -9500, -1200),
-    "Dining": (["CHIPOTLE", "SWEETGREEN", "BLUE BOTTLE COFFEE", "DOORDASH"], -4200, -450),
-    "Transport": (["BART CLIPPER", "UBER TRIP", "LYFT RIDE", "CHEVRON"], -5800, -250),
-    "Shopping": (["AMAZON MKTP", "TARGET", "APPLE STORE"], -12000, -800),
-    "Health": (["CVS PHARMACY", "KAISER COPAY"], -4500, -1000),
+    "TRADER JOE'S": ("Groceries", 10, -2400, -700),
+    "SAFEWAY": ("Groceries", 6, -2600, -600),
+    "BERKELEY BOWL": ("Groceries", 6, -2000, -500),
+    "BLUE BOTTLE COFFEE": ("Dining", 22, -650, -350),
+    "PEET'S COFFEE": ("Dining", 18, -600, -325),
+    "CHIPOTLE": ("Dining", 5, -1650, -1050),
+    "SWEETGREEN": ("Dining", 3, -1795, -1295),
+    "DOORDASH": ("Dining", 1, -3400, -2400),
+    "BART CLIPPER": ("Transport", 22, -385, -215),
+    "LYFT RIDE": ("Transport", 1, -1500, -900),
+    "CVS PHARMACY": ("Health", 2, -1800, -600),
+    "KAISER COPAY": ("Health", 1, -3000, -2000),
+    "AMAZON MKTP": ("Shopping", 3, -2499, -699),
+    "TARGET": ("Shopping", 3, -1999, -499),
+    "APPLE STORE": ("Shopping", 1, -4900, -1900),
 }
-WEIGHTS = {"Groceries": 25, "Dining": 35, "Transport": 25, "Shopping": 10, "Health": 5}
 
 CATEGORY_OF = {
     "PAYROLL ACME LABS": "Income",
@@ -46,9 +58,9 @@ CATEGORY_OF = {
     "OPENAI CHATGPT": "Subscriptions",
     "AMAZON MKTP REFUND": "Shopping",
 }
-for _cat, (_merchants, _lo, _hi) in SAMPLED.items():
-    for _m in _merchants:
-        CATEGORY_OF[_m] = _cat
+CATEGORY_OF["UBER TRIP"] = "Transport"
+for _m, (_cat, _n, _lo, _hi) in SAMPLED.items():
+    CATEGORY_OF[_m] = _cat
 
 BUDGET = [
     ("Rent", 1650), ("Groceries", 400), ("Dining", 250), ("Transport", 150),
@@ -72,13 +84,13 @@ def build_rows() -> list[dict]:
     """Rows as dicts with integer cents; returned sorted (stable) by date."""
     fixed: list[tuple[str, str, int]] = [
         (day(1), "PAYROLL ACME LABS", 240000),
-        (day(1), "RENT OAKLAND PROPERTIES", -165000),
+        (day(1), "RENT OAKLAND PROPERTIES", -162500),
         (day(15), "PAYROLL ACME LABS", 240000),
         (rand_day(), "VENMO FROM SAM", 4500),
-        (rand_day(), "PG&E", rng.randint(-11000, -6000)),
+        (rand_day(), "PG&E", rng.randint(-8000, -6000)),
         (rand_day(), "COMCAST XFINITY", -7999),
         (rand_day(), "SPOTIFY", -1199),
-        (rand_day(), "NETFLIX", -1549),
+        (rand_day(), "NETFLIX", -799),
         (rand_day(), "APPLE ICLOUD", -299),
         (rand_day(), "OPENAI CHATGPT", -2000),
         (day(9), "UBER TRIP", -2347),
@@ -90,18 +102,16 @@ def build_rows() -> list[dict]:
     ]
     seen = {(d, m, a) for d, m, a in fixed}
 
-    def sample(cat: str, merchant: str | None = None) -> tuple[str, str, int]:
-        merchants, lo, hi = SAMPLED[cat]
+    def sample(merchant: str) -> tuple[str, str, int]:
+        _, _, lo, hi = SAMPLED[merchant]
         while True:
-            row = (rand_day(), merchant or rng.choice(merchants), rng.randint(lo, hi))
+            row = (rand_day(), merchant, rng.randint(lo, hi))
             if row not in seen:  # no accidental exact duplicates
                 seen.add(row)
                 return row
 
-    random_rows = [sample(cat, m) for cat, (ms, _, _) in SAMPLED.items() for m in ms]
-    cats, weights = list(WEIGHTS), list(WEIGHTS.values())
-    while len(fixed) + len(random_rows) < N_ROWS:
-        random_rows.append(sample(rng.choices(cats, weights)[0]))
+    random_rows = [sample(m) for m, (_, n, _, _) in SAMPLED.items() for _ in range(n)]
+    assert len(fixed) + len(random_rows) == N_ROWS, len(fixed) + len(random_rows)
 
     rows = sorted(fixed + random_rows, key=lambda r: r[0])
     bal = OPENING_CENTS
@@ -171,7 +181,7 @@ def statement_truth(rows: list[dict]) -> dict:
     }
 
 
-def write_budget(truth: dict) -> None:
+def write_budget(truth: dict) -> dict:
     wb = Workbook()
     ws = wb.active
     ws.title = "Budget"
@@ -201,14 +211,16 @@ def write_budget(truth: dict) -> None:
 
     actual = {c: truth["category_spend"][c] for c, _ in BUDGET}
     remaining = {c: round(b - actual[c], 2) for c, b in BUDGET}
-    (OUT / "budget_oct2026.truth.json").write_text(json.dumps({
+    budget_truth = {
         "sheet": "Budget",
         "categories": [c for c, _ in BUDGET],
         "budget": dict(BUDGET),
         "actual": actual,
         "remaining": remaining,
         "over_budget": [c for c, _ in BUDGET if remaining[c] < 0],
-    }, indent=2) + "\n")
+    }
+    (OUT / "budget_oct2026.truth.json").write_text(json.dumps(budget_truth, indent=2) + "\n")
+    return budget_truth
 
 
 ADDRESSES = {
@@ -308,7 +320,7 @@ def render_receipt(path: Path, merchant: str, date: str, items, subtotal: int, t
     img.save(path, optimize=False)
 
 
-def write_receipts(rows: list[dict]) -> None:
+def write_receipts(rows: list[dict]) -> dict:
     rdir = OUT / "receipts"
     rdir.mkdir(exist_ok=True)
     md_count: dict[tuple, int] = {}
@@ -337,9 +349,72 @@ def write_receipts(rows: list[dict]) -> None:
         entry = {"match_row": row, "status": status, "total": round(total / 100, 2), "merchant": merchant, "date": date}
         if status == "amount_mismatch":
             entry["statement_amount"] = round(-r7["cents"] / 100, 2)
+            entry["transposed_digits"] = True
         truth[name] = entry
     assert all(r["desc"] != "PHILZ COFFEE" for r in rows)
     (OUT / "receipts.truth.json").write_text(json.dumps(truth, indent=2) + "\n")
+    return truth
+
+
+def is_adjacent_swap(a: int, b: int) -> bool:
+    x, y = str(a), str(b)
+    diff = [i for i in range(len(x)) if len(x) == len(y) and x[i] != y[i]]
+    return len(diff) == 2 and diff[1] == diff[0] + 1 and x[diff[0]] == y[diff[1]] and x[diff[1]] == y[diff[0]]
+
+
+def check_spec(rows: list[dict], st: dict, bt: dict, rt: dict) -> None:
+    """Fail generation if the fixture drifts from the demo story (see README)."""
+    cents = lambda x: round(x * 100)
+    assert len(rows) == N_ROWS
+    assert rows[0]["bal"] - rows[0]["cents"] == OPENING_CENTS
+    assert [r["row"] for r in rows] == list(range(1, N_ROWS + 1))
+    assert [r["date"] for r in rows] == sorted(r["date"] for r in rows)
+
+    # Totals: income unchanged, spend 3,900-4,300, net positive, closing > opening.
+    assert cents(st["total_income"]) == 484500, st["total_income"]
+    assert 390000 <= cents(st["total_spend"]) <= 430000, st["total_spend"]
+    assert cents(st["net"]) > 0 and cents(st["closing_balance"]) > OPENING_CENTS
+
+    # Budget: fixed table; over budget exactly Dining (by 40-120) and Shopping (mostly the outlier).
+    assert bt["budget"] == {"Rent": 1650, "Groceries": 400, "Dining": 250, "Transport": 150, "Shopping": 200,
+                            "Subscriptions": 60, "Utilities": 180, "Health": 80}, bt["budget"]
+    assert bt["over_budget"] == ["Dining", "Shopping"], bt["over_budget"]
+    assert 4000 <= -cents(bt["remaining"]["Dining"]) <= 12000, bt["remaining"]["Dining"]
+    assert cents(bt["actual"]["Shopping"]) - 129900 <= cents(bt["budget"]["Shopping"]), bt["actual"]["Shopping"]
+    for c in bt["categories"]:
+        if c not in bt["over_budget"]:
+            assert cents(bt["remaining"][c]) >= 1500, (c, bt["remaining"][c])
+
+    # Planted anomalies, exactly as documented.
+    by_row = {r["row"]: r for r in rows}
+    key = lambda r: (r["date"], r["desc"], r["cents"])
+    assert sorted(tuple(key(by_row[i]) for i in g) for g in st["duplicates"]) == [
+        (("2026-10-09", "UBER TRIP", -2347),) * 2, (("2026-10-21", "AMAZON MKTP", -6499),) * 2]
+    assert [key(by_row[i]) for i in st["outliers"]] == [("2026-10-24", "APPLE STORE", -129900)]
+    assert dt.date(2026, 10, 24).weekday() == 5
+    assert [key(by_row[i]) for i in st["refunds"]] == [("2026-10-28", "AMAZON MKTP REFUND", 6499)]
+    assert sum(r["desc"] == "APPLE STORE" and r["cents"] == -129900 for r in rows) == 1
+
+    # Receipts: 1-6 exact matches, 7 transposed-digit total, 8 PHILZ COFFEE with no match.
+    assert sorted(rt) == [f"receipt_{i:02d}.png" for i in range(1, 9)]
+    md = {}
+    for r in rows:
+        md.setdefault((r["desc"], r["date"]), []).append(r)
+    for i in range(1, 7):
+        e = rt[f"receipt_{i:02d}.png"]
+        r = by_row[e["match_row"]]
+        assert e["status"] == "matched" and len(md[(e["merchant"], e["date"])]) == 1
+        assert (r["desc"], r["date"], -r["cents"]) == (e["merchant"], e["date"], cents(e["total"])), e
+    e7 = rt["receipt_07.png"]
+    r7 = by_row[e7["match_row"]]
+    assert e7["status"] == "amount_mismatch" and e7["transposed_digits"] is True
+    assert (r7["desc"], r7["date"], -r7["cents"]) == (e7["merchant"], e7["date"], cents(e7["statement_amount"]))
+    assert len(md[(e7["merchant"], e7["date"])]) == 1
+    assert is_adjacent_swap(cents(e7["total"]), -r7["cents"])
+    e8 = rt["receipt_08.png"]
+    assert e8["status"] == "no_match" and e8["match_row"] is None and e8["merchant"] == "PHILZ COFFEE"
+    assert not any(r["desc"] == "PHILZ COFFEE" for r in rows)
+    assert len({e["match_row"] for e in rt.values() if e["match_row"]}) == 7
 
 
 def main() -> None:
@@ -349,8 +424,9 @@ def main() -> None:
     rows = read_statement(path)  # truth is computed from the CSV as written
     truth = statement_truth(rows)
     (OUT / "bank_statement_oct2026.truth.json").write_text(json.dumps(truth, indent=2) + "\n")
-    write_budget(truth)
-    write_receipts(rows)
+    budget_truth = write_budget(truth)
+    receipts_truth = write_receipts(rows)
+    check_spec(rows, truth, budget_truth, receipts_truth)
     print(json.dumps({k: truth[k] for k in ("duplicates", "outliers", "refunds", "category_spend",
                                              "total_income", "total_spend", "net", "closing_balance")}, indent=1))
 

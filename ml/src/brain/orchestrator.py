@@ -7,6 +7,7 @@ Everything is traced and the app gets ui/say messages.
 import asyncio
 import logging
 import re
+import threading
 import time
 
 from . import dsl
@@ -51,9 +52,18 @@ class Orchestrator:
         self.tracer = tracer or Tracer()
         self.engine = engine
         self.tau = tau
+        self.planner = None
         self._last_epoch = None
+        self._last_obs = None
         self._ctx = {"app": "none", "focused": "none", "selection": False,
                      "last_action": "none"}
+        self._t_final = 0.0
+        self._first_action_ms: float | None = None
+        self._batch_confirmed = False
+        self._pending_task: dict | None = None
+        self._script_output: str | None = None
+        self._spec_norm = ""
+        self._spec_fut = None
 
     # ---------- v0 router ----------
 
@@ -104,6 +114,8 @@ class Orchestrator:
 
     async def handle_utterance(self, text: str, ctx: dict | None = None) -> dict:
         t0 = time.perf_counter()
+        self._t_final = t0
+        self._first_action_ms = None
         trace = self.tracer.begin(text)
         # utterance-frame ctx wins (app/focused/selection/online)
         if ctx:
@@ -113,7 +125,14 @@ class Orchestrator:
         outcome = "ok"
         try:
             await self.server.ui("thinking")
-            if self.engine is not None:
+            # a pending ask keeps task state for 90 s: next utterance answers it
+            if self._pending_task and \
+                    time.time() - self._pending_task["t"] < 90:
+                goal = self._pending_task["goal"]
+                self._pending_task = None
+                outcome = await self._planner_loop(
+                    goal, trace, answer=text)
+            elif self.engine is not None:
                 outcome = await self._engine_route(text, trace)
             else:
                 plan = self.route(text)
@@ -135,38 +154,70 @@ class Orchestrator:
             outcome = "cancelled"
             self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
             raise
+            trace["release_to_first_action_ms"] = self._first_action_ms
+            self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
+            return {"outcome": outcome}
+        except asyncio.CancelledError:
+            outcome = "cancelled"
+            trace["release_to_first_action_ms"] = self._first_action_ms
+            self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
+            raise
         finally:
             self.tracer.finish(outcome)
 
     # ---------- engine path ----------
 
+    async def _brain_tool(self, label: str, args: dict, text: str) -> str:
+        """executor:brain skills — local tools, never sent to HandsKit."""
+        from . import tools
+        out = await tools.run(self, label, args, text)
+        if out == "fallback":
+            await self.server.say("That workflow is almost ready")
+            await self.server.ui("confused")
+        elif out == "ok":
+            self._ctx["last_action"] = label
+        return out
+
     async def _engine_route(self, text: str, trace: dict) -> str:
-        res = self.engine.route(text, self._ctx)
+        from .planner import worker
+        # reuse a speculative route when the final text matches the last
+        # partial (architect-5a)
+        norm = re.sub(r"\s+", " ", text.strip().lower())
+        spec_hit = False
+        if self._spec_fut is not None and norm == self._spec_norm:
+            res = await asyncio.wrap_future(self._spec_fut)
+            spec_hit = True
+        else:
+            res = await worker().submit_async(
+                self.engine.route, text, dict(self._ctx))
+        self._spec_fut = None
+        self._spec_norm = ""
         top5 = sorted(res.probs.items(), key=lambda kv: -kv[1])[:5]
         trace["decisions"].append({"route_probs": top5, "p_top": res.p_top,
-                                   "route_ms": res.ms.get("route_ms")})
+                                   "route_ms": res.ms.get("route_ms"),
+                                   "spec_hit": spec_hit})
         label = res.top
         if res.p_top < self.tau:
-            a, b = top5[0][0], top5[1][0]
-            await self.server.say(
-                f"Did you mean {self._human(a)} or {self._human(b)}?")
-            await self.server.ui("confused")
-            return "awaiting_user"
+            # unsure -> System 2 with a hint (AGENTS.md contract)
+            hint = f"{top5[0][0]} or {top5[1][0]}"
+            return await self._planner_loop(text, trace, hint=hint)
         if label == "MULTI_STEP":
-            await self.server.say("Multi-step tasks are coming soon")
-            await self.server.ui("confused")
-            return "fallback"
+            return await self._planner_loop(text, trace)
         if label == "REFUSE":
             await self.server.say("Sorry, I can't do that")
             await self.server.ui("confused")
             return "failed"
         if label == "ANSWER":
-            await self.server.say("I'll answer that soon")
-            await self.server.ui("confused")
-            return "fallback"
+            return await self._answer(text, trace)
         if label == "ASK":
             return await self._engine_ask(text, trace, top5)
-        # a skill: extract args then execute
+        # a skill: extract args then execute (skip ARGS for arg-less skills)
+        spec = self.catalog.get(label) or {}
+        if not spec.get("args"):
+            if spec.get("executor") == "brain":
+                return await self._brain_tool(label, {}, text)
+            return await self.execute_actions(
+                [{"op": "skill", "name": label, "args": {}}])
         t_args = time.perf_counter()
         ext = self.engine.args(label, text, self._ctx)
         trace["decisions"].append({"args_ms": ext["ms"].get("args_ms"),
@@ -182,9 +233,12 @@ class Orchestrator:
         parts = " ".join(
             f'{k}="{v}"' if isinstance(v, str) and " " in v else f"{k}={v}"
             for k, v in raw_args.items())
-        args = self._coerce_args(label, raw_args)
-        out = await self.execute_actions(
-            [{"op": "skill", "name": label, "args": args}])
+        args = self._coerce_args(label, raw_args, utterance=text)
+        if spec.get("executor") == "brain":
+            out = await self._brain_tool(label, args, text)
+        else:
+            out = await self.execute_actions(
+                [{"op": "skill", "name": label, "args": args}])
         if out == "ok":
             self._ctx["last_action"] = f"{label} {parts}".strip()
             self.engine.last_action = self._ctx["last_action"]
@@ -196,6 +250,356 @@ class Orchestrator:
         return {"MULTI_STEP": "a multi-step task", "ASK": "a clarifying question",
                 "REFUSE": "a refusal", "ANSWER": "a spoken answer"}.get(
                     name, name.replace("_", " "))
+
+    # ---------- System-2 planner ----------
+
+    _DANGEROUS_LABEL = re.compile(
+        r"send|delete|remove|buy|purchase|pay|place order|post|publish|"
+        r"erase|empty trash|replace|submit order", re.I)
+    _DANGEROUS_COMBOS = {"cmd+delete", "cmd+opt+delete", "cmd+shift+d"}
+
+    def _speculative_route(self, text: str):
+        """Called for partial utterances — routes ahead on the MLX worker,
+        keyed by normalized text."""
+        if self.engine is None:
+            return
+        norm = re.sub(r"\s+", " ", text.strip().lower())
+        if norm and norm != getattr(self, "_spec_norm", None):
+            self._spec_norm = norm
+            from .planner import worker
+            self._spec_fut = worker().submit(
+                self.engine.route, text, dict(self._ctx))
+
+    async def _answer(self, text: str, trace: dict) -> str:
+        if self.planner is not None:
+            from .planner import worker
+            ans = await worker().submit_async(
+                self.planner.generate,
+                "Answer in at most 12 words.",
+                f'Question: "{text}"', 48)
+            await self.server.say(ans or "I don't know")
+        else:
+            await self.server.say("I'll answer that soon")
+        await self.server.ui("success")
+        return "ok"
+
+    def _label_of(self, ref: int | None) -> str:
+        if ref is None or not self._last_obs:
+            return ""
+        for e in self._last_obs.get("elements", []):
+            if e.get("ref") == ref:
+                return e.get("label", "")
+        return ""
+
+    async def _confirm_summary(self, a: dict) -> str:
+        """<=12-word summary built from resolved args."""
+        if a["op"] == "confirm":
+            return a.get("summary", "Continue?")[:80]
+        if a["op"] == "skill":
+            n, ar = a["name"], a.get("args", {})
+            if n == "send_message":
+                return f"Text {ar.get('to')}: \"{str(ar.get('message'))[:30]}\"?"
+            if n == "move_to_trash":
+                return f"Move {ar.get('path')} to Trash?"
+            if n == "quit_app":
+                return f"Quit {ar.get('app')}?"
+            return (self.catalog.get(n) or {}).get("description", n)[:60] + "?"
+        if a["op"] == "press":
+            return f"Press \"{self._label_of(a.get('ref'))}\"?"
+        if a["op"] == "script":
+            return f"Run a {a.get('lang')} script?"
+        return "Continue?"
+
+    async def _exec_one(self, a: dict) -> dict:
+        """Execute one DSL action. Returns
+        {status: ok|failed|awaiting_user|cancelled|done, ...details}."""
+        op = a["op"]
+        dsl_line = f"{op} " + " ".join(
+            f"{k}={v}" for k, v in a.items() if k != "op")
+        if op == "ask":
+            await self.server.say(a["question"])
+            await self.server.ui("listening")
+            return {"status": "awaiting_user", "_log": f"{dsl_line}-> ask"}
+        if op == "confirm":
+            yes = await self.server.ask_confirm(a["summary"])
+            if not yes:
+                await self.server.say("Okay, cancelled")
+                return {"status": "cancelled",
+                        "_log": f"{dsl_line}-> cancelled"}
+            return {"status": "ok", "confirmed": True,
+                    "_log": f"{dsl_line}-> confirmed"}
+        if op == "done":
+            return {"status": "done", "summary": a["summary"],
+                    "_log": f"{dsl_line}-> done"}
+        if op == "refuse":
+            await self.server.say("Sorry, I can't do that")
+            await self.server.ui("confused")
+            return {"status": "failed", "_log": f"{dsl_line}-> refused"}
+        if op == "wait":
+            await asyncio.sleep(a["ms"] / 1000)
+            return {"status": "ok", "_log": f"{dsl_line}-> ok"}
+        if op == "skill":
+            a = dict(a)
+            a.get("args", {}).pop("confirmed", None)   # model can't self-confirm
+            spec = self.catalog.get(a["name"]) or {}
+            risk = spec.get("risk")
+            if risk in ("confirm", "confirm_if_unsaved"):
+                # if we can't tell the unsaved state, confirm (spec rule)
+                yes = await self.server.ask_confirm(
+                    await self._confirm_summary(a))
+                if not yes:
+                    return {"status": "cancelled"}
+                a["args"]["confirmed"] = True
+            r = await self._rpc_action("skill",
+                                       {"name": a["name"],
+                                        "args": a.get("args", {})}, a)
+            r["_log"] = f"{dsl_line}-> {'ok' if r['status']=='ok' else 'failed: ' + r.get('error','?')}"
+            return r
+        if op == "script":
+            lang, code = a["lang"], a["code"]
+            if self.script_needs_confirm(lang, code):
+                yes = await self.server.ask_confirm(
+                    await self._confirm_summary(a))
+                if not yes:
+                    return {"status": "cancelled"}
+            r = await self._rpc_action(
+                "act", {"op": "script", "lang": lang, "code": code}, a)
+            r["_log"] = f"script -> {'ok' if r['status']=='ok' else 'failed: ' + r.get('error','?')}"
+            if r.get("status") == "ok":
+                out = r.get("res", {})
+                text_out = out.get("output") or out.get("stdout") or ""
+                if text_out:
+                    self._script_output = str(text_out)[:300]
+            return r
+        if op == "click":
+            return {"status": "failed", "error": "no screenshot attached",
+                    "_log": f"{dsl_line}-> failed: no screenshot attached"}
+        if op in ("press", "type", "keys"):
+            # injection + danger guard: destructive labels need a confirm
+            needs = False
+            if op == "press":
+                needs = bool(self._DANGEROUS_LABEL.search(
+                    self._label_of(a.get("ref"))))
+            elif op == "keys":
+                combo = str(a.get("combo", "")).lower()
+                needs = combo in self._DANGEROUS_COMBOS or (
+                    combo == "cmd+return"
+                    and (self._ctx.get("app") or "") in ("Mail", "Messages"))
+            elif op == "type" and a.get("enter"):
+                needs = bool(self._DANGEROUS_LABEL.search(
+                    self._label_of(a.get("ref"))))
+            if needs and not self._batch_confirmed:
+                yes = await self.server.ask_confirm(
+                    await self._confirm_summary(a))
+                if not yes:
+                    return {"status": "cancelled"}
+                self._batch_confirmed = True
+            params = {k: v for k, v in a.items() if k != "op"}
+            params["op"] = op
+            r = await self._rpc_action("act", params, a)
+            r["_log"] = f"{dsl_line}-> {'ok' if r['status']=='ok' else 'failed: ' + r.get('error','?')}"
+            return r
+        # everything else: open, url, scroll -> act
+        params = {k: v for k, v in a.items() if k != "op"}
+        params["op"] = op
+        r = await self._rpc_action("act", params, a)
+        r["_log"] = f"{dsl_line}-> {'ok' if r['status']=='ok' else 'failed: ' + r.get('error','?')}"
+        return r
+
+    async def _rpc_action(self, method: str, params: dict,
+                          action: dict) -> dict:
+        """send act/skill rpc; verify expect afterwards."""
+        if self._first_action_ms is None:
+            self._first_action_ms = (time.perf_counter() - self._t_final) * 1000
+        t = time.perf_counter()
+        try:
+            res = await self.server.rpc(method, params, timeout=45)
+        except RuntimeError as e:
+            self.tracer.rpc(method, params, {"error": str(e)},
+                            (time.perf_counter() - t) * 1000)
+            return {"status": "failed", "error": str(e)}
+        self.tracer.rpc(method, params, self._trace_res(res),
+                        (time.perf_counter() - t) * 1000)
+        if not res.get("ok", False):
+            return {"status": "failed",
+                    "error": res.get("error", "?"), "res": res}
+        # expect passthrough for every action type (incl. skill/script)
+        exp = action.get("expect")
+        if exp:
+            t2 = time.perf_counter()
+            try:
+                vres = await self.server.rpc("verify", {"expect": exp},
+                                             timeout=15)
+            except RuntimeError as e:
+                vres = {"ok": False, "observed": str(e)}
+            self.tracer.rpc("verify", {"expect": exp}, vres,
+                            (time.perf_counter() - t2) * 1000)
+            if not vres.get("ok", False):
+                return {"status": "failed",
+                        "error": f"expect failed: {vres.get('observed', '?')}",
+                        "res": res}
+        return {"status": "ok", "res": res}
+
+    # script confirmation policy (evals-safety-2)
+    _SCRIPT_BLOCK = re.compile(
+        r"do shell script|doShellScript|do script|run script|keystroke|"
+        r"key code|ObjC|\$\.|NSFileManager|trash|delete|remove|saving no|"
+        r"send|erase|format|quit|close|move|duplicate|make new|"
+        r"set .* to .*", re.I)
+    _SCRIPT_APPS_READ = {
+        "com.apple.numbers", "numbers", "music", "calendar", "system events"}
+    _SCRIPT_APPS_LIMITED = {"finder", "safari"}
+    _READ_VERBS = re.compile(
+        r"\b(get|count|exists|reveal|open)\b", re.I)
+    _NUMBERS_OK = re.compile(
+        r"set value|set background color|sort|make new table", re.I)
+
+    def script_needs_confirm(self, lang: str, code: str) -> bool:
+        """confirm unless the script targets only allow-listed apps with
+        read-only verbs and contains no blocked pattern. Numbers gets a
+        wider exception. shell always confirms."""
+        if lang == "shell":
+            return True
+        targets = re.findall(r'tell\s+application\s+(?:id\s+)?"([^"]+)"',
+                             code, re.I)
+        low_targets = {t.lower() for t in targets}
+        allowed = self._SCRIPT_APPS_READ | self._SCRIPT_APPS_LIMITED
+        if not low_targets or not low_targets <= allowed:
+            return True
+        # blocked patterns, except Numbers' allowed mutations
+        code_for_block = code
+        if low_targets <= {"com.apple.numbers", "numbers"}:
+            code_for_block = self._NUMBERS_OK.sub("", code_for_block)
+        if self._SCRIPT_BLOCK.search(code_for_block):
+            return True
+        # verbs must stay read-only outside the Numbers exception
+        writes = re.search(r"\b(set|delete|move|duplicate|make)\b",
+                           code_for_block, re.I)
+        if writes:
+            return True
+        return True if not self._READ_VERBS.search(code) else False
+
+    async def _planner_loop(self, text: str, trace: dict,
+                            hint: str | None = None,
+                            answer: str | None = None) -> str:
+        """System 2: observe -> plan(stream) -> execute -> replan.
+        12 turns / 60 s. Returns final outcome."""
+        if self.planner is None:
+            await self.server.say("Planning isn't ready yet")
+            await self.server.ui("confused")
+            return "fallback"
+        from . import dsl
+        from .planner import worker
+        goal = text
+        if answer:
+            goal += f'\nUser answer: "{answer}"'
+        t_start = time.perf_counter()
+        self._script_output = None
+        last_batch: list[str] | None = None
+        prev_had_failure = False
+        obs_text = ""
+        for turn in range(12):
+            if time.perf_counter() - t_start > 60:
+                break
+            obs = await self._observe()
+            if obs:
+                obs_text = obs["text"]
+                self._last_obs = obs
+            elif not obs_text:
+                obs_text = "(no observation available)"
+            q: asyncio.Queue = asyncio.Queue()
+            cancel = threading.Event()
+            loop = asyncio.get_running_loop()
+            fut = worker().submit(
+                self.planner.plan, goal, obs_text, last_batch, q, loop,
+                cancel, hint, self._script_output)
+            # stream-consume lines; execute each action once complete
+            lines: list[str] = []
+            pending: list[dict] = []       # parsed, not yet flushed
+            batch_log: list[str] = []
+            failed = False
+            self._batch_confirmed = False
+            res_status = "ok"
+            script_buf: list[str] | None = None   # multi-line """ block
+            while True:
+                line = await q.get()
+                if line is None:
+                    break
+                lines.append(line)
+                # accumulate triple-quoted script blocks until they close
+                if script_buf is not None:
+                    script_buf.append(line)
+                    if '"""' in line:
+                        line = "\n".join(script_buf)
+                        script_buf = None
+                    else:
+                        continue
+                elif line.startswith("script") and line.count('"""') % 2:
+                    script_buf = [line]
+                    continue
+                if re.match(r"^(expect|#)", line):
+                    if pending and line.startswith("expect"):
+                        pending[-1]["expect"] = line[7:].strip()
+                    continue
+                # a new action line: flush the previous pending action
+                if pending and not failed:
+                    r = await self._exec_one(pending.pop(0))
+                    batch_log.append(r["_log"])
+                    if r["status"] != "ok":
+                        failed = True
+                        cancel.set()
+                        res_status = r["status"]
+                try:
+                    acts = dsl.parse(line)
+                    pending.extend(acts)
+                except Exception as e:
+                    failed = True
+                    res_status = "failed"
+                    batch_log.append(f"{line} -> failed: {e}")
+                    cancel.set()
+            # flush tail action(s)
+            while pending and not failed:
+                r = await self._exec_one(pending.pop(0))
+                batch_log.append(r["_log"])
+                if r["status"] != "ok":
+                    failed = True
+                    res_status = r["status"]
+                    cancel.set()
+            info = await asyncio.wrap_future(fut)
+            trace["decisions"].append({
+                "planner_turn": turn, "lines": lines,
+                "ttft_ms": round(info["ttft_ms"], 1),
+                "decode_tok_s": round(info["decode_tok_s"], 1),
+                "tokens": info["tokens"]})
+            last_batch = batch_log or None
+            if res_status == "awaiting_user":
+                self._pending_task = {"goal": text, "t": time.time()}
+                return "awaiting_user"
+            if res_status == "cancelled":
+                return "cancelled"
+            # done validation: alone in batch + no prior failure
+            done_acts = [l for l in lines if l.startswith("done ")]
+            if done_acts and not failed:
+                if len([l for l in lines if not l.startswith("#")]) == 1 \
+                        and not prev_had_failure:
+                    summary = done_acts[0][5:].strip().strip('"')
+                    await self.server.say(summary[:60] or "Done")
+                    await self.server.ui("success")
+                    return "ok"
+                prev_had_failure = True
+                batch_log.append("done -> failed: done without evidence")
+                failed = True
+            if res_status == "failed" or failed:
+                prev_had_failure = True
+                continue          # replan with fresh observation
+            if not lines:
+                prev_had_failure = True
+                continue
+            # batch fully executed without a terminal op -> keep going
+            prev_had_failure = False
+        await self.server.say("That didn't work")
+        await self.server.ui("confused")
+        return "failed"
 
     async def _engine_ask(self, text: str, trace: dict, top5) -> str:
         # nearest skill below the special options
@@ -244,13 +648,28 @@ class Orchestrator:
             return str(v)   # leave; catalog.validate_args catches bad enum
         return v
 
-    def _coerce_args(self, name: str, args: dict) -> dict:
-        """datetime/duration by code; catalog-typed coercion (SPEC 1.4)."""
+    _BOOL_OFF = re.compile(
+        r"\b(off|disable|deactivate|stop|kill|shut\s*off|turn off)\b", re.I)
+    _BOOL_ON = re.compile(
+        r"\b(on|enable|activate|start|turn on|back on)\b", re.I)
+
+    def _coerce_args(self, name: str, args: dict,
+                     utterance: str | None = None) -> dict:
+        """datetime/duration by code; catalog-typed coercion (SPEC 1.4).
+        For bool args named `on`, the utterance decides by regex and
+        overrides the model output when it matches."""
         from . import decision as _d
         spec = self.catalog.get(name) or {}
         out = {}
         for a in spec.get("args", []):
             key, typ = a.get("name"), a.get("type")
+            if key == "on" and typ == "bool" and utterance:
+                if self._BOOL_OFF.search(utterance):
+                    out[key] = False
+                    continue
+                if self._BOOL_ON.search(utterance):
+                    out[key] = True
+                    continue
             if key not in args:
                 continue
             v = args[key]

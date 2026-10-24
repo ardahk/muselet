@@ -129,7 +129,8 @@ def eval_route(model: str, cases_path: str, out_dir: str = "runs/evals"):
                 args_ms.append(ext["ms"]["args_ms"])
                 got = {k: v for k, v in ext.items()
                        if k not in ("ms", "_raw", "missing")}
-                got = Orchestrator._coerce_args(dummy_orch, lab, got)
+                got = Orchestrator._coerce_args(dummy_orch, lab, got,
+                                                utterance=c["utterance"])
                 got = {k: got[k] for k in c["args"] if k in got}
                 n_args_scored += 1
                 if args_match(got, c["args"]):
