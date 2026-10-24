@@ -1,6 +1,6 @@
-# architect digest - pass 34 (2026-10-24T13:03Z)
-Reviewed: main 82d94d9, wip/local 5b3d695, cloud/data-pipeline 512cce0, cloud/decisions 6d395df, cloud/finance 529e9ff, cloud/finance-2 dfaf785, cloud/finance-3 31be399, cloud/fixtures-docs 4bf2291, cloud/bench f584cb2, cloud/advisor 9432c30, cloud/advisor-2 0a65f75, cloud/advisor-3 ca93147, cloud/pitch ad1b058, cloud/pitch-2 3303678, cloud/pitch-3 e203181, cloud/pitch-4 6393857, cloud/brain-2 741465c, cloud/brain-3 14a3f52, cloud/brain-4 dfb66a3, cloud/brain-5 b752261, cloud/brain-6 780f49d, cloud/hobby-gaps 156556e, cloud/grounding 3441ee8, cloud/grounder-wire afb12a6.
-New: main merged brain-6 (grounded-click and Enter safety gates) plus 82d94d9, which adds Zen (the user's default browser), Vivaldi, Opera and Orion to the browser list for web-composer detection. HandsKit already turns on web AX for Gecko browsers including Zen (WebAX.swift:15). Nothing filed.
+# architect digest - pass 35 (2026-10-24T14:33Z)
+Reviewed: main 5292608, wip/local a02959b, cloud/data-pipeline 512cce0, cloud/decisions 6d395df, cloud/finance 529e9ff, cloud/finance-2 dfaf785, cloud/finance-3 31be399, cloud/fixtures-docs 4bf2291, cloud/bench f584cb2, cloud/advisor 9432c30, cloud/advisor-2 0a65f75, cloud/advisor-3 ca93147, cloud/pitch ad1b058, cloud/pitch-2 3303678, cloud/pitch-3 e203181, cloud/pitch-4 6393857, cloud/brain-2 741465c, cloud/brain-3 14a3f52, cloud/brain-4 dfb66a3, cloud/brain-5 b752261, cloud/brain-6 780f49d, cloud/hobby-gaps 156556e, cloud/grounding 3441ee8, cloud/grounder-wire afb12a6.
+New: main 5292608 updates AGENTS.md: it2 has 0 real overlaps with DeskMind Bench under the CJK-aware gate (matches external_affected_it2.json @ 512cce0). Nothing filed.
 
 ## Open P0/P1 (ranked)
 1. architect-8 P1 - No Mac parity result; Tinker .961 vs MLX .913 on clean 103 unexplained - evals/router_check.py
