@@ -1,4 +1,6 @@
-# planner lane — pass 5 (self-poll; main c2d2988 now has the planner loop, wip d5d2d7d, cloud/brain-2 9f41c11)
+# planner lane — pass 6 (main c2d2988, wip 8874962, cloud/brain-2 9f41c11)
+
+Pass 6: wip 8874962 now sends execute_actions._script through the new allowlist policy (self.script_needs_confirm). No new findings.
 
 Resolved this pass: planner-14 (script line counting), -15 (Numbers over-confirm), -17 (double confirm), -10 (on cloud/finance-2).
 
