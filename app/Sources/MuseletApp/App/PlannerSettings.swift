@@ -26,7 +26,7 @@ enum PlannerSettings {
     static var frame: [String: Any] { ["t": "config", "escalate_planner": escalate] }
 }
 
-/// Brain reply to `config`: `{"t":"config_ack","ok":true,"escalate_planner":true,"reason":"loaded"}`.
+/// Brain reply to `config`: `{"t":"config_ack","escalate_planner":true,"loaded":true,"reason":"..."}`.
 struct ConfigAck: Equatable {
     var ok: Bool
     var escalatePlanner: Bool?
@@ -36,7 +36,11 @@ struct ConfigAck: Equatable {
         guard let data = text.data(using: .utf8),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               obj["t"] as? String == "config_ack" else { return nil }
-        return ConfigAck(ok: obj["ok"] as? Bool ?? false,
+        let enabled = obj["escalate_planner"] as? Bool ?? false
+        let loaded = obj["loaded"] as? Bool ?? (obj["ok"] as? Bool ?? false)
+        // Turning it off succeeds unless the brain gave a reason.
+        let ok = enabled ? loaded : (obj["reason"] == nil || loaded)
+        return ConfigAck(ok: ok,
                          escalatePlanner: obj["escalate_planner"] as? Bool,
                          reason: obj["reason"] as? String)
     }

@@ -295,10 +295,13 @@ class Planner:
     def user_message(self, goal: str, observation: str,
                      last_batch: list[str] | None,
                      hint: str | None = None,
-                     script_output: str | None = None) -> str:
+                     script_output: str | None = None,
+                     login_page: bool = False) -> str:
         parts = [f'Goal: "{goal}"']
         if hint:
             parts.append(f"Hint: likely {hint}")
+        if login_page:
+            parts.append("Login page: ask the user to sign in")
         parts.append(observation)
         if script_output:
             parts.append(f"Script result: {script_output[:1600]}")
@@ -312,7 +315,8 @@ class Planner:
     def plan(self, goal: str, observation: str, last_batch,
              lines_out: asyncio.Queue, loop, cancel: threading.Event,
              hint: str | None = None,
-             script_output: str | None = None) -> list[str]:
+             script_output: str | None = None,
+             login_page: bool = False) -> list[str]:
         """Blocking — submit via worker(). Streams each finished line to
         `lines_out` (call_soon_threadsafe), then a None sentinel. Returns the
         full line list."""
@@ -321,7 +325,8 @@ class Planner:
             self._build_cache()
         msgs = [Message(role="system", content=self.system),
                 Message(role="user", content=self.user_message(
-                    goal, observation, last_batch, hint, script_output)),
+                    goal, observation, last_batch, hint, script_output,
+                    login_page)),
                 Message(role="assistant", content=SENTINEL)]
         toks = self._render_msgs(msgs)
         acut = self._content_cut(toks, SENTINEL)     # prompt ends here

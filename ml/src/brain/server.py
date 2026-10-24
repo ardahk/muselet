@@ -27,7 +27,7 @@ class BrainServer:
         self.on_partial = None        # sync cb(text, ctx) for spec route
         self.on_hello = None          # async cb(screens)
         self.on_cancel = None         # async cb()
-        self.on_config = None         # async cb(msg) -> config_ack dict
+        self.on_config = None         # async cb(config) -> ack fields
 
     async def start(self):
         self._server = await websockets.serve(self._handler, self.host, self.port)
@@ -68,6 +68,33 @@ class BrainServer:
 
         self._utterance_task = asyncio.get_running_loop().create_task(runner())
 
+    def _start_config(self, msg: dict):
+        """Utterance and config frames run as tasks so RPC replies keep flowing."""
+        if self.on_config is None:
+            return
+
+        async def runner():
+            try:
+                result = await self.on_config(msg) or {}
+                ack = {"t": "config_ack",
+                       "escalate_planner": bool(
+                           msg.get("escalate_planner", False)),
+                       "loaded": bool(result.get("loaded", False))}
+                if result.get("reason"):
+                    ack["reason"] = str(result["reason"])
+                await self.send(ack)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                log.exception("config handler failed")
+                await self.send({
+                    "t": "config_ack",
+                    "escalate_planner": bool(
+                        msg.get("escalate_planner", False)),
+                    "loaded": False, "reason": str(e)[:200]})
+
+        asyncio.create_task(runner())
+
     async def _handler(self, ws):
         if self._ws is not None:
             log.warning("second app connection rejected")
@@ -101,8 +128,8 @@ class BrainServer:
                     if self.on_hello:
                         await self.on_hello(msg.get("screens", []))
                 elif t == "utterance":
-                    # Run handling as a task so the receive loop keeps
-                    # reading rpc_result frames (avoids deadlock).
+                    # Utterance and config handling run as tasks so the
+                    # receive loop keeps reading rpc_result frames.
                     if msg.get("final"):
                         self._start_utterance(msg.get("text", ""),
                                               msg.get("ctx"))
@@ -114,7 +141,7 @@ class BrainServer:
                     if self.on_cancel:
                         await self.on_cancel()
                 elif t == "config":
-                    await ws.send(protocol.encode(await self._config_ack(msg)))
+                    self._start_config(msg)
         finally:
             log.info("app disconnected")
             self._ws = None
@@ -125,16 +152,6 @@ class BrainServer:
                     f.set_result({"t": "rpc_result", "ok": False,
                                   "error": "app disconnected"})
             self._pending.clear()
-
-    async def _config_ack(self, msg: dict) -> dict:
-        if self.on_config is None:
-            return {"t": "config_ack", "ok": False, "reason": "config not supported"}
-        try:
-            ack = await self.on_config(msg)
-        except Exception as e:
-            log.exception("config handler failed")
-            return {"t": "config_ack", "ok": False, "reason": f"error: {e}"}
-        return {**ack, "t": "config_ack"}
 
     async def send(self, msg: dict):
         ws = self._ws
