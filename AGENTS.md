@@ -103,6 +103,7 @@ confirm "<summary>"
 done "<summary>"
 refuse "<reason>"
 expect <predicate>                (applies to the previous action)
+# <note>                          (optional comment line, ignored by the executor, <= 20 words)
   predicates: title~"<text>" | focused #<ref> | value #<ref>="<text>" | app "<name>" | appears "<label>" | gone #<ref>
 ```
 
