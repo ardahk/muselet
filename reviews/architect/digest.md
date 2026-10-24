@@ -1,6 +1,6 @@
-# architect digest - pass 12 (2026-10-24T08:00Z)
-Reviewed: main 76a03c1, wip/local 34ddf5f, cloud/data-pipeline 0f3df7f, cloud/finance 529e9ff, cloud/finance-2 dfaf785, cloud/finance-3 31be399, cloud/fixtures-docs 4bf2291, cloud/bench 6e7cd09, cloud/advisor 9432c30, cloud/advisor-2 0a65f75, cloud/advisor-3 ca93147, cloud/pitch ad1b058, cloud/brain-2 741465c, cloud/brain-3 14a3f52, cloud/grounding 3441ee8.
-New: main exposes web pages through AX and limits the planner to action lines (no third retry). cloud/brain-3 adds a compound 'X then Y' fast path; each clause must route as a native skill with p >= 0.75, else it falls back to the whole-utterance route, which looks safe. advisor-3 and finance-3 add timeouts and polling instead of open_file races.
+# architect digest - pass 13 (2026-10-24T08:08Z)
+Reviewed: main 0fd5698, wip/local 64dd1cb, cloud/data-pipeline 0f3df7f, cloud/finance 529e9ff, cloud/finance-2 dfaf785, cloud/finance-3 31be399, cloud/fixtures-docs 4bf2291, cloud/bench 6e7cd09, cloud/advisor 9432c30, cloud/advisor-2 0a65f75, cloud/advisor-3 ca93147, cloud/pitch ad1b058, cloud/brain-2 741465c, cloud/brain-3 14a3f52, cloud/grounding 3441ee8.
+New on main: AGENTS.md records the user's standing decisions (tune every option fairly, keep alternatives selectable, phase budget may exceed $60 within $150); the spend guard is now $120 phase / $140 warn. tcc_warm.py added. No new findings.
 
 ## Open P0/P1 (ranked)
 1. architect-8 P1 - Phase-1 LoRA: only pilots so far; no full run or base-model baseline; about 4 h to Sat 12:00 PDT - training/
