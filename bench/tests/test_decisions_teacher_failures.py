@@ -107,7 +107,7 @@ def test_permanent_4xx_releases_reserved_budget_and_marks_model(monkeypatch, tmp
     assert client.unavailable_models["gpt-4.1-mini"]["status_code"] == 404
 
 
-def test_haiku_reasoning_label_uses_four_samples_and_extended_thinking(monkeypatch, tmp_path):
+def test_haiku_label_uses_four_samples_without_unsupported_thinking(monkeypatch, tmp_path):
     client = ApiClient()
     ledger = BudgetLedger(5.0, tmp_path / "cost.jsonl", "test")
     captured = []
@@ -123,7 +123,7 @@ def test_haiku_reasoning_label_uses_four_samples_and_extended_thinking(monkeypat
     result = asyncio.run(client.sampled_label("claude-haiku-5-5", "state", question, ledger, "sample:q1"))
     assert result["valid_samples"] == 4
     assert len(captured) == 4
-    assert all(body["thinking"] == {"type": "enabled", "budget_tokens": 1024} for body in captured)
+    assert all(body["thinking"] == {"type": "disabled"} for body in captured)
     assert all(body["temperature"] == 1 and body["max_tokens"] == 1200 for body in captured)
 
 
@@ -168,7 +168,12 @@ def test_author_models_use_supported_low_cost_reasoning_modes(monkeypatch, tmp_p
     monkeypatch.setenv("ANTHROPIC_API_KEY", "not-a-real-key")
     monkeypatch.setattr(client, "_post", fake_post)
     asyncio.run(client.generate("gpt-5.5", "prompt", ledger, decision_id="gpt"))
-    asyncio.run(client.generate("claude-sonnet-5-5", "prompt", ledger, decision_id="claude"))
+    schema = {"type": "object", "properties": {"value": {"type": "string"}},
+              "required": ["value"], "additionalProperties": False}
+    asyncio.run(client.generate("claude-sonnet-5-5", "prompt", ledger, decision_id="claude",
+                                response_schema=schema))
 
     assert captured[0]["reasoning_effort"] == "none"
     assert captured[1]["thinking"] == {"type": "between_tools"}
+    assert captured[1]["tool_choice"] == {"type": "auto"}
+    assert captured[1]["tools"][0]["input_schema"] == schema

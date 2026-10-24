@@ -96,26 +96,33 @@ def generate(rng: random.Random, domain: str, n_questions: int, types: list[str]
         + "\n\nAUDIT APPENDIX\n" + "\n\n".join(audit_notes)
         + f"\n\nDisposition requested by {reviewer}: determine whether {claim} satisfies every applicable condition."
     )
-    amount_options = {
-        f"usd_{value}": f"The maximum eligible claim amount is ${value:,.2f} under Section 5."
-        for value in range(500, 13001, 500)
+    disposition_options = {
+        "eligible": "The claim meets every applicable policy requirement.",
+        "ineligible": "The claim fails at least one applicable policy requirement.",
     }
     specs = []
     for kind in question_specs(types, n_questions):
         if kind == "choice":
-            specs.append((kind, f"What amount ceiling does Section 5 apply to claim {claim}?",
-                          "usd_5000", amount_options, None))
+            specs.append((kind, f"What is the policy disposition for claim {claim}?",
+                          "eligible" if allowed else "ineligible", disposition_options, None))
         elif kind == "noul":
             specs.append((kind, f"Does claim {claim} satisfy every substantive eligibility condition?",
                           "true" if allowed else "false",
-                          {"false": f"At least one of claim {claim}'s account, date, region/exception, or amount tests fails.",
-                           "true": f"Claim {claim} has an active account, an in-window date, a permitted region, and an amount within the ceiling."},
+                          {"false": "The claim fails at least one applicable policy requirement.",
+                           "true": "The claim meets every applicable policy requirement."},
                           None))
         else:
             score = "0" if not active else "2" if allowed else "1"
             specs.append((kind, f"What policy disposition tier applies to claim {claim}?",
                           score, None,
                           [f"Claim {claim} fails the active-account requirement.",
-                           f"Claim {claim} has an active account but at least one other eligibility test fails.",
+                           f"Claim {claim} passes the account test but fails a different eligibility test.",
                            f"Claim {claim} meets every substantive eligibility requirement."]))
-    return record(rng, "long_policy", domain, state, specs)
+    return record(
+        rng, "long_policy", domain, state, specs,
+        intermediate_values=(
+            f"filing-window test for {claim}",
+            f"regional exception test for {claim}",
+            f"account-status test for {claim}",
+        ),
+    )

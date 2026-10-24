@@ -39,6 +39,62 @@ AUTHOR_FAMILIES = (
 DOMAINS = ("finance", "insurance", "HR", "healthcare administration", "logistics", "IT operations",
            "legal", "retail", "travel", "education", "software", "desktop applications")
 
+_choice = {
+    "type": "object",
+    "properties": {
+        "type": {"type": "string", "const": "choice"},
+        "instructions": {"type": "string"},
+        "criteria": {"type": "array", "minItems": 4, "maxItems": 7, "items": {
+            "type": "object", "properties": {"key": {"type": "string"},
+                                             "description": {"type": "string"}},
+            "required": ["key", "description"], "additionalProperties": False,
+        }},
+        "answer": {"type": "string"},
+        "rationale": {"type": "string"},
+    },
+    "required": ["type", "instructions", "criteria", "answer", "rationale"],
+    "additionalProperties": False,
+}
+_noul = {
+    "type": "object",
+    "properties": {
+        "type": {"type": "string", "const": "noul"},
+        "instructions": {"type": "string"},
+        "criteria": {"type": "object", "properties": {"false": {"type": "string"},
+                                                       "true": {"type": "string"}},
+                     "required": ["false", "true"], "additionalProperties": False},
+        "answer": {"anyOf": [
+            {"type": "string", "enum": ["false", "true"]},
+            {"type": "boolean"},
+        ]},
+        "rationale": {"type": "string"},
+    },
+    "required": ["type", "instructions", "criteria", "answer", "rationale"],
+    "additionalProperties": False,
+}
+_score = {
+    "type": "object",
+    "properties": {
+        "type": {"type": "string", "const": "score"},
+        "instructions": {"type": "string"},
+        "criteria": {"type": "array", "minItems": 3, "maxItems": 6, "items": {"type": "string"}},
+        "answer": {"type": "integer", "minimum": 0, "maximum": 5},
+        "rationale": {"type": "string"},
+    },
+    "required": ["type", "instructions", "criteria", "answer", "rationale"],
+    "additionalProperties": False,
+}
+AUTHOR_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "state": {"type": "string"},
+        "questions": {"type": "array", "minItems": 3, "maxItems": 6,
+                      "items": {"anyOf": [_choice, _noul, _score]}},
+    },
+    "required": ["state", "questions"],
+    "additionalProperties": False,
+}
+
 
 def author_prompt(family: str, description: str, domain: str, n_questions: int, types: list[str]) -> str:
     return AUTHOR_PROMPT.replace("{family_description}", description).replace("{family}", family).replace(
@@ -51,8 +107,11 @@ def _parse_item(raw: str, rng: random.Random, author: str) -> dict:
     payload = json.loads(raw)
     if not isinstance(payload, dict) or not isinstance(payload.get("state"), str):
         raise ValueError("author response must be an object with a state string")
+    raw_questions = payload.get("questions")
+    if not isinstance(raw_questions, list) or not 3 <= len(raw_questions) <= 6:
+        raise ValueError("author response must contain 3–6 questions")
     questions, authored = {}, {}
-    for index, item in enumerate(payload.get("questions", []), start=1):
+    for index, item in enumerate(raw_questions, start=1):
         qid = f"q{index}"
         kind = item["type"]
         criteria = item["criteria"]
@@ -61,6 +120,8 @@ def _parse_item(raw: str, rng: random.Random, author: str) -> dict:
                 criteria = {entry["key"]: entry["description"] for entry in criteria}
             if not isinstance(criteria, dict):
                 raise ValueError(f"{qid}: choice criteria are not a map")
+            if not 4 <= len(criteria) <= 7:
+                raise ValueError(f"{qid}: choice questions require 4–7 criteria")
             entries = list(criteria.items())
             rng.shuffle(entries)
             criteria = dict(entries)
@@ -68,12 +129,19 @@ def _parse_item(raw: str, rng: random.Random, author: str) -> dict:
             entries = list(criteria.items())
             rng.shuffle(entries)
             criteria = dict(entries)
+        elif kind == "score" and not 3 <= len(criteria) <= 6:
+            raise ValueError(f"{qid}: score questions require 3–6 levels")
+        answer = item["answer"]
+        if isinstance(answer, bool):
+            answer = "true" if answer else "false"
+        if kind == "score":
+            answer = str(answer)
         question = {"type": kind, "instructions": item["instructions"], "criteria": criteria}
         questions[qid] = question
-        authored[qid] = item["answer"]
-    parse_request({"state": payload["state"], "questions": questions})
+        authored[qid] = answer
+    normalized = parse_request({"state": payload["state"], "questions": questions})
     for qid, answer in authored.items():
-        if str(answer) not in parse_request({"state": payload["state"], "questions": questions}).questions[qid].options:
+        if str(answer) not in normalized.questions[qid].options:
             raise ValueError(f"{qid}: authored answer {answer!r} is not an option")
     return {
         "id": f"authored-{rng.getrandbits(48):012x}",
@@ -97,17 +165,22 @@ async def author_items(count: int, rng: random.Random, client: ApiClient, ledger
     for index in range(count):
         family, description = AUTHOR_FAMILIES[index % len(AUTHOR_FAMILIES)]
         domain = rng.choice(DOMAINS)
-        types = [rng.choice(("choice", "noul", "score")) for _ in range(rng.randint(1, 3))]
-        prompt = author_prompt(family, description, domain, len(types), types)
-        model = "gpt-5.5" if index % 2 == 0 else "claude-sonnet-5-5"
+        types = [rng.choice(("choice", "noul", "score")) for _ in range(5)]
+        prompt = author_prompt(family, description, domain, 5, types)
+        model = "claude-sonnet-5-5" if (index + 1) % 5 == 0 else "gpt-5.4-mini"
         if model in client.unavailable_models:
             rejected.append({"family": family, "model": model, "reason": "candidate_unavailable",
                              "status_code": client.unavailable_models[model]["status_code"]})
             continue
         try:
-            text, _ = await client.generate(model, prompt, ledger, max_output_tokens=2048, role="author",
-                                            decision_id=f"author:{index}")
-            items.append(_parse_item(text, rng, family))
+            text, _ = await client.generate(
+                model, prompt, ledger, max_output_tokens=8000, role="author",
+                decision_id=f"author:{index}", reasoning_effort="low" if model == "gpt-5.4-mini" else None,
+                response_schema=AUTHOR_SCHEMA,
+            )
+            item = _parse_item(text, rng, family)
+            item["author_model"] = model
+            items.append(item)
         except Exception as exc:
             rejected.append({"family": family, "model": model, "reason": f"{type(exc).__name__}: {exc}"})
             if type(exc).__name__ == "BudgetExceeded":

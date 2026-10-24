@@ -22,12 +22,35 @@ def article(noun: str) -> str:
     return "an" if noun[:1].lower() in "aeiou" else "a"
 
 
+def near_miss_values(answer, mistake_values, *, minimum: int = 5, lower=None, upper=None, step=1):
+    values = []
+
+    def add(value):
+        if lower is not None and value < lower:
+            return
+        if upper is not None and value > upper:
+            return
+        if value not in values:
+            values.append(value)
+
+    add(answer)
+    for value in mistake_values:
+        add(value)
+    radius = 1
+    while len(values) < minimum:
+        add(answer - radius * step)
+        add(answer + radius * step)
+        radius += 1
+    return values
+
+
 def choice_question(rng: random.Random, instructions: str, answer: str, options: dict[str, str]) -> dict:
     options = dict(options)
     if answer not in options:
         raise ValueError("choice answer missing from options")
-    requested = rng.randint(13, 26) if rng.random() < 0.05 else rng.randint(2, 12)
-    requested = min(requested, len(options))
+    if len(options) < 2:
+        raise ValueError("choice questions require at least two plausible options")
+    requested = rng.randint(min(4, len(options)), min(8, len(options)))
     answer_row = (answer, options.pop(answer))
     distractors = rng.sample(list(options.items()), requested - 1)
     position = rng.randrange(requested)
@@ -59,7 +82,8 @@ def make_question(rng: random.Random, qid: str, kind: str, instructions: str, an
     return qid, question, gold
 
 
-def record(rng: random.Random, family: str, domain: str, state: str, questions: list[tuple]) -> dict:
+def record(rng: random.Random, family: str, domain: str, state: str, questions: list[tuple],
+           intermediate_values: tuple[str, ...] = ()) -> dict:
     built = [make_question(rng, f"q{i + 1}", kind, text, answer, choices, levels)
              for i, (kind, text, answer, choices, levels) in enumerate(questions)]
     return {
@@ -73,6 +97,7 @@ def record(rng: random.Random, family: str, domain: str, state: str, questions: 
         "gold_basis": {qid: "code" for qid, _, _ in built},
         "teacher": {},
         "target": {},
+        "_leak_audit": {"intermediate_values": list(intermediate_values)},
     }
 
 

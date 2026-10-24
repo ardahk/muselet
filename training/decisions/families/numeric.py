@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import random
 
-from .core import NAMES, article, choose_domain, question_specs, record
+from .core import NAMES, article, choose_domain, near_miss_values, question_specs, record
 
 
 def fee_after_discount(price: float, discount_pct: float, fee_pct: float) -> float:
     return round(price * (1 - discount_pct / 100) * (1 + fee_pct / 100), 2)
+
+
+def _key(amount: float) -> str:
+    return f"usd_{amount:.2f}".replace(".", "_")
 
 
 def generate(rng: random.Random, domain: str, n_questions: int, types: list[str]) -> dict:
@@ -15,8 +19,20 @@ def generate(rng: random.Random, domain: str, n_questions: int, types: list[str]
     price = rng.choice((120.0, 375.0, 840.0, 1250.0))
     discount = rng.choice((5.0, 10.0, 15.0, 20.0))
     fee = rng.choice((2.5, 4.0, 7.5))
+    subtotal = round(price * (1 - discount / 100), 2)
     total = fee_after_discount(price, discount, fee)
-    cap = round(total + rng.choice((-1, 1)), 2)
+    wrong_fee_base = round(subtotal + price * fee / 100, 2)
+    fee_omitted = subtotal
+    discount_omitted = round(price * (1 + fee / 100), 2)
+    discount_error = round(price * (1 - max(0, discount - 5) / 100) * (1 + fee / 100), 2)
+    mistakes = (wrong_fee_base, fee_omitted, discount_omitted, discount_error)
+    candidates = near_miss_values(
+        total, mistakes, minimum=5, lower=round(price * 0.7, 2), upper=round(price * 1.15, 2), step=0.25
+    )
+    amount_options = {_key(value): f"The invoice total is ${value:.2f}." for value in candidates}
+    cap = round(price * rng.choice((0.85, 0.95, 1.0, 1.05)), 2)
+    if cap == total:
+        cap = round(cap + 2.5, 2)
     change = abs((total - price) / price * 100)
     invoice = f"INV-{rng.randint(20000, 99999)}"
     layout = rng.choice(("approval email", "purchase form", "invoice note"))
@@ -36,31 +52,27 @@ def generate(rng: random.Random, domain: str, n_questions: int, types: list[str]
     else:
         state = (
             f"Invoice review for {invoice}, prepared by {name}. Category: {domain}. "
-            f"Subtotal ${price:.2f}; discount {discount:g}% is applied first; then the ${fee:g}% service fee "
-            f"is assessed on the reduced amount. The approval limit is ${cap:.2f}, and equality is allowed."
+            f"Subtotal starts at ${price:.2f}; apply a {discount:g}% reduction before a {fee:g}% service fee "
+            f"on the reduced amount. The approval limit is ${cap:.2f}, and equality is allowed."
         )
-    amount_options = {}
-    for offset in range(-12, 14):
-        amount = round(total + offset * 0.75, 2)
-        key = f"usd_{amount:.2f}".replace(".", "_")
-        amount_options[key] = f"The invoice total is ${amount:.2f} after discount and service fee."
-    score = min(3, int(change // 5))
+
     specs = []
     for kind in question_specs(types, n_questions):
         if kind == "choice":
             specs.append((
                 kind, f"What total should be approved for {invoice} after the stated calculation?",
-                f"usd_{total:.2f}".replace(".", "_"), amount_options, None,
+                _key(total), amount_options, None,
             ))
         elif kind == "noul":
             specs.append((
                 kind, f"Is {invoice}'s calculated total within the inclusive authorization ceiling?",
                 "true" if total <= cap else "false",
-                {"false": f"The ${total:.2f} total exceeds the ${cap:.2f} authorization ceiling.",
-                 "true": f"The ${total:.2f} total is at or below the ${cap:.2f} authorization ceiling."},
+                {"false": "The calculated invoice total exceeds the authorization ceiling.",
+                 "true": "The calculated invoice total is within the authorization ceiling."},
                 None,
             ))
         else:
+            score = min(3, int(change // 5))
             specs.append((
                 kind, f"Which band contains the absolute change from {invoice}'s listed amount?",
                 str(score), None,
@@ -69,4 +81,12 @@ def generate(rng: random.Random, domain: str, n_questions: int, types: list[str]
                  "The total changes by 10% to under 15% from the listed amount.",
                  "The total changes by at least 15% from the listed amount."],
             ))
-    return record(rng, "numeric", domain, state, specs)
+    return record(
+        rng, "numeric", domain, state, specs,
+        intermediate_values=(
+            f"discounted subtotal ${subtotal:.2f}",
+            f"fee on original amount ${wrong_fee_base:.2f}",
+            f"subtotal without service fee ${fee_omitted:.2f}",
+            f"undiscounted fee-inclusive amount ${discount_omitted:.2f}",
+        ),
+    )
