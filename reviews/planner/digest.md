@@ -1,24 +1,30 @@
-# planner lane — pass 46 (main 806b0d4, wip 6b1006e, planner-verify c9de7aa, planner-think 6d14a7a, w9 6aa332a)
+# planner lane — pass 47 (main a97fcba, wip ac41cd2, planner-verify d22b9a9, brain-9 3f9718b)
 
 Open P0: none.
 
 Open P1 (ranked):
 0. planner-40: planner-verify accepts done after any successful skill, skipping the model check (ml/src/brain/orchestrator.py on cloud/planner-verify)
-1. planner-30: JXA string-concat doShellScript bypasses script confirmation (ml/src/brain/orchestrator.py). Fixed on w9-safety (PR #46), still open on main.
 2. planner-31: Rule 14 'expect focused' (no ref) is rejected by HandsKit before acting (prompts/planner_system.md)
 3. planner-38: Planner LoRA trained without few-shot/retrieval, but served with both by default (training/planner_lora/common.py, tools/serve_brain.sh)
 4. planner-15: read-only Numbers scripts still trigger CONFIRM (ml/src/brain/orchestrator.py). Not fixed by w9.
 5. planner-32: open_folder catalog lacks 'view', so demo 1 goes through the planner (skills/catalog.json)
 6. planner-28: compose_text types model text with no sendgate (ml/src/brain/tools/compose_text.py). Exposure grows with it3.
-7. planner-24: Calculator keys posted before Calculator is frontmost (ml/src/brain/orchestrator.py). Fixed on w9 4bbb6d8.
 8. planner-29: v2 bench goals near-duplicate the few-shot examples (evals/planner_v2_*)
 9. planner-6: premiere_command unimplemented; catalog args mismatch the UXP bridge (app/Sources/HandsKit/Skills.swift)
 
 Highest-leverage next moves:
 - planner-verify: before merging, drop the skill-ok = done-evidence rule (planner-40). Keep the decide-based verify, which also takes care of most of planner-33.
 - Before any LoRA ship call, evaluate the adapter under the exact serve flags (few-shot, RETRIEVAL_K, THINK), or serve it with `--planner-fewshot none` and RETRIEVAL_K=0 (planner-38).
-- Merge w9-safety, but first narrow `\[` to JXA computed keys and drop `\\`, `set .* to` and `format` for Numbers targets (planner-37, planner-15).
+- W9 is merged (planner-30/24 fixed). Next, narrow `\[` to JXA computed keys and drop `\\`, `set .* to` and `format` for Numbers reads (planner-37, planner-15), or the demo-3 planner path will ask for confirmation on reads.
+- brain-9: pick the browser from 'in/using X' context, not the first mention (planner-41).
 - Add `view` to open_folder in catalog.json and to the prompt example (planner-32). Fix rule 14 to say `expect focused #<ref>` (planner-31).
+
+Pass 47 notes:
+- main a97fcba merged W9 (#46), router it3 (#52) and docs-demo-2. planner-30 and planner-24 are resolved on main. planner-37 and planner-28 are now on main.
+- planner-verify d22b9a9 is a rebase plus a bank-test fix. planner-40 is still there.
+- brain-9: named browser plus a hidden `browser` catalog arg (Skills.swift openInBrowser takes it; it is uncompiled). The web answer waits at most 3 s for a rich page and merges AX and OCR excerpts; page text is still framed as data. Planner warm-up runs on the serialized MLX worker; for escalate it is queued before the first escalated plan(), which costs roughly one short prefill (my estimate, not measured).
+- safety-brain27 confirms grounded composer clicks when the goal shows message intent; safety-bench28 drops 3 destructive demos from retrieval. Both are fine for this lane.
+- planner-think only merged main; memory/memory-lt changes are in rewrite rules, not the planner loop.
 
 Pass 46 notes:
 - main and wip only add the memory_followups denylist in plan_bank (fine) and a brain-9 brief (named browser for open_url/web_search, OCR wait for web answers, planner warmup).
