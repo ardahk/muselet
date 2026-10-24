@@ -1,4 +1,4 @@
-# hands — digest (pass 28)
+# hands — digest (pass 29)
 
 Open findings were re-verified on main 2920225 in pass 15: hands-1 to 9 and 11 to 14 are resolved, and hands-15 is superseded.
 Pass 21 checks:
@@ -6,6 +6,7 @@ Pass 21 checks:
 - wip/local b63699f is identical to main.
 - cloud/brain-5 b752261 handles `not_frontmost` by reading the failure `result`. That works: RPC.swift returns r with r["error"], BrainConnection always sends `result`, and server.rpc returns it with ok=false.
 No new defects.
+Pass 29: main b625ceb (spend guard, pitch-4 merge), wip/local 49f808f and cloud/data-pipeline 512cce0 have no app/ or protocol changes. hands-10 and hands-16 are still open on main.
 Pass 28: main fbd5aa0, wip/local 2f26223, cloud/data-pipeline 735686f and cloud/pitch-4 6393857 have no app/ or protocol changes (AGENTS.md benchmark policy, evalcheck, pitch). hands-10 and hands-16 are still open on main.
 Pass 27: main d7c192f, wip/local 367d450 and cloud/data-pipeline 0ce9ea6 have no app/ or protocol changes (serving config, AGENTS.md serving notes, training). hands-10 and hands-16 were re-checked on main and are still open.
 Pass 26: main 04c3930 merged grounder-wire (PR #19; orchestrator and grounder identical to afb12a6, reviewed in pass 25) and pitch-3, and added `click "<description>"` to the planner prompt. There are no app/ changes. wip/local aec8fbf is identical to main. hands-16 has moved to orchestrator.py:981.
