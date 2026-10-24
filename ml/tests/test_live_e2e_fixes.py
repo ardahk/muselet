@@ -72,6 +72,55 @@ def test_batch_cutter_does_not_count_prose():
         [f"press #{i}" for i in range(1, 6)]
 
 
+@pytest.mark.parametrize("lines", [
+    ["mute"] * 6,
+    ["mute", "skill mute", "press #1", "mute", "keys a", "mute"],
+])
+def test_brain18_bare_and_explicit_skills_count_once(lines):
+    cutter, emitted = BatchCutter(), []
+    for line in lines:
+        if (out := cutter.push(line)) is not None:
+            emitted.append(out)
+        if cutter.done:
+            break
+    assert emitted == lines[:5]
+    assert cutter.n == 5 and cutter.full and cutter.done
+    normalized = [dsl.action_line(line, SKILLS) for line in emitted]
+    assert len(dsl.parse("\n".join(normalized))) == 5
+
+
+@pytest.mark.parametrize("line,count", [
+    ("", 0), ("Let me think.", 0), ("</think>", 0), ("```", 0),
+    ("# note", 0), ('expect appears "Saved"', 0), ("unknown", 0),
+    ("unknown_skill x=1", 1), ("press #1", 1), ("wait 10", 1),
+    ('script shell """echo ok"""', 1),
+])
+def test_brain18_non_skill_lines_unchanged(line, count):
+    cutter = BatchCutter()
+    assert cutter.push(line) == line
+    assert cutter.n == count
+    assert not cutter.full and not cutter.done
+
+
+def test_brain18_bare_fifth_skill_keeps_expect():
+    cutter = BatchCutter()
+    for _ in range(5):
+        assert cutter.push("mute") == "mute"
+    assert cutter.push("# note") is None
+    assert cutter.push('expect appears "Muted"') == 'expect appears "Muted"'
+    assert cutter.n == 5 and cutter.done
+
+
+def test_brain18_custom_and_empty_catalogs():
+    cutter = BatchCutter(max_actions=1, skills={"customskill"})
+    assert cutter.push("customskill") == "customskill"
+    assert cutter.n == 1 and cutter.full
+    assert cutter.push("customskill") is None
+    empty = BatchCutter(skills={})
+    assert empty.push("mute") == "mute"
+    assert empty.n == 0
+
+
 def test_planner_skips_prose_and_prefixes_skill(tmp_path):
     turns = [["The previous action failed because TextEdit was closed.",
               "</think>", "```", 'open_app app="TextEdit"', "```"],

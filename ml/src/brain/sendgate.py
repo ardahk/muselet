@@ -6,7 +6,7 @@ import re
 _COMPOSER_NAMES = (
     "Discord", "WhatsApp", "Microsoft Teams", "Teams", "Telegram", "Signal",
     "Messenger", "WeChat", "Zoom", "Skype", "Google Chat", "Messages", "Mail",
-    "Slack",
+    "Slack", "Outlook",
 )
 _BUNDLE_IDS = {
     "com.hnc.discord", "net.whatsapp.whatsapp", "com.microsoft.teams2",
@@ -43,6 +43,18 @@ _PAYMENT_CONTEXT_RE = re.compile(
 _CLICK_DANGEROUS_RE = re.compile(
     r"\b(send|pay|buy|purchase|delete|remove|post|submit|transfer|"
     r"confirm order|place order)\b", re.IGNORECASE)
+_COMPOSER_SIGNAL_RE = re.compile(
+    r"\b(inbox|messages?|messaging|reply|compose|send|recipient|subject)\b"
+    r"|^\s*(?:to|cc|bcc)\s*(?::|$)", re.IGNORECASE)
+_MESSAGE_INTENT_RE = re.compile(
+    r"\b(send(?:ing)?|reply(?:ing)?|messag(?:e|es|ing))\b", re.IGNORECASE)
+
+
+def has_composer_signals(window_title, elements, goal) -> bool:
+    if _MESSAGE_INTENT_RE.search(str(goal or "")):
+        return True
+    labels = [window_title, *(element.get("label") for element in elements or [])]
+    return any(_COMPOSER_SIGNAL_RE.search(str(label or "")) for label in labels)
 
 
 def is_composer_app(app: str | None, window_title: str | None = None) -> bool:

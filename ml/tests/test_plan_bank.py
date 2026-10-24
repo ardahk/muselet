@@ -47,8 +47,11 @@ def test_default_bank_is_all_v2_tune_rows_and_keeps_referenced_elements():
     assert len(demos) == len(tune) - dropped["total"] and len(tune) == 130
     tune_ids = {row["id"] for row in tune}
     assert {demo.id for demo in demos} <= tune_ids
-    assert tune_ids - {demo.id for demo in demos} == {"v2-mail-no-account"}
-    assert dropped == {"total": 1, "id": 0, "goal": 0, "leak": 1}
+    assert tune_ids - {demo.id for demo in demos} == {
+        "v2-mail-no-account", "v2-invite-share", "v2-settings-bt-on",
+        "v2-pages-no-target", "v2-notes-into-search", "v2-note-delete-others",
+    }
+    assert dropped == {"total": 6, "id": 3, "goal": 1, "leak": 2}
     assert all(demo.id not in ids and normalize(demo.goal) not in set(goals) and
                not any(is_leak(demo.goal, goal) for goal in goals) for demo in demos)
     for demo in demos:
@@ -65,6 +68,48 @@ def test_default_bank_is_all_v2_tune_rows_and_keeps_referenced_elements():
         retained = {match.group(1) for line in demo.obs_lines
                     if (match := re.match(r"^#(\d+)\b", line))}
         assert refs & available <= retained
+
+
+def _drops_existing_text(row, batch):
+    if re.search(r"\b(replace|clear|overwrite|rewrite)\b", row["goal"], re.I):
+        return False
+    values = {}
+    for match in re.finditer(
+            r'^#(\d+) (?:textfield|textarea|combobox) ("(?:[^"\\]|\\.)*") '
+            r'value=("(?:[^"\\]|\\.)*")', row["observation"], re.M):
+        if not re.search(r"search|address|url|to:|cc:|subject", json.loads(match[2]), re.I):
+            values[match[1]] = json.loads(match[3])
+    for match in re.finditer(
+            r'^type #(\d+) ("(?:[^"\\]|\\.)*")', "\n".join(batch), re.M):
+        existing = values.get(match[1])
+        if existing and not json.loads(match[2]).startswith(existing):
+            return True
+    return False
+
+
+def test_default_bank_preserves_existing_text():
+    rows = {row["id"]: row for row in map(json.loads,
+            (ROOT / "evals" / "planner_scenarios_v2.jsonl").read_text().splitlines())}
+    unsafe = {row["id"] for row in rows.values() if row["split"] == "v2-tune"
+              and _drops_existing_text(row, row["gold"][0])}
+    assert unsafe == {
+        "v2-pages-no-target", "v2-notes-into-search", "v2-note-delete-others",
+    }
+    demos = load_bank()
+    assert demos
+    assert not any(_drops_existing_text(rows[demo.id], demo.batch) for demo in demos)
+    assert unsafe.isdisjoint(demo.id for demo in demos)
+
+
+@pytest.mark.parametrize("id", [
+    "v2-pages-no-target", "v2-notes-into-search", "v2-note-delete-others",
+])
+def test_unsafe_append_denylist_filters_ids_and_reidentified_goals(id):
+    source = next(demo for demo in from_v2_scenarios() if demo.id == id)
+    renamed = Demo(**{**asdict(source), "id": f"copy-{id}"})
+    kept, dropped = _filter_demos([source, renamed])
+    assert kept == []
+    assert dropped == {"total": 2, "id": 1, "goal": 1, "leak": 0}
 
 
 def test_jsonl_round_trip_and_missing_required_field(tmp_path):

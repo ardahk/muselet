@@ -26,7 +26,7 @@ import re
 import time
 import unicodedata
 
-from . import slots
+from . import sites, slots
 from .orchestrator import _excerpt
 
 CONTACTS_TIMEOUT_S = 65
@@ -48,6 +48,19 @@ _ORDINALS = {
 }
 
 _EMAIL_WORD = re.compile(r"\b(?:e-?mails?|gmail|mail)\b", re.IGNORECASE)
+_CHANNEL_NAME = (
+    r"(?:microsoft\s+teams|google\s+chat|whats\s*app|slack|teams|discord|"
+    r"telegram|signal|messenger|wechat|linkedin|instagram|facebook|skype|"
+    r"e-?mail|gmail|outlook|imessage|messages|sms)")
+_CHANNEL = re.compile(
+    rf"\b(?:on|via|using|through|over|in)\s+(?:the\s+)?({_CHANNEL_NAME})\b"
+    rf"|\b({_CHANNEL_NAME})\s+(?=(?:message|text|note|dm)\b)", re.IGNORECASE)
+_APP_NAMES = {
+    "finder", "notes", "pages", "numbers", "keynote", "textedit", "preview",
+    "safari", "chrome", "googlechrome", "terminal", "calculator", "calendar",
+    "reminders", "systemsettings", "systempreferences", "music", "photos",
+    "mail", "messages", "facetime", "shortcuts", "activitymonitor",
+} | sites.SITES.keys()
 _MESSAGING_WORD = re.compile(
     r"\b(?:text|texting|texts|texted|message|messages|imessage|sms)\b",
     re.IGNORECASE)
@@ -187,6 +200,9 @@ def _parse_message_text(text: str) -> dict | None:
                    flags=re.IGNORECASE).strip()
     if not value:
         return None
+    if re.match(r"^text\s+(?:size|font|colou?r|alignment|wrapping)\b", value,
+                re.IGNORECASE):
+        return None
 
     noun = _NOUN.pattern
     verb = rf"{_VERB}\s+"
@@ -264,6 +280,7 @@ def _parse_message_text(text: str) -> dict | None:
                 name = " ".join(rest.split()[:2])
                 body_text = " ".join(rest.split()[2:])
             if 1 <= len(_name_tokens(name)) <= 3 and body_text and \
+                    _norm(name).replace(" ", "") not in _APP_NAMES and \
                     (_norm(name).split() or [""])[0] not in {
                         "", "me", "us", "it", "this", "that", "siri", "alexa",
                         "google", "muselet", "devin", "chatgpt", "claude",
@@ -283,13 +300,27 @@ def _message_parts(to: str, body: str | None) -> dict:
 
 def parse_message(text: str) -> dict | None:
     """Parse a clear message request without relying on the decision model."""
-    return _parse_message_text(text)
+    channels = []
+
+    def strip_channel(match):
+        channel = _norm(match[1] or match[2]).replace(" ", "")
+        channels.append({"microsoftteams": "teams", "googlechat": "chat",
+                         "imessage": "messages", "sms": "messages"}.get(channel, channel))
+        return " "
+
+    cleaned = _CHANNEL.sub(strip_channel, str(text or ""))
+    parsed = _parse_message_text(cleaned)
+    if parsed is not None and channels:
+        parsed["channel"] = next((c for c in channels if c != "messages"),
+                                 "messages")
+    return parsed
 
 
 def is_messaging(text: str) -> bool:
     """Whether the utterance names a message channel rather than email."""
     return bool(_MESSAGING_WORD.search(str(text or ""))) and \
-        not _EMAIL_WORD.search(str(text or ""))
+        not _EMAIL_WORD.search(str(text or "")) and \
+        (parse_message(text) or {}).get("channel") in (None, "messages")
 
 
 def verbatim_handle(text: str) -> dict | None:
@@ -652,6 +683,10 @@ def _pending(orch, kind: str, to: str | None, body: str | None,
 
 async def start(orch, parsed: dict, text: str, *,
                 from_planner: bool = False) -> str:
+    channel = parsed.get("channel") or (parse_message(text) or {}).get("channel")
+    if channel not in (None, "messages"):
+        orch._comms = None
+        return await orch._planner_loop(text, orch.tracer.current)
     to = parsed.get("to")
     body = _body(parsed.get("body"))
     if _is_vague_to(to):

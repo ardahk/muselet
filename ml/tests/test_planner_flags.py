@@ -121,6 +121,12 @@ def test_plan_script_block_unconstrained():
     assert _plan(_planner(wants)) == ['script applescript """say hi\nThe end"""']
 
 
+def test_brain18_unconstrained_plan_uses_dispatch_catalog():
+    p = _planner(["pre", "\n"] * 6, constrain=False)
+    p.catalog = Catalog({"skills": [{"name": "pre"}]})
+    assert _plan(p) == ["pre"] * 5
+
+
 def test_constraint_built_lazily_once(monkeypatch):
     n = [0]
     real = P.OpConstraint

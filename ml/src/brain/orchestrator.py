@@ -406,6 +406,7 @@ class Orchestrator:
         self._planner_ran = False
         self.planner = None
         self.planner_escalate = None    # opt-in bigger planner (loop guard)
+        self.escalate_opts = None
         self._escalate_lock = asyncio.Lock()
         self._escalate_desired = False
         self.escalate_model = "mlx-community/Qwen3.6-35B-A3B-4bit"
@@ -494,6 +495,18 @@ class Orchestrator:
 
         return {"kind": "fallback"}
 
+    def _new_command_during_ask(self, text: str) -> bool:
+        value = text.strip()
+        if not value or value[0] in "\"'“‘/~" or \
+                re.search(r"\.[a-z0-9]{1,8}$", value, re.IGNORECASE):
+            return False
+        if not re.match(
+                r"^(?:please\s+)?(?:set|turn|open|launch|start|mute|unmute|"
+                r"silence|search|google|look\s+up|lookup|take|make|grab|go)\b",
+                value, re.IGNORECASE):
+            return False
+        return self.route(value).get("kind") == "skill"
+
     # ---------- utterance ----------
 
     async def handle_utterance(self, text: str, ctx: dict | None = None) -> dict:
@@ -571,11 +584,18 @@ class Orchestrator:
             if self._pending_task and self._pending_task.get("reroute") and \
                     not _CONTINUE.fullmatch(text.strip()):
                 self._pending_task = None   # a new command, not "continue"
+            if self._pending_task and \
+                    time.time() - self._pending_task["t"] < 90 and \
+                    self._new_command_during_ask(text):
+                trace["decisions"].append({
+                    "pending_ask_cancelled": self._pending_task["goal"]})
+                self._pending_task = None
+                self._answer_history = []
             if handled_pending:
                 pass
             elif self._slot:
                 outcome = await self._slot_answer(text, trace)
-            # a pending ask keeps task state for 90 s: next utterance answers it
+            # Ambiguous replies keep the pending task for 90 s.
             elif self._pending_task and \
                     time.time() - self._pending_task["t"] < 90:
                 pending = self._pending_task
@@ -624,7 +644,8 @@ class Orchestrator:
                     if memory_result and memory_result.changed:
                         text = memory_result.text
                         self._utterance = text
-                    if (msg := comms.parse_message(text)) is not None:
+                    if (msg := comms.parse_message(text)) is not None and \
+                            msg.get("channel") in (None, "messages"):
                         trace["decisions"].append({"message_redirect": msg})
                         outcome = await comms.start(self, msg, text)
                     elif (calc_result := calc.result(text)) is not None and \
@@ -2403,6 +2424,10 @@ function run() {
             if hit:
                 return result("ocr", hit, hit)
             snippet = " ".join(text.split()[:4]) or None
+            if snippet is None and sendgate.has_composer_signals(
+                    window_title, obs.get("elements"),
+                    f"{self._current_goal or ''} {self._utterance or ''}"):
+                return result("context", target)
             return result("none", target, snippet)
         except Exception as e:  # noqa: BLE001 - fail closed on OCR failures
             return result("ocr", target, error=str(e)[:200])
@@ -2550,7 +2575,8 @@ function run() {
                 from .planner import worker
                 planner = await worker().submit_async(
                     loader, self.escalate_model, self.engine,
-                    ESCALATE_OPTS, tag="planner-escalate")
+                    self.escalate_opts or ESCALATE_OPTS,
+                    tag="planner-escalate")
             except Exception as e:
                 return {"loaded": False, "reason": str(e)[:200]}
             if not self._escalate_desired:
@@ -2807,6 +2833,9 @@ function run() {
                 "ttft_ms": round(info["ttft_ms"], 1),
                 "decode_tok_s": round(info["decode_tok_s"], 1),
                 "tokens": info["tokens"]})
+            if info.get("think"):
+                trace["decisions"].append({
+                    "planner.think": {"turn": turn, **info["think"]}})
             if skipped:
                 trace["decisions"].append({"skipped_lines": skipped})
                 batch_log.append(f"ignored {len(skipped)} non-action lines")
