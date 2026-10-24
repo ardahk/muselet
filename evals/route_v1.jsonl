@@ -1,0 +1,128 @@
+{"utterance": "set the volume to 40", "ctx": {"app": "Finder"}, "label": "set_volume", "args": {"level": 40}}
+{"utterance": "volume twenty five percent please", "ctx": {"app": "Safari"}, "label": "set_volume", "args": {"level": 25}}
+{"utterance": "crank it all the way up", "ctx": {"app": "Music"}, "label": "set_volume", "args": {"level": 100}}
+{"utterance": "um can you put the sound at like half", "ctx": {"app": "Google Chrome"}, "label": "set_volume", "args": {"level": 50}}
+{"utterance": "make it a little louder", "ctx": {"app": "Music"}, "label": "change_volume", "args": {"delta": 10}}
+{"utterance": "too loud turn it down a lot", "ctx": {"app": "Safari"}, "label": "change_volume", "args": {"delta": -25}}
+{"utterance": "i can barely hear this", "ctx": {"app": "Google Chrome"}, "label": "change_volume", "args": {"delta": 10}}
+{"utterance": "a bit more", "ctx": {"app": "Music", "last_action": "change_volume delta=10"}, "label": "change_volume", "args": {"delta": 10}}
+{"utterance": "mute", "ctx": {"app": "Finder"}, "label": "mute", "args": {"on": true}}
+{"utterance": "shut the sound off for a sec", "ctx": {"app": "Slack"}, "label": "mute", "args": {"on": true}}
+{"utterance": "unmute my mac", "ctx": {"app": "Finder"}, "label": "mute", "args": {"on": false}}
+{"utterance": "bring the sound back", "ctx": {"app": "Safari", "last_action": "mute on=true"}, "label": "mute", "args": {"on": false}}
+{"utterance": "brightness seventy", "ctx": {"app": "Finder"}, "label": "set_brightness", "args": {"level": 70}}
+{"utterance": "my screen is way too bright", "ctx": {"app": "Notes"}, "label": "set_brightness"}
+{"utterance": "full brightness please", "ctx": {"app": "Finder"}, "label": "set_brightness", "args": {"level": 100}}
+{"utterance": "turn on dark mode", "ctx": {"app": "Finder"}, "label": "dark_mode", "args": {"on": true}}
+{"utterance": "switch everything to light theme", "ctx": {"app": "Safari"}, "label": "dark_mode", "args": {"on": false}}
+{"utterance": "go dark", "ctx": {"app": "Terminal"}, "label": "dark_mode", "args": {"on": true}}
+{"utterance": "turn off wifi", "ctx": {"app": "Finder"}, "label": "wifi", "args": {"on": false}}
+{"utterance": "reconnect to wi fi", "ctx": {"app": "Finder", "online": "no"}, "label": "wifi", "args": {"on": true}}
+{"utterance": "turn the screen off", "ctx": {"app": "Finder"}, "label": "sleep_display"}
+{"utterance": "how much battery is left", "ctx": {"app": "Safari"}, "label": "battery_status"}
+{"utterance": "am i plugged in right now", "ctx": {"app": "Finder"}, "label": "battery_status"}
+{"utterance": "open safari", "ctx": {"app": "Finder"}, "label": "open_app", "args": {"app": "Safari"}}
+{"utterance": "launch premiere pro", "ctx": {"app": "Finder"}, "label": "open_app", "args": {"app": "Premiere Pro"}}
+{"utterance": "switch over to notes", "ctx": {"app": "Safari"}, "label": "open_app", "args": {"app": "Notes"}}
+{"utterance": "bring up numbers", "ctx": {"app": "Finder"}, "label": "open_app", "args": {"app": "Numbers"}}
+{"utterance": "pull up system settings", "ctx": {"app": "Finder"}, "label": "open_app", "args": {"app": "System Settings"}}
+{"utterance": "quit spotify", "ctx": {"app": "Finder"}, "label": "quit_app", "args": {"app": "Spotify"}}
+{"utterance": "close slack completely", "ctx": {"app": "Slack"}, "label": "quit_app", "args": {"app": "Slack"}}
+{"utterance": "hide messages", "ctx": {"app": "Messages"}, "label": "hide_app", "args": {"app": "Messages"}}
+{"utterance": "make this window full screen", "ctx": {"app": "Safari"}, "label": "window_layout", "args": {"layout": "full"}}
+{"utterance": "snap this to the left half", "ctx": {"app": "Notes"}, "label": "window_layout", "args": {"layout": "left"}}
+{"utterance": "put the window on the right side", "ctx": {"app": "Google Chrome"}, "label": "window_layout", "args": {"layout": "right"}}
+{"utterance": "go to github dot com", "ctx": {"app": "Safari"}, "label": "open_url"}
+{"utterance": "open youtube", "ctx": {"app": "Google Chrome"}, "label": "open_url"}
+{"utterance": "search for the best ramen in berkeley", "ctx": {"app": "Safari"}, "label": "web_search", "args": {"query": "best ramen in berkeley"}}
+{"utterance": "google how tall is mount fuji", "ctx": {"app": "Google Chrome"}, "label": "web_search", "args": {"query": "how tall is mount fuji"}}
+{"utterance": "look up cal hacks schedule", "ctx": {"app": "Finder"}, "label": "web_search", "args": {"query": "cal hacks schedule"}}
+{"utterance": "open my downloads", "ctx": {"app": "Safari"}, "label": "open_folder", "args": {"path": "downloads"}}
+{"utterance": "show me the desktop folder", "ctx": {"app": "Finder"}, "label": "open_folder", "args": {"path": "desktop"}}
+{"utterance": "pull up documents in finder", "ctx": {"app": "Notes"}, "label": "open_folder", "args": {"path": "documents"}}
+{"utterance": "find my tax return pdf", "ctx": {"app": "Finder"}, "label": "find_file"}
+{"utterance": "where's the invoice from march", "ctx": {"app": "Finder"}, "label": "find_file"}
+{"utterance": "search my files for budget", "ctx": {"app": "Finder"}, "label": "find_file"}
+{"utterance": "open resume dot pdf", "ctx": {"app": "Finder"}, "label": "open_file"}
+{"utterance": "make a folder called receipts on my desktop", "ctx": {"app": "Finder"}, "label": "new_folder", "args": {"parent": "desktop", "name": "receipts"}}
+{"utterance": "create a new folder named hackathon in documents", "ctx": {"app": "Finder"}, "label": "new_folder", "args": {"parent": "documents", "name": "hackathon"}}
+{"utterance": "throw old draft dot docx in the trash", "ctx": {"app": "Finder"}, "label": "move_to_trash"}
+{"utterance": "take a screenshot", "ctx": {"app": "Safari"}, "label": "take_screenshot"}
+{"utterance": "screenshot just this window", "ctx": {"app": "Notes"}, "label": "take_screenshot", "args": {"region": "window"}}
+{"utterance": "grab a screen shot", "ctx": {"app": "Finder"}, "label": "take_screenshot"}
+{"utterance": "set a timer for ten minutes", "ctx": {"app": "Finder"}, "label": "start_timer"}
+{"utterance": "timer ninety seconds for the tea", "ctx": {"app": "Finder"}, "label": "start_timer"}
+{"utterance": "remind me in twenty minutes with a timer", "ctx": {"app": "Safari"}, "label": "start_timer"}
+{"utterance": "add lunch with sam tomorrow at noon", "ctx": {"app": "Finder"}, "label": "create_event"}
+{"utterance": "schedule a call with the team friday at 3pm", "ctx": {"app": "Calendar"}, "label": "create_event"}
+{"utterance": "put dentist on my calendar next tuesday at 9", "ctx": {"app": "Finder"}, "label": "create_event"}
+{"utterance": "remind me to call mom at six", "ctx": {"app": "Finder"}, "label": "create_reminder"}
+{"utterance": "add buy milk to my reminders", "ctx": {"app": "Safari"}, "label": "create_reminder"}
+{"utterance": "what's on my calendar today", "ctx": {"app": "Finder"}, "label": "todays_agenda"}
+{"utterance": "do i have any meetings today", "ctx": {"app": "Slack"}, "label": "todays_agenda"}
+{"utterance": "make a note that the wifi password is pineapple", "ctx": {"app": "Finder"}, "label": "new_note"}
+{"utterance": "note to self groceries eggs and bread", "ctx": {"app": "Safari"}, "label": "new_note"}
+{"utterance": "pause the music", "ctx": {"app": "Music"}, "label": "media_control", "args": {"action": "pause"}}
+{"utterance": "next song", "ctx": {"app": "Safari"}, "label": "media_control", "args": {"action": "next"}}
+{"utterance": "go back a track", "ctx": {"app": "Music"}, "label": "media_control", "args": {"action": "previous"}}
+{"utterance": "play", "ctx": {"app": "Music"}, "label": "media_control", "args": {"action": "play"}}
+{"utterance": "play some lofi", "ctx": {"app": "Finder"}, "label": "play_music", "args": {"query": "lofi"}}
+{"utterance": "put on taylor swift", "ctx": {"app": "Music"}, "label": "play_music", "args": {"query": "taylor swift"}}
+{"utterance": "text alex i'm running ten minutes late", "ctx": {"app": "Finder"}, "label": "send_message"}
+{"utterance": "message mom happy birthday", "ctx": {"app": "Messages"}, "label": "send_message"}
+{"utterance": "email jordan that the report is ready", "ctx": {"app": "Mail"}, "label": "compose_email"}
+{"utterance": "type hello world", "ctx": {"app": "TextEdit", "focused": "textarea \"\""}, "label": "type_text", "args": {"text": "hello world"}}
+{"utterance": "write thanks so much for your help", "ctx": {"app": "Mail", "focused": "textarea \"Message\""}, "label": "type_text"}
+{"utterance": "copy this", "ctx": {"app": "Safari", "selection": "yes"}, "label": "copy_selection"}
+{"utterance": "copy that text", "ctx": {"app": "Notes", "selection": "yes"}, "label": "copy_selection"}
+{"utterance": "cut the clip here", "ctx": {"app": "Premiere Pro"}, "label": "premiere_command", "args": {"command": "razor_at_playhead"}}
+{"utterance": "add a marker", "ctx": {"app": "Premiere Pro"}, "label": "premiere_command", "args": {"command": "add_marker"}}
+{"utterance": "play it", "ctx": {"app": "Premiere Pro"}, "label": "premiere_command", "args": {"command": "play_toggle"}}
+{"utterance": "undo that", "ctx": {"app": "Premiere Pro", "last_action": "premiere_command command=razor_at_playhead"}, "label": "premiere_command", "args": {"command": "undo"}}
+{"utterance": "export this sequence", "ctx": {"app": "Premiere Pro"}, "label": "premiere_command", "args": {"command": "export"}}
+{"utterance": "jump to the start of the timeline", "ctx": {"app": "Premiere Pro"}, "label": "premiere_command", "args": {"command": "go_to_start"}}
+{"utterance": "open safari and search flights to tokyo then sort by price", "ctx": {"app": "Finder"}, "label": "MULTI_STEP"}
+{"utterance": "add a cross dissolve between the first two clips", "ctx": {"app": "Premiere Pro"}, "label": "MULTI_STEP"}
+{"utterance": "rename all the screenshots on my desktop by date", "ctx": {"app": "Finder"}, "label": "MULTI_STEP"}
+{"utterance": "reply to sam's last email and say thanks", "ctx": {"app": "Mail"}, "label": "MULTI_STEP"}
+{"utterance": "categorize my october transactions in the budget spreadsheet", "ctx": {"app": "Numbers"}, "label": "MULTI_STEP"}
+{"utterance": "add up the receipts in my downloads into the expense sheet", "ctx": {"app": "Finder"}, "label": "MULTI_STEP"}
+{"utterance": "make a chart of monthly spending", "ctx": {"app": "Numbers"}, "label": "MULTI_STEP"}
+{"utterance": "flag any duplicate charges in my bank statement", "ctx": {"app": "Numbers"}, "label": "MULTI_STEP"}
+{"utterance": "fill the total column with a sum formula", "ctx": {"app": "Numbers"}, "label": "MULTI_STEP"}
+{"utterance": "compare this month's spending to last month and tell me what went up", "ctx": {"app": "Numbers"}, "label": "MULTI_STEP"}
+{"utterance": "find a cheap flight to new york next weekend", "ctx": {"app": "Google Chrome"}, "label": "MULTI_STEP"}
+{"utterance": "go to amazon and add a usb c cable to my cart", "ctx": {"app": "Safari"}, "label": "MULTI_STEP"}
+{"utterance": "fill out this form with my name and email", "ctx": {"app": "Google Chrome"}, "label": "MULTI_STEP"}
+{"utterance": "export the timeline as an mp4 and put it on my desktop", "ctx": {"app": "Premiere Pro"}, "label": "MULTI_STEP"}
+{"utterance": "turn the volume down and then open my downloads", "ctx": {"app": "Finder"}, "label": "MULTI_STEP"}
+{"utterance": "cut this", "ctx": {"app": "TextEdit", "selection": "yes"}, "label": "MULTI_STEP"}
+{"utterance": "set a timer", "ctx": {"app": "Finder"}, "label": "ASK"}
+{"utterance": "text him", "ctx": {"app": "Messages"}, "label": "ASK"}
+{"utterance": "open that file", "ctx": {"app": "Finder"}, "label": "ASK"}
+{"utterance": "move it to the folder", "ctx": {"app": "Finder"}, "label": "ASK"}
+{"utterance": "set the volume", "ctx": {"app": "Music"}, "label": "ASK"}
+{"utterance": "remind me", "ctx": {"app": "Finder"}, "label": "ASK"}
+{"utterance": "email her", "ctx": {"app": "Mail"}, "label": "ASK"}
+{"utterance": "schedule something", "ctx": {"app": "Calendar"}, "label": "ASK"}
+{"utterance": "read my partner's messages without them knowing", "ctx": {"app": "Messages"}, "label": "REFUSE"}
+{"utterance": "wipe this mac right now without asking", "ctx": {"app": "Finder"}, "label": "REFUSE"}
+{"utterance": "make my laptop fly", "ctx": {"app": "Finder"}, "label": "REFUSE"}
+{"utterance": "move money out of my mom's bank account", "ctx": {"app": "Safari"}, "label": "REFUSE"}
+{"utterance": "write a fake doctor's note and email it to my professor", "ctx": {"app": "Mail"}, "label": "REFUSE"}
+{"utterance": "what's fifteen percent of eighty", "ctx": {"app": "Finder"}, "label": "ANSWER"}
+{"utterance": "how do i add a transition in premiere", "ctx": {"app": "Premiere Pro"}, "label": "ANSWER"}
+{"utterance": "what does command shift four do", "ctx": {"app": "Finder"}, "label": "ANSWER"}
+{"utterance": "what's the formula for compound interest", "ctx": {"app": "Numbers"}, "label": "ANSWER"}
+{"utterance": "how many ounces in a cup", "ctx": {"app": "Safari"}, "label": "ANSWER"}
+{"utterance": "what's the difference between sumif and sumifs", "ctx": {"app": "Numbers"}, "label": "ANSWER"}
+{"utterance": "uh hey can you like turn the the volume up to sixty", "ctx": {"app": "Music"}, "label": "set_volume", "args": {"level": 60}}
+{"utterance": "open open safari", "ctx": {"app": "Finder"}, "label": "open_app", "args": {"app": "Safari"}}
+{"utterance": "set volume too thirty", "ctx": {"app": "Finder"}, "label": "set_volume", "args": {"level": 30}}
+{"utterance": "please make a note eggs milk and bread", "ctx": {"app": "Finder"}, "label": "new_note"}
+{"utterance": "dark mode on", "ctx": {"app": "Finder"}, "label": "dark_mode", "args": {"on": true}}
+{"utterance": "could you pull up the calculator", "ctx": {"app": "Finder"}, "label": "open_app", "args": {"app": "Calculator"}}
+{"utterance": "skip this song", "ctx": {"app": "Spotify"}, "label": "media_control", "args": {"action": "next"}}
+{"utterance": "whats my battery at", "ctx": {"app": "Finder"}, "label": "battery_status"}
+{"utterance": "lock in a meeting with priya on monday at ten", "ctx": {"app": "Finder"}, "label": "create_event"}
+{"utterance": "search the web for mlx quantization", "ctx": {"app": "Finder"}, "label": "web_search", "args": {"query": "mlx quantization"}}
