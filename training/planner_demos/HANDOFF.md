@@ -1,11 +1,12 @@
 ## Handoff
 
-**State:** step 2 (teacher demonstrations) is done and waiting for lead review in PR #33 (branch `cloud/planner-demos`).
+**State:** step 1 (PR #29) and step 2 (PR #33) are both merged to main (main @ 0e7b5a8).
+- Not started: the two follow-ups below, which wait on lead decisions.
 - Done:
   - 1,496 states validated and gated, then answered by both teachers.
   - 1,194 demos and a 1,194-entry retrieval bank uploaded.
   - Report at `training/planner_demos/REPORT.md`.
-- In flight: nothing. No processes are running; PR #33 has no CI checks configured.
+- In flight: nothing. No processes or Tinker jobs are running, and neither PR had CI checks configured.
 - Step 1 (benchmark v2) was merged earlier in PR #29.
 
 **Next steps (only once the lead decides):**
@@ -31,7 +32,7 @@ python3 training/planner_demos/build_states.py --out ~/data/planner_demos      #
 ```
 
 **Artifacts:**
-- Code: branch `cloud/planner-demos` @ fa60bcf (the data was built from code @ 99df4b6). PR https://github.com/ardahk/muselet/pull/33.
+- Code: main @ 0e7b5a8 (merged from PR https://github.com/ardahk/muselet/pull/33; the data was built from code @ 99df4b6). Handoff branch: `cloud/planner-demos-handoff`.
 - HF dataset (private): `jonsnov/muselet-planner-demos-v1` @ 9453ff6. Files: `demos.jsonl.gz`, `bank.jsonl.gz`, `states.jsonl.gz`,
   `replies.jsonl.gz`, `meta.json`, `README.md`.
 - Local run dir (the VM only, may be gone): `~/data/planner_demos/` (`pilot/` holds the 60-state pilot).
