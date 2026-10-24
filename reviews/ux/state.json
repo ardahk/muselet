@@ -1,19 +1,19 @@
 {
-  "pass": 5,
-  "ts": "2026-10-24T07:10:00Z",
+  "pass": 6,
+  "ts": "2026-10-24T07:35:00Z",
   "last_reviewed": {
-    "main": "c2d2988",
-    "wip/local": "8874962",
-    "cloud/data-pipeline": "8f0b9bc",
+    "main": "d8ad966",
+    "wip/local": "85ec0df",
+    "cloud/data-pipeline": "b8c0604",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
-    "cloud/finance-2": "f4ae461",
+    "cloud/finance-2": "dfaf785",
     "cloud/advisor": "9432c30",
-    "cloud/advisor-2": "ec98013",
+    "cloud/advisor-2": "0a65f75",
     "cloud/bench": "911a384",
-    "cloud/pitch": "454a563",
-    "cloud/grounding": "42310cd",
-    "cloud/brain-2": "9f41c11"
+    "cloud/pitch": "ad1b058",
+    "cloud/grounding": "3441ee8",
+    "cloud/brain-2": "741465c"
   },
-  "notes": "pass 5 (PULSE resumed): wip 8874962 lane delta is only a script_needs_confirm call fix; no new findings."
+  "notes": "pass 6. brain-2 741465c fixes ux-2/3/8/10/11 and the brain half of ux-1. Other cloud branches have no lane edits beyond merges of main."
 }
