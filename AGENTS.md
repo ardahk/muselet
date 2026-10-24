@@ -206,4 +206,4 @@ actions, results, per-stage latencies, final verification. Traces feed evals, fa
 - Pin dependency versions; prefer releases at least 7 days old.
 - No secrets in the repo; API keys only via environment variables (TINKER_API_KEY, HF_TOKEN, OPENAI_API_KEY, ANTHROPIC_API_KEY).
 - Licenses: non-commercial datasets (e.g. GUIrilla CC-BY-NC) are allowed for the hackathon build only; track them in `data/LICENSES.md`.
-- Never train on eval sets (ScreenSpot-Pro, OSWorld-G, UI-Vision, GUIrilla-Gold, HobbyLM frozen tests, DeskMind Bench, macOSWorld, MacAgentBench); dedupe training data against them.
+- Never train on eval sets (ScreenSpot-Pro, OSWorld-G, UI-Vision, GUIrilla-Gold, HobbyLM frozen tests, DeskMind Bench, macOSWorld, MacAgentBench, `evals/memory_followups.jsonl`); dedupe training data against them.

@@ -12,6 +12,7 @@ Code: `training/planner_demos/`. Data: private HF dataset `jonsnov/muselet-plann
    for items of ≤ 5 tokens. CJK counts one token per character. Gated against v2-holdout, v1 tune/holdout/holdout2,
    `evals/live_t1.jsonl` and all of `evals/external/utterances.jsonl` (HobbyLM sealed r1–r4, calc, system-settings; DeskMind
    diag/dyn/proposals). A state is also dropped if its (goal, observation) equals a v1 or v2-holdout scenario.
+   The current gate also includes every turn utterance in `evals/memory_followups.jsonl`; counts below are from the earlier run.
    Dropped: 44 states ({"short_edit1": 24, "exact": 27}; by eval {"v1/holdout": 3, "v2-holdout": 37, "external/hobbylm/sealed-r1": 2, "external/hobbylm/sealed-r2": 3, "external/hobbylm/sealed-r4": 1, "v1/tune": 1, "live_t1": 4}).
    No state left after the gate overlaps any eval item (asserted in the code).
 3. `render.py`: prompts are built exactly as the runtime builds them. The system prompt is `planner_prompt(catalog_desc(...))`
