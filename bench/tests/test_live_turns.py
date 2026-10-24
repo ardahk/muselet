@@ -335,3 +335,23 @@ def test_turn_text_and_turn_checks_select_document_apps():
     }
     assert [app.name for app in document_apps_for_case(case)] == ["TextEdit"]
     assert len(document_apps_for_case({"id": "y", "turns": [{"utterance": "write a note"}]})) > 1
+
+
+@pytest.mark.final_settle
+def test_turn_case_top_level_checks_get_the_final_settle(tmp_path):
+    class LateRuntime(TurnRuntime):
+        reads = 0
+
+        async def run_script(self, lang, code, *, allow_inflight=False):
+            if code == "late":
+                self.reads += 1
+                return {"ok": True, "output": "yes" if self.reads >= 3 else "no"}
+            return await super().run_script(lang, code, allow_inflight=allow_inflight)
+
+    case = _volume_case() | {"settle_s": 1.0, "check": [{"applescript": "late", "equals": "yes"}]}
+    trace_path = tmp_path / "traces.jsonl"
+    runtime = LateRuntime({"get-volume": "55", "volume": 37}, trace_path=trace_path)
+    result = asyncio.run(run_case(case, runtime, values={}, trace_path=trace_path, poll_interval=0.01))
+    assert result["status"] == "passed"
+    phases = [item["phase"] for item in result["check_observations"]]
+    assert "settle" in phases and phases[-1] == "final"
