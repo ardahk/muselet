@@ -420,6 +420,33 @@ final class PremiereCommandTests: XCTestCase {
     private let premiere = RunningAppInfo(pid: 777, name: "Adobe Premiere Pro 2026",
                                           bundleId: "com.adobe.PremierePro.26")
 
+    private final class PressElement: Element {
+        let base: MockElement
+        var succeeds = true
+        var onPress: (() -> Void)?
+        init(_ base: MockElement) { self.base = base }
+        func copyAttrs() -> ElAttrs { base.copyAttrs() }
+        func performAction(_ name: String) -> Bool {
+            base.actions.append(name)
+            onPress?()
+            return succeeds
+        }
+        func setAttr(_ name: String, _ value: Any?) -> Bool { false }
+        func isSettable(_ name: String) -> Bool { false }
+    }
+
+    private func timelineMenu() -> (MockElement, PressElement, PressElement) {
+        let timeline = PressElement(MockElement(role: "AXMenuItem", title: "Timeline"))
+        let menu = MockElement(role: "AXMenu")
+        menu.attrs.children = [timeline]
+        let window = PressElement(MockElement(role: "AXMenuBarItem", title: "Window", children: [menu]))
+        let bar = MockElement(role: "AXMenuBar")
+        bar.attrs.children = [window]
+        let app = MockElement(role: "AXApplication")
+        app.singles["AXMenuBar"] = bar
+        return (app, window, timeline)
+    }
+
     func testMappingSendsShortcutsToPremiere() {
         let expected: [String: String] = [
             "razor_at_playhead": "cmd+k", "add_marker": "m", "play_toggle": "space",
@@ -430,8 +457,13 @@ final class PremiereCommandTests: XCTestCase {
             let apps = MockApps(frontmost: 1, running: [premiere])
             let s = Skills(catalog: catalog(), scripts: SpyRunner(), events: poster,
                            apps: apps, hooks: .inert)
+            let (root, window, timeline) = timelineMenu()
+            s.axApp = { _ in root }
+            timeline.onPress = { XCTAssertTrue(poster.posted.isEmpty) }
             let r = s.execute(name: "premiere_command", args: ["command": cmd])
             XCTAssertEqual(r["ok"] as? Bool, true, "\(cmd): \(r)")
+            XCTAssertEqual(window.base.actions, ["AXPress"], cmd)
+            XCTAssertEqual(timeline.base.actions, ["AXPress"], cmd)
             XCTAssertEqual(poster.posted, [Combo.describe(try! Combo.parse(keys))], cmd)
             XCTAssertEqual(apps.activated, [777], cmd)
             XCTAssertEqual((r["result"] as? [String: Any])?["keys"] as? String, keys)
@@ -446,6 +478,37 @@ final class PremiereCommandTests: XCTestCase {
         XCTAssertEqual(r["ok"] as? Bool, false)
         XCTAssertEqual(r["error"] as? String, "Premiere Pro isn't open")
         XCTAssertTrue(poster.posted.isEmpty)
+    }
+
+    func testTimelineMenuFailuresNeverSendKeys() {
+        for failure in ["missing bar", "missing window", "disabled window", "failed window",
+                        "missing timeline", "disabled timeline", "failed timeline", "submenu",
+                        "ambiguous timeline", "focus changed"] {
+            let poster = MockPoster()
+            let apps = MockApps(running: [premiere])
+            let s = Skills(catalog: catalog(), scripts: SpyRunner(), events: poster,
+                           apps: apps, hooks: .inert)
+            let (root, window, timeline) = timelineMenu()
+            switch failure {
+            case "missing bar": root.singles.removeValue(forKey: "AXMenuBar")
+            case "missing window": window.base.attrs.title = "Other"
+            case "disabled window": window.base.attrs.enabled = false
+            case "failed window": window.succeeds = false
+            case "missing timeline": timeline.base.attrs.title = "Other"
+            case "disabled timeline": timeline.base.attrs.enabled = false
+            case "failed timeline": timeline.succeeds = false
+            case "submenu": timeline.base.attrs.children = [MockElement(role: "AXMenu")]
+            case "ambiguous timeline":
+                (window.base.attrs.children[0] as! MockElement).attrs.children.append(
+                    MockElement(role: "AXMenuItem", title: "Timeline"))
+            case "focus changed": timeline.onPress = { apps.frontmost = 999 }
+            default: XCTFail(failure)
+            }
+            s.axApp = { _ in root }
+            let r = s.execute(name: "premiere_command", args: ["command": "undo"])
+            XCTAssertEqual(r["ok"] as? Bool, false, "\(failure): \(r)")
+            XCTAssertTrue(poster.posted.isEmpty, failure)
+        }
     }
 
     func testNeverSendsToAnotherApp() {
