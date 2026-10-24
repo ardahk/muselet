@@ -95,6 +95,17 @@ public final class AppleScriptRunner: ScriptRunning {
         }
         return out.stringValue ?? ""
     }
+
+    /// Precompile and run `return 1` + the fixed (argument-free) skill
+    /// scripts, so the first real call doesn't pay the ~9 s compile cost.
+    public func warmUp() {
+        let fixed: [String] = [
+            "return 1",
+            "output volume of (get volume settings)",
+            "tell application \"System Events\" to tell appearance preferences to get dark mode",
+        ]
+        for src in fixed { _ = try? run(src) }
+    }
 }
 
 // MARK: - Path aliases
@@ -120,6 +131,12 @@ public final class Skills {
     private let catalog: [String: SkillDef]
     private let scripts: ScriptRunning
     private var wifiDevice: String?
+
+    /// Precompile AppleScript sources off the hot path (RPCHandler calls
+    /// this on a background queue at startup).
+    public func warmUp() {
+        (scripts as? AppleScriptRunner)?.warmUp()
+    }
 
     public init(catalog: [String: SkillDef], scripts: ScriptRunning = AppleScriptRunner()) {
         self.catalog = catalog
