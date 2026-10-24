@@ -1,6 +1,6 @@
-# training lane digest — pass 17 (main 2920225, cloud/data-pipeline 5371185)
+# training lane digest — pass 18 (main 2920225, cloud/data-pipeline 5371185, wip/local 3e03686 = main tree)
 
-Open: 1 P0, 9 P1, 8 P2. Resolved this pass: training-11 (UtteranceCtx.swift:68-118@2920225 reports Finder item selection).
+Open: 1 P0, 9 P1, 8 P2. Pass 18: no change (wip/local 3e03686 tree is identical to main 2920225). Resolved in pass 17: training-11 (UtteranceCtx.swift:68-118@2920225 reports Finder item selection).
 "branch-only" = code lives only on cloud/data-pipeline (PR #2, still unmerged into main).
 
 ## Open P0/P1 (ranked)
