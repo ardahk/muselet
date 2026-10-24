@@ -1,11 +1,11 @@
-# architect digest - pass 35 (2026-10-24T14:33Z)
-Reviewed: main 5292608, wip/local a02959b, cloud/data-pipeline 512cce0, cloud/decisions 6d395df, cloud/finance 529e9ff, cloud/finance-2 dfaf785, cloud/finance-3 31be399, cloud/fixtures-docs 4bf2291, cloud/bench f584cb2, cloud/advisor 9432c30, cloud/advisor-2 0a65f75, cloud/advisor-3 ca93147, cloud/pitch ad1b058, cloud/pitch-2 3303678, cloud/pitch-3 e203181, cloud/pitch-4 6393857, cloud/brain-2 741465c, cloud/brain-3 14a3f52, cloud/brain-4 dfb66a3, cloud/brain-5 b752261, cloud/brain-6 780f49d, cloud/hobby-gaps 156556e, cloud/grounding 3441ee8, cloud/grounder-wire afb12a6.
-New: main 5292608 updates AGENTS.md: it2 has 0 real overlaps with DeskMind Bench under the CJK-aware gate (matches external_affected_it2.json @ 512cce0). Nothing filed.
+# architect digest - pass 36 (2026-10-24T16:22Z)
+Reviewed: main c949565, wip/local 4ec066f, cloud/data-pipeline 512cce0, cloud/decisions e125c13, cloud/finance 529e9ff, cloud/finance-2 dfaf785, cloud/finance-3 31be399, cloud/fixtures-docs 4bf2291, cloud/bench f584cb2, cloud/advisor 9432c30, cloud/advisor-2 0a65f75, cloud/advisor-3 ca93147, cloud/pitch ad1b058, cloud/pitch-2 3303678, cloud/pitch-3 e203181, cloud/pitch-4 6393857, cloud/brain-2 741465c, cloud/brain-3 14a3f52, cloud/brain-4 dfb66a3, cloud/brain-5 b752261, cloud/brain-6 780f49d, cloud/hobby-gaps 156556e, cloud/grounding 3441ee8, cloud/grounder-wire afb12a6.
+New: main adds briefs for comms (contacts-first messaging, email drafts) and the app UI (pet mascot, panel, settings); architect-21 (P2) filed on their unassigned brain contracts. cloud/decisions finished full data generation: 6,754 decisions retained, $52.89 of its $57 OpenAI/Anthropic generation budget (not Tinker). 13-gram decontamination dropped 1,925 of 3,673 states and left no code states for counting, multi-hop or long-policy, so those families go untrained (decisions lane).
 
 ## Open P0/P1 (ranked)
 1. architect-8 P1 - No Mac parity result; Tinker .961 vs MLX .913 on clean 103 unexplained - evals/router_check.py
 2. architect-13 P1 - Cloud Tinker System One backend reports as 'muselet' - bench/systemone/cli.py:42
-(P2: architect-20 Chinese DeskMind goals vs English-only router; architect-15 delta/view outside catalog; architect-16 no timer cancel/list skill)
+(P2: architect-21 config/config_ack and draft 'send' unassigned; architect-20 Chinese DeskMind goals vs English-only router; architect-15 delta/view outside catalog; architect-16 no timer cancel/list skill)
 
 ## Highest-leverage next moves
 1. Run the it2 Mac parity check and commit the router_check JSON (explain .961 vs .913). ~20 min.
