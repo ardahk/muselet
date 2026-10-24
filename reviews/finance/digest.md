@@ -1,10 +1,10 @@
-# finance digest (Pass 34, 2026-10-24T16:52Z; no lane code changes since pass 13; it2 router routes finance/advisor 100% on val)
+# finance digest (Pass 35, 2026-10-24T19:12Z; no lane code changes since pass 13; it2 router routes finance/advisor 100% on val)
 Open P0/P1: finance-26 (P1): live suite skips t2-finance-dupes and t2-advisor-prep by default (stale "pending" markers), so the 2026-10-24 live run has no finance/advisor evidence.
 
-Open P2: finance-23 (advisor doc-by-path; now degrades to 'skipped Numbers'), finance-25 (4 s Numbers table poll on cold open), finance-24 (merchant prefix over-match), finance-15 (single filers / 401k-HSA-checking as taxable), finance-17 (numbers written as words pass the phrasing filter).
+Open P2: finance-27 (planner v2 Numbers golds use per-cell loops, cell clicks and tell application "Numbers", against rule 8), finance-23 (advisor doc-by-path; now degrades to 'skipped Numbers'), finance-25 (4 s Numbers table poll on cold open), finance-24 (merchant prefix over-match), finance-15 (single filers / 401k-HSA-checking as taxable), finance-17 (numbers written as words pass the phrasing filter).
 
 Next moves:
-- Remove the stale pending keys or run `run_live.py --id t2-finance-dupes --id t2-advisor-prep --include-pending --allow-user-ok` with Numbers not running (also settles finance-23/25).
+- Remove the stale pending keys or run `run_live.py --id t2-finance-dupes --id t2-advisor-prep --run-pending --allow-user-ok (bench-fix 4bcf0db; there --include-pending is report-only)` with Numbers not running (also settles finance-23/25).
 - Lead, on the Mac: with portfolio.xlsx open, run `osascript -e 'tell application id "com.apple.Numbers" to POSIX path of ((file of front document) as alias)'`.
 - Rehearse both segments once with Numbers not running; read finance_open_* and advisor numbers_ready ms from the traces and set the timeouts from them.
 - Receipts: limit prefix matching to known abbreviations.
