@@ -1,17 +1,19 @@
 {
-  "pass": 6,
-  "ts": "2026-10-24T06:25:00Z",
+  "pass": 7,
+  "ts": "2026-10-24T06:47:00Z",
   "last_reviewed": {
-    "main": "e78f143",
+    "main": "c2d2988",
     "wip/local": "d5d2d7d",
     "cloud/data-pipeline": "153a01c",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "f4ae461",
     "cloud/fixtures-docs": "4bf2291",
-    "cloud/bench": "14c7eb1",
+    "cloud/bench": "911a384",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "ec98013",
-    "cloud/pitch": "454a563"
+    "cloud/pitch": "454a563",
+    "cloud/brain-2": "9f41c11",
+    "cloud/grounding": "42310cd"
   },
   "next_id": 10,
   "mode": "self-poll (lead offline)"
