@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 import base64
+import hashlib
+import importlib
 import json
 import os
 import re
@@ -22,6 +24,7 @@ from zoneinfo import ZoneInfo
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
+DEFAULT_HOME = Path("/home/ubuntu/ext/hobbylm")
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -37,15 +40,23 @@ from bench.harness.documents import (
     osascript_run_script,
     take_inventory,
 )
-from bench.harness.runtime import HandsRuntime
+from bench.harness.runtime import (
+    HandsRuntime,
+    release_slot_for_case,
+    serve_timeout_supported,
+)
 from bench.harness.session import probe_session
 from bench.hobbylm.vendor import verify_provenance
 
-DEFAULT_HOME = Path("/home/ubuntu/ext/hobbylm")
 VENDORED_UPSTREAM = HERE / "upstream"
+MUSELET_HELPER_TOOLS = ("calc_checker", "brightness", "media_key", "checker")
+HELPER_SETUP_ERROR = (
+    "pass --hobby-home <hobby-mac checkout> or install Xcode command line tools "
+    "(xcode-select --install)"
+)
 
 
-def load_tasks(home: Path, round_name: str):
+def load_tasks(home: Path | None, round_name: str):
     verify_provenance(VENDORED_UPSTREAM)
     filename = "hobbymac-sealed-test.tsv" if round_name == "r1" else f"hobbymac-sealed-test-{round_name}.tsv"
     rows = []
@@ -55,6 +66,90 @@ def load_tasks(home: Path, round_name: str):
             ident, kind, text, expected = line.split("\t", 3)
             rows.append({"id": ident, "kind": kind, "text": text, "expected": expected.strip()})
     return rows
+
+
+def resolve_muselet_helper(args, *, compile=None):
+    """Resolve HobbyLM's helper and its executable tools for Muselet replay."""
+    compile = compile or subprocess.run
+    explicit_home = args.hobby_home or (
+        Path(os.environ["HOBBY_HOME"]) if os.environ.get("HOBBY_HOME") else None
+    )
+    if explicit_home is not None:
+        home = explicit_home.expanduser().resolve()
+        helper_dir = home / "hobby"
+        helper_path = helper_dir / "hobbymac_run.py"
+        if not helper_path.is_file():
+            raise RuntimeError(f"missing HobbyLM helper: {helper_path}")
+        work_dir = home / "data"
+        missing = [work_dir / tool for tool in MUSELET_HELPER_TOOLS
+                   if not (work_dir / tool).is_file()]
+        if missing:
+            raise RuntimeError(
+                "missing HobbyLM helper tool(s): " + ", ".join(map(str, missing))
+            )
+        source = "hobby_home"
+        hobby_root = home
+    else:
+        helper_dir = VENDORED_UPSTREAM / "hobby"
+        helper_path = helper_dir / "hobbymac_run.py"
+        if not helper_path.is_file():
+            raise RuntimeError(f"missing vendored HobbyLM helper: {helper_path}")
+        sources = [
+            (helper_dir / f"{tool}.swift")
+            for tool in MUSELET_HELPER_TOOLS
+        ]
+        digest = hashlib.sha256()
+        for source_path in sources:
+            digest.update(source_path.name.encode())
+            digest.update(b"\0")
+            digest.update(source_path.read_bytes())
+        work_dir = ROOT / "runs/bench/hobbylm/tools" / digest.hexdigest()[:12]
+        work_dir.mkdir(parents=True, exist_ok=True)
+        if not all((work_dir / tool).is_file() for tool in MUSELET_HELPER_TOOLS):
+            script = "set -e; " + "; ".join(
+                f"swiftc -O hobby/{tool}.swift -o {shlex.quote(str(work_dir / tool))}"
+                for tool in MUSELET_HELPER_TOOLS
+            )
+            try:
+                completed = compile(
+                    ["bash", "-c", script], cwd=VENDORED_UPSTREAM,
+                    check=True, capture_output=True, text=True,
+                )
+                if getattr(completed, "returncode", 0):
+                    raise subprocess.CalledProcessError(
+                        completed.returncode, completed.args,
+                        output=getattr(completed, "stdout", ""),
+                        stderr=getattr(completed, "stderr", ""),
+                    )
+            except (OSError, subprocess.SubprocessError) as exc:
+                detail = getattr(exc, "stderr", None) or str(exc)
+                raise RuntimeError(
+                    f"could not compile vendored HobbyLM Swift tools ({detail}). {HELPER_SETUP_ERROR}"
+                ) from exc
+            if not all((work_dir / tool).is_file() for tool in MUSELET_HELPER_TOOLS):
+                raise RuntimeError(
+                    f"vendored HobbyLM Swift tools were not produced in {work_dir}. "
+                    f"{HELPER_SETUP_ERROR}"
+                )
+        source = "vendored"
+        hobby_root = VENDORED_UPSTREAM
+
+    if str(helper_dir) not in sys.path:
+        sys.path.insert(0, str(helper_dir))
+    if source == "hobby_home":
+        os.environ["HOBBY_HOME"] = str(hobby_root)
+    helper = importlib.import_module("hobbymac_run")
+    from bench.hobbylm.calendar_safety import BENCH_CALENDAR
+
+    helper.ROOT = hobby_root
+    helper.WORK = work_dir
+    helper.TEST_CAL = BENCH_CALENDAR
+    args.hobby_dir = helper_dir
+    args.hobby_root = hobby_root
+    args.work_dir = work_dir
+    args.hobby_helper_source = source
+    args.hobby_tools_dir = work_dir
+    return helper, helper_dir, work_dir
 
 
 def plan(system: str, round_name: str, tasks: list[dict], repeats: int, port: int):
@@ -83,7 +178,8 @@ def plan(system: str, round_name: str, tasks: list[dict], repeats: int, port: in
 def report_math(records: list[dict], repeats: int) -> dict:
     eligible = [
         record for record in records
-        if record.get("status") != "skipped" and not record.get("ungradable")
+        if record.get("status") not in ("skipped", "harness_timeout")
+        and not record.get("ungradable")
     ]
     by_kind = defaultdict(list)
     for record in eligible:
@@ -104,7 +200,10 @@ def report_math(records: list[dict], repeats: int) -> dict:
     def pass_k(rows, field):
         per_id = defaultdict(list)
         for row in rows:
-            if row.get("status") != "skipped" and not row.get("ungradable"):
+            if (
+                row.get("status") not in ("skipped", "harness_timeout")
+                and not row.get("ungradable")
+            ):
                 per_id[row["id"]].append(field(row))
         eligible = [
             values for values in per_id.values()
@@ -115,23 +214,27 @@ def report_math(records: list[dict], repeats: int) -> dict:
     def latency_kinds(field):
         return sorted({
             row["kind"] for row in records
-            if row.get(field) is not None and row.get("status") != "skipped"
+            if row.get(field) is not None
+            and row.get("status") not in ("skipped", "harness_timeout")
             and not row.get("ungradable")
         })
 
     verified = [
         row["verified_latency_s"] for row in records
         if row.get("kind") != "none" and row.get("verified_latency_s") is not None
+        and row.get("status") not in ("skipped", "harness_timeout")
         and not row.get("ungradable")
     ]
     latency_by_kind = {}
     for kind in sorted({
         row["kind"] for row in records
-        if row.get("status") != "skipped" and not row.get("ungradable")
+        if row.get("status") not in ("skipped", "harness_timeout")
+        and not row.get("ungradable")
     }):
         rows = [
             row for row in records
-            if row.get("kind") == kind and row.get("status") != "skipped"
+            if row.get("kind") == kind
+            and row.get("status") not in ("skipped", "harness_timeout")
             and not row.get("ungradable")
         ]
         first_values = [row["first_action_latency_s"] for row in rows
@@ -164,6 +267,10 @@ def report_math(records: list[dict], repeats: int) -> dict:
         "n": len(eligible),
         "skipped": sum(row.get("status") == "skipped" for row in records),
         "ungradable": sum(bool(row.get("ungradable")) for row in records),
+        "harness_timeouts": {
+            "count": sum(row.get("status") == "harness_timeout" for row in records),
+            "ids": [row.get("id") for row in records if row.get("status") == "harness_timeout"],
+        },
         "pass_final_state_rate": final_state_rate,
         "completed_rate": completed_rate,
         "pass_final_state_by_kind": {kind: values["pass_final_state_rate"] for kind, values in by_kind_metrics.items()},
@@ -599,9 +706,13 @@ def _hobby_state_script(args, kind, before=None):
     python = f"""
 import base64, json, sys
 sys.path.insert(0, {str(ROOT)!r})
-sys.path.insert(0, {str(args.hobby_home / 'hobby')!r})
+sys.path.insert(0, {str(args.hobby_dir)!r})
 from bench.hobbylm import replay as replay
 import hobbymac_run as helper
+from bench.hobbylm.calendar_safety import BENCH_CALENDAR
+helper.ROOT = {str(args.hobby_root)!r}
+helper.WORK = {str(args.work_dir)!r}
+helper.TEST_CAL = BENCH_CALENDAR
 kind = {kind!r}
 before = json.loads(base64.b64decode({encoded!r}).decode())
 state = helper.snapshot()
@@ -641,10 +752,9 @@ print(json.dumps(state, ensure_ascii=False, default=str))
         "import base64, json, sys",
         "import base64, json, sys\nfrom datetime import datetime\nfrom pathlib import Path",
     )
-    helper_dir = args.hobby_home / "hobby"
     command = (
-        f"HOBBY_HOME={shlex.quote(str(args.hobby_home))} "
-        f"PYTHONPATH={shlex.quote(os.pathsep.join((str(ROOT), str(helper_dir))))} "
+        f"HOBBY_HOME={shlex.quote(str(args.hobby_root))} "
+        f"PYTHONPATH={shlex.quote(os.pathsep.join((str(ROOT), str(args.hobby_dir))))} "
         f"{shlex.quote(sys.executable)} -c {shlex.quote(python)}"
     )
     return command
@@ -657,17 +767,20 @@ def _hobby_restore_script(args, start, current, trace):
     python = f"""
 import base64, json, sys
 sys.path.insert(0, {str(ROOT)!r})
-sys.path.insert(0, {str(args.hobby_home / 'hobby')!r})
+sys.path.insert(0, {str(args.hobby_dir)!r})
 from bench.hobbylm import replay
 import hobbymac_run as helper
+from bench.hobbylm.calendar_safety import BENCH_CALENDAR
+helper.ROOT = {str(args.hobby_root)!r}
+helper.WORK = {str(args.work_dir)!r}
+helper.TEST_CAL = BENCH_CALENDAR
 payload = json.loads(base64.b64decode({encoded!r}).decode())
 replay._restore(helper, payload["start"], payload["trace"], payload["current"])
 print(json.dumps({{"ok": True}}))
 """
-    helper_dir = args.hobby_home / "hobby"
     return (
-        f"HOBBY_HOME={shlex.quote(str(args.hobby_home))} "
-        f"PYTHONPATH={shlex.quote(os.pathsep.join((str(ROOT), str(helper_dir))))} "
+        f"HOBBY_HOME={shlex.quote(str(args.hobby_root))} "
+        f"PYTHONPATH={shlex.quote(os.pathsep.join((str(ROOT), str(args.hobby_dir))))} "
         f"{shlex.quote(sys.executable)} -c {shlex.quote(python)}"
     )
 
@@ -967,7 +1080,16 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Non
         for repeat in range(1, args.repeats + 1):
             for task in tasks:
                 run_id = f"{task['id']}-r{repeat}"
-                session = probe_session(args.hands_bin)
+                try:
+                    session = probe_session(args.hands_bin)
+                except Exception as exc:
+                    rec = {
+                        "id": task["id"], "kind": task["kind"], "repeat": repeat,
+                        "status": "failed", "strict_pass": False, "error": str(exc),
+                    }
+                    records.append(rec)
+                    print(json.dumps(rec, ensure_ascii=False), flush=True)
+                    continue
                 if session["skip_reason"]:
                     rec = {
                         "id": task["id"], "kind": task["kind"], "repeat": repeat,
@@ -999,16 +1121,76 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Non
                     records.append(rec)
                     print(json.dumps(rec, ensure_ascii=False), flush=True)
                     continue
-                await proxy.wait_disconnected()
-                await proxy.begin_case(run_id, False)
-                runtime = _HobbyRuntime(
-                    proxy, args.hands_bin, run_root / "hands-logs", run_id,
-                    helper=helper, task=task, replay_args=args, cwd=ROOT,
-                )
+                try:
+                    slot_released = await release_slot_for_case(proxy)
+                except Exception as exc:
+                    rec = {
+                        "id": task["id"], "kind": task["kind"], "repeat": repeat,
+                        "status": "failed", "strict_pass": False, "error": str(exc),
+                        **session,
+                    }
+                    records.append(rec)
+                    print(json.dumps(rec, ensure_ascii=False), flush=True)
+                    continue
+                if not slot_released:
+                    rec = {
+                        "id": task["id"], "kind": task["kind"], "repeat": repeat,
+                        "status": "harness_timeout", "strict_pass": False,
+                        "harness_timeout": {
+                            "stage": "between_cases", "slot_released": False,
+                        },
+                        **session,
+                    }
+                    records.append(rec)
+                    print(json.dumps(rec, ensure_ascii=False), flush=True)
+                    continue
+                try:
+                    await proxy.begin_case(run_id, False)
+                except Exception as exc:
+                    rec = {
+                        "id": task["id"], "kind": task["kind"], "repeat": repeat,
+                        "status": "failed", "strict_pass": False, "error": str(exc),
+                        **session,
+                    }
+                    records.append(rec)
+                    print(json.dumps(rec, ensure_ascii=False), flush=True)
+                    continue
+                try:
+                    runtime = _HobbyRuntime(
+                        proxy, args.hands_bin, run_root / "hands-logs", run_id,
+                        helper=helper, task=task, replay_args=args, cwd=ROOT,
+                    )
+                except Exception as exc:
+                    rec = {
+                        "id": task["id"], "kind": task["kind"], "repeat": repeat,
+                        "status": "failed", "strict_pass": False, "error": str(exc),
+                        **session,
+                    }
+                    records.append(rec)
+                    print(json.dumps(rec, ensure_ascii=False), flush=True)
+                    continue
                 if task["kind"] == "calc":
-                    setup_skip = await _calculator_case_setup(runtime, helper)
+                    try:
+                        setup_skip = await _calculator_case_setup(runtime, helper)
+                    except Exception as exc:
+                        try:
+                            await runtime.stop()
+                        except Exception:
+                            pass
+                        rec = {
+                            "id": task["id"], "kind": task["kind"],
+                            "repeat": repeat, "status": "failed",
+                            "strict_pass": False, "error": str(exc),
+                            **session,
+                        }
+                        records.append(rec)
+                        print(json.dumps(rec, ensure_ascii=False), flush=True)
+                        continue
                     if setup_skip is not None:
-                        await runtime.stop()
+                        try:
+                            await runtime.stop()
+                        except Exception:
+                            pass
                         rec = {
                             "id": task["id"], "kind": task["kind"],
                             "repeat": repeat, "status": "skipped",
@@ -1037,7 +1219,10 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Non
                         case, runtime, values={}, trace_path=trace_path,
                     )
                 except Exception as exc:
-                    await runtime.stop()
+                    try:
+                        await runtime.stop()
+                    except Exception:
+                        pass
                     result = {"status": "failed", "strict_pass": False, "error": str(exc)}
                 final_observations = (
                     result.get("check_observations", [])[-1].get("observations", [])
@@ -1046,7 +1231,13 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Non
                 final_state_only = bool(
                     final_observations and final_observations[0].get("passed")
                 )
-                capture = proxy.snapshot()
+                try:
+                    capture = proxy.snapshot()
+                except Exception as exc:
+                    result["status"] = "failed"
+                    result["strict_pass"] = False
+                    result["error"] = str(exc)
+                    capture = {}
                 elapsed = None
                 if runtime.utterance_monotonic is not None and capture.get("frames"):
                     terminal = proxy.capture.terminal_monotonic
@@ -1062,6 +1253,7 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Non
                 ), {})
                 rec = {
                     "id": task["id"], "kind": task["kind"], "repeat": repeat,
+                    "status": result.get("status", "completed"),
                     "pass": bool(result.get("strict_pass")),
                     "pass_final_state": final_state_only,
                     "final_state_only": final_state_only,
@@ -1076,6 +1268,10 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Non
                     "final_state": runtime.final_state,
                     "start_state": runtime.start_state,
                     "trace": trace,
+                    **({"harness_timeout": result["harness_timeout"]}
+                       if result.get("harness_timeout") else {}),
+                    **({"hands_serve_summary": result["hands_serve_summary"]}
+                       if result.get("hands_serve_summary") else {}),
                     "frames": result.get("frames", []),
                     "first_action_method": first_action.get("method"),
                     **session,
@@ -1106,6 +1302,14 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Non
     summary = report_math(records, args.repeats)
     summary["shared_harness"] = shared_report_math(records, args.repeats)
     metadata = _run_metadata(tasks)
+    tools_dir = getattr(args, "hobby_tools_dir", None)
+    if tools_dir is None:
+        tools_dir = Path(getattr(args, "hobby_home", DEFAULT_HOME)) / "data"
+    metadata.update({
+        "hobby_helper_source": getattr(args, "hobby_helper_source", "hobby_home"),
+        "hobby_tools_dir": str(tools_dir),
+        "hands_serve_timeout_flag": serve_timeout_supported(args.hands_bin),
+    })
     timer_records = [
         record for record in records if record.get("kind") == "timer"
     ]
@@ -1135,13 +1339,9 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Non
     return 0
 
 
-def _muselet_run(args, tasks, run_root):
+def _muselet_run(args, tasks, run_root, helper):
     if sys.platform != "darwin":
         raise RuntimeError("Muselet replay requires macOS desktop access and Accessibility permission")
-    from bench.hobbylm.calendar_safety import BENCH_CALENDAR
-    sys.path.insert(0, str(args.hobby_home / "hobby"))
-    import hobbymac_run as helper
-    helper.TEST_CAL = BENCH_CALENDAR
 
     run_root.mkdir(parents=True, exist_ok=True)
     brain_log = (run_root / "brain.log").open("w", encoding="utf-8")
@@ -1499,7 +1699,7 @@ def main(argv=None):
     parser.add_argument("--proxy-port", type=int, default=8790)
     parser.add_argument("--hands-bin", default="hands")
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--hobby-home", type=Path, default=Path(__import__("os").environ.get("HOBBY_HOME", DEFAULT_HOME)))
+    parser.add_argument("--hobby-home", type=Path, default=None)
     parser.add_argument("--model", choices=("trained", "untrained"), default="trained")
     parser.add_argument("--external-brain", action="store_true",
                         help="Use an already-running Brain server; wire timing remains available through the proxy.")
@@ -1507,6 +1707,15 @@ def main(argv=None):
                         help="Create Muselet Bench only in an existing local Calendar source.")
     parser.add_argument("--timeout", type=float, default=120.0)
     args = parser.parse_args(argv)
+    if args.hobby_home is None and os.environ.get("HOBBY_HOME"):
+        args.hobby_home = Path(os.environ["HOBBY_HOME"])
+    if args.hobby_home is not None:
+        args.hobby_home = args.hobby_home.expanduser().resolve()
+    if args.system == "hobbylm":
+        if args.hobby_home is None:
+            parser.error("--system hobbylm requires --hobby-home or HOBBY_HOME")
+        if not args.hobby_home.is_dir():
+            parser.error(f"HobbyLM home does not exist: {args.hobby_home}")
     tasks = load_tasks(args.hobby_home, args.round)
     if args.ids:
         allowed = set(args.ids.split(","))
@@ -1523,12 +1732,16 @@ def main(argv=None):
         return 0
 
     if args.system == "muselet":
+        if sys.platform != "darwin":
+            parser.error("Muselet replay requires macOS desktop access and Accessibility permission")
         try:
+            helper, _hobby_dir, _work_dir = resolve_muselet_helper(args)
             return _muselet_run(
                 args, tasks,
                 Path("runs/bench/hobbylm/muselet") / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"),
+                helper,
             )
-        except RuntimeError as exc:
+        except (OSError, RuntimeError) as exc:
             parser.error(str(exc))
 
     if args.system == "hobbylm-published":

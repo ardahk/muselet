@@ -21,6 +21,19 @@ show the planned probe without invoking it.
 `upstream/PROVENANCE.md` records the vendored HobbyLM revision, Apache-2.0 license,
 source links, and hashes. The frozen r1–r4 inputs are included unchanged.
 
+Muselet replay uses `--hobby-home` or `HOBBY_HOME` when provided. Otherwise it
+imports the provenance-verified vendored helper and compiles its Swift tools
+into a source-hash cache under `runs/bench/hobbylm/tools/`. Run metadata records
+`hobby_helper_source` (`hobby_home` or `vendored`) and `hobby_tools_dir`.
+HobbyLM-native mode still requires a real checkout.
+
+Muselet replay uses an explicitly supplied `--hobby-home`/`HOBBY_HOME` when
+present. Otherwise it imports the provenance-verified vendored helper and
+compiles its Swift tools into a source-hash cache under
+`runs/bench/hobbylm/tools/`. `results.json` and `manifest.json` record
+`hobby_helper_source` (`hobby_home` or `vendored`) and `hobby_tools_dir`.
+HobbyLM-native mode still requires a real upstream checkout.
+
 ## Plan and replay
 
 ```sh
@@ -96,3 +109,9 @@ replies are always `false`.
 
 Run artifacts are written under `runs/bench/hobbylm/`. Do not use a personal
 Calendar or run these desktop trials while another user is operating the Mac.
+
+Muselet replay uses the vendored upstream HobbyLM helper and compiles its Swift
+tools into `runs/bench/hobbylm/tools/<12-character source hash>/` when no
+`--hobby-home`/`HOBBY_HOME` is supplied. Run metadata records
+`hobby_helper_source` (`hobby_home` or `vendored`) and `hobby_tools_dir`.
+Rows marked `harness_timeout` must be rerun before claiming a score.

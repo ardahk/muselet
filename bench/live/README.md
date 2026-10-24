@@ -73,10 +73,18 @@ uv run --project ml python bench/live/run_live.py \
 
 `pass^3` is reported only for cases with all three repetitions executed and
 strictly passing. Add `--offline` to skip rows marked online. Use
-`--include-manual` and `--include-pending` only when their fixture or feature is
-available. Rows marked `requires_user_ok` remain skipped unless
-`--allow-user-ok` is also supplied. `--dry-run` shows the resolved templates,
-filters, and lifecycle order without starting HandsKit or contacting Brain.
+`--include-manual` when its fixture or feature is available. `--include-pending`
+adds pending cases as report-only skipped rows; the dry run labels these
+`report`, and they receive no session probe, setup, or utterance.
+`--run-pending` is the opt-in that executes pending cases through the normal
+guarded path. Both options report pending results in a separate section.
+Cases marked `requires_user_ok` also need `--allow-user-ok` to execute.
+Without either pending option, pending cases remain filtered. `--dry-run`
+shows the resolved templates, filters, and lifecycle order without starting
+HandsKit or contacting Brain.
+Finance/advisor setup commands run from the repository root and are first
+checked with `--dry-run`; unverifiable plans and plans that would overwrite
+differing files are skipped without setup or teardown.
 `{{sandbox}}` resolves to `~/MuseletSandbox`; date templates use unpadded
 `YYYY-M-D`, and `{{next_friday_ymd}}` means the strictly future Friday (seven
 days ahead when the current day is Friday).
@@ -112,3 +120,6 @@ unless EventKit proves `Muselet Bench` is in a local source and is the default
 for new events. `--setup-bench-calendar` creates it only in an existing local
 source. `--no-safety-guard` disables these protections and labels the run
 unsafe; use it only in a deliberately disposable benchmark environment.
+
+Rows marked `harness_timeout` indicate that the harness could not release the
+HandsKit slot; rerun them before claiming a score.

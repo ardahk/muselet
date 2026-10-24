@@ -13,6 +13,7 @@ The case's own close steps are never sent; only tracked created items are closed
 Re-run skipped cases before claiming a complete benchmark score. Terminal apps
 are deliberately excluded from the document-app registry, so terminal-driven
 changes remain a residual risk and must be reviewed separately.
+Rows marked `harness_timeout` must be rerun before claiming a score.
 
 Pins: DeskMind Bench `888035da50299f5523a5b55844a2114c4b8c6c3d` (suite diag-v27, hash 5eec62a0c662),
 DeskMind Hands `89be730acdbdd50a77bb6ac44583e190c719a14a`, DeskMind Brain `dadf97d01512f6384ca8bfd90a77cc88ae1a2f43`,
@@ -98,6 +99,13 @@ uv run --project ml python bench/hobbylm/replay.py --system muselet --round r4 -
 uv run --project ml python bench/live/run_live.py --suite evals/live_t1.jsonl --brain-url ws://127.0.0.1:8765 \
   --proxy-port 8790 --hands-bin "$HANDS_BIN" --tier T1 --tier T2 --repeat 3
 ```
+`--include-pending` reports pending cases as skipped without a session probe or
+any setup or utterance. Use `--run-pending` to execute them through the full
+guarded path; cases marked `requires_user_ok` also require `--allow-user-ok`.
+For example, inspect the pending T2 cases with
+`uv run --project ml python bench/live/run_live.py --dry-run --tier T2 --include-pending`,
+or preview execution with
+`uv run --project ml python bench/live/run_live.py --dry-run --tier T2 --run-pending --allow-user-ok`.
 Stop the brain afterwards.
 
 ## 6. DeskMind diag-v27 (zh-Hans for every system)
