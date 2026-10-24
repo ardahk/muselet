@@ -1,5 +1,5 @@
-# architect digest - pass 8 (self-poll, 2026-10-24T07:07Z)
-Reviewed: main c2d2988, wip/local d5d2d7d, cloud/data-pipeline 8f0b9bc, cloud/finance 529e9ff, cloud/finance-2 f4ae461, cloud/fixtures-docs 4bf2291, cloud/bench 911a384, cloud/advisor 9432c30, cloud/advisor-2 ec98013, cloud/pitch 454a563, cloud/brain-2 9f41c11, cloud/grounding 42310cd.
+# architect digest - pass 9 (2026-10-24T07:30Z)
+Reviewed: main c2d2988, wip/local 8874962, cloud/data-pipeline 8f0b9bc, cloud/finance 529e9ff, cloud/finance-2 f4ae461, cloud/fixtures-docs 4bf2291, cloud/bench 911a384, cloud/advisor 9432c30, cloud/advisor-2 ec98013, cloud/pitch 454a563, cloud/brain-2 9f41c11, cloud/grounding 42310cd. wip/local 8874962 matches main c2d2988 except two cloud builder briefs; no new findings.
 main now has the System-2 planner (17a2755): script continues the batch, expect is verified on every action, click is refused without a screenshot. cloud/grounding converts norm1000 to global points (grounder.py:5,69). cloud/bench adds a shared live harness.
 
 ## Open P0/P1 (ranked)
