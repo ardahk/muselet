@@ -1,10 +1,10 @@
 {
-  "pass": 15,
-  "ts": "2026-10-24T09:25:00Z",
+  "pass": 16,
+  "ts": "2026-10-24T09:40:00Z",
   "last_reviewed": {
-    "main": "2920225",
-    "wip/local": "3e03686",
-    "cloud/data-pipeline": "5371185",
+    "main": "28dc259",
+    "wip/local": "e1701a3",
+    "cloud/data-pipeline": "80cb13f",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
@@ -18,7 +18,9 @@
     "cloud/advisor-3": "ca93147",
     "cloud/finance-3": "31be399",
     "cloud/decisions": "3a865a0",
-    "cloud/pitch-2": "3303678"
+    "cloud/pitch-2": "3303678",
+    "cloud/brain-4": "3aca368",
+    "cloud/hobby-gaps": "14ff59b"
   },
-  "notes": "pass 15: wip 3e03686 matches main 2920225 for lane files. data-pipeline (base cf01983) and decisions (base 1ce501b) have no lane edits since their merge-bases; their large diffs against main come only from the older base. pitch-2 has no lane edits."
+  "notes": "pass 16: main 28dc259 has no lane change (planner bench holdout). wip matches main. brain-4 (relative volume rel_delta, history formats, harness_reject replan): no UX defect found; it keeps 'Volume up/down'. hobby-gaps: ux-16, ux-17. data-pipeline: no lane edits since merge-base."
 }
