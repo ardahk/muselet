@@ -1,8 +1,8 @@
-# ux digest — pass 44
+# ux digest — pass 45
 
-Heads: main ebdd639 / wip eb1d232 (briefs only), ui-polish e8bceef, w9-safety 2a7d0df, memory 5cd44e6.
+Heads: main 806b0d4 / wip 6b1006e (no lane changes), memory-lt f0ea345, hands-clock 26d4427, planner-verify c9de7aa, ui-polish e8bceef, w9-safety 2a7d0df, memory 5cd44e6.
 
-Counts: 0 P0, 0 P1, 12 P2. Two new: ux-25, ux-26.
+Counts: 0 P0, 0 P1, 13 P2. New this pass: ux-27 (memory-lt: 'what do you remember' dumps raw 'Memory: fact name = Arda' rows, up to about 40 words, into the bubble).
 Open P2, ranked:
 - ux-14: a declined or timed-out confirm leaves the mascot thinking (orchestrator.py)
 - ux-25 (ui-polish): the poke hint says 'click my mic below' before the 1 s dwell has shown the pill (MascotController.swift)
@@ -15,3 +15,4 @@ Highest-leverage next moves:
 1. ui-polish before merge: on poke, show the pill immediately (ux-25), and fix the confused status copy (ux-26) (~0.3 h)
 2. ux-14: ui('idle') after 'Okay, cancelled', and reset the mood in onConfirmCancel (~0.25 h)
 3. ux-24: narrow the '[' and backslash blocks before merging w9-safety (~0.5 h)
+4. ux-27: add a <=12-word memory bubble renderer before memory-lt merges (~0.3 h)
