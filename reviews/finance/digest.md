@@ -1,5 +1,5 @@
-# finance digest (Pass 35, 2026-10-24T19:12Z; no lane code changes since pass 13; it2 router routes finance/advisor 100% on val)
-Open P0/P1: finance-26 (P1): live suite skips t2-finance-dupes and t2-advisor-prep by default (stale "pending" markers), so the 2026-10-24 live run has no finance/advisor evidence.
+# finance digest (Pass 36, 2026-10-24T19:27Z; no lane code changes since pass 13; it2 router routes finance/advisor 100% on val)
+Open P0/P1: none. finance-26 now P2: live checks verify the sheet colors and the Notes brief, but both cases are still marked pending, so a default run skips them.
 
 Open P2: finance-27 (planner v2 Numbers golds use per-cell loops, cell clicks and tell application "Numbers", against rule 8), finance-23 (advisor doc-by-path; now degrades to 'skipped Numbers'), finance-25 (4 s Numbers table poll on cold open), finance-24 (merchant prefix over-match), finance-15 (single filers / 401k-HSA-checking as taxable), finance-17 (numbers written as words pass the phrasing filter).
 
