@@ -1,7 +1,7 @@
-# decisions — digest (pass 15)
+# decisions — digest (pass 16)
 
-Heads: main d7c192f (default router it2, tau .65), data-pipeline 0ce9ea6 (it2 untied export, evalcheck v2 incl. evals/external), cloud/decisions 6d395df unchanged, wip/local 367d450 (no lane diff).
-Resolved: decisions-20 (default it2 has 0 live_t1 overlaps; route_v1 via clean_both).
+Heads: main fbd5aa0 (AGENTS.md competitor-bench router policy), data-pipeline 735686f (it2 external overlaps per id), pitch-4 6393857 (claims §1b disclosures, unmerged), cloud/decisions 6d395df unchanged, wip/local 2f26223 (no lane diff).
+decisions-21 fix is on cloud/pitch-4 (verified DeskMind hits are CJK normalizer artifacts); resolves on merge.
 
 ## Open P0/P1
 1. decisions-21 P0 Routers trained on near-duplicates of DeskMind and HobbyLM sealed requests — pitch/claims.md:25-28
@@ -14,7 +14,7 @@ Resolved: decisions-20 (default it2 has 0 live_t1 overlaps; route_v1 via clean_b
 8. decisions-5 P1 Before/after must use one backend/precision — cloud/builder_decisions.md
 
 ## Highest-leverage next moves
-- Default to it2b (0 external overlaps) or clean-subset scoring before HobbyLM/DeskMind live runs (decisions-21).
-- Update claims.md route row to the shipped router, with gating stated (decisions-13).
+- Merge pitch-4; run HobbyLM r4 / DeskMind diag with it2 only (decisions-21).
+- claims.md:13 still quotes r2 .864 'top-1': switch to it2 and state ungated vs tau .65 (decisions-13).
 - Label-first sampling per family before the full decisions run (decisions-17); rebase cloud/decisions (decisions-12).
 - Rerun DeskMind brain-4b typed-decisions with normalization before quoting .658 (decisions-11).
