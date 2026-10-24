@@ -135,6 +135,15 @@ def test_polarity_overrides_conflicting_model_args(tmp_path):
     assert _skill_rpcs(o.server) == [("mute", {"on": True})]
 
 
+def test_bare_not_does_not_negate_unmute_command(tmp_path):
+    text = "the sound's not working, unmute it"
+    o, _ = _orch(tmp_path, {text: ("mute", 0.95)},
+                 {("mute", text): {"on": True}})
+    run(o.handle_utterance(text))
+    assert _skill_rpcs(o.server) == [("mute", {"on": False})]
+    assert o._slot is None
+
+
 @pytest.mark.parametrize("text,skill,args,want_name,want_args", [
     ("turn it down a little", "change_volume", {}, "change_volume",
      {"delta": -10}),
@@ -506,6 +515,16 @@ def test_duration_recovery_sends_integer_seconds(tmp_path, text, raw, want):
     run(o.handle_utterance(text))
     assert _skill_rpcs(o.server) == [
         ("start_timer", {"duration": want})]
+
+
+def test_execute_actions_coerces_planner_duration_to_integer_seconds(tmp_path):
+    o, _ = _orch(tmp_path, {})
+    outcome = run(o.execute_actions([
+        {"op": "skill", "name": "start_timer", "args": {"duration": "600"}}
+    ]))
+    assert outcome == "ok"
+    assert _skill_rpcs(o.server) == [
+        ("start_timer", {"duration": 600})]
 
 
 def test_unitless_duration_asks_for_unit_then_fills(tmp_path):

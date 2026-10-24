@@ -52,10 +52,10 @@ def _hits(text: str, patterns: list[tuple[str, bool]]) -> list[tuple[int, int, b
 
 def _negated(text: str, start: int) -> bool:
     before = text[:start].split()[-3:]
-    return any(token in {"don't", "dont", "never", "not"}
+    return any(token in {"don't", "dont", "never"}
                for token in before) or \
         any(" ".join(before[i:i + 2]) == "do not"
-            for i in range(max(0, len(before) - 1), len(before)))
+            for i in range(max(0, len(before) - 1)))
 
 
 _SOUND = r"(?:sound|audio|volume|speakers?)"
@@ -124,16 +124,16 @@ def finder_view(text: str) -> str | None:
 
 def recover_duration(value, utterance: str) -> int | None | str:
     """Recover seconds from a model's unitless number using the utterance."""
-    from . import decision
+    from .durations import parse_duration
     from . import calc
 
-    parsed = decision.parse_duration(str(value))
+    parsed = parse_duration(str(value))
     if parsed is not None:
         return parsed
     normalized = calc.normalize(str(value))[0]
     if not re.fullmatch(r"\d+(?:\.\d+)?", normalized):
         return None
-    parsed = decision.parse_duration(utterance)
+    parsed = parse_duration(utterance)
     return parsed if parsed is not None else "ask"
 
 
