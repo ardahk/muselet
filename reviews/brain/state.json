@@ -48,7 +48,7 @@
   "cloud/pitch-4": "6393857",
   "cloud/planner-demos": "39f563f",
   "cloud/planner-demos-handoff": "e5e9903",
-  "cloud/planner-lora": "ceafe3d",
+  "cloud/planner-lora": "79f0a97",
   "cloud/planner-retrieval": "7df32b1",
   "cloud/planner-retrieval-handoff": "f728b79",
   "cloud/planner-think": "3677348",
@@ -66,9 +66,9 @@
   "cloud/ui-polish": "e8bceef",
   "cloud/w9-safety": "6aa332a",
   "devin/1792872486-data-route-handoff": "e6b8a71",
-  "main": "46b97f5",
+  "main": "18c139f",
   "wip/local": "719907a"
  },
- "pass": 49,
- "ts": "2026-10-24T23:27:00Z"
+ "pass": 50,
+ "ts": "2026-10-24T23:47:00Z"
 }

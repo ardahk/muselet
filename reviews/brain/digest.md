@@ -1,9 +1,8 @@
-# brain lane digest — pass 49 (2026-10-24T23:27:00Z)
+# brain lane digest — pass 50 (2026-10-24T23:47:00Z)
 
-Open: P0 0 / P1 9 / P2 10. Only cloud/decisions moved (c88b613: training/decisions docs/snapshot, no lane files). main 46b97f5, wip/local 719907a unchanged.
+Open: P0 0 / P1 8 / P2 8. main 18c139f merged safety-brain12/18/38/27, planner-think (default off), planner-lora, live-cases; brain-12/18/38 resolved. Suite on main: 17 failed / 1840 passed / 108 skipped (all failures need real MLX: 8 historical + 8 planner_think + 1 brain18 plan test). wip/local 719907a unchanged.
 
 ## Open P0/P1 (ranked)
-- brain-38 [P1] Deterministic message parser hijacks non-messaging commands and other-channel requests — `ml/src/brain/comms.py` (cloud/comms-2@c65ee70; fix verified on cloud/safety-brain38@54ca8f6)
 - brain-16 [P1] abs_level misreads times, durations, percentages and unrelated words — `ml/src/brain/orchestrator.py` (main@fb2cfd0@003d1bb)
 - brain-17 [P1] Compound check runs serial route passes before speculative reuse — `ml/src/brain/orchestrator.py` (main@fb2cfd0@003d1bb)
 - brain-35 [P1] Permission-prompt gate checks the pre-batch observation; a prompt raised mid-batch receives the next keys/type — `ml/src/brain/orchestrator.py` (main@dae4b26@?)
@@ -14,8 +13,8 @@ Open: P0 0 / P1 9 / P2 10. Only cloud/decisions moved (c88b613: training/decisio
 - brain-43 [P1] Unverified planner DONE accepted whenever the model verifier errors — `ml/src/brain/orchestrator.py` (cloud/planner-verify@d22b9a9)
 
 ## Highest-leverage next moves
-1. Merge cloud/safety-brain38 (brain-38 P1), safety-brain12 (brain-12) and safety-brain18 (brain-18): each branch's repros pass; the only extra failures are MLX stand-in tests.
-2. memory-lt (brain-42): default to an in-memory long-term store, or give each HobbyLM/live case a fresh MUSELET_MEMORY_DB and WorkingMemory.
-3. planner-verify (brain-43): a verifier exception must give 'unverified', not accept a bare DONE.
-4. brain-41 + brain-40: re-run ARGS on the final transcript for free-text skills, with a larger decode budget.
+1. memory-lt (brain-42): default to an in-memory long-term store, or give each HobbyLM/live case a fresh MUSELET_MEMORY_DB and WorkingMemory.
+2. planner-verify (brain-43): a verifier exception must give 'unverified', not accept a bare DONE.
+3. brain-41 + brain-40: re-run ARGS on the final transcript for free-text skills, with a larger decode budget.
+4. brain-27: confirm a grounded click whose target text names send/paper plane even without composer context.
 5. brain-9 (brain-44): only take a browser name from an 'in/with/using <browser>' or 'open <browser>' phrase, not from the search query.
