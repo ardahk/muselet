@@ -11,7 +11,9 @@ import XCTest
 
 final class MockPoster: EventPosting {
     var posted: [String] = []
+    var typed: [String] = []
     func post(_ combo: KeyCombo) { posted.append(Combo.describe(combo)) }
+    func typeText(_ text: String) { typed.append(text) }
 }
 
 final class MockApps: AppControlling {
@@ -62,6 +64,11 @@ final class VolumeSpy: ScriptRunning {
         if source.contains("get volume settings") && source.contains("output muted") { return state }
         if source.hasPrefix("output volume of") { return "40" }
         return ""
+    }
+    /// The volume handlers read the state back (what macOS reports).
+    func call(_ script: SkillScript, _ handler: String, _ args: [Any]) throws -> String {
+        ran.append("\(script.name).\(handler)(\(args.map { "\($0)" }.joined(separator: ",")))")
+        return script.name == "volume" ? state : ""
     }
 }
 
@@ -620,7 +627,7 @@ final class ReadBackTests: XCTestCase {
         XCTAssertEqual((m["result"] as? [String: Any])?["level"] as? Int, 35)
         spy.state = "50,false"
         let c = skills(spy).execute(name: "change_volume", args: ["delta": 10])
-        XCTAssertTrue(spy.ran.contains("set volume output volume 50"))
+        XCTAssertTrue(spy.ran.contains("volume.set_level(50)"), "\(spy.ran)")
         XCTAssertEqual((c["result"] as? [String: Any])?["level"] as? Int, 50)
     }
 
@@ -645,6 +652,9 @@ final class ReadBackTests: XCTestCase {
     func testDarkModeReadBack() {
         final class DarkSpy: ScriptRunning {
             func run(_ s: String) throws -> String { s.hasSuffix("get dark mode") ? "true" : "" }
+            func call(_ script: SkillScript, _ handler: String, _ args: [Any]) throws -> String {
+                handler == "set_dark" ? "true" : ""
+            }
         }
         let s = Skills(catalog: catalog(), scripts: DarkSpy(), events: MockPoster(),
                        apps: MockApps(), hooks: .inert)

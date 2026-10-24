@@ -13,6 +13,18 @@ with short text (<= 12 words) in a speech bubble. Demo covers macOS system tasks
 spreadsheet finance (Numbers / Google Sheets), Premiere Pro, plus 1-2 "wow" moments.
 Hackathon deadline: Cal Hacks submission Sun Oct 25 2026, 09:00 PDT. Tinker budget: $150 hard cap.
 
+## Standing decisions from the user (Sat Oct 24)
+- Before declaring any model/config "better" (router, planner, grounder, quantization), tune the tweakable knobs
+  of EACH option fairly first (prompt/format, decoding, thresholds, cache use, quantization, image size/zoom, LR/epochs)
+  and compare tuned vs tuned, with the numbers and settings recorded.
+- Reviewed PRs that pass tests may be merged by the lead without asking.
+- Tinker: iterate beyond the $60 phase budget when results fall short (diagnose why, research, retry), but stay
+  within the $150 hard cap.
+- Model choices (planner, grounder, router incl. the trained one): ship a recommended default but keep every
+  alternative selectable by flag/config; never delete an option until the user has reviewed it.
+- Demo setup scripts (finance + advisor) are approved to run; HUD style = glass; Dock auto-hide is off for the demo.
+- Nothing destructive, nothing outside this project; commit to GitHub often so any step can be reverted.
+
 ## Repo layout
 - `app/`    Swift package: menu-bar app (voice, mascot, ghost cursor overlay) + `HandsKit` (AX observe/act, native skills, screenshots)
 - `ml/`     Python (uv, 3.12): `brain` (orchestrator, model runtime, router, planner, grounder), data, training, evals

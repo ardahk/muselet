@@ -207,6 +207,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Permissions.request(k) { self?.permissionWatcher.watch(for: 60) }
             self?.permissionWatcher.watch(for: 60)
         }
+        a.requestAutomation = { [weak self] t in
+            guard let self else { return }
+            let current = self.model.automation[t.bundleId]
+            self.model.log(.system, current == .denied
+                           ? "Automation \(t.name) denied: opening System Settings"
+                           : "asking Automation consent for \(t.name)")
+            AutomationPermissions.request(t, current: current) { [weak self] status in
+                guard let self else { return }
+                if let status { self.model.log(.system, "Automation \(t.name): \(status)") }
+                self.permissionWatcher.refreshAutomation()
+                self.permissionWatcher.watch(for: 60)
+            }
+        }
         a.reconnect = { [weak self] in self?.brain.reconnectNow() }
         a.resetMascot = { [weak self] in self?.mascot.resetPosition() }
         a.panelVisible = { [weak self] visible in

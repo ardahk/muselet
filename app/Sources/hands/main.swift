@@ -49,10 +49,26 @@ struct OcrCmd: ParsableCommand {
 /// Read-only state probes (never change anything).
 struct ProbeCmd: ParsableCommand {
     static var configuration = CommandConfiguration(
-        commandName: "probe", abstract: "Read-only probes: bluetooth | volume | brightness | symbols | skill-targets")
-    @Argument(help: "bluetooth | volume | brightness | symbols | skill-targets") var what: String
+        commandName: "probe",
+        abstract: "Read-only probes: bluetooth | volume | brightness | symbols | skill-targets | applescript | automation | control-center")
+    @Argument(help: "bluetooth | volume | brightness | symbols | skill-targets | applescript | automation | control-center")
+    var what: String
+    @Flag(help: "applescript: time the old per-argument compile path instead")
+    var legacy = false
+    @Flag(help: "control-center: open the panel to find the Bluetooth switch (never pressed; closed again)")
+    var open = false
     func run() throws {
         switch what {
+        case "applescript":
+            printJSON(legacy ? AppleScriptProbe.legacy() : AppleScriptProbe.handlers())
+        case "automation":
+            // Status for THIS process (the terminal), never prompts.
+            var d: [String: Any] = [:]
+            for (t, s) in Automation.statuses() { d[t.name] = "\(s)" }
+            printJSON(d)
+        case "control-center":
+            Permissions.requireAX()
+            printJSON(ControlCenterProbe.locate(named: "Bluetooth", open: open))
         case "skill-targets":
             // Ghost-cursor targets for skills (Dock icons, menu extras), read over AX.
             let t = SkillTargets()
@@ -128,7 +144,7 @@ struct ObserveCmd: ParsableCommand {
             func stats(_ obs: Observation) -> String {
                 let web = obs.elements.filter { $0.inWebArea }.count
                 var line = "t_ms=\(Int(Date().timeIntervalSince(t0) * 1000)) ax_ms=\(obs.axMs.rounded(to: 1))"
-                    + " nodes=\(obs.elements.count) web_nodes=\(web)"
+                    + " nodes=\(obs.elements.count) web_nodes=\(web) window_source=\(obs.windowSource)"
                     + (obs.truncated ? " truncated" : "") + (obs.webAXPending ? " web_ax_pending" : "")
                 if let m = obs.webAX, let last = h.lastWebAX {
                     line += " web_ax=\(m) manual_err=\(last.result.manualError.map(String.init) ?? "-")"
@@ -343,15 +359,33 @@ struct BenchObserveCmd: ParsableCommand {
 }
 
 struct ServeCmd: ParsableCommand {
-    static var configuration = CommandConfiguration(commandName: "serve")
+    static var configuration = CommandConfiguration(
+        commandName: "serve",
+        abstract: "Headless brain client. With --utterance: send each one, exit after the last outcome.",
+        discussion: """
+            With --utterance the next utterance (or the exit) follows the current one's outcome \
+            (final ui mood success/confused/idle/sleeping, or a say) once no RPC has been pending \
+            for 1.5 s. Exit 0 = done, 1 = a turn was cut off by a brain disconnect, 2 = --timeout. \
+            A one-line JSON summary is printed on exit. Without --utterance it serves forever.
+            """)
     @Option(help: "Brain WebSocket URL") var url = "ws://127.0.0.1:8765"
     @Option(help: "Utterance to send after connecting (repeatable)")
     var utterance: [String] = []
+    @Option(help: "Hard cap in seconds when --utterance is given (exit 2); 0 = no cap")
+    var timeout: Double = 90
+
+    func validate() throws {
+        do { _ = try ServeSession.Config.make(utterances: utterance, timeout: timeout) }
+        catch { throw ValidationError("\(error)") }
+        guard URL(string: url) != nil else { throw ValidationError("bad url") }
+    }
+
     func run() throws {
         Permissions.requireAX()
         guard let u = URL(string: url) else { throw ValidationError("bad url") }
+        let config = try ServeSession.Config.make(utterances: utterance, timeout: timeout)
         WebAX.watchActivations()
-        let client = BrainClient(url: u, utterances: utterance)
+        let client = BrainClient(url: u, config: config)
         client.run()
     }
 }

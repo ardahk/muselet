@@ -816,9 +816,12 @@ public final class Skills {
             throw HandsError.skillFailed("no frontmost app")
         }
         let appEl = AXUIElementCreateApplication(app.processIdentifier)
-        var w: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(appEl, kAXFocusedWindowAttribute as CFString, &w) == .success,
-              let win = w else { throw HandsError.skillFailed("no focused window") }
+        // Focused, else main, else frontmost AXWindows entry (an app that
+        // isn't active has no focused window although its window is up).
+        guard let picked = Hands.pickWindow(app: AXNode(appEl))?.window as? AXNode else {
+            throw HandsError.skillFailed("no window")
+        }
+        let win: CFTypeRef = picked.el
         guard let screen = NSScreen.main else {
             throw HandsError.skillFailed("no screen")
         }

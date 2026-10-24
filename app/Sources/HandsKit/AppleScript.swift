@@ -254,3 +254,93 @@ public final class AppleScriptRunner: ScriptRunning {
         precompile(SkillScripts.all.map(\.source) + SkillScripts.fixedSources)
     }
 }
+
+// MARK: - Probe (hands probe applescript)
+
+/// Timings for the skill AppleScript path, read-only: nothing is created.
+/// The Notes check is `count notes`, run only when Notes is already running
+/// and this process already has Automation consent for it (never prompts).
+public enum AppleScriptProbe {
+    static func ms(_ t0: Date) -> Double { (Date().timeIntervalSince(t0) * 1000).rounded(to: 1) }
+
+    static func notesCheckAllowed() -> (Bool, String) {
+        let t = Automation.targets[0]
+        let st = Automation.status(of: t)
+        return (st == .granted, "Notes automation for this process: \(st)")
+    }
+
+    /// New path, as in the app: warm-up compiles every skill script (none
+    /// runs), then handler calls only execute.
+    public static func handlers() -> [String: Any] {
+        let r = AppleScriptRunner()
+        var d: [String: Any] = ["path": "handlers (compiled once)"]
+        let t0 = Date()
+        let comp = r.precompile(SkillScripts.all.map(\.source) + SkillScripts.fixedSources)
+        d["warmup_compile_ms"] = ms(t0)
+        var per: [String: Double] = [:]
+        for (i, c) in comp.enumerated() {
+            let name = i < SkillScripts.all.count ? SkillScripts.all[i].name : "fixed\(i - SkillScripts.all.count + 1)"
+            per[name] = c.ms.rounded(to: 1)
+        }
+        d["warmup_compile_per_script_ms"] = per
+        d["compiles_after_warmup"] = r.compileCount
+        // new_note path: two calls with different args reuse the one compile.
+        let before = r.compileCount
+        let (allowed, why) = notesCheckAllowed()
+        d["notes_check"] = why
+        if allowed {
+            for i in 1...2 {
+                let t = Date()
+                let out = (try? r.call(SkillScripts.notes, "note_count", [])) ?? "error"
+                d["notes_call_\(i)_ms"] = ms(t)
+                d["notes_call_\(i)_result_is_number"] = Int(out) != nil
+            }
+        }
+        for i in 1...2 {
+            let t = Date()
+            _ = try? r.call(SkillScripts.volume, "volume_state", [])
+            d["volume_call_\(i)_ms"] = ms(t)
+        }
+        d["compiles_during_calls"] = r.compileCount - before
+        return d
+    }
+
+    /// Old path: argument text spliced into source, so every new argument
+    /// compiled a new script (the compile is timed; nothing is executed
+    /// for new_note), plus the same harmless reads through `run`.
+    public static func legacy() -> [String: Any] {
+        func asqLegacy(_ s: String) -> String {
+            s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+        }
+        func noteSource(_ title: String, _ body: String) -> String {
+            """
+            tell application "Notes"
+                make new note at folder "Notes" with properties {name:"\(asqLegacy(title))", body:"<h1>\(asqLegacy(title))</h1><br>\(asqLegacy(body))"}
+            end tell
+            """
+        }
+        let r = AppleScriptRunner()
+        var d: [String: Any] = ["path": "legacy (source per argument)"]
+        for (i, args) in [("Groceries", "milk, eggs"), ("Ideas", "a new app")].enumerated() {
+            let t = Date()
+            _ = r.precompile([noteSource(args.0, args.1)])
+            d["new_note_compile_\(i + 1)_ms"] = ms(t)
+        }
+        let (allowed, why) = notesCheckAllowed()
+        d["notes_check"] = why
+        if allowed {
+            for i in 1...2 {
+                let t = Date()
+                _ = try? r.run("tell application \"Notes\" to return (count notes) as text")
+                d["notes_run_\(i)_ms"] = ms(t)
+            }
+        }
+        for i in 1...2 {
+            let t = Date()
+            _ = try? r.run("output volume of (get volume settings)")
+            d["volume_run_\(i)_ms"] = ms(t)
+        }
+        d["compiles"] = r.compileCount
+        return d
+    }
+}

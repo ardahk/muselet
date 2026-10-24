@@ -24,7 +24,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 from devin_cloud import load_env  # noqa: E402
 
 TINKER = str(ROOT / "ml/.venv/bin/tinker")
-PHASE_CAP, HARD_CAP, HARD_WARN = 60.0, 150.0, 135.0
+PHASE_CAP, HARD_CAP, HARD_WARN = 120.0, 150.0, 140.0
 
 
 def tinker(env: dict, *args: str) -> dict:

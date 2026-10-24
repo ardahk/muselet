@@ -115,17 +115,18 @@ public enum Walker {
            !ident.isEmpty, !ident.hasPrefix("_NS:"), !ident.hasPrefix("_") {
             return ident
         }
-        // A static-text child (title, description or value) wins over an
-        // image child's title/description (<= 6 kids). Rows/cells also look
-        // one level into an AXCell/AXGroup child: sidebar rows (Open panel,
-        // Finder) are row > cell > {image, text "Downloads"}.
+        // A static-text (or text-field: Finder list names) child's title,
+        // description or value wins over an image child's title/description
+        // (<= 6 kids). Rows/cells also look one level into an AXCell/AXGroup
+        // child: sidebar rows (Open panel, Finder) are row > cell > {image,
+        // text "Downloads"}.
         func nonEmpty(_ s: String?) -> String? { (s?.isEmpty ?? true) ? nil : s }
         var imageLabel: String?
         func scan(_ kids: [Element], depth: Int) -> String? {
             for child in kids.prefix(6) {
                 let ca = child.copyAttrs()
                 switch ca.role {
-                case "AXStaticText":
+                case "AXStaticText", "AXTextField":
                     if let t = nonEmpty(ca.title) ?? nonEmpty(ca.desc)
                         ?? nonEmpty(ca.value as? String) { return String(t.prefix(80)) }
                 case "AXImage":

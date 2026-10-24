@@ -24,9 +24,9 @@ while true; do
   echo "$(date +%T) tinker $spend" | cut -c1-200
   if [ "$level" -ge 2 ] && [ "$level" -gt "$(cat "$guard_state" 2>/dev/null || echo 0)" ]; then
     if [ "$level" -eq 3 ]; then
-      text="SPEND GUARD (automatic, from the lead's machine): Tinker month-to-date spend is near the \$150 hard cap: $spend. Stop all Tinker training and sampling now, save checkpoints, and report. Do not start anything new without lead approval."
+      text="SPEND GUARD (automatic, from the lead's machine): Tinker month-to-date spend is at \$140 of the \$150 hard cap: $spend. Stop all Tinker training and sampling now, save checkpoints, and report. Do not start anything new without lead approval."
     else
-      text="SPEND GUARD (automatic, from the lead's machine): Tinker month-to-date spend reached the \$60 Phase 1 cap: $spend. Finish or checkpoint the current step, do not start any new Tinker job, and report spend and status for lead approval."
+      text="SPEND GUARD (automatic, from the lead's machine): Tinker month-to-date spend reached \$120 of the \$150 hard cap: $spend. Finish or checkpoint the current step, do not start any new Tinker job, and report spend and status for lead approval."
     fi
     python3 tools/devin_cloud.py msg "$TRAINING_SESSION" --text "$text" >/dev/null && echo "$level" > "$guard_state" && echo "$(date +%T) spend guard level $level sent"
   fi

@@ -61,13 +61,15 @@ public enum TextTarget {
                              deadline: Date = Date().addingTimeInterval(0.3)) -> Check {
         let focused = axElement(app.copySingleAttr(kAXFocusedUIElementAttribute as String))
         let fa = focused?.copyAttrs()
+        if let f = focused, let a = fa, acceptsText(f, a, bundleId: bundleId) {
+            // Hot path: no window lookup.
+            return Check(ok: true, via: "focused",
+                         observed: "app \"\(appName)\" focused \(describe(a))", focusTarget: nil)
+        }
         let win = Hands.pickWindow(app: app)?.window
         let winTitle = win.map { Hands.windowTitle($0) }
         var observed = "app \"\(appName)\" window " + (winTitle.map { "\"\(String($0.prefix(40)))\"" } ?? "none")
         observed += " focused " + (fa.map(describe) ?? "none")
-        if let f = focused, let a = fa, acceptsText(f, a, bundleId: bundleId) {
-            return Check(ok: true, via: "focused", observed: observed, focusTarget: nil)
-        }
         let neutral = fa.map { neutralRoles.contains($0.role ?? "") } ?? true
         if windowFallback, neutral, let w = win, let area = largestTextArea(in: w, deadline: deadline) {
             return Check(ok: true, via: "window_textarea", observed: observed, focusTarget: area)
