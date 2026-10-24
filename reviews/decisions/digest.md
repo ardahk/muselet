@@ -1,4 +1,6 @@
-# decisions — digest (pass 11)
+# decisions — digest (pass 12)
+
+Pass 12: data-pipeline 0c1ca3d extends the evalcheck gate to evals/external (OK); wip/local 0db1681 moves GenericMLXDecider MLX work onto one worker thread (render path unchanged, decide() routes via decide_many; OK). No new findings.
 
 Heads: main d502b78 (hobby-gaps merged, route_v1_clean, serve_brain r2), cloud/decisions 6d395df (amendment 3, mini-check), data-pipeline 19737e1 (evalcheck hard gate, pre-flight $ abort), wip/local c7c04ce (no lane diff vs main).
 Resolved this pass: decisions-18 (r2 re-export + tau .45), -19 (budget $57 with authored costs), -10 (pre-flight estimate + abort).

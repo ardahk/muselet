@@ -69,3 +69,8 @@
 {"id": "decisions-12", "pass": 11, "ts": "2026-10-24T11:15:00Z", "status": "open", "branch": "cloud/decisions", "sha": "6d395df", "evidence": "6d395df still not descended from 758a017/26ff05b/d502b78."}
 {"id": "decisions-13", "pass": 11, "ts": "2026-10-24T11:15:00Z", "status": "open", "branch": "main", "sha": "d502b78", "evidence": "claims.md:13 unchanged; see decisions-20 for the case set."}
 {"id": "decisions-14", "pass": 11, "ts": "2026-10-24T11:15:00Z", "status": "open", "branch": "main", "sha": "d502b78", "evidence": "claims.md:17 unchanged; live_t1 now also partly in training data (decisions-20)."}
+{"id": "decisions-20", "pass": 12, "ts": "2026-10-24T11:25:00Z", "status": "open", "branch": "main", "sha": "d502b78", "evidence": "Re-checked: claims.md:13,17@d502b78 unchanged; data-pipeline 0c1ca3d adds evals/external to the evalcheck gate and drops 9 it2b route-train items (it2b_filter.json), which protects future runs, not the shipped main-final/r2."}
+{"id": "decisions-17", "pass": 12, "ts": "2026-10-24T11:25:00Z", "status": "open", "branch": "cloud/decisions", "sha": "6d395df", "evidence": "cloud/decisions unchanged since pass 11."}
+{"id": "decisions-12", "pass": 12, "ts": "2026-10-24T11:25:00Z", "status": "open", "branch": "cloud/decisions", "sha": "6d395df", "evidence": "Unchanged; not rebased."}
+{"id": "decisions-13", "pass": 12, "ts": "2026-10-24T11:25:00Z", "status": "open", "branch": "main", "sha": "d502b78", "evidence": "Unchanged."}
+{"id": "decisions-14", "pass": 12, "ts": "2026-10-24T11:25:00Z", "status": "open", "branch": "main", "sha": "d502b78", "evidence": "Unchanged."}
