@@ -25,6 +25,7 @@ from bench.harness.documents import (
     document_apps_for_case,
     foreign_items,
     is_broad_close,
+    is_document_close,
     quit_target,
     take_inventory,
     unclosable_items,
@@ -653,6 +654,12 @@ async def run_case(
                 result["teardown_observations"].append({
                     "step": step,
                     "skipped": "broad close forbidden",
+                })
+                continue
+            if is_document_close(script):
+                result["teardown_observations"].append({
+                    "step": step,
+                    "skipped": "case close delegated to tracked cleanup",
                 })
                 continue
             target = quit_target(script)

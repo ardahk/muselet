@@ -385,6 +385,10 @@ def created_items(baseline: dict, *later: dict) -> dict:
 def unclosable_items(created: dict) -> list[dict]:
     items = []
     for bundle_id, row in created.items():
+        has_created_window_id = any(
+            isinstance(window, dict) and window.get("id") is not None
+            for window in row.get("windows", [])
+        )
         for window in row.get("windows", []):
             if not isinstance(window, dict) or window.get("id") is None:
                 items.append({"bundle_id": bundle_id, "type": "window", "item": window})
@@ -393,9 +397,11 @@ def unclosable_items(created: dict) -> list[dict]:
                 not isinstance(document, dict)
                 or document.get("name") is None
                 or document.get("path") is None
-            ):
+            ) and not has_created_window_id:
                 items.append({"bundle_id": bundle_id, "type": "document", "item": document})
         for item in row.get("unidentified", []):
+            if has_created_window_id and item.get("type") == "document":
+                continue
             items.append({"bundle_id": bundle_id, **item})
     return items
 
@@ -425,7 +431,7 @@ def close_created_script(created: dict) -> str | None:
 for (const bundleId of Object.keys(created)) {{
   const app = Application(bundleId);
   for (const windowInfo of created[bundleId].windows) {{
-    try {{ app.windows.byId(windowInfo.id).close(); }} catch (error) {{}}
+    try {{ app.windows.byId(windowInfo.id).close({{saving: "no"}}); }} catch (error) {{}}
   }}
   for (const documentInfo of created[bundleId].documents) {{
     try {{
@@ -439,6 +445,10 @@ for (const bundleId of Object.keys(created)) {{
 
 _CLOSE_TARGET = re.compile(
     r"\bclose\s+(?:\(\s*)?(?:(?:every|front)\s+)?(?:documents?|windows?)\b",
+    re.IGNORECASE,
+)
+_DOCUMENT_CLOSE_TARGET = re.compile(
+    r"\bclose\s+(?:\(\s*)?(?:(?:every|front|first|last|the)\s+)?(?:documents?|windows?)\b",
     re.IGNORECASE,
 )
 _FILTERED_CLOSE = re.compile(r"\bwhose\s+(?:path|url|id|name)\b", re.IGNORECASE)
@@ -462,6 +472,20 @@ def is_broad_close(script: str) -> bool:
         if re.search(r"(?:\.close\s*\(|\bclose\s*\()", scope, re.IGNORECASE):
             return True
     return False
+
+
+_JXA_DOCUMENT_CLOSE = re.compile(
+    r"\.\s*(?:documents|windows)\b[\s\S]*?(?:\.\s*close\s*\(|\bclose\s*\()"
+    r"|\b(?:document|window)\s*\.\s*close\s*\(",
+    re.IGNORECASE,
+)
+
+
+def is_document_close(script: str) -> bool:
+    return bool(
+        _DOCUMENT_CLOSE_TARGET.search(script)
+        or _JXA_DOCUMENT_CLOSE.search(script)
+    )
 
 
 _QUIT_TARGET_PATTERNS = (

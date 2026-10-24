@@ -9,6 +9,7 @@ restore writes. Teardown only closes items captured as created by the case and
 never runs broad window/document closes. Re-run skipped cases before claiming
 a complete score. Terminal apps are deliberately excluded from the registry,
 so terminal-driven changes remain a residual risk.
+The case's own close steps are never sent; only tracked created items are closed.
 
 The live runner executes `evals/live_t1.jsonl` against a macOS desktop. It
 starts a local WebSocket proxy and launches `hands serve` clients as needed;

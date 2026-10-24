@@ -20,6 +20,7 @@ from bench.harness.documents import (
     quit_target,
     osascript_run_script,
     take_inventory,
+    unclosable_items,
 )
 
 
@@ -571,13 +572,18 @@ def test_deskmind_generic_window_cleanup_requires_captured_ids(monkeypatch, tmp_
 
 def test_live_suite_never_dispatches_broad_teardown_to_runtime(tmp_path):
     from bench.live.run_live import _load_suite
+    from bench.harness.documents import is_document_close
 
     class LiveSuiteRuntime(SafetyRuntime):
         async def run_script(self, language, code, *, allow_inflight=False):
-            self.calls.append(("script", language, code, allow_inflight))
             if " is running" in code:
+                self.calls.append(("script", language, code, allow_inflight))
                 return {"output": "false"}
-            return {"output": self.predicate_output}
+            return await super().run_script(
+                language,
+                code,
+                allow_inflight=allow_inflight,
+            )
 
         async def start_utterance(self, utterance):
             self.calls.append(("utterance", utterance))
@@ -605,14 +611,17 @@ def test_live_suite_never_dispatches_broad_teardown_to_runtime(tmp_path):
     async def scenario():
         suite = Path(__file__).resolve().parents[2] / "evals/live_t1.jsonl"
         cases = _load_suite(suite)
-        broad_teardowns = [
+        document_teardowns = [
             script
             for case in cases
             for step in case.get("teardown", [])
             for language in ("applescript", "shell", "jxa")
-            if (script := step.get(language)) and is_broad_close(str(script))
+            if (script := step.get(language)) and is_document_close(str(script))
         ]
-        assert broad_teardowns
+        assert document_teardowns
+        assert {"app-open-textedit", "t2-textedit-write"} <= {
+            case["id"] for case in cases
+        }
         trace_path = tmp_path / "live-suite-traces.jsonl"
         for case in cases:
             runtime = LiveSuiteRuntime([
@@ -632,7 +641,7 @@ def test_live_suite_never_dispatches_broad_teardown_to_runtime(tmp_path):
                 call[2] for call in runtime.calls
                 if call[0] == "script"
             ]
-            assert all(not is_broad_close(script) for script in sent_scripts), case["id"]
+            assert all(not is_document_close(script) for script in sent_scripts), case["id"]
             assert runtime.calls[-1] == ("stop",), case["id"]
 
     asyncio.run(scenario())
@@ -840,7 +849,7 @@ def test_created_items_and_close_script_only_target_new_window_ids_and_document_
     assert "11" in script and "12" in script
     assert "Untitled" in script and "Untitled 2" in script
     assert "one.rtf" in script and "two.rtf" in script
-    assert "close()" in script
+    assert 'app.windows.byId(windowInfo.id).close({saving: "no"})' in script
     assert is_broad_close(script) is False
 
 
@@ -899,3 +908,111 @@ def test_close_script_returns_none_when_no_created_item_can_be_targeted():
         },
     }
     assert close_created_script(created) is None
+
+
+def test_tracked_created_window_close_suppresses_save_sheet():
+    created = {
+        "com.apple.TextEdit": {
+            "windows": [{"id": 11, "name": "Untitled"}],
+            "documents": [],
+            "unidentified": [],
+        },
+    }
+
+    script = close_created_script(created)
+
+    assert 'app.windows.byId(windowInfo.id).close({saving: "no"})' in script
+
+
+def test_pathless_created_document_is_closable_through_its_created_window():
+    app_id = "com.apple.TextEdit"
+    baseline = {app_id: _inventory_row(running=False)}
+    with_window = {
+        app_id: _inventory_row(
+            windows=[{"id": 11, "name": "Untitled"}],
+            documents=[{"name": "Untitled", "path": None}],
+        ),
+    }
+
+    created_with_window = created_items(baseline, with_window)
+    close_script = close_created_script(created_with_window)
+
+    assert close_script is not None
+    assert "11" in close_script
+    assert not unclosable_items(created_with_window)
+
+    without_window = {
+        app_id: _inventory_row(
+            documents=[{"name": "Untitled", "path": None}],
+        ),
+    }
+    created_without_window = created_items(baseline, without_window)
+    assert any(
+        item["bundle_id"] == app_id and item["type"] == "document"
+        for item in unclosable_items(created_without_window)
+    )
+
+
+def test_filtered_case_document_close_is_delegated_to_tracked_cleanup(tmp_path):
+    async def scenario():
+        close_step = {
+            "applescript": (
+                'tell application "TextEdit" to close '
+                '(every document whose name is "Untitled") saving no'
+            ),
+        }
+        runtime = SafetyRuntime([
+            _all_apps_inventory(),
+            _all_apps_inventory(),
+            _all_apps_inventory(),
+        ])
+        result = await _run_safety_case(
+            {
+                "id": "filtered-document-close",
+                "category": "system",
+                "utterance": "set volume to thirty",
+                "timeout_s": 0.001,
+                "teardown": [close_step],
+            },
+            runtime,
+            tmp_path / "filtered-document-close.jsonl",
+        )
+
+        assert close_step not in [
+            call[2] for call in runtime.calls if call[0] == "script"
+        ]
+        assert any(
+            observation.get("step") == close_step
+            and observation.get("skipped")
+            == "case close delegated to tracked cleanup"
+            for observation in result["teardown_observations"]
+        )
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    ("script", "expected"),
+    [
+        ('tell application "TextEdit" to close document 1', True),
+        ('tell application "TextEdit" to close (every document whose name is "Untitled")', True),
+        ('tell application "TextEdit" to close front window', True),
+        ('tell application "TextEdit" to close every window', True),
+        (
+            'Application("TextEdit").documents.whose({name: "Untitled"})()'
+            '.forEach(document => document.close())',
+            True,
+        ),
+        ('Application("TextEdit").windows.byId(11).close()', True),
+        ('tell application "TextEdit" to quit', False),
+        ('tell application "System Events" to set volume output volume 50', False),
+        ('tell application "System Events" to close access fileRef', False),
+        ('exec 3>&-', False),
+    ],
+)
+def test_document_close_detector_classifies_document_and_window_targets(script, expected):
+    from bench.harness import documents
+
+    detector = getattr(documents, "is_document_close", None)
+    assert callable(detector)
+    assert detector(script) is expected

@@ -9,6 +9,7 @@ an inventory that cannot be trusted is skipped as
 `user_documents_unverifiable`. Skipped cases do not receive setup or an
 utterance. Teardown closes only case-created windows/documents identified by
 captured window IDs or document name/path; broad close commands are forbidden.
+The case's own close steps are never sent; only tracked created items are closed.
 Re-run skipped cases before claiming a complete benchmark score. Terminal apps
 are deliberately excluded from the document-app registry, so terminal-driven
 changes remain a residual risk and must be reviewed separately.
