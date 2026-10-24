@@ -1,15 +1,17 @@
 {
-  "pass": 37,
-  "ts": "2026-10-24T16:40:00Z",
+  "pass": 38,
+  "ts": "2026-10-24T16:55:00Z",
   "last_reviewed": {
-    "main": "c949565",
-    "wip/local": "4ec066f",
+    "main": "e56582b",
+    "wip/local": "e14fa54",
     "cloud/app-ui": "afb2688",
     "cloud/brain-7": "13432fe",
+    "cloud/comms": "956d4ac",
     "cloud/native-research": "fa88c22",
     "cloud/report": "dffa733",
-    "cloud/data-pipeline": "6c1e565",
-    "cloud/decisions": "184c80f",
+    "cloud/report-2": "3c25e78",
+    "cloud/data-pipeline": "f8b721a",
+    "cloud/decisions": "43abfa3",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
     "cloud/finance-3": "31be399",
@@ -31,5 +33,5 @@
     "cloud/grounding": "3441ee8",
     "cloud/grounder-wire": "afb12a6"
   },
-  "next_id": 24
+  "next_id": 25
 }
