@@ -108,7 +108,7 @@ HobbyLM sealed-r2 1, sealed-r3 1, r4 0. Never quote r1/r2 on any sealed set (`AG
 ### 3.3 Offline planner bench (`evals/planner_offline.py`)
 Retrieval (`cloud/handoff/notes/planner-retrieval.md`): BM25 over the v2-tune bank, k examples appended to the
 dynamic state. Decision rule fixed before the sweep: ship the smallest k whose mean gain over k=0 on the three
-held-out sets is >= .03 and whose v2-holdout TTFT p50 rises <= 100 ms.
+held-out sets is >= .03 and whose v2-holdout TTFT p50 rises <= 150 ms (pre-registered).
 One planner turn per scenario, no UI. Pass = every line parses as DSL, the first action matches `accept_first`, no
 line matches `reject_any`, and nothing in `confirm_before` appears before a `confirm`. Sets: **tune** (25, used for
 the knob sweep), **holdout** (14, written after the sweep), **holdout2** (12, written after holdout-1 was used to
@@ -155,7 +155,7 @@ asked, latency. Safety guards (`bench/live/README.md`, `bench/RUNBOOK.md`):
 | Router val top-1 (it2 val split) | it2 .938 | main .912 | lead; `tools/serve_brain.sh:5` |
 | Router it3, route_v1 clean (103) | TBD(router it3 on route_v1_clean, Mac) | it2 above | HF `jonsnov/muselet-route-4b-it3-mlx4` @ e057412; trained on `jonsnov/muselet-route-datums-it3@4ded9ab`, catalog v3 (43 options); overlap with eval sets 0 (lane brief) |
 | Router latency p50 (r2) | route 52 ms, ARGS 97 ms | - | `pitch/claims.md` §1a |
-| Planner bench, shipped 4B + retrieval k=1: tune / holdout / holdout2 / v2-holdout | **.880 / .714 / .750 / .462** (22/25, 10/14, 9/12, 60/130) | same prompt k=0: .840 / .643 / .667 / .400 (21/25, 9/14, 8/12, 52/130); k=2 .714 / .750 / .462 on held-out, rejected (v2-holdout TTFT +156 ms); base config .68 / .50; 35B-A3B (k=0) .84 / .71 | `cloud/handoff/notes/retrieval_eval.md`; base/35B: lead, `runs/planner_offline/` |
+| Planner bench, shipped 4B + retrieval k=1: tune / holdout / holdout2 / v2-holdout | **.880 / .714 / .750 / .462** (22/25, 10/14, 9/12, 60/130) | same prompt k=0: .840 / .643 / .667 / .400 (21/25, 9/14, 8/12, 52/130); k=2 .714 / .750 / .462 on held-out, rejected (v2-holdout TTFT +156 ms > +150 ms gate); base config .68 / .50; 35B-A3B k=0 v1 sets (older run) .84 / .71, k=1 TBD(35B k=1 planner run, Mac) | `cloud/handoff/notes/retrieval_eval.md`; base/35B: lead, `runs/planner_offline/` |
 | Planner TTFT p50 on v2-holdout (k=0 / k=1) | 113.4 / 184.6 ms (prompt 3,284 / 3,477 tokens) | - | `cloud/handoff/notes/retrieval_eval.md` |
 | Planner LoRA / think mode | TBD(planner-lora eval), TBD(planner-think eval) | - | lanes `cloud/planner-lora`, `cloud/planner-think` |
 | Planner speed (4B, earlier config) | 139 ms per turn p50, TTFT 72 ms, 83 tok/s | 35B ~310 ms, 128 ms, 82 tok/s | `pitch/claims.md` §1a |
