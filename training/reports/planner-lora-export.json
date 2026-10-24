@@ -1,0 +1,68 @@
+{
+  "tinker_path": "tinker://dfe17cb7-857c-5e26-adee-461b78ec52eb:train:0/sampler_weights/planner-lora-v1-0072",
+  "step": 72,
+  "base_model": "Qwen/Qwen3.5-4B",
+  "base_model_revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+  "paths": {
+    "adapter": "/home/ubuntu/data/planner_lora/export/0072/adapter",
+    "hf": "/home/ubuntu/data/planner_lora/export/0072/hf",
+    "mlx4": "/home/ubuntu/data/planner_lora/export/0072/mlx4"
+  },
+  "checks": {
+    "untie": {
+      "ok": true,
+      "input_embeddings_restored_from_base": true,
+      "trained_lm_head_written": true,
+      "tie_word_embeddings_false": true
+    },
+    "hf": {
+      "tie_word_embeddings_false": true,
+      "root_tie_word_embeddings": false,
+      "text_config_tie_word_embeddings": false,
+      "lm_head_present": true,
+      "lm_head_keys": [
+        "lm_head.weight"
+      ]
+    },
+    "mlx4": {
+      "tie_word_embeddings_false": true,
+      "root_tie_word_embeddings": false,
+      "text_config_tie_word_embeddings": false,
+      "lm_head_present": true,
+      "lm_head_keys": [
+        "language_model.lm_head.weight"
+      ]
+    },
+    "input_embeddings_equal_base": {
+      "ok": true,
+      "base_key": "model.language_model.embed_tokens.weight",
+      "mlx_key": "language_model.model.embed_tokens.weight",
+      "method": "dequantized",
+      "quantization": {
+        "group_size": 64,
+        "bits": 4,
+        "mode": "affine"
+      },
+      "max_abs_error": 0.0133056640625,
+      "tolerance": 0.05,
+      "elements": 635699200,
+      "torch": "2.14.1+cu130"
+    },
+    "tokenizer_files": [
+      "tokenizer.json",
+      "tokenizer_config.json",
+      "chat_template.jinja",
+      "vocab.json",
+      "merges.txt"
+    ]
+  },
+  "smoke_outputs": {
+    "status": "skipped",
+    "reason": "MLX CPU decode on Linux too slow; lead verifies on Mac"
+  },
+  "hf_smoke": {
+    "status": "skipped",
+    "reason": "4B PyTorch CPU greedy comparison is optional and may be slow"
+  },
+  "hf_revision": "35a2ea331919c82114ebfda7b76dbfba663bbc58"
+}

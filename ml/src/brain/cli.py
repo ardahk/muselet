@@ -62,6 +62,10 @@ def planner_opts(args) -> dict:
     if args.planner_retrieval_k > 0:
         opts["retrieval_k"] = args.planner_retrieval_k
         opts["retrieval_bank"] = args.planner_retrieval_bank
+    if args.planner_think > 0:
+        opts["think_budget"] = args.planner_think
+        opts["think_on"] = args.planner_think_on
+        opts["think_sampler"] = args.planner_think_sampler
     if opts["constrain"] is None:      # Planner's PLANNER_CONSTRAIN_DEFAULT
         del opts["constrain"]
     return opts
@@ -117,6 +121,9 @@ async def serve(port: int = 8765, model: str | None = None,
     orch.planner = planner
     orch.memory_enabled = memory_enabled
     orch.memory_llm = memory_llm
+    esc = {**ESCALATE_OPTS, **{k: v for k, v in (planner_kw or {}).items()
+                               if k.startswith("think_")}}
+    orch.escalate_opts = esc
     orch.escalate_model = escalate_model or \
         "mlx-community/Qwen3.6-35B-A3B-4bit"
     if grounder is not None:
@@ -131,7 +138,7 @@ async def serve(port: int = 8765, model: str | None = None,
     server.on_hello = on_hello
     if planner and escalate_model:    # loaded now, kept resident
         orch.planner_escalate = make_planner(
-            escalate_model, engine, ESCALATE_OPTS, tag="planner-escalate")
+            escalate_model, engine, esc, tag="planner-escalate")
 
     async def on_utt(text: str, final: bool, ctx: dict | None = None):
         print(f"[utterance] {text} ctx={ctx}", flush=True)
@@ -317,6 +324,10 @@ def build_parser(argv=None):
     s.add_argument("--planner-retrieval-bank", default="v2-tune",
                    metavar="v2-tune|hf[:REPO[:FILE]][@REV]|PATH",
                    help="HF bank defaults to bank.jsonl.gz; append @REV to pin a dataset revision")
+    s.add_argument("--planner-think", type=int, default=0,
+                   help="think-token budget before the action batch; 0 = off")
+    s.add_argument("--planner-think-on", choices=("all", "retry"), default="all")
+    s.add_argument("--planner-think-sampler", choices=("greedy", "qwen"), default="greedy")
     s.add_argument("--grounder-model", default="eyes-4b", metavar="NAME[=PATH]|none",
                    help="grounder adapter for `click \"<target>\"` (brain.grounder.ADAPTERS, e.g. "
                         "eyes-4b, ui-venus-1.5-8b; name=path for local weights); loaded on first use")

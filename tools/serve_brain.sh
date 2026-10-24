@@ -10,12 +10,14 @@
 #   retrieval = 1 BM25-retrieved solved example from the v2-tune bank (RETRIEVAL_K=0|1|2): mean holdout pass .570 -> .642
 #             (k=0 / k=1, v1-ho, v1-ho2, v2-ho), TTFT +44..72 ms; k=2 same gain but fails the +150 ms TTFT gate
 #             (pre-registered rule; cloud/handoff/notes/retrieval_eval.md)
+#   think   = planner thinking budget THINK=N tokens (default 0 = off until the Mac matrix passes the ship rule;
+#             evals/planner_think_report.py); THINK_ON=all|retry, THINK_SAMPLER=greedy|qwen; ESCALATE inherits it
 #   it3     = ROUTER=it3 (models/route-4b-it3-mlx4 = jonsnov/muselet-route-4b-it3-mlx4 @ e057412), opt-in only: routes over
 #             catalog v3 (training/artifacts/catalog_v3.json, 43 options) via MUSELET_ROUTE_CATALOG
 #             (router + ARGS only; orchestrator/planner keep skills/catalog.json); tau .65 is a placeholder
 #             until the Mac val fit (evals/router_check.py --router it3 --set val). ROUTER also takes it2|r2|r1|base.
 #   ESCALATE=1 adds Qwen3.6-35B-A3B as the escalation planner (~19 GB resident; off by default)
-# Usage: tools/serve_brain.sh [extra brain serve flags]   (PORT, ROUTER, ARGS_MODEL, PLANNER, TAU, RETRIEVAL_K, ESCALATE, MEMORY, MEMORY_LLM env)
+# Usage: PORT=... ROUTER=... ARGS_MODEL=... PLANNER=... TAU=... RETRIEVAL_K=... THINK=... THINK_ON=... THINK_SAMPLER=... ESCALATE=... MEMORY=... MEMORY_LLM=... tools/serve_brain.sh [extra brain serve flags]
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 BASE=mlx-community/Qwen3.5-4B-4bit
@@ -35,7 +37,9 @@ case "$ROUTER" in
   *)     TAU=${TAU:-0.20}; ARGS_MODEL=${ARGS_MODEL:-$BASE} ;;
 esac
 args=(--port "${PORT:-8765}" --model "$ROUTER" --tau "$TAU" --args-model "$ARGS_MODEL"
-      --planner-model "${PLANNER:-$BASE}" --planner-retrieval-k "${RETRIEVAL_K:-1}")
+      --planner-model "${PLANNER:-$BASE}" --planner-retrieval-k "${RETRIEVAL_K:-1}"
+      --planner-think "${THINK:-0}" --planner-think-on "${THINK_ON:-all}"
+      --planner-think-sampler "${THINK_SAMPLER:-greedy}")
 if [ "${ESCALATE:-0}" = "1" ]; then args+=(--planner-escalate-model mlx-community/Qwen3.6-35B-A3B-4bit); fi
 if [ "${MEMORY:-1}" = "0" ]; then args+=(--no-memory); fi
 if [ "${MEMORY_LLM:-1}" = "0" ]; then args+=(--no-memory-llm); fi

@@ -371,6 +371,65 @@ def test_email_request_remains_on_email_channel(tmp_path):
     assert o.server.skills()[0]["name"] == "compose_email"
 
 
+@pytest.mark.parametrize("text", [
+    "send a message to John on Slack", "send whatsapp message to ali saying hi",
+    "send a message to John on Teams saying hi", "text John via Discord saying hi",
+    "send a message to John via email saying hi",
+    "tell Finder to empty the trash", "tell Spotify to play jazz",
+    "text size bigger please", "note buy milk",
+])
+def test_brain38_bypasses_contacts_and_reaches_router(tmp_path, text):
+    o = make_orch(tmp_path, [contact("John", "+15551234567")])
+    o.engine = FakeEngine()
+    routed = []
+
+    async def route(text, trace):
+        routed.append(text)
+        return "routed"
+
+    o._engine_route = route
+    assert run(o.handle_utterance(text))["outcome"] == "routed"
+    assert routed == [text]
+    assert o.server.methods() == []
+
+
+@pytest.mark.parametrize("text", [
+    "text John saying hi", "send a message to John saying hi",
+    "send a message to John on Messages saying hi",
+])
+def test_brain38_native_messages_keep_contacts_first(tmp_path, text):
+    o = make_orch(tmp_path, [contact("John", "+15551234567")])
+    o.engine = FakeEngine()
+    assert run(o.handle_utterance(text))["outcome"] == "ok"
+    assert o.engine.route_calls == []
+    assert o.server.methods() == [
+        "messages_people", "contacts_search", "messages_compose", "messages_send"]
+    assert o.server.rpcs[2][1]["body"] == "hi"
+    assert len(o.server.confirms) == 1
+
+
+@pytest.mark.parametrize("pending", [None, "slot", "comms"])
+def test_brain38_foreign_channel_never_composes_from_shared_entry(tmp_path, pending):
+    text = "send a message to John on Slack saying hi"
+    o = make_orch(tmp_path, [contact("John", "+15551234567")])
+    o.engine = FakeEngine({text.lower(): ("send_message", 0.95)}, {
+        ("send_message", text.lower()): {"to": "John", "body": "hi"}})
+    if pending == "slot":
+        o._slot = {"skill": "open_app", "args": {}, "missing": ["app"], "t": time.time()}
+    elif pending == "comms":
+        o._comms = {"kind": "body", "to": "John", "t": time.time()}
+    planned = []
+
+    async def plan(text, trace):
+        planned.append(text)
+        return "planned"
+
+    o._planner_loop = plan
+    assert run(o.handle_utterance(text))["outcome"] == "planned"
+    assert planned == [text]
+    assert o.server.methods() == []
+
+
 @pytest.mark.parametrize("answer", ["Ardaoke.", "Arda okay."])
 def test_whole_name_fuzzy_disambiguation(tmp_path, answer):
     contacts = [
