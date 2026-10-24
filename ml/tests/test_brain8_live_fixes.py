@@ -288,7 +288,7 @@ def test_absolute_and_tilde_paths_pass_through(tmp_path):
 def test_relative_resolves_under_home_only_when_it_exists(tmp_path):
     (tmp_path / "Projects" / "muselet").mkdir(parents=True)
     assert pathfind.absolute("Projects/missing", home=str(tmp_path)) == \
-        (None, "unresolved")             # case differs: doesn't exist
+        (None, "unresolved")             # doesn't exist
     assert pathfind.absolute("Projects/muselet", home=str(tmp_path)) == \
         (str(tmp_path / "Projects" / "muselet"), "home")
     assert pathfind.absolute("my zork stuff", home=str(tmp_path)) == \
