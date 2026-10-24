@@ -1,4 +1,13 @@
-# brain lane digest — pass 27 (2026-10-24T12:10Z)
+# brain lane digest — pass 28 (2026-10-24T12:25Z)
+
+Pass 28: main fbd5aa0 (AGENTS.md only: competitor benchmarks only with routers whose overlap check is 0 for that set) and
+wip/local 2f26223 (= main); ml/, evals/, prompts/, tools/ unchanged, so every open finding stands as below. cloud/data-pipeline
+735686f: external_affected_it2.json (it2 vs HobbyLM sealed-r4: 0/125 overlap; DeskMind hits are CJK normalizer artifacts;
+outside lane). cloud/pitch-4 6393857: pitch/claims.md only. No new findings.
+Note (no finding yet): 98 DeskMind items are CJK and 0 of 65,697 it2 training rows contain CJK; the brain's deterministic
+parsers (abs_level, argfix polarity, calc) are English regexes, so expect DeskMind CJK tasks to lean on the planner.
+
+## Pass 27 (2026-10-24T12:10Z)
 
 Pass 27: main d7c192f (serve_brain default router it2, tau .65, it2 as its own ARGS; AGENTS.md serving config) and wip/local 367d450
 (= main); no ml/, evals/ or prompts/ changes since 04c3930, so every pass-26 result below stands. cloud/data-pipeline 0ce9ea6:
