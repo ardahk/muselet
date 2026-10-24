@@ -1,7 +1,7 @@
-# hands — digest (pass 11: main 280715d, wip/local 38768f3)
+# hands — digest (pass 12: main 280715d, wip/local 38768f3, cloud/bench 2c57d7f)
 
 Resolved: hands-1 to hands-9 and hands-11 to hands-14. hands-15 superseded.
-Pass 11: main's app/ tree now equals wip/local 64dd1cb (already reviewed). wip/local 38768f3 has no app/ or brain-protocol changes, and cloud/data-pipeline 1d65818 does not touch app/. No new findings.
+Pass 11: main's app/ tree now equals wip/local 64dd1cb (already reviewed). wip/local 38768f3 has no app/ or brain-protocol changes, and cloud/data-pipeline 1d65818 does not touch app/. No new findings. Pass 12: cloud/bench 2c57d7f only merged main into its app/ code (bench safety cases); no new app/ code.
 
 ## Open P0/P1 (ranked)
 None.
