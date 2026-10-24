@@ -1,17 +1,16 @@
-# evals-safety digest, pass 10 (2026-10-24T07:40:54Z)
+# evals-safety digest, pass 11 (2026-10-24T07:55:35Z)
 
 ## Open P0/P1 (ranked)
 No open P0.
-1. evals-safety-11 P1: done is not harness-verified; partial on main 4a74659 (ml/src/brain/orchestrator.py)
-2. evals-safety-6 P1: confirm gaps for non-Apple chat apps' Enter/Send (ml/src/brain/orchestrator.py)
-3. evals-safety-4 P1: 'no' string is truthy, so ctx online renders as yes (ml/src/brain/decision.py:236)
+1. evals-safety-11 P1: done is not harness-verified (only the planner prompt rule plus a fresh-observe heuristic) (ml/src/brain/orchestrator.py)
+2. evals-safety-6 P1: destructive-label gating only covers Messages/Mail/Slack. Web AX on main now feeds page text to the planner (ml/src/brain/orchestrator.py)
 
-Open P2: -8, -12, -17, -20 (grounding first-N), -21 (mem_guard kills :8766 = Premiere bridge port), -22 (script test covers the dead weak policy; `open (POSIX file` paren bypass).
-Resolved this pass: -2 (script bypasses fixed on main), -14 (mute), -16 (HobbyLM frozen data tracked; 31/31 SHA-256 match PROVENANCE), -19 (HobbyLM scored by the shared strict_pass).
-Checked: main 251 non-MLX brain/finance/advisor tests pass; cloud/bench 50 tests pass; data-pipeline phase1_fixes report decontaminates against 570 external utterances (reported 0 residual matches; the data files aren't in the repo, so I didn't verify that myself). wip 85c73ed drops a bare yes/no after confirm_cancel (good).
+Open P2: -8, -12, -17, -20 (grounding first-N), -21 (mem_guard kills :8766 = Premiere bridge port), -22 (dead weak script policy is the one tested; `open (POSIX file` paren bypass).
+Resolved this pass: -4 (fixed since brain-2 741465c; my pass 9/10 'unchanged' notes were wrong).
+Checked, nothing new in my lane: advisor-3 ca93147 (fixtures unchanged apart from DEMO.md; 126 tests pass). finance-3 31be399 (polls for the opened table; 164 tests pass). brain-3 14a3f52 compound fast path: each clause runs through _run_skill and execute_actions, so per-skill risk=confirm and label gating still apply, and brain-executor skills are excluded. cloud/bench 6e7cd09 now requires --deskmind-python and checks the pinned deskmind-hands commit. data-pipeline 0f3df7f only changes the parity export.
 
 ## Highest-leverage next moves
-- Add a harness-side goal check on done (verify RPC or the task's expect) before success (-11).
-- Delete the dead module-level script_needs_confirm and test the real method with the bypass probes (-22).
-- Normalize ctx online to a bool at the protocol boundary (-4).
-- Move the bench brain off :8766 before Premiere bridge work lands (-21).
+- Add a harness-side goal check on done before success (-11).
+- Extend destructive-label gating beyond Messages/Mail/Slack to the web/Electron chat apps that web AX now exposes (Discord, Teams, WhatsApp, Gmail in Chrome) (-6).
+- Delete the dead script_needs_confirm and test the real method with the bypass probes (-22).
+- Move the bench brain off :8766 (-21); stratify grounding --limit (-20).
