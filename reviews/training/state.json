@@ -1,6 +1,6 @@
 {
-  "pass": 50,
-  "ts": "2026-10-24T23:40:00Z",
+  "pass": 51,
+  "ts": "2026-10-24T23:50:00Z",
   "mode": "pulse",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
@@ -25,7 +25,7 @@
     "cloud/data-pipeline": "830ba35",
     "cloud/data-planner": "ee8ae33",
     "cloud/data-route": "42835ce",
-    "cloud/decisions": "08dae49",
+    "cloud/decisions": "c88b613",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
     "cloud/finance-3": "31be399",
@@ -71,7 +71,7 @@
     "cloud/safety-brain38": "54ca8f6",
     "cloud/safety-planner28": "fb4a45a"
   },
-  "next_id": 52,
+  "next_id": 53,
   "notes_pass39": "main fb2cfd0: evals/live_t1.jsonl changed only precondition/check/teardown/document_apps on 6 cases; all 43 utterances unchanged, so decontam gates and it2/it3cand overlap results stand. No lane findings.",
   "notes_pass43": "planner-retrieval: default retrieval bank is v2-tune (the planner-demos bank); fine for holdout scoring, but scores on v2-tune with retrieval on are leaky.",
   "notes_pass44": "main 3876f3a: HandsKit comms/contacts/windows probe, document-inventory safety, hobbylm replay Path fix (helper.ROOT/WORK) + skip_reason kept. wip/local 3cfa06d: comms parser/orchestrator. comms-2: comms.py parser tweak. None touch training/eval data/catalog/router. training-5 corrected to P2 (spend guard exists since 085b0c8).",
@@ -80,5 +80,6 @@
   "notes_pass47": "router-it3-serve resolves training-44 (opt-in). router_check fits tau only on val (in_it2_train rows dropped, exact only; training-48 stays open). planner-lora: gate covers route_v1/v2, live_t1, HobbyLM, DeskMind, planner holdouts; 7 demos dropped; memory_followups (memory-eval, unmerged) not in gate. main/wip: briefs only. w9-safety/memory: outside lane.",
   "notes_pass48": "main: memory-eval gate merged (training-49 now on main); memory_eval.py scorer, docs. decisions 08dae49: bench route parity test now pytest.skip when sample option count != catalog (weaker gate; samples reset to main's). It is the decisions lane's own renderer, so no new finding. planner-think/verify/memory/memory-lt each edit cli.py + serve_brain.sh, so expect merge conflicts with router-it3-serve's route_catalog()/ROUTER=it3 lines (outside lane, verify after merges).",
   "notes_pass49": "main merged router-it3 (#52) and W9 safety (#46). brain-9 adds hidden 'browser' arg to open_url/web_search in skills/catalog.json. Hidden args are skipped in the ARGS signature (decision.py ~415), and route options use only name+description, so router parity for it2/v2 samples is unaffected; catalog_v3 (it3) has no browser arg, and the orchestrator fills it from skills/catalog.json. training-49 still on main unchanged.",
-  "notes_pass50": "main 46b97f5: harness proxy only. wip/local diff = already-reviewed main merges. brain-9: test only. New safety-* and live-cases branches touch no training/catalog/router files. Open findings re-checked: training-49 still on main; others unchanged."
+  "notes_pass50": "main 46b97f5: harness proxy only. wip/local diff = already-reviewed main merges. brain-9: test only. New safety-* and live-cases branches touch no training/catalog/router files. Open findings re-checked: training-49 still on main; others unchanged.",
+  "notes_pass51": "Only cloud/decisions moved: results.md + calibrated snapshot (training-52)."
 }

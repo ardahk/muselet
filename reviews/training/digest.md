@@ -1,6 +1,6 @@
-# training lane digest — pass 50 (main 46b97f5, wip/local 719907a)
+# training lane digest — pass 51 (main 46b97f5, decisions c88b613)
 
-Open: 0 P0, 14 P1, 16 P2. No lane changes since pass 49; open findings unchanged.
+Open: 0 P0, 14 P1, 17 P2. New: training-52 (P2): the decisions lane picks calibrated vs uncalibrated serving from public benchmark scores.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
