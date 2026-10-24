@@ -1,8 +1,9 @@
-# evals-safety digest — pass 50 (main@a97fcba)
+# evals-safety digest — pass 51 (main@46b97f5)
 
-Open: P0 0, P1 7, P2 11.
+Open: P0 0, P1 8, P2 11.
 
 ## Open P0/P1 (ranked)
+0. **-46 (P1):** new live_t2 cases are missing from every decontam gate; the gates hard-code live_t1. (`cloud/live-cases`)
 1. **-39 (P1):** the finance rules miss BERKELEY BOWL, so Groceries comes out 203.61 vs the key's 298.70 without the model. (`ml/src/brain/finance/categorize.py`)
 2. **-43 (P1):** the decisions trainers have no month-to-date gate. Month-to-date is ~$142 against the $148 stop. (`training/decisions/*.py`)
 3. **-36 (P1):** v2 clobbering accept rules can be retrieved at k=1, and the offline eval runs at k=0. (`evals/planner_scenarios_v2.jsonl`)
@@ -16,3 +17,4 @@ Open: P0 0, P1 7, P2 11.
 2. Port the planner-lora month-to-date guard to the decisions trainers before any approval (-43).
 3. Relabel route_v1 case 87 and re-quote it2 on clean (-42).
 4. Run the planner offline eval at the serving k (-36/-45).
+5. Glob evals/live_t*.jsonl in gate.py, plan_bank.py and build.py before live_t2 is quoted (-46).

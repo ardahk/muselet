@@ -1,9 +1,9 @@
 {
-  "pass": 50,
-  "ts": "2026-10-24T22:55:10Z",
+  "pass": 51,
+  "ts": "2026-10-24T23:11:01Z",
   "last_reviewed": {
-    "main": "a97fcba",
-    "wip/local": "ac41cd2",
+    "main": "46b97f5",
+    "wip/local": "719907a",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -58,13 +58,18 @@
     "cloud/ui-polish": "e8bceef",
     "cloud/docs-demo-2": "fa79929",
     "cloud/hands-clock": "26d4427",
-    "cloud/live-cases": "5c173f6",
+    "cloud/live-cases": "fa9c374",
     "cloud/planner-think": "3677348",
     "cloud/planner-verify": "d22b9a9",
-    "cloud/brain-9": "3f9718b",
+    "cloud/brain-9": "e9e9b42",
     "cloud/safety-bench28": "a0c456e",
-    "cloud/safety-brain27": "ac43219"
+    "cloud/safety-brain27": "ac43219",
+    "cloud/safety-architect27": "4edcba5",
+    "cloud/safety-brain12": "97c5242",
+    "cloud/safety-brain18": "9aa2e4c",
+    "cloud/safety-brain38": "54ca8f6",
+    "cloud/safety-planner28": "fb4a45a"
   },
-  "next_id": 46,
-  "note": "pass 50: W9 merged; -37/-38/-41 resolved on main. wip proxy close is bounded (fine). safety-bench28, brain27 and brain-9 looked at by stat."
+  "next_id": 47,
+  "note": "pass 51: main is only the proxy close; the safety-* fix branches were checked at the stat/commit level; live-cases gate gap -46."
 }
