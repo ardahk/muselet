@@ -1,4 +1,8 @@
-# planner lane — pass 32 (main 5292608, wip a02959b = main in this lane)
+# planner lane — pass 33 (main c949565, wip 4ec066f = main in this lane, decisions e125c13)
+
+Pass 33: no lane changes; main only added briefs, and decisions e125c13 doesn't touch this lane. I re-checked the open findings on main and none has changed: planner-24 L984, planner-26 L289, planner-27 L1516, planner-25 planner.py L334, planner-6. Note for the comms-builder brief: send confirmations for contacts-first messaging and email drafting already go through sendgate.py (planner-lane safety). Keep any new messaging skills behind that gate.
+
+## Pass 32 notes
 
 Pass 32: no lane changes; main only touched AGENTS.md. I re-checked the open findings on main and none has changed: planner-24 L984, planner-26 L289, planner-27 L1516, planner-25 planner.py L334, planner-6.
 
