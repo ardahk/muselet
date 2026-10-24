@@ -1,31 +1,20 @@
-# brain digest — pass 7 (2026-10-24T07:20Z, PULSE 07:07Z)
-Pass 7: wip/local 8874962 changes one line: _script now calls self.script_needs_confirm, the allow-list policy. brain-9 is still open with the same 4 cases. test_orchestrator and test_planner_loop: 23 pass.
+# brain digest — pass 8 (2026-10-24T07:40Z, PULSE 07:23Z)
+Reviewed: cloud/brain-2 741465c (15 suites pass, including test_review_fixes 87; my review tests: 18 pass, the 2 brain-13 worker-level tests fail by design), cloud/grounding 3441ee8 (native-scale zoom capture, 123 pass), cloud/finance-2 dfaf785 (161 pass), cloud/advisor-2 0a65f75. main d8ad966 and wip/local 85ec0df have no ml/ changes; the confirm_cancel frame added to the contract on main is implemented on brain-2 (server sends it on confirm timeout or cancel).
 
-## Pass 6 notes
-Pass 6: only cloud/data-pipeline moved (8f0b9bc, Phase 1 trainer + export + training/scripts/mlx_parity.py). Nothing in ml/ changed. mlx_parity.py prefills the shared prefix once, deep-copies the cache for each row and reads the logits at choice_pos, the same scheme the runtime uses, so its numbers can stand in for runtime parity once a checkpoint exists. No new findings.
+cloud/brain-2 fixes brain-3, -4, -6, -9, -10, -11 and -13. **On main and wip/local they are all still open until brain-2 merges.**
 
-## Pass 5 notes
-Pass 5: main c2d2988 now has the brain-5 fix. cloud/brain-2 9f41c11 (slots, calc, obsdiff, spec ARGS, confirm summaries): 15 suites pass (calc 77, slot_fill 37, confirm_summary 21, planner_loop 23...); it fixes brain-6 and partly fixes brain-13/brain-12. calc.answer probed with 44 utterances: no false positives on commands, arithmetic exact. cloud/grounding 42310cd grounder.py: coordinate math (norm1000 -> resized -> crop -> image px) checked, 114 tests pass, not wired into the orchestrator yet. No new findings.
-
-## Pass 4 notes
-Reviewed: wip/local e0bdc65, main e78f143, cloud/data-pipeline 153a01c, cloud/bench 14c7eb1, cloud/finance-2 f4ae461 (144 tests pass), cloud/advisor-2 ec98013; cloud/pitch has nothing in lane.
-Suites at e0bdc65: catalog 9, dsl 45, orchestrator 9, planner_loop 14, finance 90, advisor 22 pass; route_parity 51 xfail (stale v1 artifact on wip).
-Resolved this pass: brain-5 on wip/local (v2 parity 50/50 vs data-pipeline artifact) — main e78f143 still lacks the fix.
-
-## Open P0/P1 (ranked)
-1. brain-9  P0 Unsafe scripts execute without confirmation — orchestrator.py script_needs_confirm
-2. brain-14 P1 One confirm unlocks every dangerous action in the batch — orchestrator.py:325/400
-3. brain-11 P1 5th action expect dropped; DONE accepted unverified; scripts uncounted — planner.py:246, orchestrator.py:610
-4. brain-13 P1 Speculative partial routes queue ahead of final route — orchestrator.py:257-267
-5. brain-10 P1 Mute polarity inverted ("turn the sound back on" mutes) — orchestrator.py _coerce_args
-6. brain-6  P1 engine.args runs on event loop, racing MLX worker — orchestrator.py:218,637
-7. brain-3  P1 parse_duration wrong on compound/spoken numbers — decision.py
-8. brain-4  P1 parse_datetime silently wrong ("at 3" -> March) — decision.py
-(P2 open: brain-8 last_action quoting, brain-12 pending ASK captures next command)
+## Open P0/P1 on main / wip/local (ranked)
+1. brain-9  P0 Unsafe scripts execute without confirmation (fixed on brain-2)
+2. brain-11 P1 5th expect dropped; DONE accepted unverified (fixed on brain-2)
+3. brain-14 P1 One confirm unlocks a later dangerous action (P2 residual on brain-2)
+4. brain-13 P1 Speculative routes queue ahead of the final route (fixed on brain-2)
+5. brain-10 P1 Mute polarity inverted (fixed on brain-2)
+6. brain-6  P1 engine.args runs on the event loop (fixed on brain-2)
+7. brain-3/brain-4 P1 duration / datetime parsing (fixed on brain-2)
+Open on every branch, P2: brain-14 residual, brain-8 last_action quoting, brain-12 pending ASK capture.
 
 ## Highest-leverage next moves
-- Copy the v2 route_render_samples.jsonl to wip and merge the brain-5 fix to main so the parity gate is live again.
-- brain-9 + brain-14: confirm any script that clicks/presses/runs JS/opens files, and bind each confirm to one action.
-- brain-13: cancel superseded spec routes and strip punctuation in the spec key, or speculation costs latency.
-- brain-11: decode the 5th action's expect; verify DONE via `verify` RPC.
-- brain-10/3/4: polarity-specific mute regex; parse via a number-word parser; ASK on ambiguous dates.
+- Merge cloud/brain-2 into main/wip: it closes the only open P0 and 6 P1s.
+- brain-14: clear the confirm token after any executed action, not just a dangerous one.
+- Copy the v2 route_render_samples.jsonl to main/wip so test_route_parity stops xfailing.
+- brain-8: always quote string args in last_action, to match training.
