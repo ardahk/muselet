@@ -1,9 +1,9 @@
 {
-  "pass": 7,
-  "ts": "2026-10-24T06:49:41Z",
+  "pass": 8,
+  "ts": "2026-10-24T07:07:55Z",
   "last_reviewed": {
     "main": "c2d2988",
-    "wip/local": "e0bdc65",
+    "wip/local": "8874962",
     "cloud/data-pipeline": "8f0b9bc",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -15,6 +15,5 @@
     "cloud/grounding": "42310cd",
     "cloud/brain-2": "9f41c11"
   },
-  "next_id": 21,
-  "mode": "self-poll (lead offline)"
+  "next_id": 21
 }

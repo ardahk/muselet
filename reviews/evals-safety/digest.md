@@ -1,4 +1,4 @@
-# evals-safety digest, pass 7 (self-poll, 2026-10-24T06:49:41Z)
+# evals-safety digest, pass 8 (2026-10-24T07:07:55Z)
 ## Open P0/P1 (ranked)
 1. evals-safety-2 P0: script confirm bypassable via System Events click, Safari do JavaScript/open location, and raw «event» (ml/src/brain/orchestrator.py, now on main)
 2. evals-safety-18 P1: pitch claims confirm/verify guarantees the code does not provide (pitch/claims.md)
@@ -15,6 +15,8 @@ Checked and clean: finance-2 f4ae461 recomputed (totals, categories, dups and du
 New P2: -20, grounding --limit takes the first N samples, so it covers one app (bench/grounding/run_screenspot.py).
 
 Pass 7 checked, no new findings: cloud/brain-2 9f41c11 (calc.py spot-checked on 19 queries, all correct or None; slot-fill execution still goes through execute_actions and its risk confirm; the brief doesn't touch -2/-11/-14). cloud/data-pipeline 8f0b9bc (Phase-1 trainer aborts above --max-usd before the run; pilot val top1 0.88 is an in-distribution synthetic split, not route_v1, so don't quote it as router accuracy).
+
+Pass 8: wip/local 8874962 has the same tree as main c2d2988, which pass 6 reviewed. No other branch moved. Open findings re-checked and unchanged: -2/-4/-11/-14 still present on main c2d2988, -15 on dp 8f0b9bc, -16/-19 on bench 911a384.
 
 ## Highest-leverage next moves
 - Remove System Events from the script read allowlist and block `click|do JavaScript|open location|«event`.
