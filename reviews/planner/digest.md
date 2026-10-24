@@ -1,4 +1,8 @@
-# planner lane — pass 15 (full re-verify against main 2920225)
+# planner lane — pass 16 (main 2920225 = wip 3e03686; cloud/decisions, pitch-2, data-pipeline: nothing changed in this lane)
+
+Pass 16: no new findings. wip/local's tree matches main. cloud/decisions only touches router/decision code and bench, cloud/pitch-2 only docs, and cloud/data-pipeline only data. planner-20 (the repro still fails) and planner-6 are still open.
+
+## Pass 15 notes
 
 I re-checked every finding against main. Planner-2, -3, -4, -5, -7, -8, -9, -10, -11, -12, -13, -14, -15, -16, -17, -18 and -21 are fixed on main and confirmed by code or a passing test. planner-22 was fixed in 2920225. planner-1 and -19 were superseded. No finding is resolved only on a branch.
 Tests: test_planner_loop now runs on Linux with an import stub (see tests/test_planner20_done_reject_streak.py). Results: 77 passed and the 1 planner-20 repro failed.
