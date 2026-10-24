@@ -147,10 +147,15 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
     )
 
     event_allowed = False
+    event_skip_reason = "bench calendar not local default"
     if any(_is_event_case(case) for case in cases):
-        if args.setup_bench_calendar:
-            setup_bench_calendar()
-        event_allowed = is_local_default(probe_bench_calendar())
+        try:
+            if args.setup_bench_calendar:
+                setup_bench_calendar()
+            event_allowed = is_local_default(probe_bench_calendar())
+        except Exception as exc:     # e.g. no Calendar (EventKit) access for this process: event cases skip, rest runs
+            event_skip_reason = f"calendar probe unavailable: {exc}"[:200]
+            print(f"warning: {event_skip_reason}; event cases will be skipped", file=sys.stderr)
     out_dir = args.out or Path("runs/bench/live") / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out_dir = out_dir if out_dir.is_absolute() else ROOT / out_dir
     out_dir.mkdir(parents=True, exist_ok=False)
@@ -190,7 +195,7 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
                             record = base | {
                                 "status": "skipped",
                                 "strict_pass": False,
-                                "skip_reason": "bench calendar not local default",
+                                "skip_reason": event_skip_reason,
                             }
                             all_results.append(record)
                             _write_record(output, record)

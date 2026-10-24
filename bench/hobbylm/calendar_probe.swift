@@ -60,8 +60,8 @@ func describe(_ calendar: EKCalendar?) -> [String: Any] {
     let source = calendar.source
     return [
         "exists": true,
-        "source_type": sourceTypeName(source.sourceType),
-        "source_title": source.title,
+        "source_type": source.map { sourceTypeName($0.sourceType) } ?? NSNull(),
+        "source_title": source?.title ?? NSNull(),
         "is_default_for_new_events": store.defaultCalendarForNewEvents?.calendarIdentifier
             == calendar.calendarIdentifier
     ]
