@@ -1,11 +1,11 @@
 {
-  "pass": 24,
-  "ts": "2026-10-24T11:25:00Z",
+  "pass": 25,
+  "ts": "2026-10-24T11:40:00Z",
   "branches": {
-    "main": "d502b78",
-    "wip/local": "0db1681",
+    "main": "7147694",
+    "wip/local": "5764a0d",
     "cloud/bench": "f584cb2",
-    "cloud/data-pipeline": "0c1ca3d",
+    "cloud/data-pipeline": "9b36081",
     "cloud/decisions": "6d395df",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
@@ -21,7 +21,9 @@
     "cloud/brain-3": "14a3f52",
     "cloud/hobby-gaps": "156556e",
     "cloud/brain-4": "dfb66a3",
-    "cloud/brain-5": "b752261"
+    "cloud/brain-5": "b752261",
+    "cloud/grounder-wire": "afb12a6",
+    "cloud/pitch-3": "e203181"
   },
-  "notes": "pass24: data-pipeline 0c1ca3d adds evals/external to the evalcheck gate (future runs covered; it2b drops 9 route-train rows); main/it2 reports not regenerated -> bench-18 stays open for existing checkpoints. wip/local 0db1681: generic_decide.py moves MLX work onto one worker thread (MLX streams are thread-local); serializes requests, decisions unchanged; last_input_tokens can race under concurrent requests but that was already true and it isn't scored. main/hobby-gaps/decisions unchanged since pass 23; bench-16/20/21 still open on main@d502b78. No new findings."
+  "notes": "pass25: main 7147694: generic_decide MLX worker thread (reviewed on wip/local in pass 24), planner_offline holdout2 (12) + few_shot=None (harness owns system prompt; runtime few-shot reproducible via --system-extra prompts/planner_fewshot.md, same '\\n\\n' join as Planner) -> bench-19 update. grounder-wire afb12a6 (new): click \"<target>\" DSL -> window screenshot -> Grounder.alocate (native zoom) -> to_global(pt, shot) -> act click; pixel->global mapping matches Screenshot.swift; screenshots deleted; offload to MLX worker; run_screenspot path unchanged. test_grounder_wire needs mlx (collection error on this VM). pitch-3: no lane diff. data-pipeline: it2 report marks it2 non-candidate (gate). wip/local: no lane diff vs main. bench-16/20/21 unchanged on main. No new findings."
 }
