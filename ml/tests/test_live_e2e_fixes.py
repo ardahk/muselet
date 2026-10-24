@@ -304,7 +304,7 @@ def test_compound_not_split_search_salt_and_pepper(tmp_path):
     assert "compound" not in _traces(o.tracer)[-1]
 
 
-def test_compound_same_skill_plain_and_stays_one(tmp_path):
+def test_message_parser_precedes_compound_routing(tmp_path):
     text = "text mom I love you and miss you"
     o, srv, eng = _compound_orch(
         tmp_path, {"text mom i love you": ("send_message", 0.9),
@@ -314,9 +314,10 @@ def test_compound_same_skill_plain_and_stays_one(tmp_path):
          {"to": "Mom", "body": "I love you and miss you"}})
     result = run(o.handle_utterance(text))
     assert result["outcome"] == "awaiting_user"
-    assert eng.route_calls[-1] == text
+    assert eng.route_calls == []
     assert not _skill_rpcs(srv)
-    assert srv.methods() == ["contacts_search"]
+    assert srv.methods() == [
+        "messages_people", "contacts_search", "contacts_search"]
 
 
 def test_compound_low_confidence_clause_falls_back(tmp_path):

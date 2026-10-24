@@ -168,16 +168,16 @@ def test_slot_fill_asks_then_executes(tracer):
     })
     o = _orch(tracer, eng, server)
     assert run(o.handle_utterance("text mom"))["outcome"] == "awaiting_user"
-    assert o.server.said[-1] == "What should the message say?"
-    assert o._slot["missing"] == ["body"] and not o.server.skills()
+    assert o.server.said[-1] == "What should the message to Mom say?"
+    assert o._comms["kind"] == "body" and not o.server.skills()
     assert run(o.handle_utterance("I'm running late"))["outcome"] == "ok"
     assert o.server.skills() == []
     assert o.server.methods() == [
-        "contacts_search", "messages_compose", "messages_send"]
+        "messages_people", "contacts_search", "messages_compose",
+        "messages_send"]
     assert o.server.confirms == ["Send 'I'm running late' to Mom (mobile)?"]
-    assert o._slot is None
+    assert o._comms is None
     tr = _traces(tracer)
-    assert [t.get("slot_fill") for t in tr] == [True, True]
     assert tr[0]["outcome"] == "awaiting_user"
 
 
@@ -196,11 +196,12 @@ def test_slot_fill_two_args_in_turn(tracer):
     run(o.handle_utterance("send a text"))
     assert o.server.said[-1] == "Who should I text?"
     run(o.handle_utterance("to Dad"))
-    assert o.server.said[-1] == "What should the message say?"
+    assert o.server.said[-1] == "What should the message to Dad say?"
     run(o.handle_utterance("dinner at seven"))
     assert o.server.skills() == []
     assert o.server.rpcs[-2][1] == {
-        "handle": "+15551234567", "body": "dinner at seven"}
+        "handle": "+15551234567", "body": "dinner at seven",
+        "name": "Dad"}
 
 
 def test_slot_value_coerced_by_type(tracer):
@@ -232,7 +233,7 @@ def test_confident_other_command_cancels_slot(tracer):
     o = _orch(tracer, eng)
     run(o.handle_utterance("text mom"))
     run(o.handle_utterance("mute"))
-    assert o._slot is None
+    assert o._comms is None
     assert o.server.skills() == [{"name": "mute", "args": {"on": True}}]
 
 
@@ -264,7 +265,7 @@ def test_slot_expires_after_60s(tracer):
 
 
 def test_slot_fill_regex_path(tracer):
-    """no engine: execute_actions -> _skill also slot-fills."""
+    """no engine: execute_actions -> _skill uses comms pending state."""
     server = FakeServer(handlers={
         "contacts_search": lambda _: {"matches": [{
             "id": "mom", "name": "Mom", "handles": [{
@@ -277,6 +278,7 @@ def test_slot_fill_regex_path(tracer):
     o = _orch(tracer, server=server)
     out = run(o.execute_actions([{"op": "skill", "name": "send_message",
                                   "args": {"to": "Mom"}}]))
-    assert out == "awaiting_user" and o._slot["missing"] == ["body"]
+    assert out == "awaiting_user" and o._comms["kind"] == "body"
+    assert o.server.said[-1] == "What should the message to Mom say?"
     run(o.handle_utterance("see you soon"))
     assert o.server.rpcs[-2][1]["body"] == "see you soon"

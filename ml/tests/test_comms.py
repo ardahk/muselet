@@ -1,4 +1,4 @@
-"""Contacts-first Messages safety flow."""
+"""Messages-first resolution and safe send flow."""
 
 import asyncio
 import time
@@ -23,6 +23,7 @@ def contact(name, value, label="mobile", ident=None):
 
 def make_orch(tmp_path, matches=None, **handlers):
     mapped = {
+        "messages_people": lambda _: {"people": []},
         "contacts_search": lambda _: {"matches": matches or []},
         "messages_compose": lambda _: {
             "ok": True, "frontmost": True, "body_visible": True},
@@ -70,15 +71,18 @@ def test_rank_options_display_and_question():
     assert comms.resolve_answer("2222", many) == (0, "digits")
 
 
-def test_contacts_first_confirm_and_send_order(tmp_path):
+def test_messages_first_confirm_and_send_order(tmp_path):
     o = make_orch(tmp_path, [contact("Arda Hoke", "+15551234567")])
     trace = {"rpc": [], "stages": {}, "comms": []}
     o.tracer.current = trace
     assert run(comms.send_message(o, "arda", "hi")) == "ok"
     assert o.server.methods() == [
-        "contacts_search", "messages_compose", "messages_send"]
+        "messages_people", "contacts_search", "messages_compose",
+        "messages_send"]
     assert o.server.confirms == ["Send 'hi' to Arda Hoke (mobile)?"]
-    assert o.server.rpcs[1][1] == {"handle": "+15551234567", "body": "hi"}
+    assert o.server.rpcs[2][1] == {
+        "handle": "+15551234567", "body": "hi", "name": "Arda Hoke"}
+    assert trace["comms"][0]["resolve"]["source"] == "contacts"
     assert [next(iter(entry)) for entry in trace["comms"]] == [
         "resolve", "compose", "confirm", "send"]
 
@@ -88,7 +92,8 @@ def test_zero_matches_asks_for_real_handle(tmp_path):
     assert run(comms.send_message(o, "arda", "hi")) == "awaiting_user"
     assert o.server.said[-1] == (
         "I couldn't find Arda in your contacts. What's their number or email?")
-    assert o.server.methods() == ["contacts_search"]
+    assert o.server.methods() == [
+        "messages_people", "contacts_search", "contacts_search"]
 
 
 @pytest.mark.parametrize(
@@ -154,12 +159,14 @@ def test_superseding_command_routes_out_of_disambiguation(tmp_path):
 def test_routed_send_and_send_failure(tmp_path):
     o = make_orch(tmp_path, [contact("Mom", "+15551234567")])
     o.engine = FakeEngine(
-        {"send a text to mom": ("send_message", 0.95)},
-        {("send_message", "send a text to mom"):
+        {"send a text to mom saying hi": ("send_message", 0.95)},
+        {("send_message", "send a text to mom saying hi"):
          {"to": "Mom", "body": "hi"}})
-    assert run(o.handle_utterance("send a text to mom"))["outcome"] == "ok"
+    assert run(o.handle_utterance(
+        "send a text to mom saying hi"))["outcome"] == "ok"
     assert o.server.methods() == [
-        "contacts_search", "messages_compose", "messages_send"]
+        "messages_people", "contacts_search", "messages_compose",
+        "messages_send"]
 
     failed = make_orch(
         tmp_path, [contact("Mom", "+15551234567")],
@@ -245,3 +252,306 @@ def test_compound_classifies_send_message_as_nonfast_path(tmp_path):
                            "b": ("mute", 0.9)})
     trace = {"decisions": []}
     assert run(o._compound("a then b", trace)) is None
+
+
+def test_stt_correction_and_missing_body_restart(tmp_path):
+    o = make_orch(tmp_path, [contact("Arda Hoke", "+15551234567")])
+    first = run(o.handle_utterance("Send a message to Orda, Arda."))
+    assert first["outcome"] == "awaiting_user"
+    assert o.server.said[-1] == "What should the message to Arda say?"
+    assert o.server.methods() == []
+
+    assert run(o.handle_utterance("hi"))["outcome"] == "ok"
+    assert o.server.methods() == [
+        "messages_people", "contacts_search", "messages_compose",
+        "messages_send"]
+    assert o.server.rpcs[0][1] == {"query": "Arda", "limit": 5}
+    assert o.server.rpcs[2][1] == {
+        "handle": "+15551234567", "body": "hi", "name": "Arda Hoke"}
+
+
+def test_s_stray_letter_and_resolved_name_for_compose(tmp_path):
+    o = make_orch(tmp_path, [contact("Caleb Kawano", "+15551234567")])
+    text = "Send a s text message to Caleb saying hello."
+    assert run(o.handle_utterance(text))["outcome"] == "ok"
+    assert o.server.methods() == [
+        "messages_people", "contacts_search", "messages_compose",
+        "messages_send"]
+    assert o.server.rpcs[2][1] == {
+        "handle": "+15551234567", "body": "hello", "name": "Caleb Kawano"}
+
+
+def test_new_message_restarts_while_waiting_for_handle(tmp_path):
+    def lookup(params):
+        return {"matches": [contact("Arda Hoke", "+15551234567")]
+                if params["query"] == "Arda" else []}
+
+    o = make_orch(tmp_path, contacts_search=lookup)
+    assert run(comms.send_message(o, "Orda", "hello")) == "awaiting_user"
+    assert o._comms["kind"] == "handle"
+    assert run(o.handle_utterance("Send a message to Arda."))[
+        "outcome"] == "awaiting_user"
+    assert o._comms["kind"] == "body"
+    assert o.server.said[-1] == "What should the message to Arda say?"
+
+    assert run(o.handle_utterance("hi"))["outcome"] == "ok"
+    queries = [params["query"] for method, params in o.server.rpcs
+               if method in ("messages_people", "contacts_search")]
+    assert queries == ["Orda", "Orda", "Orda", "Arda", "Arda"]
+    assert o.server.methods()[-3:] == [
+        "contacts_search", "messages_compose", "messages_send"]
+
+
+def test_pronoun_recipient_asks_without_search(tmp_path):
+    o = make_orch(tmp_path, [contact("Arda", "+15551234567")])
+    assert run(o.handle_utterance("text her saying hi"))[
+        "outcome"] == "awaiting_user"
+    assert o.server.said[-1] == "Who should I text?"
+    assert o.server.methods() == []
+    assert run(o.handle_utterance("Arda"))["outcome"] == "ok"
+    assert o.server.rpcs[0][1] == {"query": "Arda", "limit": 5}
+    assert o.server.rpcs[2][1]["body"] == "hi"
+
+
+def test_body_answer_say_hello_never_routes_to_typing(tmp_path):
+    o = make_orch(tmp_path, [contact("Monica", "+15551234567")])
+    o.engine = FakeEngine({"say hello.": ("type_text", 0.95)})
+    assert run(o.handle_utterance("Send a text to Monica."))[
+        "outcome"] == "awaiting_user"
+    assert o.server.said[-1] == "What should the message to Monica say?"
+    assert run(o.handle_utterance("Say hello."))["outcome"] == "ok"
+    assert o.server.methods() == [
+        "messages_people", "contacts_search", "messages_compose",
+        "messages_send"]
+    assert o.server.rpcs[2][1]["body"] == "hello"
+
+
+def test_engine_ask_messaging_uses_comms_args(tmp_path):
+    text = "Send a text to Monica."
+    o = make_orch(tmp_path)
+    o.engine = FakeEngine(
+        argmap={("send_message", text.lower()): {"to": "Monica"}})
+    trace = {"decisions": [], "rpc": [], "stages": {}}
+    assert run(o._engine_ask(text, trace, [("ASK", 0.89)])) == \
+        "awaiting_user"
+    assert o.server.said[-1] == "What should the message to Monica say?"
+    assert o.engine.args_calls == [("send_message", text)]
+    assert o.server.methods() == []
+
+
+def test_engine_compose_email_route_is_rewritten_for_messages(tmp_path):
+    text = "Send a hello message to Arda."
+    o = make_orch(tmp_path, [contact("Arda", "+15551234567")])
+    o.engine = FakeEngine(
+        {text.lower(): ("compose_email", 0.9)},
+        {("send_message", text.lower()): {
+            "to": "Arda", "body": "hello"}})
+    trace = {"decisions": [], "rpc": [], "stages": {}}
+    o.tracer.current = trace
+    assert run(o._engine_route(text, trace)) == "ok"
+    assert o.engine.args_calls == [("send_message", text)]
+    assert any(call == {"channel_fix": ["compose_email", "send_message"]}
+               for call in trace["decisions"])
+    assert o.server.methods() == [
+        "messages_people", "contacts_search", "messages_compose",
+        "messages_send"]
+    assert o.server.rpcs[2][1] == {
+        "handle": "+15551234567", "body": "hello", "name": "Arda"}
+
+
+def test_email_request_remains_on_email_channel(tmp_path):
+    text = "email arda saying hi"
+    o = make_orch(tmp_path)
+    o.engine = FakeEngine(
+        {text: ("compose_email", 0.95)},
+        {("compose_email", text): {"to": "Arda", "body": "hi"}})
+    assert comms.parse_message(text) is None
+    assert run(o.handle_utterance(text))["outcome"] == "ok"
+    assert o.server.methods() == ["skill"]
+    assert o.server.skills()[0]["name"] == "compose_email"
+
+
+@pytest.mark.parametrize("answer", ["Ardaoke.", "Arda okay."])
+def test_whole_name_fuzzy_disambiguation(tmp_path, answer):
+    contacts = [
+        contact("Arda Didim", "+15550000001", ident="didim"),
+        contact("Arda Hoke", "+15550000002", ident="hoke"),
+        contact("H Arda", "+15550000003", ident="h-arda"),
+        contact("Arda Long", "+15550000004", ident="long"),
+        contact("Arda New", "+15550000005", ident="new"),
+    ]
+    o = make_orch(tmp_path, contacts)
+    assert run(comms.send_message(
+        o, "Arda", "hello")) == "awaiting_user"
+    assert o.server.said[-1] == \
+        "Arda Didim, Arda Hoke, or H Arda?"
+    assert run(o.handle_utterance(answer))["outcome"] == "ok"
+    assert o.server.rpcs[-2][1] == {
+        "handle": "+15550000002", "body": "hello", "name": "Arda Hoke"}
+
+
+def test_fuzzy_name_near_tie_stays_ambiguous():
+    opts = comms.options([
+        contact("Arda Hoke", "+15550000001", ident="one"),
+        contact("Arda Hoka", "+15550000002", ident="two"),
+    ])
+    assert comms.resolve_answer("ardahok", opts) == (None, None)
+
+
+def test_single_messages_person_skips_contacts(tmp_path):
+    person = {"name": "Arda Hoke", "handles": [{
+        "kind": "phone", "value": "+15551234567"}], "chat": True}
+    o = make_orch(
+        tmp_path, [contact("Arda Hoke", "+15551234567"),
+                   contact("Arda Didim", "+15551234568")],
+        messages_people=lambda _: {"people": [person]})
+    trace = {"rpc": [], "stages": {}, "comms": []}
+    o.tracer.current = trace
+    assert run(comms.send_message(o, "Arda", "hi")) == "ok"
+    assert o.server.methods() == ["messages_people", "messages_compose",
+                                  "messages_send"]
+    assert o.server.rpcs[1][1] == {
+        "handle": "+15551234567", "body": "hi", "name": "Arda Hoke"}
+    assert trace["comms"][0]["resolve"]["source"] == "messages"
+    assert trace["comms"][0]["resolve"]["n_people"] == 1
+
+
+def test_messages_and_contacts_deduplicate_and_trace_both(tmp_path):
+    people = [
+        {"name": "Arda Hoke", "handles": [{
+            "kind": "phone", "value": "+1 (555) 000-0001"}], "chat": True},
+        {"name": "Arda Didim", "handles": [{
+            "kind": "phone", "value": "+15550000003"}], "chat": True},
+    ]
+    contacts = [
+        contact("Arda Hoke", "+15550000001", ident="duplicate"),
+        contact("Arda Smith", "+15550000002", ident="smith"),
+    ]
+    o = make_orch(tmp_path, contacts,
+                  messages_people=lambda _: {"people": people})
+    trace = {"rpc": [], "stages": {}, "comms": []}
+    o.tracer.current = trace
+    assert run(comms.send_message(o, "Arda", "hi")) == "awaiting_user"
+    event = trace["comms"][0]["resolve"]
+    assert event["source"] == "both"
+    assert event["n_matches"] == 3
+    assert event["n_people"] == 2
+    assert o.server.said[-1] == "Arda Hoke, Arda Didim, or Arda Smith?"
+
+
+@pytest.mark.parametrize("mode", ["raise", "ok_false", "timeout"])
+def test_messages_people_errors_fall_back_silently(tmp_path, mode):
+    if mode in ("raise", "timeout"):
+        error = "unknown method" if mode == "raise" else "timeout"
+
+        def people_error(_):
+            raise RuntimeError(error)
+    else:
+        def people_error(_):
+            return {"ok": False, "error": "messages_automation_denied"}
+    o = make_orch(
+        tmp_path, [contact("Mom", "+15551234567")],
+        messages_people=people_error)
+    assert run(comms.send_message(o, "Mom", "hi")) == "ok"
+    assert o.server.methods() == [
+        "messages_people", "contacts_search", "messages_compose",
+        "messages_send"]
+    assert o.server.said == ["Sent to Mom"]
+
+
+def test_messages_people_uses_four_second_timeout(tmp_path):
+    class TimedServer(FakeServer):
+        def __init__(self, handlers):
+            super().__init__(handlers=handlers)
+            self.timeouts = {}
+
+        async def rpc(self, method, params, timeout=30):
+            self.timeouts[method] = timeout
+            return await super().rpc(method, params, timeout)
+
+    server = TimedServer({
+        "messages_people": lambda _: {"people": []},
+        "contacts_search": lambda _: {
+            "matches": [contact("Mom", "+15551234567")]},
+        "messages_compose": lambda _: {
+            "ok": True, "frontmost": True, "body_visible": True},
+        "messages_send": lambda _: {"ok": True, "sent": True},
+    })
+    o = Orchestrator(server, Catalog.load(), Tracer(tmp_path / "traces"))
+    assert run(comms.send_message(o, "Mom", "hi")) == "ok"
+    assert server.timeouts["messages_people"] == 4
+
+
+def test_fuzzy_fallback_yes_and_no(tmp_path):
+    def lookup(params):
+        if params.get("fuzzy"):
+            return {"matches": [{
+                **contact("Arda Hoke", "+15551234567"),
+                "score": 0.9}]}
+        return {"matches": []}
+
+    o = make_orch(tmp_path, contacts_search=lookup)
+    assert run(comms.send_message(o, "Arda", "hi")) == "awaiting_user"
+    assert o.server.said[-1] == "Did you mean Arda Hoke?"
+    assert o.server.rpcs[2][1] == {
+        "query": "Arda", "limit": 5, "fuzzy": True}
+    assert run(o.handle_utterance("yes"))["outcome"] == "ok"
+    assert o.server.rpcs[-2][1] == {
+        "handle": "+15551234567", "body": "hi", "name": "Arda Hoke"}
+
+    o2 = make_orch(tmp_path / "no", contacts_search=lookup)
+    assert run(comms.send_message(o2, "Arda", "hi")) == "awaiting_user"
+    assert run(o2.handle_utterance("no"))["outcome"] == "awaiting_user"
+    assert o2._comms["kind"] == "handle"
+    assert o2.server.said[-1] == "What's their number or email?"
+
+
+def test_fuzzy_fallback_empty_and_multiple_candidates(tmp_path):
+    candidates = [
+        {**contact("Arda Didim", "+15550000002"), "score": 0.7},
+        {**contact("Arda Hoke", "+15550000001"), "score": 0.9},
+    ]
+
+    def lookup(params):
+        return {"matches": candidates if params.get("fuzzy") else []}
+
+    o = make_orch(tmp_path, contacts_search=lookup)
+    assert run(comms.send_message(o, "Arda", "hi")) == "awaiting_user"
+    assert o.server.said[-1] == "Arda Hoke or Arda Didim?"
+
+    empty = make_orch(tmp_path / "empty")
+    assert run(comms.send_message(empty, "Arda", "hi")) == "awaiting_user"
+    assert empty._comms["kind"] == "handle"
+    assert empty.server.said[-1] == (
+        "I couldn't find Arda in your contacts. What's their number or email?")
+
+
+@pytest.mark.parametrize("op", [
+    {"op": "open", "app": "Mail"},
+    {"op": "skill", "name": "open_app", "args": {"app": "Mail"}},
+])
+def test_planner_mail_open_is_terminal_for_message_goal(tmp_path, op):
+    o = make_orch(tmp_path)
+    o._current_goal = "send a message to Mom saying hi"
+    result = run(o._exec_action(op))
+    assert result["status"] == "failed"
+    assert result["_terminal_failure"] is True
+    assert o.server.said[-1] == "I text through Messages, not Mail"
+    assert o.server.methods() == []
+
+
+def test_planner_compose_email_rewrites_to_message(tmp_path):
+    o = make_orch(tmp_path, [contact("Mom", "+15551234567")])
+    o._current_goal = "send a text to Mom saying hi"
+    trace = {"decisions": [], "rpc": [], "stages": {}}
+    o.tracer.current = trace
+    result = run(o._exec_action({
+        "op": "skill", "name": "compose_email",
+        "args": {"to": "Mom", "body": "hi"}}))
+    assert result["status"] == "ok"
+    assert any(item == {"channel_fix": ["compose_email", "send_message"]}
+               for item in trace["decisions"])
+    assert o.server.methods() == [
+        "messages_people", "contacts_search", "messages_compose",
+        "messages_send"]
+    assert not o.server.skills()
