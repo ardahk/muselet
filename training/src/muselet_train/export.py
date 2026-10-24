@@ -19,8 +19,8 @@ import tinker
 from huggingface_hub import HfApi
 from tinker_cookbook import weights
 
+from muselet_train import datums as D
 from muselet_train.catalog import REPO_ROOT
-from muselet_train.gen import _load
 from muselet_train.route_render import STUDENT_MODEL, RouteContext, render_route
 from muselet_train.teacher import chunked_decision
 
@@ -37,26 +37,27 @@ def check_render_samples() -> int:
     return len(rows)
 
 
-async def parity(tinker_path: str, name: str, run: str, n: int, seed: int) -> Path:
+async def parity(tinker_path: str, run: str, teacher_files: tuple[str, ...], n: int, seed: int, out: Path) -> Path:
+    """Held-out route items (final labels after the lead's A1 rules) with the trained Tinker sampler's
+    distribution over the 41 choice ids, for the Mac (Metal) MLX parity test."""
     print(json.dumps({"render_samples_ok": check_render_samples()}), flush=True)
-    val = [r for r in _load(run, "route_dedup.jsonl") if r.get("split") == "val"]
+    val = [it for it in D.route_items(run, teacher_files) if it.split == "val"]
     val = random.Random(seed).sample(val, min(n, len(val)))
     client = tinker.ServiceClient().create_sampling_client(model_path=tinker_path)
     sem = asyncio.Semaphore(32)
 
-    async def one(r):
-        rend = render_route(RouteContext(**r["context"]), r["utterance"])
+    async def one(it):
+        rend = render_route(RouteContext(**it.context), it.utterance)
         async with sem:
             probs = await chunked_decision(client, rend)
-        return {"utterance": r["utterance"], "label": r["label"], "context": r["context"],
+        return {"utterance": it.utterance, "label": it.label, "context": it.context,
                 "tokens": rend.tokens, "choice_pos": rend.choice_pos,
-                "label_tokens": dict(rend.label_tokens), "probs": probs}
+                "choice_ids": dict(rend.label_tokens), "tinker_probs": probs}
 
-    rows = await asyncio.gather(*(one(r) for r in val))
-    p = OUT / name / "parity.jsonl"
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in rows))
-    return p
+    rows = await asyncio.gather(*(one(it) for it in val))
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in rows))
+    return out
 
 
 def upload(path: str, repo: str) -> str:
@@ -76,6 +77,8 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--dir")
     ap.add_argument("--repo")
+    ap.add_argument("--teacher-files", nargs="*", default=[])
+    ap.add_argument("--out", default=str(REPO_ROOT / "training" / "artifacts" / "parity_300.jsonl"))
     a = ap.parse_args()
     d = OUT / a.name
     if a.cmd == "check":
@@ -87,7 +90,7 @@ def main() -> None:
                                output_path=str(d / "hf"), trust_remote_code=True)
         print(d / "hf")
     elif a.cmd == "parity":
-        print(asyncio.run(parity(a.tinker_path, a.name, a.run, a.n, a.seed)))
+        print(asyncio.run(parity(a.tinker_path, a.run, tuple(a.teacher_files), a.n, a.seed, Path(a.out))))
     else:
         assert a.repo.startswith("jonsnov/"), "uploads go to private jonsnov/ repos"
         print(json.dumps({"repo": a.repo, "revision": upload(a.dir, a.repo)}))
