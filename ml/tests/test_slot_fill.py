@@ -157,14 +157,24 @@ def test_slot_fill_asks_then_executes(tracer):
     eng = FakeEngine({"text mom": ("send_message", 0.95),
                       "i'm running late": ("ANSWER", 0.5)},
                      {("send_message", "text mom"): {"to": "Mom"}})
-    o = _orch(tracer, eng)
+    server = FakeServer(handlers={
+        "contacts_search": lambda _: {"matches": [{
+            "id": "mom", "name": "Mom", "handles": [{
+                "kind": "phone", "value": "+15551234567",
+                "label": "mobile"}]}]},
+        "messages_compose": lambda _: {
+            "ok": True, "frontmost": True, "body_visible": True},
+        "messages_send": lambda _: {"ok": True, "sent": True},
+    })
+    o = _orch(tracer, eng, server)
     assert run(o.handle_utterance("text mom"))["outcome"] == "awaiting_user"
     assert o.server.said[-1] == "What should the message say?"
     assert o._slot["missing"] == ["body"] and not o.server.skills()
     assert run(o.handle_utterance("I'm running late"))["outcome"] == "ok"
-    assert o.server.skills() == [{"name": "send_message", "args": {
-        "to": "Mom", "body": "I'm running late", "confirmed": True}}]
-    assert o.server.confirms == ['Text Mom: "I\'m running late"?']
+    assert o.server.skills() == []
+    assert o.server.methods() == [
+        "contacts_search", "messages_compose", "messages_send"]
+    assert o.server.confirms == ["Send 'I'm running late' to Mom (mobile)?"]
     assert o._slot is None
     tr = _traces(tracer)
     assert [t.get("slot_fill") for t in tr] == [True, True]
@@ -173,14 +183,24 @@ def test_slot_fill_asks_then_executes(tracer):
 
 def test_slot_fill_two_args_in_turn(tracer):
     eng = FakeEngine({"send a text": ("send_message", 0.95)}, {})
-    o = _orch(tracer, eng)
+    server = FakeServer(handlers={
+        "contacts_search": lambda _: {"matches": [{
+            "id": "dad", "name": "Dad", "handles": [{
+                "kind": "phone", "value": "+15551234567",
+                "label": "mobile"}]}]},
+        "messages_compose": lambda _: {
+            "ok": True, "frontmost": True, "body_visible": True},
+        "messages_send": lambda _: {"ok": True, "sent": True},
+    })
+    o = _orch(tracer, eng, server)
     run(o.handle_utterance("send a text"))
     assert o.server.said[-1] == "Who should I text?"
     run(o.handle_utterance("to Dad"))
     assert o.server.said[-1] == "What should the message say?"
     run(o.handle_utterance("dinner at seven"))
-    assert o.server.skills()[0]["args"]["to"] == "Dad"
-    assert o.server.skills()[0]["args"]["body"] == "dinner at seven"
+    assert o.server.skills() == []
+    assert o.server.rpcs[-2][1] == {
+        "handle": "+15551234567", "body": "dinner at seven"}
 
 
 def test_slot_value_coerced_by_type(tracer):
@@ -245,9 +265,18 @@ def test_slot_expires_after_60s(tracer):
 
 def test_slot_fill_regex_path(tracer):
     """no engine: execute_actions -> _skill also slot-fills."""
-    o = _orch(tracer)
+    server = FakeServer(handlers={
+        "contacts_search": lambda _: {"matches": [{
+            "id": "mom", "name": "Mom", "handles": [{
+                "kind": "phone", "value": "+15551234567",
+                "label": "mobile"}]}]},
+        "messages_compose": lambda _: {
+            "ok": True, "frontmost": True, "body_visible": True},
+        "messages_send": lambda _: {"ok": True, "sent": True},
+    })
+    o = _orch(tracer, server=server)
     out = run(o.execute_actions([{"op": "skill", "name": "send_message",
                                   "args": {"to": "Mom"}}]))
     assert out == "awaiting_user" and o._slot["missing"] == ["body"]
     run(o.handle_utterance("see you soon"))
-    assert o.server.skills()[0]["args"]["body"] == "see you soon"
+    assert o.server.rpcs[-2][1]["body"] == "see you soon"

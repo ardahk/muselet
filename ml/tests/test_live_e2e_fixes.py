@@ -312,10 +312,11 @@ def test_compound_same_skill_plain_and_stays_one(tmp_path):
                    text.lower(): ("send_message", 0.95)},
         {("send_message", text.lower()):
          {"to": "Mom", "body": "I love you and miss you"}})
-    run(o.handle_utterance(text))
-    assert [a for _, a in _skill_rpcs(srv)][0]["body"] == \
-        "I love you and miss you"
-    assert len(_skill_rpcs(srv)) == 1
+    result = run(o.handle_utterance(text))
+    assert result["outcome"] == "awaiting_user"
+    assert eng.route_calls[-1] == text
+    assert not _skill_rpcs(srv)
+    assert srv.methods() == ["contacts_search"]
 
 
 def test_compound_low_confidence_clause_falls_back(tmp_path):
