@@ -1,10 +1,9 @@
 {
- "pass": 6,
- "ts": "2026-10-24T07:12:00Z",
- "mode": "self-poll (lead offline)",
+ "pass": 7,
+ "ts": "2026-10-24T07:20:00Z",
  "branches": {
   "main": "c2d2988",
-  "wip/local": "d5d2d7d",
+  "wip/local": "8874962",
   "cloud/data-pipeline": "8f0b9bc",
   "cloud/fixtures-docs": "4bf2291",
   "cloud/finance": "529e9ff",

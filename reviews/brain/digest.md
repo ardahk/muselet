@@ -1,4 +1,7 @@
-# brain digest — pass 6, self-poll (2026-10-24T07:12Z)
+# brain digest — pass 7 (2026-10-24T07:20Z, PULSE 07:07Z)
+Pass 7: wip/local 8874962 changes one line: _script now calls self.script_needs_confirm, the allow-list policy. brain-9 is still open with the same 4 cases. test_orchestrator and test_planner_loop: 23 pass.
+
+## Pass 6 notes
 Pass 6: only cloud/data-pipeline moved (8f0b9bc, Phase 1 trainer + export + training/scripts/mlx_parity.py). Nothing in ml/ changed. mlx_parity.py prefills the shared prefix once, deep-copies the cache for each row and reads the logits at choice_pos, the same scheme the runtime uses, so its numbers can stand in for runtime parity once a checkpoint exists. No new findings.
 
 ## Pass 5 notes
