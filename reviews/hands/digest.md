@@ -1,4 +1,4 @@
-# hands — digest (pass 27)
+# hands — digest (pass 28)
 
 Open findings were re-verified on main 2920225 in pass 15: hands-1 to 9 and 11 to 14 are resolved, and hands-15 is superseded.
 Pass 21 checks:
@@ -6,6 +6,7 @@ Pass 21 checks:
 - wip/local b63699f is identical to main.
 - cloud/brain-5 b752261 handles `not_frontmost` by reading the failure `result`. That works: RPC.swift returns r with r["error"], BrainConnection always sends `result`, and server.rpc returns it with ok=false.
 No new defects.
+Pass 28: main fbd5aa0, wip/local 2f26223, cloud/data-pipeline 735686f and cloud/pitch-4 6393857 have no app/ or protocol changes (AGENTS.md benchmark policy, evalcheck, pitch). hands-10 and hands-16 are still open on main.
 Pass 27: main d7c192f, wip/local 367d450 and cloud/data-pipeline 0ce9ea6 have no app/ or protocol changes (serving config, AGENTS.md serving notes, training). hands-10 and hands-16 were re-checked on main and are still open.
 Pass 26: main 04c3930 merged grounder-wire (PR #19; orchestrator and grounder identical to afb12a6, reviewed in pass 25) and pitch-3, and added `click "<description>"` to the planner prompt. There are no app/ changes. wip/local aec8fbf is identical to main. hands-16 has moved to orchestrator.py:981.
 Pass 25: cloud/grounder-wire afb12a6 adds `click "<target>"`: window screenshot, then the Grounder with a native zoom region, then `act click {x,y}`. I checked it against HandsKit. The screenshot result keys path/width/height/origin/scale match RPC.swift:149-150. to_global = origin + px/scale matches Screenshot.swift:26 (pixels per point). act click takes global points (Act.swift:406-416) and runs the focus guard. Dangerous labels need confirmation, and screenshots are deleted after use. No defects. main 7147694, wip/local 5764a0d, pitch-3 and data-pipeline have no lane changes.
