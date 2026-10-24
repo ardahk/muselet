@@ -1,4 +1,8 @@
-# planner lane — pass 31 (main 82d94d9, wip 5b3d695 = main in this lane)
+# planner lane — pass 32 (main 5292608, wip a02959b = main in this lane)
+
+Pass 32: no lane changes; main only touched AGENTS.md. I re-checked the open findings on main and none has changed: planner-24 L984, planner-26 L289, planner-27 L1516, planner-25 planner.py L334, planner-6.
+
+## Pass 31 notes
 
 Pass 31: no new findings. brain-6 (#21) is merged, so planner-27 is now on main (L1516). 82d94d9 adds Zen, Vivaldi, Opera and Orion to the browsers whose chat and mail tabs get send confirmations, with tests; no issues. Open findings on main are otherwise unchanged (planner-24 L984, planner-26 L289, planner-25 planner.py L334, planner-6).
 
