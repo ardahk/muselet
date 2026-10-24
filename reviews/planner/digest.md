@@ -1,8 +1,9 @@
-# planner lane — pass 47 (main a97fcba, wip ac41cd2, planner-verify d22b9a9, brain-9 3f9718b)
+# planner lane — pass 48 (main 46b97f5, wip 719907a, architect27 4edcba5, planner28 fb4a45a)
 
 Open P0: none.
 
 Open P1 (ranked):
+- planner-42: architect-27 asks every Premiere command again, even after a planner confirm (ml/src/brain/orchestrator.py on cloud/safety-architect27)
 0. planner-40: planner-verify accepts done after any successful skill, skipping the model check (ml/src/brain/orchestrator.py on cloud/planner-verify)
 2. planner-31: Rule 14 'expect focused' (no ref) is rejected by HandsKit before acting (prompts/planner_system.md)
 3. planner-38: Planner LoRA trained without few-shot/retrieval, but served with both by default (training/planner_lora/common.py, tools/serve_brain.sh)
@@ -13,11 +14,21 @@ Open P1 (ranked):
 9. planner-6: premiere_command unimplemented; catalog args mismatch the UXP bridge (app/Sources/HandsKit/Skills.swift)
 
 Highest-leverage next moves:
+- architect-27: ask only for export (maybe the cut too), and let a planner confirm count, so demo 4 doesn't ask 3-6 times (planner-42).
+- Merge safety-planner28 (fixes planner-28).
 - planner-verify: before merging, drop the skill-ok = done-evidence rule (planner-40). Keep the decide-based verify, which also takes care of most of planner-33.
 - Before any LoRA ship call, evaluate the adapter under the exact serve flags (few-shot, RETRIEVAL_K, THINK), or serve it with `--planner-fewshot none` and RETRIEVAL_K=0 (planner-38).
 - W9 is merged (planner-30/24 fixed). Next, narrow `\[` to JXA computed keys and drop `\\`, `set .* to` and `format` for Numbers reads (planner-37, planner-15), or the demo-3 planner path will ask for confirmation on reads.
 - brain-9: pick the browser from 'in/using X' context, not the first mention (planner-41).
 - Add `view` to open_folder in catalog.json and to the prompt example (planner-32). Fix rule 14 to say `expect focused #<ref>` (planner-31).
+
+Pass 48 notes:
+- main 46b97f5 only changes the harness proxy (outside this lane). brain-9 e9e9b42 is test only; planner-41 is still open.
+- safety-planner28 fb4a45a fixes planner-28 for composer targets (pending merge).
+- safety-brain18 9aa2e4c: BatchCutter now counts bare catalog skill lines toward the 5-action cap, which matches what the parser counts.
+- safety-brain12: a clear skill command during a pending ASK (set/open/search..., routed as a skill) cancels the ASK and runs. Fine.
+- safety-architect27 Skills.swift focuses Timeline through Window > Timeline before shortcuts (uncompiled; reviewed statically, looks reasonable). Its confirm policy is planner-42.
+- live-cases and brain38 (comms) are outside this lane.
 
 Pass 47 notes:
 - main a97fcba merged W9 (#46), router it3 (#52) and docs-demo-2. planner-30 and planner-24 are resolved on main. planner-37 and planner-28 are now on main.
