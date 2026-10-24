@@ -10,7 +10,9 @@ public enum TextTarget {
     public struct Check {
         public var ok: Bool
         /// "focused" (the focused element takes text) | "window_textarea"
-        /// (nothing specific focused; the window's text area takes it).
+        /// (nothing specific focused; the window's text area takes it) |
+        /// "keystroke_app" (a keystroke-driven app with a window: the text
+        /// is posted as key presses, e.g. Calculator `11+4=`).
         public var via: String?
         /// Short hint of what is focused, e.g.
         /// `app "TextEdit" window "Untitled" focused button "Bold"`.
@@ -30,6 +32,31 @@ public enum TextTarget {
     /// Spreadsheets: typing into a selected cell edits it (focus is the table/cell).
     static let spreadsheetBundles: Set<String> = ["com.apple.iWork.Numbers", "com.microsoft.Excel"]
     static let gridRoles: Set<String> = ["AXTable", "AXGrid", "AXCell"]
+    /// Apps driven by keystrokes without a text field: `type_text` / `type`
+    /// post the characters as key presses (`via: "keystroke_app"`).
+    /// Calculator only (lowercased bundle ids).
+    public static let keystrokeApps: Set<String> = ["com.apple.calculator"]
+    public static let keystrokeVia = "keystroke_app"
+
+    public static func isKeystrokeApp(_ bundleId: String?) -> Bool {
+        guard let b = bundleId?.lowercased(), !b.isEmpty else { return false }
+        return keystrokeApps.contains(b)
+    }
+
+    /// Text for a keystroke app: math symbols a model may write become the
+    /// keys the app takes (× -> *, ÷ -> /, − -> -).
+    public static func keystrokeText(_ s: String) -> String {
+        var out = ""
+        for ch in s {
+            switch ch {
+            case "×", "✕", "⋅", "·": out.append("*")
+            case "÷", "∕": out.append("/")
+            case "−", "–", "—": out.append("-")
+            default: out.append(ch)
+            }
+        }
+        return out
+    }
 
     /// Does `el` (attributes `a`) accept typed text? Text fields/areas,
     /// combo/search/secure fields, anything inside a web editable region
@@ -55,7 +82,8 @@ public enum TextTarget {
     /// Check the keyboard focus of `app` (the frontmost app's AX element).
     /// windowFallback: when nothing specific is focused, accept the focused
     /// window's largest visible AXTextArea (outside web areas) and return it
-    /// as `focusTarget`.
+    /// as `focusTarget`. A keystroke app (Calculator) with a window takes
+    /// the text as key presses even though nothing in it takes text.
     public static func check(app: Element, appName: String, bundleId: String?,
                              windowFallback: Bool = true,
                              deadline: Date = Date().addingTimeInterval(0.3)) -> Check {
@@ -70,6 +98,10 @@ public enum TextTarget {
         let winTitle = win.map { Hands.windowTitle($0) }
         var observed = "app \"\(appName)\" window " + (winTitle.map { "\"\(String($0.prefix(40)))\"" } ?? "none")
         observed += " focused " + (fa.map(describe) ?? "none")
+        // Keys need a window to land in (never "type into nothing").
+        if isKeystrokeApp(bundleId), win != nil {
+            return Check(ok: true, via: keystrokeVia, observed: observed, focusTarget: nil)
+        }
         let neutral = fa.map { neutralRoles.contains($0.role ?? "") } ?? true
         if windowFallback, neutral, let w = win, let area = largestTextArea(in: w, deadline: deadline) {
             return Check(ok: true, via: "window_textarea", observed: observed, focusTarget: area)

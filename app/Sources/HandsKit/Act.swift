@@ -17,10 +17,26 @@ public enum HandsError: Error, CustomStringConvertible {
     /// Nothing that accepts text has the keyboard focus (`observed` says
     /// which app/window/element is focused); nothing was typed.
     case noTextTarget(observed: String)
+    /// The screen is locked (the lock screen has the keyboard): synthetic
+    /// keys, typing and clicks would land in it, so none are posted.
+    case screenLocked
+    /// The action ran but its read-back says it didn't take effect: `code`
+    /// is the error (e.g. `not_frontmost`), `result` what was observed
+    /// (still returned with ok=false).
+    case verifyFailed(code: String, observed: String, result: [String: Any])
     case `internal`(String)
     /// Extra `observed` hint for the response, if any.
     public var observed: String? {
-        if case .noTextTarget(let o) = self { return o }
+        switch self {
+        case .noTextTarget(let o): return o
+        case .screenLocked: return "the screen is locked"
+        case .verifyFailed(_, let o, _): return o
+        default: return nil
+        }
+    }
+    /// Result payload to return with ok=false, if any.
+    public var result: [String: Any]? {
+        if case .verifyFailed(_, _, let r) = self { return r }
         return nil
     }
     public var description: String {
@@ -34,6 +50,8 @@ public enum HandsError: Error, CustomStringConvertible {
         case .focusChanged(let want, let got):
             return "focus_changed: frontmost is \(got), expected \(want)"
         case .noTextTarget: return "no_text_target"
+        case .screenLocked: return "screen_locked"
+        case .verifyFailed(let c, _, _): return c
         case .internal(let s): return s
         }
     }
@@ -44,6 +62,8 @@ public enum HandsError: Error, CustomStringConvertible {
         case .notImplemented: return "not_implemented"
         case .focusChanged: return "focus_changed"
         case .noTextTarget: return "no_text_target"
+        case .screenLocked: return "screen_locked"
+        case .verifyFailed(let c, _, _): return c
         default: return "error"
         }
     }
@@ -137,6 +157,46 @@ enum Events {
             }
             usleep(2_000)
         }
+    }
+
+    /// Keystroke-driven apps (Calculator, `TextTarget.keystrokeApps`): each
+    /// character as its US-ANSI virtual key (+ shift) with the unicode
+    /// string set too, so an app that reads the key code and one that reads
+    /// the characters both get it. Unmapped characters go as unicode only.
+    static func typeKeystrokes(_ s: String) {
+        let src = CGEventSource(stateID: .hidSystemState)
+        for ch in s {
+            let (code, shift) = keystroke(for: ch) ?? (0, false)
+            var utf16 = Array((ch == "\n" ? "\r" : String(ch)).utf16)
+            let flags: CGEventFlags = shift ? .maskShift : []
+            for down in [true, false] {
+                guard let e = CGEvent(keyboardEventSource: src, virtualKey: code, keyDown: down) else { continue }
+                e.flags = flags
+                e.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: &utf16)
+                SyntheticEvent.post(e)
+            }
+            usleep(4_000)
+        }
+    }
+
+    /// US-ANSI virtual key (and shift) for a character a calculator takes:
+    /// digits, letters, `+ - * / = . , % ( ) ^`, space, tab, return.
+    static func keystroke(for ch: Character) -> (CGKeyCode, Bool)? {
+        let shifted: [Character: CGKeyCode] = [
+            "+": 24, "*": 28, "(": 25, ")": 29, "%": 23, "^": 22, "!": 18, "_": 27,
+        ]
+        if let c = shifted[ch] { return (c, true) }
+        switch ch {
+        case "\n", "\r": return (36, false)
+        case "\t": return (48, false)
+        case " ": return (49, false)
+        default: break
+        }
+        let s = String(ch)
+        if let c = Combo.keyCodes[s], s.count == 1 { return (c, false) }
+        let lower = s.lowercased()
+        if lower != s, let c = Combo.keyCodes[lower], lower.count == 1 { return (c, true) }
+        return nil
     }
 
     static func key(_ code: CGKeyCode, flags: CGEventFlags = []) {
@@ -240,6 +300,21 @@ extension Hands {
     /// Execute one DSL op. params: {op, ref?, epoch?, text?, combo?, x?, y?,
     /// direction?, n?, right?, double?, name?, url?, ms?, expect?,
     /// expect_timeout_ms? (default 1500), cursor_lead_ms?}
+    ///
+    /// `keys` also takes the media keys `volume_up | volume_down | mute |
+    /// brightness_up | brightness_down | play_pause | next_track |
+    /// previous_track` (`MediaKey`): system-defined events like the hardware
+    /// keys, tagged as Muselet input. They are global, so there is no focus
+    /// guard and (without `expect`) no settle / re-observation; the result
+    /// carries `media_key` and, for volume / brightness keys, the read-back
+    /// `level_before`, `level` (0-100), `changed` (+ `muted` for volume).
+    ///
+    /// `type` into a keystroke-driven app (`TextTarget.keystrokeApps`:
+    /// Calculator) posts the characters as key presses (`target:
+    /// "keystroke_app"`); the ref need not be a text field.
+    ///
+    /// `type` / `keys` / `click` fail with `screen_locked` while the lock
+    /// screen is up (nothing is posted).
     public func act(_ params: [String: Any]) -> [String: Any] {
         let t0 = Date()
         var out: [String: Any] = [:]
@@ -247,6 +322,8 @@ extension Hands {
             guard let op = params["op"] as? String else {
                 throw HandsError.invalidParams("missing op")
             }
+            // Media keys are global: no focus guard, no app settle.
+            let mediaKey = op == "keys" ? (params["combo"] as? String).flatMap(MediaKey.parse) : nil
             // Parse expect up front: a bad predicate must fail before acting.
             var pred: ExpectPredicate? = nil
             if let exp = params["expect"] {
@@ -271,7 +348,7 @@ extension Hands {
             if lead > 0 { usleep(UInt32(min(lead, 5.0) * 1_000_000)) }
 
             // Synthesized input must land in the observed app (hands-8).
-            if ["type", "keys", "click"].contains(op) { try ensureTargetFocus() }
+            if ["type", "keys", "click"].contains(op) && mediaKey == nil { try ensureTargetFocus() }
 
             let pidForSettle = lastObservedPid()
             var scriptResult: [String: Any]? = nil
@@ -286,14 +363,22 @@ extension Hands {
             case "type":
                 guard let rec = refRec else { throw HandsError.invalidParams("type needs ref") }
                 let text = params["text"] as? String ?? ""
-                _ = rec.element.setAttr(kAXFocusedAttribute, true)
-                usleep(30_000)
+                // A keystroke app (Calculator) takes key presses, not AX
+                // values or focus changes on its buttons.
+                let keystrokeApp = TextTarget.isKeystrokeApp(apps.app(pid: targetPid())?.bundleId)
+                if !keystrokeApp {
+                    _ = rec.element.setAttr(kAXFocusedAttribute, true)
+                    usleep(30_000)
+                }
                 // Never type into nothing: a non-text ref (button, row, ...)
                 // is fine only if it or the focus it left accepts text
-                // (spreadsheet cell, web editable).
-                try requireTextTarget(rec)
+                // (spreadsheet cell, web editable) or the app is a keystroke app.
+                let via = try requireTextTarget(rec)
                 let typeText = typeTextOverride ?? Events.typeText
-                if rec.inWebArea {
+                if via == TextTarget.keystrokeVia {
+                    (typeKeystrokesOverride ?? Events.typeKeystrokes)(TextTarget.keystrokeText(text))
+                    out["target"] = TextTarget.keystrokeVia
+                } else if rec.inWebArea {
                     // React-style inputs ignore AXValue: select-all + type.
                     Combo.post(try Combo.parse("cmd+a"))
                     typeText(text)
@@ -307,7 +392,11 @@ extension Hands {
                 guard let c = params["combo"] as? String else {
                     throw HandsError.invalidParams("keys needs combo")
                 }
-                Combo.post(try Combo.parse(c))
+                if let mk = mediaKey {
+                    for (k, v) in pressMediaKey(mk) { out[k] = v }
+                } else {
+                    Combo.post(try Combo.parse(c))
+                }
             case "scroll":
                 guard let rec = refRec else { throw HandsError.invalidParams("scroll needs ref") }
                 let dir = params["direction"] as? String ?? "down"
@@ -357,6 +446,16 @@ extension Hands {
                 throw HandsError.invalidParams("unknown op \(op)")
             }
             out["act_ms"] = (Date().timeIntervalSince(t0) * 1000).rounded(to: 2)
+            // A media key changes nothing in the observed app: skip the
+            // settle + re-observation (no diff_text, so the brain re-observes
+            // if it plans further), unless an expect needs checking.
+            if mediaKey != nil && pred == nil {
+                out["settle_ms"] = 0.0
+                out["epoch"] = currentEpoch
+                out["ok"] = true
+                delegate?.handsDidAct(op: op, frame: targetFrame, ok: true)
+                return out
+            }
             // A shell script that exits non-zero (or times out) failed
             // (planner-11): ok=false with exit_code/stdout/stderr.
             var scriptError: String?
@@ -536,17 +635,75 @@ extension Hands {
         lastPid != 0 ? lastPid : apps.frontmostPid()
     }
 
+    /// App an input act goes to: the observed app, else the frontmost one.
+    func targetPid() -> pid_t {
+        lastPid != 0 && !focusRebindPending ? lastPid : apps.frontmostPid()
+    }
+
+    // MARK: media keys
+
+    /// Post `key` (down + up). Volume / brightness keys read the level
+    /// before and after (polled <= 400 ms until it changed and held for two
+    /// reads): {media_key, level_before?, level?, changed?, muted?}.
+    func pressMediaKey(_ key: MediaKey) -> [String: Any] {
+        var r: [String: Any] = ["media_key": key.name]
+        let kind = key.kind
+        let before = kind == .playback ? nil : readMediaLevel(kind)
+        (mediaKeyPostOverride ?? { $0.post() })(key)
+        guard kind != .playback else { return r }
+        var after = before
+        var last: [String: AnyHashable]?
+        let end = Date().addingTimeInterval(mediaReadBackTimeout)
+        while Date() < end {
+            Hands.pollWait(0.04)
+            let cur = readMediaLevel(kind)
+            if cur != before {
+                if cur == last { after = cur; break }   // changed and settled
+                last = cur
+                after = cur
+            }
+        }
+        // .base: plain Int / Bool for JSON.
+        if let b = before?["level"] { r["level_before"] = b.base }
+        if let a = after?["level"] { r["level"] = a.base }
+        if let m = after?["muted"] { r["muted"] = m.base }
+        r["changed"] = after != before
+        return r
+    }
+
+    /// Current volume {level, muted} or brightness {level} (0-100), nil if unreadable.
+    func readMediaLevel(_ kind: MediaKey.Kind) -> [String: AnyHashable]? {
+        if let o = mediaLevelOverride { return o(kind) }
+        switch kind {
+        case .volume:
+            let st = Skills.parseVolumeState((try? scripts.run(Skills.volumeStateScript)) ?? "")
+            var d: [String: AnyHashable] = [:]
+            if let l = st.level { d["level"] = l }
+            if let m = st.muted { d["muted"] = m }
+            return d.isEmpty ? nil : d
+        case .brightness:
+            return PrivateSymbols.brightness().map { ["level": Int(($0 * 100).rounded())] }
+        case .playback:
+            return nil
+        }
+    }
+
     /// Short role names whose elements take typed text as such.
     static let textRecordRoles: Set<String> = ["textfield", "textarea", "combobox"]
 
     /// `type #ref`: the ref (already focused) must accept text, or the
     /// keyboard focus it left must (Numbers cell, web editable inside a
-    /// group). Else no_text_target and nothing is typed.
-    func requireTextTarget(_ rec: ElementRecord) throws {
-        if Self.textRecordRoles.contains(rec.role) { return }
+    /// group), or the app must be a keystroke app (Calculator). Else
+    /// no_text_target and nothing is typed. Returns how the text gets in:
+    /// "text_role" | "accepts" | "focused" | "keystroke_app".
+    @discardableResult
+    func requireTextTarget(_ rec: ElementRecord) throws -> String {
+        if Self.textRecordRoles.contains(rec.role) { return "text_role" }
         let pid = lastPid != 0 ? lastPid : apps.frontmostPid()
         let info = apps.app(pid: pid)
-        if TextTarget.acceptsText(rec.element, rec.element.copyAttrs(), bundleId: info?.bundleId) { return }
+        if TextTarget.acceptsText(rec.element, rec.element.copyAttrs(), bundleId: info?.bundleId) {
+            return "accepts"
+        }
         let app = axAppOverride?(pid) ?? {
             let n = AXNode(AXUIElementCreateApplication(pid))
             n.setMessagingTimeout(0.25)
@@ -554,7 +711,7 @@ extension Hands {
         }()
         let chk = TextTarget.check(app: app, appName: info?.name ?? apps.name(pid: pid),
                                    bundleId: info?.bundleId, windowFallback: false)
-        if chk.ok { return }
+        if chk.ok { return chk.via ?? "focused" }
         throw HandsError.noTextTarget(
             observed: "#\(rec.ref) \(rec.role) \"\(String(rec.label.prefix(40)))\" takes no text; " + chk.observed)
     }
@@ -564,7 +721,9 @@ extension Hands {
     /// still wrong -> focus_changed (never type into the wrong app).
     /// After a skill switched apps on purpose (`focusRebindPending`), or
     /// with no observation yet, the current frontmost app is the target.
+    /// Never while the screen is locked (screen_locked).
     func ensureTargetFocus() throws {
+        if apps.screenLocked() { throw HandsError.screenLocked }
         let target = lastPid
         guard target > 0, !focusRebindPending, target != getpid() else { return }
         if apps.frontmostPid() == target { return }
@@ -577,7 +736,7 @@ extension Hands {
         let end = Date().addingTimeInterval(timeout)
         while Date() < end {
             if apps.frontmostPid() == pid { return true }
-            usleep(20_000)
+            Hands.pollWait(0.02)
         }
         return apps.frontmostPid() == pid
     }
@@ -586,9 +745,25 @@ extension Hands {
         let end = Date().addingTimeInterval(timeout)
         while Date() < end {
             if let a = apps.runningApp(bundlePrefix: bundleId) { return a }
-            usleep(50_000)
+            Hands.pollWait(0.05)
         }
         return nil
+    }
+
+    /// Sleep one poll interval. On the main thread of a process without an
+    /// NSApplication (the `hands` CLI) the run loop runs instead, because
+    /// NSWorkspace / NSRunningApplication state (frontmost app, launches)
+    /// only refreshes when the main run loop runs.
+    static func pollWait(_ seconds: TimeInterval) {
+        guard seconds > 0 else { return }
+        if Thread.isMainThread && NSApp == nil {
+            let t0 = Date()
+            let r = CFRunLoopRunInMode(.defaultMode, seconds, false)
+            let left = seconds - Date().timeIntervalSince(t0)
+            if r == .finished, left > 0 { usleep(UInt32(left * 1_000_000)) }  // no sources yet
+        } else {
+            usleep(UInt32(seconds * 1_000_000))
+        }
     }
 }
 

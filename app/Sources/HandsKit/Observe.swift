@@ -84,15 +84,23 @@ let kClipRoles: Set<String> = [
 let kLabelOnlyRoles: Set<String> = ["text", "image"]
 
 public enum Walker {
+    /// Union of the display bounds (global, top-left points). Active
+    /// displays, else the online ones: while the display sleeps (or the
+    /// screen is locked overnight) there are no active displays, and an
+    /// empty union pruned every element as off-screen.
     public static func screenUnion() -> CGRect {
-        var count: UInt32 = 0
-        CGGetActiveDisplayList(0, nil, &count)
-        guard count > 0 else { return .null }
-        var ids = [CGDirectDisplayID](repeating: 0, count: Int(count))
-        CGGetActiveDisplayList(count, &ids, &count)
-        var u = CGRect.null
-        for id in ids.prefix(Int(count)) { u = u.union(CGDisplayBounds(id)) }
-        return u
+        func union(_ list: (UInt32, UnsafeMutablePointer<CGDirectDisplayID>?, UnsafeMutablePointer<UInt32>?) -> CGError) -> CGRect {
+            var count: UInt32 = 0
+            _ = list(0, nil, &count)
+            guard count > 0 else { return .null }
+            var ids = [CGDirectDisplayID](repeating: 0, count: Int(count))
+            _ = list(count, &ids, &count)
+            var u = CGRect.null
+            for id in ids.prefix(Int(count)) { u = u.union(CGDisplayBounds(id)) }
+            return u
+        }
+        let active = union(CGGetActiveDisplayList)
+        return active.isNull ? union(CGGetOnlineDisplayList) : active
     }
 
     static func label(of a: ElAttrs, role: String) -> String {
@@ -393,6 +401,13 @@ public final class Hands {
     var labelSearchOverride: ((String, pid_t) -> Bool)?
     /// Synthetic typing (tests record instead of posting key events).
     var typeTextOverride: ((String) -> Void)?
+    /// Keystroke-app typing (Calculator); tests record instead of posting.
+    var typeKeystrokesOverride: ((String) -> Void)?
+    /// Media-key posting / level read-back (tests: no real events).
+    var mediaKeyPostOverride: ((MediaKey) -> Void)?
+    var mediaLevelOverride: ((MediaKey.Kind) -> [String: AnyHashable]?)?
+    /// Max wait for a volume / brightness change after a media key.
+    var mediaReadBackTimeout: TimeInterval = 0.4
     /// AX application element for a pid (tests pass a mock app).
     var axAppOverride: ((pid_t) -> Element)?
 
