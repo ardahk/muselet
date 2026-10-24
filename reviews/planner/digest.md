@@ -1,8 +1,9 @@
-# planner lane — pass 49 (main 46b97f5, wip 719907a; only decisions c88b613 changed)
+# planner lane — pass 50 (main 18c139f, wip 719907a, planner-lora 79f0a97)
 
 Open P0: none.
 
 Open P1 (ranked):
+- planner-43: Planner LoRA dev split is random by id, so templated siblings leak (training/planner_lora/common.py on main)
 - planner-42: architect-27 asks every Premiere command again, even after a planner confirm (ml/src/brain/orchestrator.py on cloud/safety-architect27)
 0. planner-40: planner-verify accepts done after any successful skill, skipping the model check (ml/src/brain/orchestrator.py on cloud/planner-verify)
 2. planner-31: Rule 14 'expect focused' (no ref) is rejected by HandsKit before acting (prompts/planner_system.md)
@@ -14,6 +15,7 @@ Open P1 (ranked):
 9. planner-6: premiere_command unimplemented; catalog args mismatch the UXP bridge (app/Sources/HandsKit/Skills.swift)
 
 Highest-leverage next moves:
+- LoRA (now on main): use v2-holdout/live as the ship number, measured on the mlx4 export under the exact serve flags. Treat dev_pass 0.98 as in-distribution and don't quote it (planner-43, planner-38).
 - architect-27: ask only for export (maybe the cut too), and let a planner confirm count, so demo 4 doesn't ask 3-6 times (planner-42).
 - Merge safety-planner28 (fixes planner-28).
 - planner-verify: before merging, drop the skill-ok = done-evidence rule (planner-40). Keep the decide-based verify, which also takes care of most of planner-33.
@@ -21,6 +23,11 @@ Highest-leverage next moves:
 - W9 is merged (planner-30/24 fixed). Next, narrow `\[` to JXA computed keys and drop `\\`, `set .* to` and `format` for Numbers reads (planner-37, planner-15), or the demo-3 planner path will ask for confirmation on reads.
 - brain-9: pick the browser from 'in/using X' context, not the first mention (planner-41).
 - Add `view` to open_folder in catalog.json and to the prompt example (planner-32). Fix rule 14 to say `expect focused #<ref>` (planner-31).
+
+Pass 50 notes:
+- main 18c139f merged brain-27 (#59), bench-28 (#60), brain-38 (#62), brain-12 (#63), brain-18 (#64), planner-think (#56), live-cases (#57) and planner-lora (#48). The lane diffs match what I reviewed on those branches in passes 46-48.
+- Not merged yet: planner-verify (planner-40), safety-planner28 (planner-28 fix), safety-architect27 (planner-42).
+- planner-lora export: tied embeddings are split, the trained lm_head is written, and the input embeddings equal the base (max abs err 0.013 after dequantization). split_model on main picks up an untied lm_head (decision.py:177), so serving uses the trained head.
 
 Pass 49 notes:
 - Only cloud/decisions moved (c88b613: results.md and a metrics snapshot, docs only). It changes no planner-lane files, and none of the open findings changed status.
