@@ -1,9 +1,9 @@
 {
-  "pass": 45,
-  "ts": "2026-10-24T22:46:00Z",
+  "pass": 46,
+  "ts": "2026-10-24T23:00:00Z",
   "last_reviewed": {
-    "main": "806b0d4",
-    "wip/local": "6b1006e",
+    "main": "a97fcba",
+    "wip/local": "ac41cd2",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -49,9 +49,9 @@
     "cloud/planner-demos-handoff": "e5e9903",
     "cloud/planner-retrieval-handoff": "f728b79",
     "cloud/w9-safety": "6aa332a",
-    "cloud/memory": "e96ec18",
+    "cloud/memory": "ba3dc0a",
     "cloud/memory-eval": "c05944e",
-    "cloud/memory-lt": "f0ea345",
+    "cloud/memory-lt": "cc056af",
     "cloud/ui-polish": "e8bceef",
     "cloud/docs-demo": "095d4ef",
     "cloud/planner-lora": "ceafe3d",
@@ -59,8 +59,11 @@
     "cloud/docs-demo-2": "fa79929",
     "cloud/hands-clock": "26d4427",
     "cloud/live-cases": "5c173f6",
-    "cloud/planner-think": "6d14a7a",
-    "cloud/planner-verify": "c9de7aa"
+    "cloud/planner-think": "3677348",
+    "cloud/planner-verify": "d22b9a9",
+    "cloud/brain-9": "3f9718b",
+    "cloud/safety-bench28": "a0c456e",
+    "cloud/safety-brain27": "ac43219"
   },
-  "notes": "pass 45: main/wip have no lane changes (docs, evals, briefs). memory-lt: ux-27. hands-clock: CLOCK_HINT now 'Allow Accessibility or add the Clock shortcut in Settings' (fine); Settings steps relabelled 'Optional backup:'. planner-verify/planner-think/w9: no new copy. decisions: merge of main."
+  "notes": "pass 46: main merged W9 (#46), router-it3 and docs-demo-2; ux-24 now on main. brain-9: browser-name mapping, no new copy. safety-brain27/bench28: no copy. memory-lt: ux-27 still open. No new findings."
 }
