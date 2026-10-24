@@ -67,14 +67,16 @@ def make_planner(pmodel: str, engine=None, opts: dict | None = None):
 
 async def serve(port: int = 8765, model: str | None = None,
                 planner_model: str | None = None,
-                planner_kw: dict | None = None):
+                planner_kw: dict | None = None,
+                args_model: str | None = None):
     server = BrainServer(port=port)
     await server.start()
     engine = None
     if model:
         from .decision import DecisionEngine
-        engine = DecisionEngine(model, Catalog.load())
+        engine = DecisionEngine(model, Catalog.load(), args_model_path=args_model)
         print(f"[engine] {model}", flush=True)
+        print(f"[args] {engine.args_model_path}", flush=True)
     planner = None
     pmodel = _resolve_model(planner_model)
     if pmodel:
@@ -108,7 +110,7 @@ async def serve(port: int = 8765, model: str | None = None,
 
 
 def eval_route(model: str, cases_path: str, out_dir: str = "runs/evals",
-               tau: float = 0.55):
+               tau: float = 0.55, args_model: str | None = None):
     import subprocess
 
     from .decision import DecisionEngine
@@ -120,7 +122,10 @@ def eval_route(model: str, cases_path: str, out_dir: str = "runs/evals",
         cases_sha = ""
     cases = [json.loads(l) for l in Path(cases_path).read_text().splitlines()
              if l.strip()]
-    engine = DecisionEngine(_resolve_model(model), Catalog.load())
+    engine = DecisionEngine(_resolve_model(model), Catalog.load(),
+                            args_model_path=_resolve_model(args_model)
+                            if args_model else None)
+    print(f"[args] {engine.args_model_path}", flush=True)
     from .orchestrator import Orchestrator
     dummy_orch = Orchestrator.__new__(Orchestrator)
     dummy_orch.catalog = Catalog.load()
@@ -235,6 +240,8 @@ def build_parser(argv=None):
                    help="model path/repo; 'none' = regex fallback; "
                         "default: 4B-4bit if cached else 0.8B-4bit")
     s.add_argument("--tau", type=float, default=0.55)
+    s.add_argument("--args-model", default=None,
+                   help="model for ARGS; default: same as --model")
     s.add_argument("--planner-model", default=None,
                    help="planner model; default: cached Qwen3.5-4B-4bit")
     s.add_argument("--planner-constrain", action=argparse.BooleanOptionalAction,
@@ -248,6 +255,8 @@ def build_parser(argv=None):
                    choices=["marked", "dsl", "repr"], help="Last batch line format")
     e = sub.add_parser("eval-route", help="eval the router on a JSONL cases file")
     e.add_argument("--model", default=None)
+    e.add_argument("--args-model", default=None,
+                   help="model for ARGS; default: same as --model")
     e.add_argument("--cases", required=True)
     e.add_argument("--out", default="runs/evals")
     e.add_argument("--tau", type=float, default=0.55,
@@ -268,10 +277,12 @@ def run_cmd(args, ap):
               else tracestats.format_report(rep))
     elif args.cmd == "serve":
         m = _resolve_model(args.model)
-        asyncio.run(serve(args.port, m, args.planner_model, planner_opts(args)))
+        am = _resolve_model(args.args_model) if args.args_model else None
+        asyncio.run(serve(args.port, m, args.planner_model, planner_opts(args),
+                          args_model=am))
     elif args.cmd == "eval-route":
         eval_route(args.model, args.cases, args.out,
-                   tau=getattr(args, "tau", 0.55))
+                   tau=getattr(args, "tau", 0.55), args_model=args.args_model)
     else:
         ap.print_help()
 

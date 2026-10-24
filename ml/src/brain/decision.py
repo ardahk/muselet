@@ -304,11 +304,24 @@ class RouteRenderer:
 
 
 class DecisionEngine:
-    def __init__(self, model_path: str, catalog=None):
+    def __init__(self, model_path: str, catalog=None,
+                 args_model_path: str | None = None):
         self.model_path = model_path
         self.model, self.tokenizer = mlx_lm.load(model_path)
         self.body, self.lm_head = split_model(self.model)
         self.rr = RouteRenderer(model_path, catalog)
+        # ARGS may run on its own model (a router LoRA can be bad at ARGS);
+        # planner.load_model shares weights with a planner on the same path
+        self.args_model_path = args_model_path or model_path
+        if self.args_model_path == model_path:
+            self.args_model, self.args_tokenizer = self.model, self.tokenizer
+            self.args_body, self.args_lm_head = self.body, self.lm_head
+            self.args_rr = self.rr
+        else:
+            from .planner import load_model
+            self.args_model, self.args_tokenizer = load_model(self.args_model_path)
+            self.args_body, self.args_lm_head = split_model(self.args_model)
+            self.args_rr = RouteRenderer(self.args_model_path, catalog)
         self.choice_renderer = self.rr.choice_renderer
         self.route_renderer = self.rr.route_renderer
         self.catalog = catalog
@@ -337,8 +350,8 @@ class DecisionEngine:
         ctx.setdefault("last_action", self.last_action)
         return self.rr.decision(utterance, ctx)
 
-    def _content_cut(self, rendered_tokens, sentinel: str) -> int:
-        sent = self.tokenizer.encode(sentinel, add_special_tokens=False)
+    def _content_cut(self, rendered_tokens, sentinel: str, tokenizer=None) -> int:
+        sent = (tokenizer or self.tokenizer).encode(sentinel, add_special_tokens=False)
         n = len(sent)
         for i in range(len(rendered_tokens) - n + 1):
             if rendered_tokens[i:i + n] == sent:
@@ -365,28 +378,30 @@ class DecisionEngine:
         msgs = [Message(role="system", content=ARGS_SYSTEM),
                 Message(role="user", content=sentinel),
                 Message(role="assistant", content=sentinel)]
-        toks = self._render_msgs(msgs)
-        ucut = self._content_cut(toks, sentinel)
-        acut = self._content_cut(toks[ucut + 1:], sentinel) + ucut + 1
+        toks = self._render_msgs(msgs, self.args_rr)
+        tk = self.args_tokenizer
+        ucut = self._content_cut(toks, sentinel, tk)
+        acut = self._content_cut(toks[ucut + 1:], sentinel, tk) + ucut + 1
         self._args_prompt_end = acut          # prompt tokens end here
         self._args_prefix_tokens = toks[:ucut]
         self._args_cut = ucut
-        self._args_cache = self._prefill(mx.array([toks[:ucut]]))
+        self._args_cache = self._prefill(mx.array([toks[:ucut]]),
+                                         self.args_model, self.args_body)
 
-    def _render_msgs(self, msgs):
-        mi, _ = self.route_renderer.renderer.build_supervised_example(msgs)
+    def _render_msgs(self, msgs, rr=None):
+        mi, _ = (rr or self.rr).route_renderer.renderer.build_supervised_example(msgs)
         return mi.to_ints()
 
-    def _prefill(self, tokens):
+    def _prefill(self, tokens, model=None, body=None):
         from mlx_lm.models.cache import make_prompt_cache
-        cache = make_prompt_cache(self.model)
-        self.body(tokens, cache=cache)
+        cache = make_prompt_cache(model or self.model)
+        (body or self.body)(tokens, cache=cache)
         return cache
 
-    def _logits_last(self, cache, tokens):
+    def _logits_last(self, cache, tokens, body=None, lm_head=None):
         """Prefill `tokens` (ids) into cache; lm_head on the last position."""
-        out = self.body(tokens, cache=cache)
-        logits = self.lm_head(out[:, -1:, :]).astype(mx.float32)
+        out = (body or self.body)(tokens, cache=cache)
+        logits = (lm_head or self.lm_head)(out[:, -1:, :]).astype(mx.float32)
         return logits[0, 0]
 
     def route(self, utterance: str, ctx: dict) -> RouteResult:
@@ -442,26 +457,28 @@ class DecisionEngine:
         msgs = [Message(role="system", content=ARGS_SYSTEM),
                 Message(role="user", content=user),
                 Message(role="assistant", content=sentinel)]
-        toks = self._render_msgs(msgs)
-        acut = self._content_cut(toks, sentinel)   # prompt ends at sentinel
+        tk = self.args_tokenizer
+        toks = self._render_msgs(msgs, self.args_rr)
+        acut = self._content_cut(toks, sentinel, tk)   # prompt ends at sentinel
         assert toks[:self._args_cut] == self._args_prefix_tokens, \
             "args render diverged from cached prefix"
         cache = copy.deepcopy(self._args_cache)
-        stop_ids = {self.tokenizer.eos_token_id}
+        stop_ids = {tk.eos_token_id}
         for stop_str in ["<" + "|im_end|>", chr(10)]:
-            toks_ = self.tokenizer.encode(stop_str, add_special_tokens=False)
+            toks_ = tk.encode(stop_str, add_special_tokens=False)
             if len(toks_) == 1:
                 stop_ids.add(toks_[0])
         out_tokens = []
         cur = mx.array([toks[self._args_cut:acut]])
         for _ in range(24):
-            logits = self._logits_last(cache, cur)
+            logits = self._logits_last(cache, cur, self.args_body,
+                                       self.args_lm_head)
             nxt = int(np.argmax(np.array(logits)))
             if nxt in stop_ids:
                 break
             out_tokens.append(nxt)
             cur = mx.array([[nxt]])
-        text = self.tokenizer.decode(out_tokens).strip()
+        text = tk.decode(out_tokens).strip()
         names = {a["name"] for a in
                  (self.catalog.get(skill) or {}).get("args", [])}
         parsed = self._parse_args_line(text, names)

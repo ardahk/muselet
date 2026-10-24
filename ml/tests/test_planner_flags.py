@@ -10,6 +10,9 @@ from types import SimpleNamespace
 import mlx.core as mx
 import numpy as np
 import pytest
+from fakes import FakeEngine, FakeServer
+from test_live_e2e_fixes import _skill_rpcs
+from test_planner_loop import _diff_orch, trace_for
 
 from brain import cli, dsl
 from brain import planner as P
@@ -17,10 +20,6 @@ from brain.catalog import Catalog
 from brain.orchestrator import Orchestrator, _log_act, _repr_line, abs_level, rel_delta
 from brain.planner import OpConstraint, Planner, history, runtime_repr
 from brain.traces import Tracer
-
-from fakes import FakeEngine, FakeServer
-from test_live_e2e_fixes import _skill_rpcs
-from test_planner_loop import _diff_orch, trace_for
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -319,7 +318,7 @@ def test_flags_reach_planner_and_startup_log(capsys):
 def test_serve_cmd_passes_planner_opts(monkeypatch):
     got = {}
 
-    async def fake_serve(port, model, planner_model, planner_kw=None):
+    async def fake_serve(port, model, planner_model, planner_kw=None, args_model=None):
         got.update(planner_kw)
 
     monkeypatch.setattr(cli, "serve", fake_serve)
