@@ -632,3 +632,12 @@ def test_datetime_argument_is_not_recovered_as_duration(tmp_path):
     run(o.handle_utterance(text))
     assert not any("seconds or" in bubble for bubble in o.server.said)
     assert not (o._slot and "duration_number" in o._slot)
+
+
+def test_kill_and_cut_mean_off_for_network_toggles():
+    """route_v1 regression after brain-5: 'kill bluetooth' must stay on=False (the old coercion got it right)."""
+    from brain.argfix import polarity
+    assert polarity("bluetooth", "kill bluetooth") is False
+    assert polarity("wifi", "cut the wifi") is False
+    assert polarity("bluetooth", "turn bluetooth on") is True
+    assert polarity("mute", "kill the sound") is True

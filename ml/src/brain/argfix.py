@@ -87,6 +87,7 @@ _NETWORK = [
     (r"\bturn\s+off\b", False),
     (r"\bdisable\b", False),
     (r"\bdisconnect\b", False),
+    (r"\b(?:kill|cut|shut\s+down|stop)\b", False),
     (r"\boff\b", False),
 ]
 
