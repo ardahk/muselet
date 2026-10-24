@@ -394,6 +394,8 @@ class Orchestrator:
         self.tau = tau
         self.planner = None
         self.planner_escalate = None    # opt-in bigger planner (loop guard)
+        self._escalate_lock = asyncio.Lock()
+        self._escalate_desired = False
         self.escalate_model = "mlx-community/Qwen3.6-35B-A3B-4bit"
         self._sysctl_reader = None
         self._escalate_loader = None
@@ -2123,8 +2125,14 @@ function run() {
 
     async def set_escalation(self, enabled: bool) -> dict:
         """Load or unload the optional planner without blocking the loop."""
-        enabled = bool(enabled)
-        if enabled:
+        self._escalate_desired = bool(enabled)
+        if not enabled:
+            if not self._escalate_lock.locked():
+                self._unload_escalation()
+            return {"loaded": False}
+        async with self._escalate_lock:
+            if not self._escalate_desired:
+                return {"loaded": False}
             if self.planner_escalate is not None:
                 return {"loaded": True}
             if self.planner is None:
@@ -2148,8 +2156,14 @@ function run() {
                     ESCALATE_OPTS, tag="planner-escalate")
             except Exception as e:
                 return {"loaded": False, "reason": str(e)[:200]}
+            if not self._escalate_desired:
+                del planner
+                await worker().submit_async(self._unload_escalation)
+                return {"loaded": False}
             self.planner_escalate = planner
             return {"loaded": True}
+
+    def _unload_escalation(self):
         old = self.planner_escalate
         self.planner_escalate = None
         if self._active_planner is old:
@@ -2169,7 +2183,6 @@ function run() {
                     clear()
             except Exception:
                 pass
-        return {"loaded": False}
 
     async def _planner_loop(self, text: str, trace: dict,
                             hint: str | None = None,
