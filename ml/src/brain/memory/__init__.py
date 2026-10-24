@@ -14,6 +14,20 @@ from .rules import Resolution, apply
 from .store import MemoryStore, TYPES
 from .working import Turn, WorkingMemory
 
+_MEMORY_TOKEN = re.compile(r"[^\W_]+(?:['’]s)?", re.UNICODE)
+_MEMORY_PREFIXES = {"my", "the", "our"}
+_MEMORY_SUFFIXES = {
+    "folder", "playlist", "music", "preset", "project", "dashboard",
+}
+_PERSON_TYPES = {"person", "contact"}
+_PATH_TYPES = {"file", "folder", "site"}
+_FILE_ACTION = re.compile(
+    r"\b(?:open|find|move|rename|trash|delete|save|export)\b",
+    re.IGNORECASE)
+_SITE_ACTION = re.compile(
+    r"\b(?:open|visit|go to|look up|search|navigate to|pull up|browse)\b",
+    re.IGNORECASE)
+
 
 def resolve(text: str, wm: WorkingMemory, ctx: dict, now: float,
             catalog=None, llm=None,
@@ -26,7 +40,7 @@ def resolve(text: str, wm: WorkingMemory, ctx: dict, now: float,
     reason = detect(text, wm, ctx, now, catalog)
     if reason is None:
         if memory_changed:
-            return Resolution("memory", text, True, "memory")
+            return Resolution("rule", text, True, "longterm")
         return Resolution("none", source_text, False, None)
     result = apply(text, reason, wm, ctx, now, catalog)
     if result is None and llm is not None:
@@ -34,7 +48,7 @@ def resolve(text: str, wm: WorkingMemory, ctx: dict, now: float,
                              memory=longterm)
     if result is None:
         if memory_changed:
-            return Resolution("memory", text, True, "memory")
+            return Resolution("rule", text, True, "longterm")
         return Resolution("none", source_text, False, reason)
     if result.reason == "guard":
         return Resolution("none", source_text, False, "guard")
@@ -44,7 +58,7 @@ def resolve(text: str, wm: WorkingMemory, ctx: dict, now: float,
     if memory_changed and not result.changed and result.path == "none":
         result.text = text
         result.changed = True
-        result.path = "memory"
+        result.path = "rule"
     if not result.changed and not memory_changed:
         result.text = source_text
     return result
@@ -53,32 +67,133 @@ def resolve(text: str, wm: WorkingMemory, ctx: dict, now: float,
 def apply_longterm(text: str, rows: list[dict]) -> str:
     if not rows:
         return text
-    from ..comms import is_messaging
 
-    allow_person = is_messaging(text)
-    file_command = re.search(
-        r"\b(?:open|find|move|rename|trash|delete|save|export)\b",
-        text, re.IGNORECASE)
-    search_command = re.search(r"\b(?:search|look up|find)\b",
-                               text, re.IGNORECASE)
-    result = text
-    eligible = []
+    def tokens(value: str) -> list[tuple[str, int, int]]:
+        found = []
+        normalized = value
+        for dash in ("-", "‐", "–", "—"):
+            normalized = normalized.replace(dash, " ")
+        for match in _MEMORY_TOKEN.finditer(normalized):
+            token = match.group().casefold()
+            if token.endswith(("'s", "’s")):
+                token = token[:-2]
+            start, end = match.span()
+            if token == "up" and found and found[-1][0] == "warm":
+                previous, start, _ = found.pop()
+                found.append(("warmup", start, end))
+            else:
+                found.append((token, start, end))
+        return found
+
+    def distance_one(left: str, right: str) -> bool:
+        if left == right:
+            return True
+        if min(len(left), len(right)) < 5 or abs(len(left) - len(right)) > 1:
+            return False
+        if len(left) > len(right):
+            left, right = right, left
+        row = list(range(len(left) + 1))
+        for index, char in enumerate(right, 1):
+            next_row = [index]
+            for offset, other in enumerate(left, 1):
+                next_row.append(min(
+                    next_row[-1] + 1, row[offset] + 1,
+                    row[offset - 1] + (char != other)))
+            row = next_row
+        return row[-1] <= 1
+
+    def matches(key: list[str], phrase: list[str]) -> bool:
+        if key and phrase and key[-1] == phrase[-1] and \
+                key[-1] in _MEMORY_SUFFIXES:
+            key, phrase = key[:-1], phrase[:-1]
+        return len(key) == len(phrase) and all(
+            distance_one(left, right) for left, right in zip(key, phrase))
+
+    utterance_tokens = tokens(text)
+    if not utterance_tokens:
+        return text
+    candidates = []
     for row in rows:
-        kind = row.get("type")
-        if kind == "correction" or \
-                kind in {"person", "contact"} and allow_person or \
-                kind in {"file", "folder"} and file_command or \
-                kind == "site" and search_command:
-            eligible.append(row)
-    eligible.sort(key=lambda row: len(str(row.get("key") or "")),
-                  reverse=True)
-    for row in eligible:
-        key, value = str(row.get("key") or ""), str(row.get("value") or "")
+        key = str(row.get("key") or "")
+        value = str(row.get("value") or "").strip()
         if not key or not value:
             continue
-        result = re.sub(
-            rf"(?<!\w){re.escape(key)}(?!\w)",
-            lambda _match: value, result, flags=re.IGNORECASE)
+        key_tokens = [token for token, _, _ in tokens(key)]
+        while key_tokens and key_tokens[0] in _MEMORY_PREFIXES:
+            key_tokens.pop(0)
+        if not key_tokens:
+            continue
+        kind = str(row.get("type") or "").casefold()
+        if kind in {"file", "folder"} and not _FILE_ACTION.search(text):
+            continue
+        if kind == "site" and not _SITE_ACTION.search(text):
+            continue
+        for start in range(len(utterance_tokens)):
+            prefix = utterance_tokens[start - 1][0] if start > 0 else ""
+            prefixed = prefix in _MEMORY_PREFIXES
+            span_start = start - 1 if prefixed else start
+            for end in range(start + 1,
+                             min(len(utterance_tokens),
+                                 start + len(key_tokens)) + 1):
+                phrase = [token for token, _, _ in
+                          utterance_tokens[start:end]]
+                if len(key_tokens) == 1:
+                    command_before = bool(re.search(
+                        r"\b(?:text|tex|send|message|email|mail|call|tell)\b"
+                        r"[^.!?]{0,24}$",
+                        text[:utterance_tokens[span_start][1]],
+                        re.IGNORECASE))
+                    if not prefixed and not (
+                            kind in _PERSON_TYPES and command_before):
+                        continue
+                    if prefixed and prefix not in {"my", "the"}:
+                        continue
+                    if len(key_tokens[0]) < 4 and not (
+                            kind in _PERSON_TYPES and command_before):
+                        continue
+                if matches(key_tokens, phrase):
+                    candidates.append({
+                        "start": utterance_tokens[span_start][1],
+                        "end": utterance_tokens[end - 1][2],
+                        "key_length": len(key),
+                        "key": key,
+                        "value": value,
+                        "type": kind,
+                    })
+                    break
+    candidates.sort(key=lambda item: (
+        -item["key_length"], item["start"], item["end"]))
+    selected = []
+    for candidate in candidates:
+        if any(candidate["start"] < row["end"] and
+               row["start"] < candidate["end"] for row in selected):
+            continue
+        selected.append(candidate)
+        if len(selected) == 2:
+            break
+    if not selected:
+        return text
+    if any(row["type"] in _PATH_TYPES for row in selected):
+        path_row = next(row for row in selected if row["type"] in _PATH_TYPES)
+        value = path_row["value"]
+        if path_row["type"] == "site" and not re.match(
+                r"^https?://", value, re.IGNORECASE):
+            value = f"https://{value.lstrip('/')}"
+        if path_row["type"] in _PERSON_TYPES:
+            value = re.sub(r"\s*(?:\([^)]*@[^)]*\)|<[^>]*@[^>]*>)\s*$",
+                           "", value).strip()
+        return f"open {value}"
+    result = text
+    for row in sorted(selected, key=lambda item: item["start"], reverse=True):
+        value = row["value"]
+        if row["type"] in _PERSON_TYPES:
+            value = re.sub(r"\s*(?:\([^)]*@[^)]*\)|<[^>]*@[^>]*>)\s*$",
+                           "", value).strip()
+        elif row["type"] == "preference" and \
+                tokens(str(row.get("key") or ""))[-1:]:
+            if tokens(str(row.get("key") or ""))[-1][0] == "timer":
+                value = f"a {value} timer"
+        result = result[:row["start"]] + value + result[row["end"]:]
     return result
 
 

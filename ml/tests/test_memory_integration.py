@@ -5,7 +5,9 @@ import json
 import time
 
 from brain.catalog import Catalog
-from brain.memory import MemoryStore, WorkingMemory, apply_longterm, eval_adapter
+from brain.memory import (
+    MemoryStore, WorkingMemory, apply_longterm, eval_adapter, resolve,
+)
 from brain.orchestrator import Orchestrator
 from brain.traces import Tracer
 from fakes import FakeEngine, FakeServer
@@ -109,6 +111,64 @@ def test_longterm_substitution_is_comms_only_and_eval_none_is_unchanged():
     recalled = eval_adapter(
         "send a message to Mom", ctx, history, longterm=rows)
     assert "Jane Kim" in recalled["text"]
+
+
+def test_longterm_substitution_normalizes_keys_and_values():
+    ctx = {"app": "Finder", "t": 10}
+    wm = WorkingMemory()
+    cases = [
+        ("draft an email to the caterer asking about vegetarian options",
+         {"type": "contact", "key": "the caterer",
+          "value": "Rosa Delgado (rosa@example.com)"},
+         "draft an email to Rosa Delgado asking about vegetarian options"),
+        ("open my b roll folder",
+         {"type": "folder", "key": "b-roll folder",
+          "value": "~/Movies/Projects/B-Roll"},
+         "open ~/Movies/Projects/B-Roll"),
+        ("pull up the ci dashboard",
+         {"type": "site", "key": "ci dashboard",
+          "value": "https://ci.example.com/wavetable"},
+         "open https://ci.example.com/wavetable"),
+        ("start my practise timer",
+         {"type": "preference", "key": "practice timer",
+          "value": "25 minutes"},
+         "start a 25 minutes timer"),
+        ("put on my codeing music",
+         {"type": "preference", "key": "coding music",
+          "value": "Tycho"},
+         "put on Tycho"),
+        ("play my warm up playlist",
+         {"type": "preference", "key": "warmup playlist",
+          "value": "Scales and Arpeggios"},
+         "play Scales and Arpeggios"),
+    ]
+    for utterance, row, expected in cases:
+        result = resolve(utterance, wm, ctx, 10, longterm=[row])
+        assert result.path == "rule"
+        assert result.text == expected
+
+
+def test_longterm_substitution_limits_count_and_single_word_matches():
+    ctx = {"app": "Music", "t": 10}
+    wm = WorkingMemory()
+    rows = [
+        {"type": "preference", "key": "coding music", "value": "Tycho"},
+        {"type": "preference", "key": "focus music", "value": "Brown noise"},
+        {"type": "preference", "key": "music", "value": "Jazz"},
+    ]
+    result = resolve(
+        "play my codeing music and my focus music and music", wm, ctx, 10,
+        longterm=rows)
+    assert result.text == "play Tycho and Brown noise and music"
+    assert resolve(
+        "play music", wm, ctx, 10, longterm=[rows[-1]]).changed is False
+    assert resolve(
+        "play my music", wm, ctx, 10, longterm=[rows[-1]]).text == "play Jazz"
+    file_in_email = resolve(
+        "email my cousin saying the invite is ready", wm, ctx, 10,
+        longterm=[{"type": "file", "key": "invite",
+                   "value": "~/Documents/Invite.pages"}])
+    assert file_in_email.changed is False
 
 
 def test_memory_request_delete_and_clear_protocol_shape(tmp_path):
