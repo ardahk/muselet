@@ -101,7 +101,7 @@ class _WorkspacePageServer:
         self.thread.start()
 
     def url(self, path: Path) -> str:
-        relative = path.absolute().relative_to(self.workspace)
+        relative = path.resolve().relative_to(Path(self.workspace).resolve())
         self.page_url = f"http://127.0.0.1:{self.port}/{quote(relative.as_posix())}"
         return self.page_url
 
