@@ -11,3 +11,5 @@ DerivedData/
 .env
 .env.*
 *.pem
+.build-*/
+app/build/

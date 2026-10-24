@@ -20,6 +20,7 @@ class BrainServer:
         self._seq = itertools.count(1)
         self._pending: dict[str, asyncio.Future] = {}
         self._confirms: dict[str, asyncio.Future] = {}
+        self._late: set[str] = set()          # rpc ids that timed out
         self._connected = asyncio.Event()
         self._utterance_task: asyncio.Task | None = None
         self.on_utterance = None      # async cb(text, final)
@@ -82,9 +83,13 @@ class BrainServer:
                     continue
                 t = msg.get("t")
                 if t == "rpc_result":
-                    fut = self._pending.pop(msg.get("id"), None)
+                    rid = msg.get("id")
+                    fut = self._pending.pop(rid, None)
                     if fut and not fut.done():
                         fut.set_result(msg)
+                    elif rid in self._late:
+                        log.info("late_reply id=%s (arrived after timeout)", rid)
+                        self._late.discard(rid)
                 elif t == "confirm_reply":
                     fut = self._confirms.pop(msg.get("id"), None)
                     if fut and not fut.done():
@@ -133,6 +138,7 @@ class BrainServer:
         try:
             reply = await asyncio.wait_for(fut, timeout)
         except asyncio.TimeoutError:
+            self._late.add(rid)   # a later reply gets logged as late_reply
             raise RuntimeError(f"rpc {method} timed out")
         finally:
             self._pending.pop(rid, None)
