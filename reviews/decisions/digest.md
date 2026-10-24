@@ -1,10 +1,10 @@
-# decisions — digest (pass 38)
+# decisions — digest (pass 39)
 
-Heads: cloud/decisions c88b613, main 18c139f (planner-lora/think, live-cases, safety merged), wip 719907a, planner-lora 79f0a97 (MLX export only, no Tinker spend), planner-verify d22b9a9 (decisions-37 still live). Budget: about $136.22 + $5.84 = $142.06 MTD estimated, $5.9 under the $148 stop.
+Heads: cloud/decisions ae36620 (rebased on 18c139f, import move only), main 0b83c3b (planner-verify #54 merged -> decisions-37 now lands on merge of PR #39), wip e4f4331. Budget: about $142.06 MTD estimated, $5.9 under the $148 stop.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
-1. decisions-37 P1 inline() decider has no temperature attrs; merge with cloud/decisions -> AttributeError in planner verify — ml/src/brain/generic_decide.py@planner-verify
+1. decisions-37 P1 inline() decider has no temperature attrs; merge with cloud/decisions -> AttributeError in planner verify — ml/src/brain/generic_decide.py:177-190@main 0b83c3b
 2. decisions-32 P1 Full run fails its gate; TD +.0065 vs DeskMind is within noise, test-selected — training/decisions/HANDOFF.md:7-8,82-89
 3. decisions-5 P1 4-bit MLX export has no logit parity check vs Tinker; Tinker numbers can't be carried over — training/decisions/export.py
 4. decisions-33 P1 near_miss_values makes gold the medoid (~2x chance) — training/decisions/families/core.py:29-49
@@ -14,7 +14,7 @@ Contamination re-check this pass: 2400 freshly generated code-family items vs Je
 8. decisions-25 / -4 / -3 P1 data brief stale; noul order flip; route regression unmeasured
 
 ## Highest-leverage next moves
-- Before merging cloud/decisions or planner-verify, set temperature_probs/conf in GenericMLXDecider.inline() (decisions-37).
+- Before merging PR #39 (cloud/decisions) into main, set temperature_probs/conf in GenericMLXDecider.inline() (decisions-37).
 - Bench the mlx4 export on the Mac with the same runners before quoting any number (decisions-5).
 - results.md: full run is below DeskMind on JevBench and tied on TD on a different backend; label rows test-selected (decisions-32). Keep claims.md:85-86.
 - Any data-decisions v2 merge: gate gold-rank uniformity and noul balance per family in build.py (decisions-33, -17).
