@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import subprocess
 import sys
@@ -60,3 +61,24 @@ def delete_bench_events(identifiers: list[str]) -> list[str]:
     if not identifiers:
         return []
     return list(_eventkit("delete", *identifiers).get("deleted", []))
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Probe or set up the benchmark Calendar")
+    parser.add_argument("action", choices=("probe", "setup"))
+    args = parser.parse_args(argv)
+    try:
+        result = (
+            probe_bench_calendar()
+            if args.action == "probe"
+            else setup_bench_calendar()
+        )
+    except Exception as exc:
+        print(json.dumps({"exists": False, "error": str(exc)}), flush=True)
+        return 1 if args.action == "setup" else 0
+    print(json.dumps(result, ensure_ascii=False), flush=True)
+    return 0 if args.action == "probe" or is_local_default(result) else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

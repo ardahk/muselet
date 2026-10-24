@@ -82,3 +82,43 @@ def test_eventkit_probe_parses_output_without_following_remote_calendar(monkeypa
     result = calendar_safety.probe_bench_calendar()
     assert result["source_type"] == "exchange"
     assert not calendar_safety.is_local_default(result)
+
+
+def test_calendar_cli_probe_prints_json(monkeypatch, capsys):
+    result = {
+        "exists": True,
+        "source_type": "local",
+        "is_default_for_new_events": True,
+    }
+    monkeypatch.setattr(calendar_safety, "_eventkit", lambda _action: result)
+
+    assert calendar_safety.main(["probe"]) == 0
+    assert json.loads(capsys.readouterr().out) == result
+
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        {
+            "exists": True,
+            "source_type": "caldav",
+            "source_title": "iCloud",
+            "is_default_for_new_events": True,
+        },
+        {
+            "exists": True,
+            "source_type": "local",
+            "source_title": "On My Mac",
+            "is_default_for_new_events": False,
+        },
+    ],
+)
+def test_calendar_cli_setup_fails_when_not_local_default(
+    monkeypatch, capsys, result
+):
+    monkeypatch.setattr(calendar_safety.sys, "platform", "darwin")
+    monkeypatch.setattr(calendar_safety, "_eventkit", lambda _action: result)
+
+    assert calendar_safety.main(["setup"]) == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload.get("error") or not calendar_safety.is_local_default(payload)

@@ -231,3 +231,56 @@ def test_trace_ends_case_and_final_check_records_verified_latency(tmp_path):
         assert result["timed_out"] is False
 
     asyncio.run(scenario())
+
+
+def test_replay_strict_pass_uses_state_not_reported_outcome(tmp_path):
+    class ReplayRuntime(FakeRuntime):
+        def __init__(self, outcome):
+            super().__init__()
+            self.outcome = outcome
+            self.utterance_wall = None
+
+        async def start_utterance(self, utterance):
+            self.calls.append(("utterance", utterance))
+            self.utterance_monotonic = asyncio.get_running_loop().time()
+            self.utterance_wall = datetime.now(timezone.utc).isoformat()
+            self.trace_path.write_text(
+                json.dumps({
+                    "ts": self.utterance_wall,
+                    "utterance": utterance,
+                    "outcome": self.outcome,
+                }) + "\n",
+                encoding="utf-8",
+            )
+
+        def snapshot(self):
+            return {
+                "frames": [], "confirm_count": 0,
+                "utterance_wall": self.utterance_wall,
+            }
+
+        def mark_utterance_finished(self):
+            self.terminal_monotonic = asyncio.get_running_loop().time()
+
+    async def scenario():
+        for outcome, expected_pass, expected_false_done in (
+            ("failed", True, False),
+            ("ok", False, True),
+        ):
+            runtime = ReplayRuntime(outcome)
+            runtime.trace_path = tmp_path / f"{outcome}.jsonl"
+            result = await run_case(
+                {
+                    "id": "replay",
+                    "kind": "calc",
+                    "utterance": "answer only",
+                    "check": [lambda _runtime, _context: {"passed": outcome == "failed"}],
+                },
+                runtime,
+                values={},
+                trace_path=runtime.trace_path,
+            )
+            assert result["strict_pass"] is expected_pass
+            assert result["false_done"] is expected_false_done
+
+    asyncio.run(scenario())

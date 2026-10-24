@@ -12,17 +12,35 @@ Simplified Chinese first, verify `defaults read -g AppleLanguages` includes
 
 ## Published Brain baselines
 
-Commands below are from the pinned Brain README. Run both model sizes through
-the pinned DeskMind Bench suite, then through the JevBench and Typed Decisions
-scripts in this repository:
+The complete M5 Pro sequence is in [`../RUNBOOK.md`](../RUNBOOK.md). Commands
+below are from the pinned Brain README. Run both model sizes through the pinned
+DeskMind Bench suite, then through the JevBench and Typed Decisions scripts in
+this repository:
 
 ```sh
 uv run hf download deskmind/brain-0.8b --revision g18b-q8 --local-dir models/brain-0.8b
 uv run deskmind-brain-serve --predictor mlx:models/brain-0.8b --port 8794
-deskmind-bench run --set diag --repeats 3 --url http://127.0.0.1:8794 --label brain-0.8b --out runs/deskmind/brain-0.8b
+mkdir -p runs/deskmind/brain-0.8b-runs
+(cd runs/deskmind/brain-0.8b-runs && \
+  DESKMIND_RUNS_DIR=. deskmind-bench run --set diag --repeats 3 --url http://127.0.0.1:8794 \
+  --label brain-0.8b --out ../brain-0.8b.json)
 uv run hf download deskmind/brain-4b --revision g18b-q8 --local-dir models/brain-4b
-uv run deskmind-brain-serve --predictor mlx:models/brain-4b --port 8793
-deskmind-bench run --set diag --repeats 3 --url http://127.0.0.1:8793 --label brain-4b --out runs/deskmind/brain-4b
+uv run deskmind-brain-serve --predictor mlx:models/brain-4b --port 8795
+mkdir -p runs/deskmind/brain-4b-runs
+(cd runs/deskmind/brain-4b-runs && \
+  DESKMIND_RUNS_DIR=. deskmind-bench run --set diag --repeats 3 --url http://127.0.0.1:8795 \
+  --label brain-4b --out ../brain-4b.json)
+```
+
+Regrade the report files and inspect per-task results with the same pinned
+scorer:
+
+```sh
+for r in brain-0.8b brain-4b; do
+  (cd runs/deskmind/$r-runs && \
+    deskmind-bench score ../$r.json --suite-version diag-v27 --out ../$r.score.json && \
+    deskmind-bench table ../$r.score.json)
+done
 ```
 
 Compare each baseline on public typed-decision suites as well:
@@ -30,8 +48,8 @@ Compare each baseline on public typed-decision suites as well:
 ```sh
 bash bench/run_jevbench.sh --url http://127.0.0.1:8794 --model brain-0.8b
 bash bench/run_typed_decisions.sh --url http://127.0.0.1:8794 --model brain-0.8b
-bash bench/run_jevbench.sh --url http://127.0.0.1:8793 --model brain-4b
-bash bench/run_typed_decisions.sh --url http://127.0.0.1:8793 --model brain-4b
+bash bench/run_jevbench.sh --url http://127.0.0.1:8795 --model brain-4b
+bash bench/run_typed_decisions.sh --url http://127.0.0.1:8795 --model brain-4b
 ```
 
 ## Muselet
@@ -41,7 +59,13 @@ Start the System One shim and use the pinned DeskMind Bench Hands adapter:
 ```sh
 PYTHONPATH=ml/src uv run --project ml python -m bench.systemone.cli --host 127.0.0.1 --port 8793 \
   --backend mlx --model-path mlx-community/Qwen3.5-4B-4bit --model-name muselet
-deskmind-bench run --set diag --repeats 3 --url http://127.0.0.1:8793 --label muselet-shim --out runs/deskmind/muselet-shim
+mkdir -p runs/deskmind/muselet-shim-runs
+(cd runs/deskmind/muselet-shim-runs && \
+  DESKMIND_RUNS_DIR=. deskmind-bench run --set diag --repeats 3 --url http://127.0.0.1:8793 \
+  --label muselet-shim --out ../muselet-shim.json)
+(cd runs/deskmind/muselet-shim-runs && \
+  deskmind-bench score ../muselet-shim.json --suite-version diag-v27 --out ../muselet-shim.score.json && \
+  deskmind-bench table ../muselet-shim.score.json)
 ```
 
 The shim comparisons isolate protocol compatibility; they are not a claim about
@@ -49,7 +73,7 @@ Muselet's native desktop policy. Native loop replay is available on macOS with a
 running local Muselet brain and Hands CLI:
 
 ```sh
-python3 bench/deskmind/run_muselet.py --repeats 3 --port 8765
+uv run --project ml python bench/deskmind/run_muselet.py --repeats 3 --port 8765
 deskmind-bench score runs/bench/deskmind/muselet --suite-version diag-v27 --out runs/bench/deskmind/muselet/score.json
 deskmind-bench table runs/bench/deskmind/muselet/score.json
 ```

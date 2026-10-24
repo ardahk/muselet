@@ -683,7 +683,7 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Fal
                 case = {
                     "id": task["id"], "kind": task["kind"], "category": task["kind"],
                     "utterance": task["text"], "timeout_s": args.timeout,
-                    "expect_outcome": "ok", "check": [grade], "teardown": [restore],
+                    "check": [grade], "teardown": [restore],
                 }
                 try:
                     result = await run_case(

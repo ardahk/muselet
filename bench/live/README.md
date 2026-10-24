@@ -1,5 +1,6 @@
 # Live suite
 
+The full M5 Pro benchmark sequence is in [`../RUNBOOK.md`](../RUNBOOK.md).
 The live runner executes `evals/live_t1.jsonl` against a macOS desktop. It
 starts a local WebSocket proxy and launches `hands serve` clients as needed;
 start the Brain server separately. Do not run the suite while another person
