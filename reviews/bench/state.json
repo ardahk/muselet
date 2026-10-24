@@ -1,19 +1,19 @@
 {
-  "pass": 7,
-  "ts": "2026-10-24T07:40:00Z",
+  "pass": 8,
+  "ts": "2026-10-24T07:55:00Z",
   "branches": {
-    "main": "c2d2988",
-    "wip/local": "8874962",
+    "main": "d8ad966",
+    "wip/local": "85ec0df",
     "cloud/bench": "911a384",
-    "cloud/data-pipeline": "8f0b9bc",
+    "cloud/data-pipeline": "b8c0604",
     "cloud/finance": "529e9ff",
-    "cloud/finance-2": "f4ae461",
+    "cloud/finance-2": "dfaf785",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/advisor": "9432c30",
-    "cloud/advisor-2": "ec98013",
-    "cloud/pitch": "454a563",
-    "cloud/grounding": "42310cd",
-    "cloud/brain-2": "9f41c11"
+    "cloud/advisor-2": "0a65f75",
+    "cloud/pitch": "ad1b058",
+    "cloud/grounding": "3441ee8",
+    "cloud/brain-2": "741465c"
   },
-  "notes": "pass7 (PULSE 07:07:35Z): only wip/local moved; 8874962 has no lane-file changes vs main@c2d2988. Open findings re-checked against unchanged heads; no status changes."
+  "notes": "pass8 (PULSE 07:23:21Z): bench-8 resolved (b8c0604), bench-13 resolved (3441ee8, 123 grounder tests pass). main/wip/brain-2/finance-2 lane changes = evals/external merge (identical to cloud/bench) + live_t1 (utterance key, covered). advisor-2/pitch: no lane files."
 }

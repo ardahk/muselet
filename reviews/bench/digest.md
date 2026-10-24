@@ -1,22 +1,19 @@
-# bench digest — pass 7 (PULSE, 2026-10-24T07:40Z)
+# bench digest — pass 8 (PULSE, 2026-10-24T07:55Z)
 
-P0: 0. Open P1: 6. Open P2: 3. Reviewed: cloud/bench@911a384, cloud/grounding@42310cd, cloud/data-pipeline@8f0b9bc, main@c2d2988, wip/local@8874962, cloud/brain-2@9f41c11.
+P0: 0. Open P1: 4. Open P2: 3. Resolved this pass: bench-8 (decontam text key, b8c0604), bench-13 (native-scale runtime zoom, 3441ee8).
+Reviewed: main@d8ad966, wip/local@85ec0df, cloud/bench@911a384, cloud/data-pipeline@b8c0604, cloud/grounding@3441ee8, cloud/brain-2@741465c, cloud/finance-2@dfaf785, cloud/advisor-2@0a65f75, cloud/pitch@ad1b058.
 
 ## Open P0/P1 (ranked)
-1. bench-8 — decontam/dedup crash on evals/external `text` rows; HobbyLM path hard-coded. The Phase 1 trainer now consumes route_dedup.jsonl, and the reports give no decontam count — training/src/muselet_train/{decontam,dedup,datums}.py
-2. bench-14 — No dedup for ScreenSpot-Pro/OSWorld-G before grounding training (becomes P0 when Phase-4 data is built) — training/src/muselet_train/decontam.py
-3. bench-13 — Runtime zoom re-crops the 1 MP shot, so the bench's zoom gain won't transfer — ml/src/brain/grounder.py
-4. bench-7 — Event replay can send real invites (calendar not proven local) — bench/hobbylm/replay.py
-5. bench-5 — Latency clocks still differ: verified-check vs self-reported seconds_total — bench/hobbylm/replay.py
-6. bench-4 — DeskMind Hands pin / locale / suite version vs diag-v25 — bench/deskmind/README.md
+1. bench-14: Nothing dedups training data against ScreenSpot-Pro/OSWorld-G before grounding training. Becomes P0 once Phase-4 data is built. (training/src/muselet_train/decontam.py)
+2. bench-7: Event replay can send real invites, because the calendar isn't proven to be local. (bench/hobbylm/replay.py)
+3. bench-5: The latency clocks differ. Muselet's stops at its verified check; HobbyLM's is its self-reported seconds_total. (bench/hobbylm/replay.py)
+4. bench-4: DeskMind's Hands pin, locale and suite version don't match diag-v25. (bench/deskmind/README.md)
 
-Open P2: bench-11 (fake backend labeled muselet), bench-12 (chunked probs contradict stage-2 winner), bench-15 (--limit takes a single-app subset).
-
-Checked on grounding, no defect found: to_global matches HandsKit `global = origin + px/scale` (negative origins OK). norm1000/unit/resized_px conversions and crop offsets are correct. OSWorld-G bbox is [x,y,w,h] (confirmed against HF row + mimo_bbox) and has 510 rows. Every candidate score has a source and caveats (unverified conventions flagged). 114 grounder tests pass. bench tests: 30 pass, 1 env-only fail.
+Open P2: bench-11 (fake backend labeled muselet), bench-12 (chunked probabilities can contradict the stage-2 winner), bench-15 (--limit takes a single-app subset).
 
 ## Highest-leverage next moves
-- Fix decontam to read `text` and fail closed on a missing HobbyLM dir (bench-8). Before any grounding data build, export SSPro/OSW-G instructions + image hashes (bench-14).
-- Use zoom only when the source exceeds 1 MP. Wire zoom_region two-shot capture, and run SSPro with `--source-max-pixels 1e6` so zoom numbers reflect runtime (bench-13).
+- Before any grounding data build, export the SSPro/OSW-G instructions and image phashes to evals/external, and make decontam fail closed (bench-14).
 - Require a local "On My Mac" calendar for event replay, or strip invitees (bench-7).
-- Time HobbyLM with the same harness poller as Muselet (bench-5).
+- Time HobbyLM with the same harness/core poller Muselet uses (bench-5).
 - Pin Hands to 3d54492 for diag-v25 and record the locale in results (bench-4).
+- Use a stratified --limit in run_screenspot.py before any quick model-selection run (bench-15).
