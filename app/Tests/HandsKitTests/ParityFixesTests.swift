@@ -449,7 +449,9 @@ final class TimersRPCTests: XCTestCase {
         _ = s.execute(name: "start_timer", args: ["duration": 600])
         _ = s.execute(name: "start_timer", args: ["duration": 900])
         _ = s.cancelTimers(id: nil)
-        lock.lock(); XCTAssertEqual(seen, [1, 2, 0]); lock.unlock()
+        // Per-timer cancel (clock backend handling) reports the true
+        // intermediate list: [1,2] starts, then 1 then 0 pending.
+        lock.lock(); XCTAssertEqual(seen, [1, 2, 1, 0]); lock.unlock()
     }
 
     func testSnapshotRoundTripSkipsDeadProcessesAndPastTimers() {

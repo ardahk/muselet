@@ -198,6 +198,30 @@ it:** `git log`, `gh pr list`, HF revisions, Tinker spend, and which processes a
 - the W9 safety backlog (script-confirm bypasses, "done" verification, per-action confirms, voice-confirm
   negation, …).
 
+## 5b. Cut-over record (Sat Oct 24, ~14:45 PDT): where every lane's state lives
+
+At cut-over, every old-org agent was told to push now and write `## Handoff` in its PR plus a `HANDOFF.md` on its
+branch. **Start every relaunch by reading those**, then the matching `cloud/handoff/W*.md` brief.
+
+| Lane | Branch / PR | Status at cut-over | Resume via |
+|---|---|---|---|
+| Router it3 training (old "Cloud A") | `cloud/data-pipeline`, PR #2 | Tinker run `it3` started 20:35Z (496 steps, ~5 s/step); export ETA ~22:15Z; teacher soft labels done | W1 + PR #2 Handoff (Tinker run/checkpoint ids). Tinker jobs keep running without the agent: pick up the checkpoint and export |
+| Decisions LoRA | `cloud/decisions` | full run (LR 2e-4, 1 epoch) in flight | W2 + branch HANDOFF |
+| Code-gold decisions data | `cloud/data-decisions` | generators in progress | W3 lane 2 |
+| Planner demos | `cloud/planner-demos`, PR #33 | **merged** by the sidekick (3c792a5); HF `jonsnov/muselet-planner-demos-v1` @ 9453ff6 | done |
+| Planner retrieval | `cloud/planner-retrieval`, PR #35 | **merged** (537c4dd), default off; **eval not started**: commands + ship rule in `cloud/handoff/notes/sidekick.md` | W4 |
+| Clock timers | `cloud/clock-timers`, PR #34 | **merged** (f6b52a8), compiled; detection says the shortcut is missing, so the internal timer is used until the user creates `Muselet Start Timer` | W7 + `docs/CLOCK_TIMERS.md` |
+| Kitten mascot | `cloud/mascot-animal`, PR #36 | **merged** (7879cdf), compiled with no fixes, running in the app; screenshots of 7 moods in `docs/img/kitten_*.png` (no hover/reduce-motion hooks yet) | W6: show the user, polish |
+| Messaging v2 | `cloud/comms-2`, PR #37 | **merged** with lead fixes (ff1a4b6); live in the app | W5 (live test with the user) |
+| Safety backlog | builder launched 14:40 PDT (branch name in its PR) | just started | W9 |
+| brain-8 | `cloud/brain-8`, PR #32 | merged | done |
+| Reviewers ×10 | `origin/review/<lane>` | findings pushed continuously | recreate lanes (§6 step 3) |
+| Local sidekick | `main` @ 268d607 | landed #33–#36 (tests: 236 Swift, 1506 ml, 165 bench green); app pid 6795 + brain :8765 run that code | `cloud/handoff/notes/sidekick.md` |
+
+Old-org session ids are in `runs/builders.json` / `runs/reviewers.json`, for reference only: the new org can't
+message them. `tools/review_pulse.sh` defaults `TRAINING_SESSION` to the old Cloud A id, so export the new id
+before starting the pulse.
+
 ## 6. First 60 minutes (do these, in order)
 
 1. **Sanity:**

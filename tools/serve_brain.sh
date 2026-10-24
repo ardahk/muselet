@@ -7,8 +7,11 @@
 #             1.000 pending a contamination check), base 4B otherwise (r1's merged export had a broken head)
 #   tau     = val-fitted per router (it2 .65, r2 .45, r1 .55, base .20; evals/router_check.py)
 #   planner = base 4B, few-shot + DSL history + line-start constraint + done-alone (offline planner bench, tune+holdout)
+#   retrieval = 1 BM25-retrieved solved example from the v2-tune bank (RETRIEVAL_K=0|1|2): mean holdout pass .570 -> .642
+#             (k=0 / k=1, v1-ho, v1-ho2, v2-ho), TTFT +44..72 ms; k=2 same gain but fails the +150 ms TTFT gate
+#             (pre-registered rule; cloud/handoff/notes/retrieval_eval.md)
 #   ESCALATE=1 adds Qwen3.6-35B-A3B as the escalation planner (~19 GB resident; off by default)
-# Usage: tools/serve_brain.sh [extra brain serve flags]   (PORT, ROUTER, ARGS_MODEL, PLANNER, TAU, ESCALATE env)
+# Usage: tools/serve_brain.sh [extra brain serve flags]   (PORT, ROUTER, ARGS_MODEL, PLANNER, TAU, RETRIEVAL_K, ESCALATE env)
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 BASE=mlx-community/Qwen3.5-4B-4bit
@@ -25,6 +28,6 @@ case "$ROUTER" in
   *)     TAU=${TAU:-0.20}; ARGS_MODEL=${ARGS_MODEL:-$BASE} ;;
 esac
 args=(--port "${PORT:-8765}" --model "$ROUTER" --tau "$TAU" --args-model "$ARGS_MODEL"
-      --planner-model "${PLANNER:-$BASE}")
+      --planner-model "${PLANNER:-$BASE}" --planner-retrieval-k "${RETRIEVAL_K:-1}")
 if [ "${ESCALATE:-0}" = "1" ]; then args+=(--planner-escalate-model mlx-community/Qwen3.6-35B-A3B-4bit); fi
 exec uv run --project ml brain serve "${args[@]}" "$@"
