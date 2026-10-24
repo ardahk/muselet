@@ -2,7 +2,7 @@
 
 Every number in `pitch/` is a `{{placeholder}}` defined here. Fill it only from the named source; if the source
 has not been run, the line stays out of the pitch. Mac = the demo MacBook Pro M5 Pro, 64 GB, macOS 27
-(AGENTS.md). Code citations: `origin/main` @ d8ad966 unless a PR is named.
+(AGENTS.md). Code citations: `origin/main` @ 1d49478.
 
 ## 1. Metrics (measure on the Mac, record the run path next to the value)
 
@@ -12,9 +12,9 @@ has not been run, the line stays out of the pitch. Mac = the demo MacBook Pro M5
 | `{{route_ms_p50}}`, `{{route_ms_p95}}` | Router forward pass (cached static prefix + request suffix) | `uv run --project ml python -m brain.cli eval-route --model <router> --cases evals/route_v1.jsonl` | `route_ms`, `ml/src/brain/decision.py:330-350`; `runs/evals/` |
 | `{{route_acc}}` | Router top-1 accuracy, 140 cases | same command | `runs/evals/` |
 | `{{args_ms_p50}}` | ARGS extraction, median | same run / traces | `args_ms`, `decision.py:369-404` |
-| `{{instant_e2e_ms_p50}}` | Release -> first HandsKit action for single-skill commands | traces of the segment-1 commands, 10 takes | `release_to_first_action_ms`, `ml/src/brain/orchestrator.py:153,421-422` |
-| `{{browser_task_s}}` | "Find flights to Tokyo next Friday": release -> planner `done` | 5 takes, Chrome | trace `total` stage; shown as `ui.ms` once the chip ships |
-| `{{live_t1_pass}}`/43, `{{live_false_done}}` | Live suite T1/T2 strict pass; runs where the agent said done but the final state check failed | `bench/live/run_live.py` (PR #8) on `evals/live_t1.jsonl`, designated Mac | runner output under `runs/` |
+| `{{instant_e2e_ms_p50}}` | Release -> first HandsKit action for single-skill commands | traces of the segment-1 commands, 10 takes | `release_to_first_action_ms`, `ml/src/brain/orchestrator.py:295,300` |
+| `{{browser_task_s}}` | "Find flights to Tokyo next Friday": release -> planner `done` | 5 takes, Chrome | trace `total` stage; also shown as the `ui.ms` chip |
+| `{{live_t1_pass}}`/43, `{{live_false_done}}` | Live suite T1/T2 strict pass; runs where the agent said done but the final state check failed | `bench/live/run_live.py` on `evals/live_t1.jsonl`, designated Mac | runner output under `runs/` |
 | `{{planner_tok_s}}`, `{{planner_model}}` | Planner decode tok/s and the model picked | `bench/speed_lab.py --models <repo>` shape `plan` | `runs/speedlab/results.jsonl` |
 | `{{browser_task_s}}` | Utterance -> verified final state, segment 2 | traces, 5 takes, median | `runs/traces/` `total_ms` |
 | `{{advisor_prep_s}}` | "Prep me for the Hendersons" -> final say, DEMO.md success checks pass | 5 takes | `runs/traces/` `total` stage; target <= 30 s (`cloud/tools_interface.md`) |
@@ -35,38 +35,43 @@ has not been run, the line stays out of the pitch. Mac = the demo MacBook Pro M5
 
 Fixture facts (deterministic, already in the repo; quote freely): Henderson numbers in
 `evals/fixtures/advisor/DEMO.md` ("Numbers the presenter can quote"); finance story numbers and receipt statuses in
-`evals/fixtures/finance/README.md`; tool bubbles/says from the PR tests (`ml/tests/test_tool_advisor_prep.py:121-130`
-PR #5, `ml/tests/test_tool_finance_review.py:196` PR #7).
+`evals/fixtures/finance/README.md`; tool bubbles/says from `ml/tests/test_tool_advisor_prep.py:128-138` and
+`ml/src/brain/tools/finance_review.py:165-196`.
 
 ## 2. Qualitative claims -> code path
 
-Line numbers are `origin/main` @ d8ad966 (planner landed in 17a2755) unless a PR is named. **Status**: `main`
-= true on main; `partial` = say only the "allowed" wording; `PR #n` = true once that PR merges.
+Re-verified on `origin/main` @ 1d49478 (2026-10-24); line numbers are at that commit. `orchestrator.py` =
+`ml/src/brain/orchestrator.py`. **Status**: `main` = true on main, say it as written; `partial` = say only the
+"allowed" wording; `not built` = do not say it.
 
 | Claim | Why it is true | Status |
 |---|---|---|
-| Hold Right Option to talk | listen-only CGEventTap on keycode 61, `app/Sources/MuseletApp/Voice/PushToTalkMonitor.swift:9` | main |
-| STT runs on the Neural Engine | FluidAudio Parakeet TDT v2 (Core ML, ANE), `Voice/Transcriber.swift:25-28`; fallback is Apple SpeechTranscriber, same file | main |
-| Models load from disk only | `snapshot_download(repo, local_files_only=True)`, `ml/src/brain/cli.py:31`; MLX inference in `ml/src/brain/decision.py` | main |
-| Brain is loopback-only | WebSocket on `127.0.0.1:8765`, `ml/src/brain/server.py:1,15`; Premiere bridge `ws://127.0.0.1:8766` (`premiere/README.md`) | main |
-| Offline state is recorded | `online` from NWPathMonitor at key-down, `app/Sources/HandsKit/UtteranceCtx.swift:26,84`; traced per utterance | main |
-| Wi-Fi off by voice, with a HUD | `setWifi` -> `networksetup -setairportpower`, `HandsKit/Skills.swift:817-832`; On/Off HUD, `HandsKit/SkillFeedback.swift`, `MuseletApp/Overlay/SkillHUD.swift` | main |
-| Skill HUD for system skills | level bar (volume, brightness) or On/Off (dark mode, Wi-Fi, Bluetooth), fades after ~1.5 s, `SkillHUD.swift` | main |
-| Accessibility tree first, screenshots only when needed | planner observes AX text each turn (`_planner_loop`, `orchestrator.py:492-516`); pixel `click` is rejected without a screenshot (`orchestrator.py:379-381`); screenshots capped at `maxPixels`, own windows excluded (`HandsKit/Screenshot.swift:62,131`) | main |
-| One forward pass routes a request | option probabilities read after a cached static prefix, `decision.py:287,331-351` | main |
-| Asks when a request is ambiguous | router `ASK` -> "What did you mean?" or "What <arg> should I use?" (`orchestrator.py:222,639-642`); planner `ask` (`orchestrator.py:315-318`); finance categorize below 0.6 -> `ask` (`finance/categorize.py:17`) | main |
-| Low confidence does not act blindly | router `p_top < 0.55` goes to the planner with a hint "A or B" instead of executing the top skill (`orchestrator.py:196-199`) | main. Do **not** say "it asks 'Did you mean A or B?'" (that code was removed) |
-| Confirms before risky actions it recognizes | `risk: confirm`/`confirm_if_unsaved` skills (send_message, compose_email, move_to_trash, empty_trash, quit_app) -> `ask_confirm` (`orchestrator.py:351-357,851-860`); `press`/`type … enter` on send/delete/buy/pay/post labels, `cmd+delete`, Enter in Messages/Mail/Slack (`orchestrator.py:252-255,383-405`); shell always, AppleScript/JXA outside a read-only allowlist (`orchestrator.py:37-44,466,824`); the model cannot self-confirm (`orchestrator.py:341`) | **partial**. Allowed: "confirms before sending, deleting, buying and running shell scripts". Not allowed: "every irreversible action is confirmed". Open: evals-safety-2 (P0: System Events click, Safari `do JavaScript`/`open location`, raw `«event»` skip confirm), evals-safety-6 |
-| Steps are checked against the live UI | an action with `expect` gets a `verify` RPC; a failed check stops the batch and replans (`orchestrator.py:436-450`); planner `done` counts only alone in its batch, after a clean batch (`orchestrator.py:609-622`) | **partial**. Allowed: "steps carry expect checks against the live accessibility tree". Not allowed: "done is verified", "never trusts the model's done", "refuses to say done until the state proves it". Open: evals-safety-11 (no final-state verify; an expect-less batch then `done` succeeds) |
-| Benchmarks are graded by final state | live suite graded "by final state, never by what the agent said" (`evals/live_t1.md:3-4`); bench harness (PR #8) | main / PR #8 |
-| Every finance/advisor number is computed by code | `Decimal` engines `ml/src/brain/finance/`, `ml/src/brain/advisor/`; LLM phrasing with digits/`$`/`%` rejected, `advisor/brief.py:11`; tests to the cent `ml/tests/test_{finance,advisor}.py` | main |
+| Hold Right Option to talk | listen-only CGEventTap on keycode 61, `app/Sources/MuseletApp/Voice/PushToTalkMonitor.swift:10,55-56,99` | main |
+| STT runs on the Neural Engine | FluidAudio Parakeet TDT v2 (Core ML, ANE), `MuseletApp/Voice/Transcriber.swift:25-28`; fallback Apple `SpeechTranscriber`, `Transcriber.swift:68-78` | main |
+| Models load from disk only | `snapshot_download(repo, local_files_only=True)`, `ml/src/brain/cli.py:32`; MLX inference, `ml/src/brain/decision.py:15-16` | main |
+| Brain is loopback-only | WebSocket on `127.0.0.1:8765`, `ml/src/brain/server.py:1,15`; Premiere bridge `ws://127.0.0.1:8766`, `premiere/README.md:10` | main |
+| Offline state is recorded | `online` from NWPathMonitor at key-down, `app/Sources/HandsKit/UtteranceCtx.swift:26,147` | main |
+| Wi-Fi off by voice, with a HUD | `setWifi` -> `networksetup -setairportpower`, `HandsKit/Skills.swift:780-795`; HUD `wifi.slash` symbol, `MuseletApp/Overlay/SkillHUD.swift:179-181` | main |
+| Skill HUD for system skills | volume, brightness, dark mode, Wi-Fi, Bluetooth; shown 1.5 s, `SkillHUD.swift:5,15,176-182`; events from `HandsKit/SkillFeedback.swift` | main |
+| Accessibility tree first, screenshots only when needed | planner observes AX each turn (`orchestrator.py:951-954,1261-1266`); pixel `click` rejected without a screenshot (`orchestrator.py:784-786`); screenshots capped at `maxPixels`, own windows excluded (`HandsKit/Screenshot.swift:62,132`) | main |
+| Reads web pages through AX (Chrome, Safari, Zen) | Chromium `AXManualAccessibility`/`AXEnhancedUserInterface`, WebKit and Gecko (Firefox, Zen), `HandsKit/WebAX.swift:9-15` | main |
+| Doesn't type into nothing | `type` with no text target -> `no_text_target`, nothing typed, `HandsKit/Act.swift:36,544` | main |
+| One forward pass routes a request | option probabilities after a cached static prefix, `decision.py:346,390-410` | main |
+| Asks when a request is ambiguous | router `ASK` -> "What did you mean?" / "What <arg> should I use?" (`orchestrator.py:1116-1127`); missing slot -> question (`orchestrator.py:514-524`); planner `ask` (`orchestrator.py:709-712`); finance categorize below 0.6 -> `ask` (`finance/categorize.py:18,145-148`) | main |
+| Low confidence does not act blindly | router `p_top < tau` (default 0.55) -> planner with hint "A or B" (`orchestrator.py:171,364-367`) | main. Don't say "it asks 'Did you mean A or B?'" |
+| Asks for help instead of looping | same action failing twice or 3 failed turns -> "I'm stuck on that, can you help?" (`orchestrator.py:1093-1104`) | main |
+| Confirms before risky actions it recognizes | `risk: confirm`/`confirm_if_unsaved` skills (send_message, compose_email, move_to_trash, empty_trash, quit_app; `skills/catalog.json`) -> `ask_confirm` (`orchestrator.py:748-755,1414-1425`); shell always; AppleScript/JXA confirm unless every target is allowlisted and no blocked pattern matches; blocked patterns include `click`, `perform action`, `AXPress`, `keystroke`, `do JavaScript`, `open location`, `«event`, `do shell script` (`orchestrator.py:872-912`, called at `:763,1379`); `press`/`type … enter` on send/delete/buy/pay/post labels, `cmd+delete`, Enter in Messages/Mail/Slack (`orchestrator.py:788-810`); one confirm unlocks only the next risky action (`orchestrator.py:713-722,822-825`); the model can't self-confirm (`orchestrator.py:738`) | **partial**. Allowed: "confirms before sending, deleting, buying, shell scripts and scripts that click or run code". Not allowed: "every irreversible action is confirmed". evals-safety-2 is resolved (all five probes confirm); evals-safety-6 is open (Enter/Send in other chat apps isn't gated) |
+| Steps are checked against the live UI | an action with `expect` gets a `verify` RPC; a failed check stops the batch and replans (`orchestrator.py:856-870`) | main |
+| "Done" needs evidence | planner `done` must be alone in its batch and follow a passing `expect` or a fresh observation, else it's rejected and replanned (`orchestrator.py:1076-1090`); a direct batch whose last act had no passing `expect` ends `unverified`, not success (`orchestrator.py:1303-1327`) | **partial**. Allowed: "it won't call a task done without a passing check or a fresh look at the screen". Not allowed: "done is verified by the harness", "never trusts the model's done". evals-safety-11 open: no harness-side goal check |
+| Benchmarks are graded by final state | live suite graded "by final state, never by what the agent said" (`evals/live_t1.md:3-4`); `bench/live/run_live.py:292` (`strict_pass`), `pass^3` only for all-3 strict passes (`bench/live/README.md:67-68`) | main |
+| Every finance/advisor number is computed by code | `Decimal` engines `ml/src/brain/finance/`, `ml/src/brain/advisor/`; model phrasing with digits/`$`/`%` rejected (`advisor/brief.py:11,37`); bubbles carry no `$` (`ml/tests/test_tool_advisor_prep.py:139`) | main |
 | Every flag carries evidence | `finance/evidence.py`; advisor `evidence` lists (`evals/fixtures/advisor/README.md`) | main |
-| Ghost cursor flies to the target first | 120-220 ms flight, `MuseletApp/Overlay/GhostCursor.swift:69` | main |
-| Planner starts acting while still decoding | parsed lines are executed as they stream, 12 turns / 60 s, `orchestrator.py:492-600` | main |
-| Whole workflows run from one router pick | `executor: brain` (`skills/catalog.json`) -> `brain.tools.run` (`ml/src/brain/tools/__init__.py`); `advisor_prep` (PR #5), `finance_review` (PR #7); missing module -> "That workflow is almost ready" (`orchestrator.py:170-172`) | PR #5, PR #7 |
-| Receipts are read on-device | `ocr` RPC = Apple Vision `.accurate` (`HandsKit/OCR.swift:30-31`); `finance_review` OCRs all receipts in parallel (PR #7) | main / PR #7 |
-| Premiere cut/marker/export | `premiere_command` -> default shortcuts cmd+k / m / cmd+m (`HandsKit/Skills.swift:306,790-794`); export = opens the Export dialog | main; UXP bridge UNTESTED |
-| Latency chip next to the bubble | contract only: `ui` may carry `ms` (AGENTS.md, d8ad966) | **not built**: `server.ui()` has no `ms` arg and the app does not read it on any branch |
+| Ghost cursor flies to the target first | 120-220 ms flight (`MuseletApp/Overlay/GhostCursor.swift:69`); for skills too, to the Dock icon / menu extra within 120 ms (`HandsKit/RPC.swift:95-104`, `HandsKit/SkillTargets.swift`) | main |
+| Planner starts acting while still decoding | each streamed line is parsed and executed before the batch ends, 12 turns / 60 s (`orchestrator.py:914-918,1011-1044`) | main |
+| Whole workflows run from one router pick | `executor: brain` skills `finance_review`, `advisor_prep` (`skills/catalog.json`) -> `brain.tools.run` (`ml/src/brain/tools/__init__.py:1-3,22-24`, `orchestrator.py:319-326`); tools `ml/src/brain/tools/{advisor_prep,finance_review}.py` | main |
+| Receipts are read on-device | `ocr` RPC = Apple Vision `.accurate` (`HandsKit/OCR.swift:31,137`); `finance_review` OCRs all receipts concurrently (`tools/finance_review.py:157`) | main |
+| Premiere cut/marker/export | `premiere_command` -> default shortcuts cmd+k / m / cmd+m (`HandsKit/Skills.swift:257-258,757`); export opens the Export dialog | main (shortcuts); UXP bridge UNTESTED (`premiere/README.md:3`) |
+| Latency chip next to the bubble | brain puts `ms` on the final `ui` (`orchestrator.py:1280-1288`, `server.py:184-186`): release-to-first-action for skills, total otherwise; app shows it for 2 s (`MuseletApp/App/AppDelegate.swift:132`, `MuseletApp/Mascot/MascotController.swift:232-238`) | main |
 
 ## 3. Competitor facts (verified 2026-10-24 from the URL)
 
@@ -83,16 +88,11 @@ cannot click; any DeskMind or HobbyLM number on our Mac until the reruns above e
 
 ## 4. Demo prerequisites (open items the script depends on)
 
-1. Merge PR #5 (`advisor_prep`) and PR #7 (`finance_review`, `evals/fixtures/finance/setup_mac.sh`). Until
-   then the router pick says "That workflow is almost ready".
-2. Latency chip (`ui.ms`) is contract-only: add the `ms` field in `server.ui()`, have the brain send it on the
-   final `ui`, and render it in the app. Fallback for segment 1: panel "Last release → text" + SkillHUD.
-3. Bench harness is PR #8. Before quoting HobbyLM, fix evals-safety-19 (the HobbyLM rerun is scored by its own
-   `completed`, Muselet by strict final state).
-4. evals-safety-2/-6/-11 are open: on stage and in Q&A use only the "allowed" wording in §2.
-5. Advisor bubble: `evals/fixtures/advisor/DEMO.md` says "Four opportunities"; PR #5 says
-   "Brief in Notes: 5 opportunities, $332,329 total impact." (`test_tool_advisor_prep.py:130`). The script
-   follows PR #5; read the real bubble on the Mac.
-6. DeskMind already reports 39/39 on its own bench: we can at most tie on strict pass. Pitch speed and breadth,
+1. evals-safety-6 and -11 are open: on stage and in Q&A use only the "allowed" wording in §2.
+2. Advisor bubble: `evals/fixtures/advisor/DEMO.md` says "Four opportunities"; the tool test says
+   "5 opportunities found. Brief is in Notes." (`ml/tests/test_tool_advisor_prep.py:138`). Read the real bubble.
+3. Receipt bubble "6 receipts match, 1 receipt mismatch, 1 unmatched." is what `summary_sentence`
+   (`tools/finance_review.py:165-196`) builds for the fixture; no test asserts that exact case. Read the real bubble.
+4. DeskMind already reports 39/39 on its own bench: we can at most tie on strict pass. Pitch speed and breadth,
    with both systems rerun on our Mac.
-7. Premiere: UXP bridge untested; the demo uses default shortcuts, so the demo project must use the default keymap.
+5. Premiere: UXP bridge untested; the demo uses default shortcuts, so the demo project must use the default keymap.

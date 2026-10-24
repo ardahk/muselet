@@ -60,7 +60,7 @@ answer, and a planner only for the long tail. Trust comes from checks you can re
 `expect` predicates against the live UI while it runs, and final-state grading in our evals.
 
 ## What's next
-Verify the final state before every `done`, close the remaining script-confirm gaps, ship the grounder for apps
+Check the goal state before every `done`, gate Send in every chat app, ship the grounder for apps
 the AX tree cannot see, more brain tools (expense reports, invoice matching), Google
 Sheets and Excel, and an advisor CRM connector that still never leaves the device.
 
