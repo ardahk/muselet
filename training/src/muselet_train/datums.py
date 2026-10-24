@@ -1,11 +1,13 @@
 """Training data for Phase 1 (SPEC 1.4-1.6): soft route targets + ARGS supervised datums.
 
 Route targets: teacher blend `normalize(0.6*onehot + 0.4*teacher)` where scored, A1 verdicts applied
-(relabel -> blend on the new label, drop -> removed), one-hot elsewhere. ASR noise on 30% of train items.
+(see route_items), one-hot elsewhere. ASR noise on 30% of train route items; ARGS items are never noised
+(training-16: the copied spans in the target must match the utterance).
 """
 
 from __future__ import annotations
 
+import collections
 import json
 import random
 
@@ -32,23 +34,51 @@ class RouteItem:
     split: str
 
 
-def route_items(run: str, teacher_files: tuple[str, ...] = ()) -> list[RouteItem]:
+def route_items(run: str, teacher_files: tuple[str, ...] = (), stats: dict | None = None,
+                dropped: set[str] | None = None) -> list[RouteItem]:
+    """Lead rules: ASK is kept only where the A1 adjudicator agreed (verdict keep); for MULTI_STEP and
+    REFUSE the A1 label is used when it equals the teacher argmax, otherwise the item is dropped; other
+    labels apply A1 keep/relabel/drop as specified. Teacher scores only count if the context matches."""
     scored: dict[tuple[str, str], dict] = {}
     for f in teacher_files:
         for r in _load(run, f):
             scored[(r["utterance"], r["src"])] = r
     names = set(option_names())
+    st = stats if stats is not None else {}
+    for k in ("ask_dropped", "relabeled", "dropped"):
+        st.setdefault(k, collections.Counter())
     out = []
+
+    def drop(r, why):
+        st[why][r["label"]] += 1
+        if dropped is not None:
+            dropped.add(r["utterance"])
+
     for r in _load(run, "route_dedup.jsonl"):
         t = scored.get((r["utterance"], r["src"]))
-        label, target = r["label"], {r["label"]: 1.0}
-        if t:
-            adj = t.get("adjudication") or {}
-            if adj.get("verdict") == "drop":
+        if t and t.get("context") != r["context"]:
+            t = None
+        adj = (t or {}).get("adjudication") or {}
+        verdict, alab = adj.get("verdict"), adj.get("label")
+        label = r["label"]
+        if label == "ASK":
+            if not (r.get("a1_ask_keep") or verdict == "keep"):
+                drop(r, "ask_dropped")
                 continue
-            if adj.get("verdict") == "relabel" and adj.get("label") in names:
-                label = adj["label"]
-            target = blend(label, t["teacher_probs"])
+        elif label in ("MULTI_STEP", "REFUSE") and verdict in ("keep", "relabel", "drop"):
+            if verdict == "drop" or alab not in names or alab != t["teacher_argmax"]:
+                drop(r, "dropped")
+                continue
+            if alab != label:
+                st["relabeled"][f"{label}->{alab}"] += 1
+            label = alab
+        elif verdict == "drop":
+            drop(r, "dropped")
+            continue
+        elif verdict == "relabel" and alab in names:
+            st["relabeled"][f"{label}->{alab}"] += 1
+            label = alab
+        target = blend(label, t["teacher_probs"]) if t else {label: 1.0}
         out.append(RouteItem(r["utterance"], r["context"], label, target, r.get("split", "train")))
     return out
 
@@ -80,7 +110,7 @@ def args_datums(rows: list[dict], model: str):
     rend = base_renderer(model)
     return [conversation_to_datum(
         args_messages(skill_by_name(r["skill"]), RouteContext(**r["context"]),
-                      noisy(r["utterance"], "a:" + r["utterance"], r["split"]), r["target"]),
+                      r["utterance"], r["target"]),
         rend, max_length=None, train_on_what=TrainOnWhat.LAST_ASSISTANT_MESSAGE) for r in rows]
 
 

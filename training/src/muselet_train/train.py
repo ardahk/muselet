@@ -47,7 +47,8 @@ def route_metrics(rows: list[tuple[str, dict[str, float]]]) -> dict:
     f1 = [2 * tp[k] / (2 * tp[k] + fp[k] + fn[k]) for k in per if 2 * tp[k] + fp[k] + fn[k]]
     return {"n": n, "top1": correct / n, "macro_f1": sum(f1) / len(f1),
             "ece": sum(abs(c - s) for m, s, c in bins if m) / n, "brier": brier / n,
-            "per_label": {k: sum(v) / len(v) for k, v in sorted(per.items())}}
+            "per_label": {k: sum(v) / len(v) for k, v in sorted(per.items())},
+            "per_label_n": {k: len(v) for k, v in sorted(per.items())}}
 
 
 def _text(msg) -> str:
@@ -77,15 +78,25 @@ async def evaluate(client, val_route: list[D.RouteItem], val_args: list[dict], m
     return {**route_metrics(routes), "args_em": sum(em) / max(len(em), 1), "args_n": len(em)}
 
 
-def write_report(name: str, cfg: dict, history: list[dict], ckpts: list[dict]) -> Path:
+def write_report(name: str, cfg: dict, history: list[dict], ckpts: list[dict], final: dict | None = None,
+                 data: dict | None = None) -> Path:
     last = history[-1] if history else {}
     lines = [f"# Phase 1 run `{name}`", "", "```json", json.dumps(cfg, indent=1), "```", "",
              "| step | train loss | val top1 | macro-F1 | ECE | Brier | ARGS EM |", "|---|---|---|---|---|---|---|"]
     lines += [f"| {h['step']} | {h.get('train_loss', float('nan')):.4f} | {h['top1']:.3f} | {h['macro_f1']:.3f} | "
               f"{h['ece']:.3f} | {h['brier']:.3f} | {h['args_em']:.3f} |" for h in history if "top1" in h]
-    if last.get("per_label"):
-        lines += ["", "Per-label val accuracy (last eval):", "", "| label | acc |", "|---|---|"]
-        lines += [f"| {k} | {v:.3f} |" for k, v in last["per_label"].items()]
+    if final:
+        lines += ["", f"Final eval on the full val split ({final['n']} route, {final['args_n']} ARGS): top1 "
+                  f"{final['top1']:.3f}, macro-F1 {final['macro_f1']:.3f}, ECE {final['ece']:.3f}, "
+                  f"Brier {final['brier']:.3f}, ARGS EM {final['args_em']:.3f}"]
+    src = final or last
+    if src.get("per_label"):
+        n = src.get("per_label_n", {})
+        lines += ["", f"Per-label val accuracy ({'full val split' if final else 'last eval'}; n = val items):", "",
+                  "| label | acc | n |", "|---|---|---|"]
+        lines += [f"| {k} | {v:.3f} | {n.get(k, '')} |" for k, v in src["per_label"].items()]
+    if data:
+        lines += ["", "Data:", "", "```json", json.dumps(data, indent=1), "```"]
     lines += ["", "Checkpoints:", ""] + [f"- step {c['step']}: `{c['path']}`" for c in ckpts]
     p = REPORTS / f"phase1_{name}.md"
     p.write_text("\n".join(lines) + "\n")
@@ -93,22 +104,29 @@ def write_report(name: str, cfg: dict, history: list[dict], ckpts: list[dict]) -
 
 
 async def main_async(a) -> None:
-    items = D.route_items(a.run, tuple(a.teacher_files))
+    stats, dropped = {}, set()
+    items = D.route_items(a.run, tuple(a.teacher_files), stats=stats, dropped=dropped)
     split_of = {it.utterance: it.split for it in items}
-    args = D.args_rows(a.run, split_of)
+    args = [r for r in D.args_rows(a.run, split_of) if r["utterance"] not in dropped]
+    data = {k: dict(v) for k, v in stats.items()} | {
+        "route_by_label": dict(collections.Counter(x.label for x in items).most_common()),
+        "args_dropped_with_route": len(dropped)}
+    print(json.dumps(data), flush=True)
     rng = random.Random(a.seed)
     tr_r, va_r = [x for x in items if x.split == "train"], [x for x in items if x.split == "val"]
     tr_a, va_a = [x for x in args if x["split"] == "train"], [x for x in args if x["split"] == "val"]
     if a.limit:
         tr_r = rng.sample(tr_r, min(len(tr_r), round(a.limit * a.route_frac)))
         tr_a = rng.sample(tr_a, min(len(tr_a), a.limit - len(tr_r)))
+    full_va_r, full_va_a = va_r, va_a
     va_r, va_a = rng.sample(va_r, min(a.val_route, len(va_r))), rng.sample(va_a, min(a.val_args, len(va_a)))
     rd, ad = D.route_datums(tr_r, a.model), D.args_datums(tr_a, a.model)
     toks = sum(d.model_input.length for d in rd + ad) * a.epochs
     n_steps = (len(rd) + len(ad)) * a.epochs // a.batch
     n_evals = n_steps // a.eval_every + 1
-    eval_tok = n_evals * (sum(len(render_route(RouteContext(**x.context), x.utterance, a.model).tokens) for x in va_r)
-                          * (1 + 2 * 0.2) + len(va_a) * 250)
+    rtok = sum(len(render_route(RouteContext(**x.context), x.utterance, a.model).tokens) for x in va_r) / max(len(va_r), 1)
+    eval_tok = (n_evals * len(va_r) + (len(full_va_r) if a.final_full_val else 0)) * rtok * (1 + 2 * 0.2) \
+        + (n_evals * len(va_a) + (len(full_va_a) if a.final_full_val else 0)) * 250
     est = toks * PRICE_TRAIN / 1e6 + eval_tok * PRICE_PREFILL / 1e6
     cfg = {k: v for k, v in vars(a).items()} | {"train_route": len(rd), "train_args": len(ad), "steps": n_steps,
                                                   "train_tokens": toks, "eval_tokens": int(eval_tok), "est_usd": round(est, 2)}
@@ -146,12 +164,17 @@ async def main_async(a) -> None:
                 p = (await (await tc.save_state_async(f"{a.name}-{step}")).result_async()).path
                 ckpts.append({"step": step, "path": p, "kind": "state"})
     await do_eval()
+    final = None
+    if a.final_full_val:
+        final = await evaluate(await tc.save_weights_and_get_sampling_client_async(), full_va_r, full_va_a, a.model)
+        (out / "final_eval.json").write_text(json.dumps(final, indent=1))
+        print(json.dumps({k: v for k, v in final.items() if not k.startswith("per_label")}), flush=True)
     p = (await (await tc.save_weights_for_sampler_async(f"{a.name}-final")).result_async()).path
     ckpts.append({"step": step, "path": p, "kind": "sampler"})
     p2 = (await (await tc.save_state_async(f"{a.name}-final")).result_async()).path
     ckpts.append({"step": step, "path": p2, "kind": "state"})
     (out / "checkpoints.json").write_text(json.dumps(ckpts, indent=1))
-    print(write_report(a.name, cfg, history, ckpts))
+    print(write_report(a.name, cfg, history, ckpts, final, data))
 
 
 def main() -> None:
@@ -173,6 +196,7 @@ def main() -> None:
     ap.add_argument("--val-args", type=int, default=200)
     ap.add_argument("--max-usd", type=float, required=True)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--final-full-val", action="store_true", help="final eval on the whole val split")
     ap.add_argument("--dry-run", action="store_true")
     asyncio.run(main_async(ap.parse_args()))
 

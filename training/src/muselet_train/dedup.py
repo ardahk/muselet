@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import collections
-import csv
 import json
 import random
 import re
@@ -18,6 +17,7 @@ from pathlib import Path
 
 from datasketch import MinHash, MinHashLSH
 
+from muselet_train.decontam import eval_utterances
 from muselet_train.gen import DATA, _load
 
 REPO = Path(__file__).resolve().parents[3]
@@ -42,10 +42,7 @@ def minhash(t: str) -> MinHash:
 
 
 def eval_texts() -> list[str]:
-    out = [json.loads(ln)["utterance"] for p in sorted((REPO / "evals").glob("**/*.jsonl"))
-           for ln in p.read_text().splitlines() if ln.strip()]
-    for p in sorted(HOBBY.glob("*.tsv")):
-        out += [row[2] for row in csv.reader(p.open(), delimiter="\t") if len(row) > 2]
+    out = [t for _, t in eval_utterances()]
     for p in sorted(HOBBY.glob("*.json")):
         def walk(x):
             if isinstance(x, str) and len(x.split()) >= 2:

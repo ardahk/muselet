@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+from dataclasses import replace
 
 from muselet_train.route_render import RouteContext
 
@@ -45,3 +46,20 @@ def sample_context(rng: random.Random, app: str | None = None, selection: bool |
         last_action = rng.choice(LAST_ACTIONS) if rng.random() < 0.15 else None
     return RouteContext(app=app, focused=focused, selection=selection, online=online,
                         last_action=last_action)
+
+
+TEXT_FOCUS = {app: [f for f in fs if f.startswith(("textfield", "textarea"))] for app, fs in FOCUSED.items()}
+TEXT_FOCUS = {app: fs for app, fs in TEXT_FOCUS.items() if fs}
+
+
+def constrain(label: str, ctx: RouteContext, rng: random.Random) -> RouteContext:
+    """Labels whose meaning depends on context: copy_selection needs a selection, premiere_command
+    needs Premiere Pro frontmost, type_text needs a focused text field/area. Others pass through."""
+    if label == "copy_selection" and not ctx.selection:
+        return replace(ctx, selection=True)
+    if label == "premiere_command" and ctx.app != "Premiere Pro":
+        return replace(ctx, app="Premiere Pro", focused=rng.choice(FOCUSED["Premiere Pro"] + ["none"]))
+    if label == "type_text" and not ctx.focused.startswith(("textfield", "textarea")):
+        app = ctx.app if ctx.app in TEXT_FOCUS else rng.choice(sorted(TEXT_FOCUS))
+        return replace(ctx, app=app, focused=rng.choice(TEXT_FOCUS[app]))
+    return ctx

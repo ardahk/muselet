@@ -10,7 +10,11 @@
 """MLX export + CPU route parity (separate env: mlx-lm needs transformers>=5.7, the project pins 5.5.4).
 
   uv run --script training/scripts/mlx_parity.py convert --hf DIR --out DIR [--bits 4]
-  uv run --script training/scripts/mlx_parity.py parity --mlx DIR --parity parity.jsonl [--n 300]
+  uv run --script training/scripts/mlx_parity.py parity --mlx DIR --parity parity.jsonl [--n 300] [--shard i/k]
+  uv run --script training/scripts/mlx_parity.py merge --rows a.jsonl b.jsonl ... --parity parity.jsonl
+
+MLX 4-bit CPU kernels run ~23 s/token on this VM (bf16 ~1.1 s/token), so CPU parity runs the 4-bit
+model dequantized to bf16 (mlx_lm.convert dequantize=True): same 4-bit weight values, bf16 matmuls.
 
 parity.jsonl rows (from muselet_train.export): tokens (full route prompt incl. answer placeholder),
 choice_pos, label_tokens {label: id}, probs {label: p} from the Tinker sampler.
@@ -27,7 +31,7 @@ import mlx.core as mx
 
 def convert(a):
     from mlx_lm import convert as cv
-    cv(a.hf, mlx_path=a.out, quantize=True, q_bits=a.bits, q_group_size=64)
+    cv(a.hf, mlx_path=a.out, quantize=a.bits > 0, q_bits=a.bits or 4, q_group_size=64)
 
 
 def parity(a):
@@ -35,6 +39,8 @@ def parity(a):
     from mlx_lm.models.cache import make_prompt_cache
     model, _ = load(a.mlx)
     rows = [json.loads(x) for x in open(a.parity) if x.strip()][: a.n]
+    i, k_sh = map(int, a.shard.split("/"))
+    rows = rows[i::k_sh]
     # static system prefix is shared by every row: prefill it once and copy the cache per row
     seqs = [r["tokens"][: r["choice_pos"]] for r in rows]
     k = len(os.path.commonprefix(seqs)) - 1
@@ -52,6 +58,9 @@ def parity(a):
         d = max(abs(x - y) for x, y in zip(p, q))
         agree += max(range(len(p)), key=p.__getitem__) == max(range(len(q)), key=q.__getitem__)
         dmax, dsum = max(dmax, d), dsum + d
+        if a.rows:
+            with open(a.rows, "a") as f:
+                f.write(json.dumps({"utterance": r.get("utterance"), "mlx": dict(zip(labels, p))}) + "\n")
         worst.append((d, r.get("utterance", ""), labels[max(range(len(p)), key=p.__getitem__)],
                       labels[max(range(len(q)), key=q.__getitem__)]))
     n = len(rows)
@@ -60,6 +69,19 @@ def parity(a):
     print(json.dumps(out, indent=1))
     if a.report:
         open(a.report, "w").write(json.dumps(out, indent=1))
+
+
+def merge(a):
+    ref = {r["utterance"]: r for r in (json.loads(x) for x in open(a.parity) if x.strip())}
+    got = [json.loads(x) for f in a.rows for x in open(f) if x.strip()]
+    agree, ds = 0, []
+    for g in got:
+        q = ref[g["utterance"]]["probs"]
+        agree += max(g["mlx"], key=g["mlx"].get) == max(q, key=q.get)
+        ds.append(max(abs(g["mlx"][k] - q[k]) for k in q))
+    out = {"n": len(got), "argmax_agreement": agree / len(got), "max_abs_dp": max(ds),
+           "mean_max_abs_dp": sum(ds) / len(ds)}
+    print(json.dumps(out, indent=1))
 
 
 ap = argparse.ArgumentParser()
@@ -73,5 +95,10 @@ p.add_argument("--mlx", required=True)
 p.add_argument("--parity", required=True)
 p.add_argument("--n", type=int, default=300)
 p.add_argument("--report")
+p.add_argument("--rows", help="append per-row MLX distributions here")
+p.add_argument("--shard", default="0/1", help="i/k: rows i, i+k, ... (run k processes in parallel)")
+m = sub.add_parser("merge")
+m.add_argument("--rows", nargs="+", required=True)
+m.add_argument("--parity", required=True)
 a = ap.parse_args()
-{"convert": convert, "parity": parity}[a.cmd](a)
+{"convert": convert, "parity": parity, "merge": merge}[a.cmd](a)

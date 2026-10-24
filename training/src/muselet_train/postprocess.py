@@ -15,7 +15,7 @@ import re
 from dataclasses import asdict
 
 from muselet_train.catalog import option_names, skill_by_name, skills
-from muselet_train.contexts import sample_context
+from muselet_train.contexts import constrain, sample_context
 from muselet_train.gen import DATA, _load, _parse_json
 
 UNITS = ("zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen "
@@ -151,7 +151,7 @@ def build(run: str, seed: int = 0) -> None:
             if a is None:
                 reject(x, status)
                 continue
-            ctx = sample_context(rng)
+            ctx = constrain(x["label"], sample_context(rng), rng)
             add(text, x["label"], ctx, x["src"], {"args": a})
             args.append({"skill": x["label"], "utterance": text, "context": asdict(ctx),
                          "target": fmt_args(a), "src": x["src"]})
@@ -163,7 +163,7 @@ def build(run: str, seed: int = 0) -> None:
             if x["label"] == "ASK" and ns not in skill_names:
                 reject(x, f"ask_nearest_skill_invalid:{ns}")
                 continue
-            ctx = sample_context(rng)
+            ctx = constrain(x["label"], sample_context(rng), rng)
             add(text, x["label"], ctx, x["src"], {"nearest_skill": ns, "why": r.get("why")})
             if x["label"] == "ASK":
                 req = [a["name"] for a in skill_by_name(ns).args if a["required"]]

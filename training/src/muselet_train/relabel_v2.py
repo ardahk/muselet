@@ -9,8 +9,15 @@ import re
 
 from muselet_train.gen import DATA, _load
 
-V2_RX = re.compile(r"bluetooth|lock (the )?(screen|mac|computer)|empty (the )?trash", re.I)
+V2_RX = re.compile(
+    r"blue ?tooth"
+    r"|\block\b(?: up)?(?: (?:the|my|this|your))? ?(?:screen|mac(?:book)?|computer|laptop|display)\b"
+    r"|\b(?:screen ?lock|lock ?screen)\b"
+    r"|\b(?:empty|clear|clean|purge|wipe|dump)(?: out| up)?(?: (?:the|my))? (?:trash|bin|rubbish)\b"
+    r"|\btrash (?:bin|can)\b",
+    re.I)
 FINANCE_FOCUS = "spreadsheet/finance"
+REGEX_TARGETS = ("bluetooth", "lock_screen", "empty_trash")  # already the new skill: nothing to relabel
 
 
 def candidates(run: str) -> list[dict]:
@@ -18,7 +25,7 @@ def candidates(run: str) -> list[dict]:
     out = []
     for r in _load(run, "route.jsonl"):
         fin = r["label"] == "MULTI_STEP" and FINANCE_FOCUS in style.get(r["src"], "")
-        if fin or V2_RX.search(r["utterance"]):
+        if fin or (r["label"] not in REGEX_TARGETS and V2_RX.search(r["utterance"])):
             out.append({**r, "v2_reason": "finance" if fin else "regex"})
     return out
 

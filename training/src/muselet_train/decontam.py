@@ -47,9 +47,18 @@ class Feats:
 
 
 def eval_utterances() -> list[tuple[str, str]]:
-    """(source, utterance) for every repo eval JSONL (route_v1, live_t1, ...) and the HobbyLM frozen tests."""
-    out = [(p.stem, json.loads(ln)["utterance"]) for p in sorted((REPO / "evals").glob("**/*.jsonl"))
-           for ln in p.read_text().splitlines() if ln.strip()]
+    """(source, utterance) for every repo eval JSONL (route_v1, live_t1, external/utterances, ...) and the
+    HobbyLM frozen tests. Rows carry the text as `utterance` (route_v1, live_t1) or `text` (evals/external);
+    external rows are tagged with their own `source` (HobbyLM / DeskMind)."""
+    out = []
+    for p in sorted((REPO / "evals").glob("**/*.jsonl")):
+        for ln in p.read_text().splitlines():
+            if not ln.strip():
+                continue
+            r = json.loads(ln)
+            t = r.get("utterance") or r.get("text")
+            if isinstance(t, str) and t.strip():
+                out.append((f"external/{r.get('source', p.stem)}" if "external" in p.parts else p.stem, t))
     for p in sorted(HOBBY.glob("*.tsv")):
         out += [("hobbylm/" + p.stem, row[2]) for row in csv.reader(p.open(), delimiter="\t")
                 if len(row) > 2 and row[2].strip()]
