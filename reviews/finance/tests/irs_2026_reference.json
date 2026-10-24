@@ -1,0 +1,11 @@
+{
+  "source": "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf (Rev. Proc. 2025-32, tax year 2026)",
+  "pdf_sha256": "e9ada115fb43a4af5ea326ca91edd40ab0bf29b9be01d2c13d7b8fa96214635b",
+  "mfj_brackets_2026": [[0, 24800, 0.10], [24800, 100800, 0.12], [100800, 211400, 0.22], [211400, 403550, 0.24], [403550, 512450, 0.32]],
+  "mfj_top_of_22pct": 211400,
+  "mfj_standard_deduction": 32200,
+  "additional_std_deduction_aged_married_each": 1650,
+  "mfj_ltcg_max_zero_rate": 98900,
+  "mfj_ltcg_max_15pct_rate": 613700,
+  "note": "pypdf text extraction prints the MFJ table rows under the 'TABLE 2 - Heads of Households' heading (layout artifact); the values above are Table 1 (MFJ) section 4.01, verified against the extracted text lines 287-310."
+}

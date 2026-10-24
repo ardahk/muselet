@@ -10,5 +10,5 @@
     "cloud/advisor": null
   },
   "next_id": 9,
-  "notes": "cloud/advisor not pushed yet at pass 1; spec cloud/builder_advisor.md read. ml/src/brain/finance not yet on any branch."
+  "notes": "cloud/advisor not pushed yet at pass 1; spec cloud/builder_advisor.md read. ml/src/brain/finance not yet on any branch. IRS 2026 reference extracted to tests/irs_2026_reference.json for advisor checks."
 }
