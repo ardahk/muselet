@@ -2,21 +2,20 @@ from __future__ import annotations
 
 import calendar
 import random
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from .core import NAMES, choose_domain, question_specs, record
+from .core import NAMES, choose_domain, near_miss_values, question_specs, record
 
 
 def business_days_after(start: date, count: int, holidays: set[date], *, include_start: bool = False) -> date:
     current = start
     remaining = count
     while remaining:
-        if current.weekday() < 5 and current not in holidays:
-            if current != start or include_start:
-                remaining -= 1
-                if not remaining:
-                    break
+        if current.weekday() < 5 and current not in holidays and (current != start or include_start):
+            remaining -= 1
+            if not remaining:
+                break
         current += timedelta(days=1)
     return current
 
@@ -30,179 +29,198 @@ def late_days(arrived: date, due: date, *, inclusive_deadline: bool) -> int:
     return max(0, difference if inclusive_deadline else difference + 1)
 
 
-def _money_options(answer: float, description: str) -> dict[str, str]:
-    options = {}
-    for offset in range(-12, 14):
-        amount = round(answer + offset * 0.5, 2)
-        key = f"usd_{amount:.2f}".replace(".", "_")
-        options[key] = f"The {description} is ${amount:.2f}."
-    return options
+def _date_key(value: date) -> str:
+    return value.strftime("date_%Y_%m_%d")
 
 
-def _scenario(rng: random.Random, domain: str, name: str) -> tuple[str, list[tuple]]:
-    kind = rng.choice(("deadline", "appointment", "proration", "leap"))
-    if kind == "deadline":
-        start = date(rng.choice((2024, 2025, 2026, 2027)), 12, rng.randint(18, 23))
-        holidays = {date(start.year, 12, 25)}
-        count = rng.randint(3, 8)
-        due = business_days_after(start, count, holidays)
-        offset = rng.randint(-1, 6)
-        arrived = due + timedelta(days=offset)
-        inclusive = bool(rng.randrange(2))
-        days_late = late_days(arrived, due, inclusive_deadline=inclusive)
-        boundary = "inclusive" if inclusive else "exclusive"
-        layout = rng.choice(("case note", "intake ticket", "email"))
-        if layout == "email":
-            state = (
-                f"Subject: {domain} response deadline\nFrom: {name}\n"
-                f"The request entered the service queue on {start.isoformat()}. Its agreement allows {count} business "
-                f"days, excluding weekends and the Christmas closure on {date(start.year, 12, 25).isoformat()}; "
-                f"the recorded due date is {due.isoformat()}. The notice was received on {arrived.isoformat()}. "
-                f"The contract calls the deadline {boundary}: a filing on the due date is "
-                f"{'on time' if inclusive else 'late'}."
-            )
-        elif layout == "intake ticket":
-            state = (
-                f"INTAKE TICKET — {domain}\nOwner: {name}\nOpened: {start.isoformat()}\n"
-                f"Response window: {count} business days; excluded dates: {date(start.year, 12, 25).isoformat()} "
-                f"and Saturdays/Sundays.\nSystem due date: {due.isoformat()}\nNotice received: {arrived.isoformat()}\n"
-                f"Boundary policy: {boundary}; delivery on the due date is "
-                f"{'permitted' if inclusive else 'outside the window'}."
-            )
-        else:
-            state = (
-                f"{name} added a {domain} filing to the calendar desk. The clock began {start.isoformat()} and "
-                f"counts {count} business days, skipping weekends and {date(start.year, 12, 25).isoformat()}. "
-                f"The due date shown on the register is {due.isoformat()}; the notice arrived {arrived.isoformat()}. "
-                f"The controlling deadline is {boundary}, so same-day delivery is "
-                f"{'allowed' if inclusive else 'late'}."
-            )
-        date_options = {
-            f"date_{(due + timedelta(days=delta)):%Y_%m_%d}":
-                f"The agreement sets {due + timedelta(days=delta):%Y-%m-%d} as the response deadline."
-            for delta in range(-12, 14)
-        }
-        return state, [
-            ("choice", f"What is the recorded business-day deadline for {name}'s filing?",
-             f"date_{due:%Y_%m_%d}", date_options, None),
-            ("noul", f"Did the notice arrive outside the {boundary} deadline for this filing?",
-             "true" if (arrived > due if inclusive else arrived >= due) else "false",
-             {"false": f"The {arrived.isoformat()} arrival falls within the permitted {boundary} boundary at {due.isoformat()}.",
-              "true": f"The {arrived.isoformat()} arrival falls outside the permitted {boundary} boundary at {due.isoformat()}."},
-             None),
-            ("score", f"How late was the notice under the {boundary} rule?",
-             str(min(3, days_late)), None,
-             [f"On time under the {boundary} rule.", "1 day late under the stated boundary.",
-              "2 days late under the stated boundary.", "3 or more days late under the stated boundary."]),
-        ]
+def _amount_key(value: float) -> str:
+    return f"usd_{value:.2f}".replace(".", "_")
 
-    if kind == "appointment":
-        zone = rng.choice(("America/Los_Angeles", "America/New_York", "Europe/London"))
-        local_day = rng.choice((date(2026, 3, 9), date(2026, 11, 2), date(2026, 7, 14)))
-        local = datetime(local_day.year, local_day.month, local_day.day, rng.choice((1, 22)), 30,
-                         tzinfo=ZoneInfo(zone))
-        utc = local.astimezone(ZoneInfo("UTC"))
-        is_dst = local.dst() != timedelta(0)
-        offset_hours = int(abs(local.utcoffset().total_seconds()) // 3600)
-        state = rng.choice((
-            f"CALENDAR INVITATION\nHost: {name}\nPurpose: {domain} review\n"
-            f"Start: {local.isoformat()} ({zone})\nUTC display: {utc.strftime('%Y-%m-%d %H:%M UTC')}\n"
-            "The scheduling system stores the local zone and applies its daylight-saving rules.",
-            f"{name} scheduled a {domain} appointment for {local.isoformat()} in {zone}. "
-            f"The calendar export converts that instant to {utc.strftime('%Y-%m-%d %H:%M UTC')}. "
-            "Use the named zone's offset on the appointment date, not its winter offset.",
-        ))
-        time_options = {
-            (utc + timedelta(hours=delta)).strftime("utc_%Y_%m_%d_%H_%M"):
-                f"The appointment instant converts to {(utc + timedelta(hours=delta)).strftime('%Y-%m-%d %H:%M UTC')}."
-            for delta in range(-12, 14)
-        }
-        answer = utc.strftime("utc_%Y_%m_%d_%H_%M")
-        return state, [
-            ("choice", f"What UTC time should the calendar display for {name}'s appointment?",
-             answer, time_options, None),
-            ("noul", f"Was daylight-saving time in effect in {zone} at the appointment?",
-             "true" if is_dst else "false",
-             {"false": f"The {local_day.isoformat()} appointment uses standard time in {zone}.",
-              "true": f"The {local_day.isoformat()} appointment uses daylight-saving time in {zone}."}, None),
-            ("score", f"Which band describes the local-to-UTC offset for {zone} on {local_day.isoformat()}?",
-             "0" if offset_hours <= 3 else "1" if offset_hours <= 6 else "2", None,
-             ["The absolute zone offset is 0–3 hours on the appointment date.",
-              "The absolute zone offset is 4–6 hours on the appointment date.",
-              "The absolute zone offset is more than 6 hours on the appointment date."]),
-        ]
 
-    if kind == "proration":
-        year = rng.choice((2024, 2025, 2026, 2027))
-        month = rng.randint(1, 12)
-        month_days = calendar.monthrange(year, month)[1]
-        period_days = rng.randint(max(1, month_days // 3), month_days)
-        monthly = float(rng.choice((900, 1200, 2400)))
-        amount = prorate_monthly(monthly, year, month, period_days)
-        cap = round(amount + rng.choice((-10, 10)), 2)
-        fraction = period_days / month_days
-        state = rng.choice((
-            f"INVOICE REVIEW — {domain}\nAccount contact: {name}\nMonthly service allowance: ${monthly:.2f}\n"
-            f"Billable service dates: {year}-{month:02d}-01 through {year}-{month:02d}-{period_days:02d} "
-            f"({period_days} calendar days). The month has {month_days} days. Proration uses actual calendar days; "
-            f"the approved ceiling is ${cap:.2f}.",
-            f"{name} is checking the {domain} invoice for {year}-{month:02d}. The monthly allowance is ${monthly:.2f}; "
-            f"service covered {period_days} of the month's {month_days} calendar days. The contract prorates by "
-            f"actual days, and charges at or below ${cap:.2f} are within the approval ceiling.",
-        ))
-        return state, [
-            ("choice", f"What allowance is due for the {period_days}-day service period in {year}-{month:02d}?",
-             f"usd_{amount:.2f}".replace(".", "_"), _money_options(amount, "prorated allowance"), None),
-            ("noul", f"Is the prorated allowance within the ${cap:.2f} approval ceiling?",
-             "true" if amount <= cap else "false",
-             {"false": f"The ${amount:.2f} prorated allowance exceeds the ${cap:.2f} ceiling.",
-              "true": f"The ${amount:.2f} prorated allowance is at or below the ${cap:.2f} ceiling."}, None),
-            ("score", f"Which band describes the share of {year}-{month:02d} billed for this service period?",
-             "0" if fraction < 0.34 else "1" if fraction < 0.67 else "2", None,
-             ["The service period is under 34% of the month's calendar days.",
-              "The service period is 34% to under 67% of the month's calendar days.",
-              "The service period is at least 67% of the month's calendar days."]),
-        ]
+def _deadline(rng: random.Random, domain: str, name: str):
+    year = rng.choice((2024, 2025, 2026, 2027))
+    start = date(year, rng.choice((1, 2, 3, 11, 12)), rng.randint(10, 22))
+    holidays = {date(start.year, 12, 25)} if start.month == 12 else {date(start.year, 1, 1)}
+    count = rng.randint(3, 8)
+    due = business_days_after(start, count, holidays)
+    arrived = due + timedelta(days=rng.choice((-2, -1, 1, 2, 3)))
+    inclusive = bool(rng.randrange(2))
+    days_late = late_days(arrived, due, inclusive_deadline=inclusive)
+    boundary = "inclusive" if inclusive else "exclusive"
+    holiday_text = ", ".join(day.isoformat() for day in sorted(holidays))
+    state = rng.choice((
+        f"CASE-MANAGEMENT TICKET — {domain}\nOwner: {name}\nOpened: {start.isoformat()}\n"
+        f"Response window: {count} business days; excluded dates: {holiday_text}, Saturdays, and Sundays.\n"
+        f"Notice received: {arrived.isoformat()}. Boundary: {boundary}; delivery on the deadline "
+        f"{'is' if inclusive else 'is not'} permitted.",
+        f"From: {name}\nSubject: {domain} filing calendar\nThe filing window starts after {start.isoformat()} "
+        f"and lasts {count} business days. Do not count weekends or {holiday_text}. The cutoff is {boundary}; "
+        f"receipt on the cutoff {'qualifies' if inclusive else 'does not qualify'}. The notice arrived "
+        f"{arrived.isoformat()}.",
+    ))
+    candidates = [due + timedelta(days=delta) for delta in (-2, -1, 0, 1, 2)]
+    date_options = {_date_key(value): f"The filing deadline is {value.isoformat()}." for value in candidates}
+    specs = [
+        ("choice", f"What is the business-day filing deadline for {name}?",
+         _date_key(due), date_options, None),
+        ("noul", f"Did the notice satisfy the {boundary} receipt rule?",
+         "true" if (arrived <= due if inclusive else arrived < due) else "false",
+         {"false": "The notice falls outside the permitted receipt boundary.",
+          "true": "The notice falls within the permitted receipt boundary."}, None),
+        ("score", f"How late was the notice under the {boundary} rule?",
+         str(min(3, days_late)), None,
+         ["The notice is on time under the rule.",
+          "The notice is 1 day late.",
+          "The notice is 2 days late.",
+          "The notice is at least 3 days late."]),
+    ]
+    return state, specs, (f"business-day count {count}", f"holiday rule {holiday_text}")
 
-    year = rng.choice((2024, 2025, 2026, 2028))
+
+def _appointment(rng: random.Random, domain: str, name: str):
+    zone = rng.choice(("America/Los_Angeles", "America/New_York"))
+    local_day = rng.choice((date(2026, 3, 9), date(2026, 11, 2), date(2026, 7, 14)))
+    local = datetime(local_day.year, local_day.month, local_day.day, rng.choice((1, 22)), 30,
+                     tzinfo=ZoneInfo(zone))
+    utc = local.astimezone(timezone.utc)
+    is_dst = local.dst() != timedelta(0)
+    offset_hours = int(abs(local.utcoffset().total_seconds()) // 3600)
+    naive = local.replace(tzinfo=None)
+    winter_offset = datetime(local.year, 1, 15, tzinfo=ZoneInfo(zone)).utcoffset()
+    summer_offset = datetime(local.year, 7, 15, tzinfo=ZoneInfo(zone)).utcoffset()
+    wrong_offsets = {
+        (naive - winter_offset).replace(tzinfo=timezone.utc),
+        (naive - summer_offset).replace(tzinfo=timezone.utc),
+    }
+    wrong_sign = (local.replace(tzinfo=None) + local.utcoffset()).replace(tzinfo=timezone.utc)
+    utc_candidates = [
+        utc, *sorted(wrong_offsets - {utc}), utc - timedelta(hours=1),
+        utc + timedelta(hours=1), wrong_sign,
+    ]
+    utc_candidates = list(dict.fromkeys(utc_candidates))
+    state = (
+        f"CALENDAR INVITATION\nHost: {name}\nPurpose: {domain} review\n"
+        f"Appointment starts {local.isoformat()} in the named zone {zone}. The calendar stores the local "
+        "zone identifier and applies its daylight-saving rules at the appointment date."
+    )
+    time_options = {
+        value.strftime("utc_%Y_%m_%d_%H_%M"):
+            f"The UTC appointment time is {value.strftime('%Y-%m-%d %H:%M UTC')}."
+        for value in utc_candidates
+    }
+    answer = utc.strftime("utc_%Y_%m_%d_%H_%M")
+    specs = [
+        ("choice", f"What UTC time should the calendar display for {name}'s appointment?",
+         answer, time_options, None),
+        ("noul", f"Was daylight-saving time in effect in {zone} at the appointment?",
+         "true" if is_dst else "false",
+         {"false": "The zone is on standard time at the appointment.",
+          "true": "The zone is on daylight-saving time at the appointment."}, None),
+        ("score", f"Which band describes the absolute UTC offset for {zone} at the appointment?",
+         "0" if offset_hours <= 3 else "1" if offset_hours <= 6 else "2", None,
+         ["The zone offset is 0–3 hours.",
+          "The zone offset is 4–6 hours.",
+          "The zone offset is 7 hours or more."]),
+    ]
+    return state, specs, (f"local appointment {local.isoformat()}", f"zone offset {local.utcoffset()}")
+
+
+def _proration(rng: random.Random, domain: str, name: str):
+    year = rng.choice((2024, 2025, 2026, 2027))
+    month = rng.randint(1, 12)
+    month_days = calendar.monthrange(year, month)[1]
+    period_days = rng.randint(max(2, month_days // 3), month_days - 1)
+    monthly = float(rng.choice((900, 1200, 2400)))
+    amount = prorate_monthly(monthly, year, month, period_days)
+    cap = round(monthly * rng.choice((0.45, 0.65, 0.85)), 2)
+    if cap == amount:
+        cap = round(cap + 17, 2)
+    daily = monthly / month_days
+    one_day_short = prorate_monthly(monthly, year, month, period_days - 1)
+    one_day_long = prorate_monthly(monthly, year, month, period_days + 1)
+    thirty_day_base = round(monthly * period_days / 30, 2)
+    values = near_miss_values(
+        amount, (one_day_short, one_day_long, thirty_day_base, monthly),
+        minimum=5, lower=0, upper=monthly * 1.1, step=0.5,
+    )
+    options = {_amount_key(value): f"The prorated allowance is ${value:.2f}." for value in values}
+    start = date(year, month, 1)
+    end = start + timedelta(days=period_days - 1)
+    state = rng.choice((
+        f"INVOICE REVIEW — {domain}\nAccount contact: {name}\nMonthly service allowance: ${monthly:.2f}\n"
+        f"Billable period: {start.isoformat()} through {end.isoformat()}, inclusive. The invoice uses actual "
+        f"calendar days in {year}-{month:02d}; approval is permitted up to ${cap:.2f}.",
+        f"{name} is checking the {domain} invoice. The service began {start.isoformat()} and ended "
+        f"{end.isoformat()} inclusive. The allowance is ${monthly:.2f} per calendar month, prorated using "
+        f"the exact number of days in that month. The approval ceiling is ${cap:.2f}.",
+    ))
+    fraction = period_days / month_days
+    specs = [
+        ("choice", f"What allowance is due for the covered dates in {year}-{month:02d}?",
+         _amount_key(amount), options, None),
+        ("noul", f"Is the prorated allowance within the approval ceiling?",
+         "true" if amount <= cap else "false",
+         {"false": "The prorated charge is above the permitted ceiling.",
+          "true": "The prorated charge is within the permitted ceiling."}, None),
+        ("score", f"Which band describes the fraction of {year}-{month:02d} covered?",
+         "0" if fraction < 0.34 else "1" if fraction < 0.67 else "2", None,
+         ["The service period is under 34% of the month.",
+          "The service period is 34% to under 67% of the month.",
+          "The service period is at least 67% of the month."]),
+    ]
+    return state, specs, (f"daily rate ${daily:.4f}", f"30-day denominator amount ${thirty_day_base:.2f}")
+
+
+def _leap_year(rng: random.Random, domain: str, name: str):
+    year = rng.choice((2023, 2024, 2025, 2028))
     last_day = calendar.monthrange(year, 2)[1]
     renewal_day = date(year, 2, last_day)
     is_leap = calendar.isleap(year)
-    state = rng.choice((
-        f"RENEWAL FORM — {domain}\nSubmitted by: {name}\nCoverage window: "
-        f"{year}-02-01 through {renewal_day.isoformat()}, inclusive.\n"
-        f"The calendar's February entry for {year} has {last_day} days. Renewal coverage follows the Gregorian "
-        "calendar; a February 29 is included only when that date exists.",
-        f"{name} is processing a {domain} renewal covering February {year}. The coverage starts on "
-        f"{year}-02-01 and ends on the final calendar day, {renewal_day.isoformat()}, inclusive. "
-        f"February has {last_day} days in this year.",
-    ))
-    date_options = {
-        f"date_{(renewal_day + timedelta(days=delta)):%Y_%m_%d}":
-            f"The inclusive renewal window ends on {renewal_day + timedelta(days=delta):%Y-%m-%d}."
-        for delta in range(-12, 14)
+    state = (
+        f"RENEWAL FORM — {domain}\nSubmitted by: {name}\nCoverage starts on {year}-02-01 and runs through "
+        "the final calendar day of February, inclusive. The Gregorian calendar determines the month boundary."
+    )
+    dates = [date(year, 2, 27), date(year, 2, 28), date(year, 3, 1), date(year, 3, 2)]
+    if is_leap:
+        dates.insert(2, date(year, 2, 29))
+    options = {
+        _date_key(value): f"The inclusive renewal window ends on {value.isoformat()}."
+        for value in dates
     }
-    return state, [
-        ("choice", f"What is the final date of {name}'s inclusive February {year} coverage window?",
-         f"date_{renewal_day:%Y_%m_%d}", date_options, None),
-        ("noul", f"Does the February {year} coverage window include February 29?",
+    specs = [
+        ("choice", f"What is the final date of {name}'s February {year} coverage window?",
+         _date_key(renewal_day), options, None),
+        ("noul", f"Does {year} have an additional February calendar day?",
          "true" if is_leap else "false",
-         {"false": f"February {year} has no February 29, so the coverage window contains 28 calendar days.",
-          "true": f"February {year} includes February 29 within its {last_day}-day coverage window."}, None),
-        ("score", f"How many calendar days does the February {year} coverage window contain?",
+         {"false": "February has no additional calendar day this year.",
+          "true": "February includes an additional calendar day this year."}, None),
+        ("score", f"How many calendar days are in the February coverage window for {year}?",
          "0" if last_day < 28 else "1" if last_day == 28 else "2", None,
-         ["The coverage window contains fewer than 28 calendar days.",
-          "The coverage window contains exactly 28 calendar days.",
-          "The coverage window contains 29 calendar days."]),
+         ["The coverage window contains fewer than 28 days.",
+          "The coverage window contains exactly 28 days.",
+          "The coverage window contains 29 days."]),
     ]
+    return state, specs, (f"February day count {last_day}",)
+
+
+def _scenario(rng: random.Random, domain: str, name: str):
+    kind = rng.choice(("deadline", "appointment", "proration", "leap"))
+    return {
+        "deadline": _deadline,
+        "appointment": _appointment,
+        "proration": _proration,
+        "leap": _leap_year,
+    }[kind](rng, domain, name)
 
 
 def generate(rng: random.Random, domain: str, n_questions: int, types: list[str]) -> dict:
     domain = choose_domain(rng, domain)
     name = rng.choice(NAMES)
-    state, specs = _scenario(rng, domain, name)
+    state, specs, intermediate_values = _scenario(rng, domain, name)
     selected_types = question_specs(types, n_questions)
     by_kind = {spec[0]: spec for spec in specs}
-    return record(rng, "temporal", domain, state, [
-        (kind, *by_kind[kind][1:]) for kind in selected_types
-    ])
+    return record(
+        rng, "temporal", domain, state,
+        [(kind, *by_kind[kind][1:]) for kind in selected_types],
+        intermediate_values=intermediate_values,
+    )

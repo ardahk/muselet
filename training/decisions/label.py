@@ -52,7 +52,9 @@ class BudgetLedger:
             for line in path.read_text(encoding="utf-8").splitlines():
                 if line.strip():
                     row = json.loads(line)
-                    if row.get("run", "default") == run:
+                    if row.get("run", "default") == run and (
+                        round_id is None or row.get("round_id") == round_id
+                    ):
                         self.spent += float(row.get("cost_usd", 0.0))
 
     def reserve(self, model: str, prompt: str, output_cap: int) -> float:
@@ -163,15 +165,24 @@ class ApiClient:
     async def generate(self, model: str, prompt: str, ledger: BudgetLedger, max_output_tokens: int = 2048,
                        role: str = "author", decision_id: str | None = None,
                        temperature: float | None = None, reasoning_effort: str | None = None,
-                       thinking_budget: int | None = None):
-        estimate = ledger.reserve(model, prompt, max_output_tokens)
+                       thinking_budget: int | None = None, response_schema: dict | None = None):
+        reservation_tokens = min(max_output_tokens, 1024) if role.startswith(("teacher:", "gate:")) else \
+            max_output_tokens
+        estimate = ledger.reserve(model, prompt, reservation_tokens)
         try:
             if model.startswith("gpt-"):
                 key = os.environ["OPENAI_API_KEY"]
                 body = {"model": model, "messages": [{"role": "user", "content": prompt}],
                         "max_completion_tokens": max_output_tokens}
                 if role == "author":
-                    body["response_format"] = {"type": "json_object"}
+                    if response_schema:
+                        body["response_format"] = {
+                            "type": "json_schema",
+                            "json_schema": {"name": "authored_decision", "strict": True,
+                                            "schema": response_schema},
+                        }
+                    else:
+                        body["response_format"] = {"type": "json_object"}
                 if model == "gpt-5.5":
                     body["reasoning_effort"] = "none"
                 if reasoning_effort is not None:
@@ -186,19 +197,31 @@ class ApiClient:
             key = os.environ["ANTHROPIC_API_KEY"]
             body = {"model": model, "max_tokens": max_output_tokens,
                     "messages": [{"role": "user", "content": prompt}]}
-            if model == "claude-sonnet-5-5":
+            if model == "claude-sonnet-5-5" and response_schema:
                 body["thinking"] = {"type": "between_tools"}
-            elif model == "claude-haiku-5-5" and role.startswith(("teacher:", "gate:")):
+            elif model == "claude-haiku-5-5" and role.startswith(("teacher:", "gate:")) \
+                    and thinking_budget is not None and thinking_budget > 0:
                 body["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget or 1024}
             else:
                 body["thinking"] = {"type": "disabled"}
+            if response_schema:
+                body["tools"] = [{
+                    "name": "submit_authored_decision",
+                    "description": "Return the authored decision item matching the provided schema.",
+                    "input_schema": response_schema,
+                }]
+                body["tool_choice"] = {"type": "auto"}
             if temperature is not None:
                 body["temperature"] = temperature
             data = await self._post("https://api.anthropic.com/v1/messages",
                                     {"x-api-key": key, "anthropic-version": "2023-06-01"},
                                     body)
             usage = data.get("usage", {})
-            result = "".join(part.get("text", "") for part in data.get("content", []))
+            tool_result = next((part.get("input") for part in data.get("content", [])
+                                if part.get("type") == "tool_use"), None)
+            result = json.dumps(tool_result) if tool_result is not None else "".join(
+                part.get("text", "") for part in data.get("content", [])
+            )
             ledger.settle(estimate, model, usage, "anthropic", role, decision_id)
             return result, usage
         except httpx.HTTPStatusError as exc:
@@ -230,7 +253,7 @@ class ApiClient:
             text, _ = await self.generate(
                 model, LABEL_SYSTEM + "\n\n" + prompt, ledger, max_output_tokens=max_tokens,
                 role=sample_role, decision_id=decision_id, temperature=1 if model == "claude-haiku-5-5" else None,
-                reasoning_effort=effort, thinking_budget=1024 if model == "claude-haiku-5-5" else None,
+                reasoning_effort=effort, thinking_budget=0 if model == "claude-haiku-5-5" else None,
             )
             return index, text
 
