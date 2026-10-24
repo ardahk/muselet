@@ -1,10 +1,11 @@
-# decisions — digest (pass 3)
+# decisions — digest (pass 4)
 
 Heads: main 2920225, cloud/decisions 3a865a0 (new: Tinker System One backend), cloud/data-pipeline 5371185.
 All open findings re-verified (pass-3 lines in findings.jsonl): none fixed. Branch-only (still live): decisions-1, -9, -10 (cloud/data-pipeline).
-Verified OK: tinker_backend.py scores row choice_pos-1 like vendor tinker_decisions.py:36-49 and imports GenericRenderer.
+Pass 4: wip/local 3e03686 has no lane-file diff vs main; cloud/pitch-2 citations re-checked (decision.py:390-410 route, orchestrator.py:171,364 tau) OK. Verified OK: tinker_backend.py scores row choice_pos-1 like vendor tinker_decisions.py:36-49 and imports GenericRenderer.
 
 ## Open P0/P1
+0. decisions-13 P1 route_acc claimed as top-1 but eval-route accuracy is tau-gated — ml/src/brain/cli.py / pitch/claims.md:13
 1. decisions-1 P1 Decontam index lacks JevBench/typed-decisions; no 13-gram or option-set test — training/src/muselet_train/decontam.py (data-pipeline)
 2. decisions-12 P1 cloud/decisions forked pre-f584cb2; merge drops scorer, venv and split_model fixes — ml/src/brain/decision.py
 3. decisions-9 P1 it2 terse-ASK top-up targets route_v1 ASK items; decontam misses swaps — training/src/muselet_train/gen.py (data-pipeline)
