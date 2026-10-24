@@ -1,6 +1,6 @@
-# training lane digest — pass 33 (main 82d94d9, cloud/data-pipeline 512cce0, wip/local 5b3d695, cloud/decisions 6d395df)
+# training lane digest — pass 34 (main 5292608, cloud/data-pipeline 512cce0, wip/local a02959b, cloud/decisions 6d395df)
 
-Open: 0 P0, 10 P1, 13 P2. Pass 33: main merged brain-6 (sendgate, grounded-click gates, OCR probe) + sendgate browser list; no training/eval/catalog/router/pitch files. No changes to findings.
+Open: 0 P0, 10 P1, 13 P2. Pass 34: main AGENTS.md only (it2 0 real DeskMind overlaps under the CJK-aware gate, consistent with it2_report_v3@512cce0). No changes to findings.
 
 ## Ranked open P0/P1
 1. training-29 P1 — short_edit1 rule mostly false positives; hard gate in train.py; blocks it2b decisions.
