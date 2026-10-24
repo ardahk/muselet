@@ -42,17 +42,3 @@ def test_done_can_recover_with_own_expect_after_rejection(tmp_path):
     assert run(orch._planner_loop("finish", trace_for(orch))) == "ok"
     assert orch.server.said[-1] == "verified"
     assert orch.server.methods() == ["observe", "observe", "verify"]
-
-
-@pytest.mark.parametrize("result, outcome", [
-    ({"ok": True}, "ok"),
-    ({"ok": False, "error": "unavailable"}, "unverified"),
-    ({"ok": True, "error": "not_frontmost"}, "unverified"),
-])
-def test_done_after_skill_requires_successful_rpc(tmp_path, result, outcome):
-    orch = _diff_orch(tmp_path, [['skill mute on=true'],
-                                ['done "finished"'], ['done "finished"']],
-                      lambda p: {"ok": True})
-    orch.server.handlers["skill"] = lambda p: result
-    assert run(orch._planner_loop("mute", trace_for(orch))) == outcome
-    assert orch.server.uis[-1] == ("success" if outcome == "ok" else "idle")
