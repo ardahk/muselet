@@ -24,6 +24,10 @@ public enum HandsError: Error, CustomStringConvertible {
     /// is the error (e.g. `not_frontmost`), `result` what was observed
     /// (still returned with ok=false).
     case verifyFailed(code: String, observed: String, result: [String: Any])
+    /// A path arg that is neither absolute nor `~`-prefixed: resolving it
+    /// against the process CWD would touch the wrong place. The payload is
+    /// the offending value.
+    case relativePath(String)
     case `internal`(String)
     /// Extra `observed` hint for the response, if any.
     public var observed: String? {
@@ -31,6 +35,7 @@ public enum HandsError: Error, CustomStringConvertible {
         case .noTextTarget(let o): return o
         case .screenLocked: return "the screen is locked"
         case .verifyFailed(_, let o, _): return o
+        case .relativePath(let p): return p
         default: return nil
         }
     }
@@ -52,6 +57,7 @@ public enum HandsError: Error, CustomStringConvertible {
         case .noTextTarget: return "no_text_target"
         case .screenLocked: return "screen_locked"
         case .verifyFailed(let c, _, _): return c
+        case .relativePath: return "relative_path"
         case .internal(let s): return s
         }
     }
@@ -64,6 +70,7 @@ public enum HandsError: Error, CustomStringConvertible {
         case .noTextTarget: return "no_text_target"
         case .screenLocked: return "screen_locked"
         case .verifyFailed(let c, _, _): return c
+        case .relativePath: return "relative_path"
         default: return "error"
         }
     }
