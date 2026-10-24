@@ -1,15 +1,15 @@
 ## Handoff
 
-_Last updated: 2026-10-24, after PR #34 was opened (milestone: implementation complete, waiting on Mac verification)._
+_Last updated: 2026-10-24, after PR #34 was merged into `main` (milestone: merged, waiting on Mac verification)._
 
 **State**
-- Done: the full `cloud/builder_clock_timers.md` brief is implemented in one PR, [ardahk/muselet#34](https://github.com/ardahk/muselet/pull/34), on branch `cloud/clock-timers`. The implementation commit is `d060b5a` (rebased on `main` @ `e2472e2`).
+- Done: the full `cloud/builder_clock_timers.md` brief is implemented and **merged into `main`** via [ardahk/muselet#34](https://github.com/ardahk/muselet/pull/34) (branch `cloud/clock-timers`, head `8d779cc`, now on `main`). The implementation commit is `d060b5a` (rebased on `main` @ `e2472e2`).
   - Swift, HandsKit: Clock backend, shortcut detection, fallback, cancel, merge, and the `timer_backend` RPC.
   - Swift, app: Settings › Timers card.
   - Python brain: per-backend replies and the once-per-session hint.
   - Docs: `docs/CLOCK_TIMERS.md` and `AGENTS.md`.
   - Tests: Swift and Python.
-- In flight: nothing on the agent side. The PR waits on the lead's Mac team.
+- In flight: nothing on the agent side. The merged code still awaits the lead's Mac team for compile + on-Mac checks. Any further work goes on a new branch off `main` (e.g. `cloud/clock-timers-fixes`), one PR per change.
 - **Swift has never been compiled.** The agent ran on Linux. Python passes: `ml/` 1310 passed / 55 skipped; bench timer tests 24 passed. The repo has no CI.
 
 **Exact next steps**
@@ -24,10 +24,10 @@ _Last updated: 2026-10-24, after PR #34 was opened (milestone: implementation co
    - fallback and hint;
    - toggle off means no `shortcuts` process;
    - HobbyLM timer grading and teardown.
-4. Address review comments on #34. Never merge; the lead merges.
+4. Put any fixes from steps 1–3 on a new branch off `main` and open a new PR (#34 is merged). Never merge; the lead merges.
 
 **Artifacts**
-- Branch `cloud/clock-timers`. Implementation commit `d060b5a`; handoff notes added in `3446136` and later commits on the branch. PR #34.
+- Branch `cloud/clock-timers` (merged; do not reuse). Implementation commit `d060b5a`; handoff notes `3446136`, `8d779cc`. PR #34 (merged). Handoff refresh: branch `cloud/clock-timers-handoff`.
 - No HF repos, Tinker runs, checkpoints or run dirs: there was no training or eval in this lane.
 - Python test env on Linux: `ml/.venv`, plus `uv pip install --python ml/.venv/bin/python "mlx-cpu==0.32.4"`. That install is needed only on Linux, where `libmlx.so` is missing. It is not committed.
 
