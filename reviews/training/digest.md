@@ -1,6 +1,6 @@
-# training lane digest — pass 40 (main 7065dd3, cloud/data-route 42835ce, cloud/decisions 694c198)
+# training lane digest — pass 41 (main 026aff0, cloud/brain-8 4546d09, cloud/planner-demos 84798ec)
 
-Open: 0 P0, 12 P1, 14 P2. Nothing new or resolved. main merged comms: draft_email and compose_text are both router:false on main (training-44). live_t1 utterances unchanged.
+Open: 0 P0, 12 P1, 15 P2. New: training-46 (P2). main merged data-route and report-2; training-44 now has both sides on main.
 
 ## Ranked open P0/P1
 1. training-44 P1 — it3cand trains draft_email (330) + compose_text (127) as routable; main marks both router:false (comms merged).
