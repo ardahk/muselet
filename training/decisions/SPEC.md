@@ -117,3 +117,9 @@ Generator quality fixes (required before full generation):
 - Grammar (a/an), realistic document formats (emails, tickets, tables, policy excerpts, logs, UI/form screens).
 - Mandatory PARAPHRASE pass (gpt-5.4-mini, reasoning low) on 60% of code-gold states, with the verbatim-token check; reject on failure.
 - Choice gold position drawn uniformly from the option slots; verify the histogram is flat (chi-square p > 0.05) in the report.
+
+## Lead amendment 3 (after mini-check, budget)
+Teacher-gold (authored) labels: gpt-5.4-nano reasoning low K=4 (empirical) + gpt-4.1-mini logprobs; target = 0.5*nano + 0.5*gpt-4.1-mini,
+floor 1e-3; keep a question only if nano majority == gpt-4.1-mini argmax (mini-check agreement 87.2%).
+Authors: gpt-5.4-mini (reasoning low, json_schema strict) 80%, claude-sonnet-5-5 (tool-use schema) 20%, 3-6 questions per state.
+Full run: ~10k code-gold + ~6k authored decisions (~16k total), generation budget so cumulative spend <= $57.
