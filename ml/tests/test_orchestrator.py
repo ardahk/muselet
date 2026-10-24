@@ -142,10 +142,11 @@ def test_stop_on_failed_expect(tracer):
         return ok, fake
     ok, fake = run(go())
     assert ok == "failed"
-    assert len(fake.rpcs) == 1
-    assert fake.rpcs[0]["params"]["op"] == "press"
+    acts = [r for r in fake.rpcs if r["method"] == "act"]
+    assert len(acts) == 1
+    assert acts[0]["params"]["op"] == "press"
     # the expect string is forwarded to hands
-    assert fake.rpcs[0]["params"].get("expect") == 'title~"Recents"'
+    assert acts[0]["params"].get("expect") == 'title~"Recents"'
 
 
 def test_confirm_flow_blocks_until_reply(tracer):
