@@ -50,6 +50,31 @@ from bench.hobbylm.vendor import verify_provenance
 
 VENDORED_UPSTREAM = HERE / "upstream"
 MUSELET_HELPER_TOOLS = ("calc_checker", "brightness", "media_key", "checker")
+_KIND_ALIASES = {"calculator": "calc"}
+
+
+def _excluded_kinds(raw: str) -> set[str]:
+    return {
+        _KIND_ALIASES.get(part.strip(), part.strip())
+        for part in (raw or "").split(",")
+        if part.strip()
+    }
+
+
+def _exclude_reason(kind: str) -> str:
+    if kind == "calc":
+        return "harness_calc_checker_ax_blind"
+    return f"excluded_kind:{kind}"
+
+
+def _skip_record(task: dict, repeat: int, session: dict, extra: dict) -> dict:
+    rec = {
+        "id": task["id"], "kind": task["kind"], "repeat": repeat,
+        "status": "skipped", "strict_pass": False,
+    }
+    rec.update(session)
+    rec.update(extra)
+    return rec
 HELPER_SETUP_ERROR = (
     "pass --hobby-home <hobby-mac checkout> or install Xcode command line tools "
     "(xcode-select --install)"
@@ -1076,6 +1101,7 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Non
 
     run_root.mkdir(parents=True, exist_ok=True)
     records = []
+    excluded_kinds = _excluded_kinds(getattr(args, "exclude_kind", ""))
     trace_path = ROOT / "runs/traces" / f"{datetime.now().date().isoformat()}.jsonl"
     async with BenchProxy(f"ws://127.0.0.1:{args.port}", port=args.proxy_port) as proxy:
         for repeat in range(1, args.repeats + 1):
@@ -1098,6 +1124,14 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Non
                         **session,
                         **({"timer_grading": "not_run_skipped"} if task["kind"] == "timer" else {}),
                     }
+                    records.append(rec)
+                    print(json.dumps(rec, ensure_ascii=False), flush=True)
+                    continue
+                if task["kind"] in excluded_kinds:
+                    rec = _skip_record(
+                        task, repeat, session,
+                        {"skip_reason": _exclude_reason(task["kind"])},
+                    )
                     records.append(rec)
                     print(json.dumps(rec, ensure_ascii=False), flush=True)
                     continue
@@ -1192,12 +1226,7 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Non
                             await runtime.stop()
                         except Exception:
                             pass
-                        rec = {
-                            "id": task["id"], "kind": task["kind"],
-                            "repeat": repeat, "status": "skipped",
-                            **setup_skip,
-                            **session,
-                        }
+                        rec = _skip_record(task, repeat, session, setup_skip)
                         records.append(rec)
                         print(json.dumps(rec, ensure_ascii=False), flush=True)
                         continue
@@ -1697,6 +1726,10 @@ def main(argv=None):
     )
     parser.add_argument("--round", choices=("r1", "r2", "r3", "r4"), default="r4")
     parser.add_argument("--ids", default="")
+    parser.add_argument(
+        "--exclude-kind", default="",
+        help="comma-separated task kinds to record as skipped without "
+             "executing (e.g. calc; alias: calculator)")
     parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--proxy-port", type=int, default=8790)

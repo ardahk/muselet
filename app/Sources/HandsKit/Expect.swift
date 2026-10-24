@@ -79,6 +79,12 @@ public enum Expect {
         }
     }
 
+    static func labelMatches(_ label: String, in text: String) -> Bool {
+        guard !label.isEmpty else { return false }
+        let pattern = "(?<!\\w)" + NSRegularExpression.escapedPattern(for: label) + "(?!\\w)"
+        return text.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
+    }
+
     /// Evaluate against an observation. Returns (ok, observed-detail).
     public static func eval(_ p: ExpectPredicate, _ obs: Observation) -> (Bool, String) {
         switch p {
@@ -99,7 +105,7 @@ public enum Expect {
             return (ok, "app=\(obs.app)")
         case .appears(let label):
             let hit = obs.elements.contains {
-                $0.label.localizedCaseInsensitiveContains(label)
+                labelMatches(label, in: $0.label)
             }
             return (hit, "appears \"\(label)\" -> \(hit)")
         case .gone(let ref):
@@ -114,8 +120,8 @@ public enum Expect {
 extension Hands {
     /// Evaluate `p` against `obs`, with live fallbacks so the 150-node cap
     /// never decides the answer:
-    ///  - `appears`: on a miss, search the whole app (menus, popovers,
-    ///    sheets, other windows, window titles) with a large cap.
+    ///  - `appears`: on a miss, search the focused window and its sheets,
+    ///    popovers and open menus with a large cap.
     ///  - `gone`: absent from the list is not enough; test the element's
     ///    own liveness/visibility, and never report gone from a truncated walk.
     public func evalExpect(_ p: ExpectPredicate, _ obs: Observation,
@@ -129,7 +135,7 @@ extension Hands {
                 .timeIntervalSince(now)))
             let hit = labelSearchOverride?(label, obs.pid)
                 ?? searchLabel(label, pid: obs.pid, deadline: now.addingTimeInterval(budget))
-            return (hit, "appears \"\(label)\" -> \(hit)\(hit ? " (outside focused window/cap)" : "")")
+            return (hit, "appears \"\(label)\" -> \(hit)\(hit ? " (beyond observation cap/open menu)" : "")")
         case .gone(let ref):
             if obs.elements.contains(where: { $0.ref == ref }) {
                 return (false, "#\(ref) still present")
@@ -149,9 +155,9 @@ extension Hands {
         }
     }
 
-    /// Search the target app's own windows (with their sheets, popovers,
-    /// drawers) and open menus for a label or window title containing
-    /// `label` (case-insensitive). The menu bar is never searched (its
+    /// Search the target app's focused window (with its sheets and popovers)
+    /// and open menus for a word-bounded, case-insensitive label match.
+    /// The menu bar is never searched (its
     /// File/Edit/View/Format titles would pass any `appears "Format"`),
     /// except the items of a menu that is open right now (hands-12).
     /// Read-only; does not touch ref/session state.
@@ -165,14 +171,14 @@ extension Hands {
     /// Testable core of `searchLabel` (mock app element).
     static func searchLabel(_ label: String, app: Element, deadline: Date) -> Bool {
         guard !label.isEmpty else { return false }
-        let roots = labelSearchRoots(app: app)
+        let roots = labelSearchRoots(app: app, focusedOnly: true)
         for r in roots where r.window {
-            if let t = r.el.copyAttrs().title, t.localizedCaseInsensitiveContains(label) { return true }
+            if let t = r.el.copyAttrs().title, Expect.labelMatches(label, in: t) { return true }
         }
         for r in roots {
             if Date() > deadline { break }
             let recs = Walker.walk(root: r.el, deadline: deadline, interactiveCap: 3000)
-            if recs.contains(where: { $0.label.localizedCaseInsensitiveContains(label) }) { return true }
+            if recs.contains(where: { Expect.labelMatches(label, in: $0.label) }) { return true }
         }
         return false
     }
@@ -185,20 +191,34 @@ extension Hands {
     /// Windows (AXWindows + window-like app children: sheets, popovers,
     /// drawers), open context menus (AXMenu children of the app) and the
     /// AXMenu of an open menu-bar item. Never the AXMenuBar itself.
-    static func labelSearchRoots(app: Element) -> [SearchRoot] {
+    /// `focusedOnly` restricts windows and overlays to `pickWindow`'s target.
+    static func labelSearchRoots(app: Element, focusedOnly: Bool = false) -> [SearchRoot] {
         var roots: [SearchRoot] = []
         func add(_ el: Element, window: Bool) {
             if roots.contains(where: { sameElement($0.el, el) }) { return }
             roots.append(SearchRoot(el: el, window: window))
         }
-        for w in axElements(app.copySingleAttr(kAXWindowsAttribute as String)) {
+        let windows = focusedOnly
+            ? pickWindow(app: app).map { [$0.window] } ?? []
+            : axElements(app.copySingleAttr(kAXWindowsAttribute as String))
+        for w in windows {
             add(w, window: true)
+            if focusedOnly {
+                for sheet in axElements(w.copySingleAttr("AXSheets")) { add(sheet, window: true) }
+            }
         }
         let windowish: Set<String> = ["AXWindow", "AXSheet", "AXPopover", "AXDrawer"]
         for c in app.copyAttrs().children {
             let role = c.copyAttrs().role ?? ""
-            if windowish.contains(role) { add(c, window: role == "AXWindow" || role == "AXSheet") }
-            else if role == "AXMenu" && isOpen(c) { add(c, window: false) }
+            if windowish.contains(role) {
+                if focusedOnly {
+                    guard let w = windows.first, role != "AXWindow" else { continue }
+                    let owner = axElement(c.copySingleAttr("AXWindow"))
+                        ?? axElement(c.copySingleAttr(kAXParentAttribute as String))
+                    guard let owner, sameElement(owner, w) else { continue }
+                }
+                add(c, window: role == "AXWindow" || role == "AXSheet")
+            } else if role == "AXMenu" && isOpen(c) { add(c, window: false) }
         }
         // Menu bar: only the menu that is open (its AXMenu has a frame).
         if let bar = axElement(app.copySingleAttr("AXMenuBar")) {

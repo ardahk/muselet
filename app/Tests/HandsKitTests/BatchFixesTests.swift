@@ -82,6 +82,44 @@ final class AppearsScopeTests: XCTestCase {
         XCTAssertFalse(roots.contains { ($0.el as? MockElement)?.attrs.role == "AXMenuBar" })
         XCTAssertEqual(roots.filter { $0.window }.count, 1)   // window listed once (AXWindows + child)
     }
+
+    func testWordBoundedLabelsAndTitles() {
+        let a = app()
+        XCTAssertFalse(search("get", a))                     // Budget.numbers
+        let w = el("AXWindow", "Draft", [el("AXButton", "Autosave"), el("AXButton", "Unsaved")])
+        a.singles[kAXFocusedWindowAttribute as String] = w
+        XCTAssertFalse(search("Save", a))
+        w.attrs.children = [el("AXButton", "SAVE As…")]
+        XCTAssertTrue(search("save", a))
+        XCTAssertTrue(Expect.labelMatches("Export…", in: "Export…"))
+        XCTAssertTrue(Expect.labelMatches("(Save)", in: "Click (SAVE)"))
+        XCTAssertFalse(Expect.labelMatches("Save.*", in: "Save As"))
+        XCTAssertFalse(Expect.labelMatches("", in: "Save"))
+    }
+
+    func testOnlyFocusedWindowAndOwnedOverlays() {
+        let a = app(editOpen: true, contextMenu: true)
+        let other = el("AXWindow", "Unrelated", [el("AXButton", "Background Only")])
+        let focused = el("AXWindow", "Target", [el("AXButton", "Target Only")])
+        let sheet = el("AXSheet", "Attached", [el("AXButton", "Sheet Only")])
+        let popover = el("AXPopover", nil, [el("AXButton", "Popover Only")])
+        popover.singles[kAXParentAttribute as String] = focused
+        focused.singles["AXSheets"] = [sheet]
+        a.singles[kAXWindowsAttribute as String] = [other, focused]
+        a.singles[kAXFocusedWindowAttribute as String] = focused
+        a.attrs.children += [other, focused, popover,
+                             el("AXSheet", "Unowned", [el("AXButton", "Unowned Only")])]
+        for label in ["Target Only", "Sheet Only", "Popover Only", "Paste and Match", "Inspect Element"] {
+            XCTAssertTrue(search(label, a), label)
+        }
+        for label in ["Background Only", "Unrelated", "Unowned Only", "Budget", "Export"] {
+            XCTAssertFalse(search(label, a), label)
+        }
+        a.singles.removeValue(forKey: kAXFocusedWindowAttribute as String)
+        a.singles.removeValue(forKey: kAXWindowsAttribute as String)
+        XCTAssertFalse(search("Target Only", a))
+        XCTAssertTrue(search("Inspect Element", a))
+    }
 }
 
 // MARK: - planner-11: shell exit codes
