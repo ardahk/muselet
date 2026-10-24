@@ -1,9 +1,9 @@
-# brain lane digest — pass 47 (2026-10-24T22:59:53Z)
+# brain lane digest — pass 48 (2026-10-24T23:24:00Z)
 
-Open: P0 0 / P1 9 / P2 10. main a97fcba (w9-safety merged), wip/local ac41cd2 (still on main@806b0d4).
+Open: P0 0 / P1 9 / P2 10. main 46b97f5 and wip/local 719907a: no lane changes since a97fcba.
 
 ## Open P0/P1 (ranked)
-- brain-38 [P1] Deterministic message parser hijacks non-messaging commands and other-channel requests — `ml/src/brain/comms.py` (cloud/comms-2@c65ee70)
+- brain-38 [P1] Deterministic message parser hijacks non-messaging commands and other-channel requests — `ml/src/brain/comms.py` (cloud/comms-2@c65ee70; fix verified on cloud/safety-brain38@54ca8f6)
 - brain-16 [P1] abs_level misreads times, durations, percentages and unrelated words — `ml/src/brain/orchestrator.py` (main@fb2cfd0@003d1bb)
 - brain-17 [P1] Compound check runs serial route passes before speculative reuse — `ml/src/brain/orchestrator.py` (main@fb2cfd0@003d1bb)
 - brain-35 [P1] Permission-prompt gate checks the pre-batch observation; a prompt raised mid-batch receives the next keys/type — `ml/src/brain/orchestrator.py` (main@dae4b26@?)
@@ -14,8 +14,8 @@ Open: P0 0 / P1 9 / P2 10. main a97fcba (w9-safety merged), wip/local ac41cd2 (s
 - brain-43 [P1] Unverified planner DONE accepted whenever the model verifier errors — `ml/src/brain/orchestrator.py` (cloud/planner-verify@d22b9a9)
 
 ## Highest-leverage next moves
-1. memory-lt (brain-42): default to an in-memory long-term store, or have the HobbyLM replay and live harness set a per-case MUSELET_MEMORY_DB and reset WorkingMemory between cases.
-2. planner-verify (brain-43): a verifier exception must give 'unverified'. Merging it also fixes main's test_plan_bank default-bank failure.
-3. brain-41 + brain-40: re-run ARGS on the final transcript for free-text skills, with a larger decode budget.
-4. brain-38: gate the deterministic message parser on a messaging intent and channel.
-5. brain-9 (brain-44): guard named_browser so browsers named in the query don't count; fix the branch's own failing web_search test.
+1. Merge cloud/safety-brain38 (brain-38 P1), safety-brain12 (brain-12) and safety-brain18 (brain-18): each branch's repros pass; the only extra failures are MLX stand-in tests.
+2. memory-lt (brain-42): default to an in-memory long-term store, or give each HobbyLM/live case a fresh MUSELET_MEMORY_DB and WorkingMemory.
+3. planner-verify (brain-43): a verifier exception must give 'unverified', not accept a bare DONE.
+4. brain-41 + brain-40: re-run ARGS on the final transcript for free-text skills, with a larger decode budget.
+5. brain-9 (brain-44): only take a browser name from an 'in/with/using <browser>' or 'open <browser>' phrase, not from the search query.
