@@ -1,11 +1,11 @@
 {
-  "pass": 39,
-  "ts": "2026-10-24T20:35Z",
+  "pass": 40,
+  "ts": "2026-10-24T20:50Z",
   "branches": {
-    "main": "026aff0",
-    "wip/local": "98d1401",
+    "main": "dae4b26",
+    "wip/local": "972081d",
     "cloud/bench": "f584cb2",
-    "cloud/data-pipeline": "f8b721a",
+    "cloud/data-pipeline": "f6354d6",
     "cloud/decisions": "694c198",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
@@ -36,7 +36,7 @@
     "cloud/data-route": "42835ce",
     "cloud/data-planner": "ee8ae33",
     "cloud/brain-8": "4546d09",
-    "cloud/planner-demos": "84798ec"
+    "cloud/planner-demos": "9008990"
   },
   "notes": "pass38: main 7065dd3 merged comms + app-ui (no lane files besides AGENTS.md config message) and live_t1 grader changes -> bench-25 update (sys-vol-up-lot band widened post hoc; two genuine grader-bug fixes). bench-16/20/21 unchanged on main."
 }
