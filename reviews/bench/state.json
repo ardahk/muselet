@@ -1,11 +1,11 @@
 {
-  "pass": 20,
-  "ts": "2026-10-24T10:22:00Z",
+  "pass": 21,
+  "ts": "2026-10-24T10:40:00Z",
   "branches": {
-    "main": "758a017",
-    "wip/local": "4350185",
+    "main": "d514300",
+    "wip/local": "b63699f",
     "cloud/bench": "f584cb2",
-    "cloud/data-pipeline": "8881d38",
+    "cloud/data-pipeline": "f13aa6d",
     "cloud/decisions": "c08a96d",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
@@ -21,7 +21,7 @@
     "cloud/brain-3": "14a3f52",
     "cloud/hobby-gaps": "929b931",
     "cloud/brain-4": "dfb66a3",
-    "cloud/brain-5": "003d1bb"
+    "cloud/brain-5": "b752261"
   },
-  "notes": "pass20: data-pipeline 8881d38 only changes the datums_export help/docs (ARGS answer-only weighting); the `main` run still trained via the route_dedup.jsonl reader (bench-18 open). Still no ScreenSpot/OSWorld/pHash handling in training/src (bench-14 open). wip/local 4350185: no lane diff vs main. No new findings."
+  "notes": "pass21: main d514300 merges brain-4 (split ROUTE/ARGS models, planner knobs as flags) plus HandsKit batch-5 (timers/timers_cancel RPC, lock-screen guard) and serve_brain.sh; no bench/evals lane diff. bench-20 updated: hobby-gaps should use the new timers RPC instead of the nonexistent list_timers/cancel_timers skills. data-pipeline f39efe4/f13aa6d: export untie-head fix and ARGS eval empty-rate (not lane). brain-5 and wip/local: no lane diff. No new findings."
 }

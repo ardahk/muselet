@@ -1,4 +1,4 @@
-# bench digest — pass 20 (2026-10-24T10:22Z, main@758a017)
+# bench digest — pass 21 (2026-10-24T10:40Z, main@d514300)
 
 P0: 0 | open P1: 6 | open P2: 3
 
@@ -13,7 +13,7 @@ P0: 0 | open P1: 6 | open P2: 3
 Open P2: bench-12 (chunked choice probabilities), bench-15 (grounding --limit), bench-19 (planner holdout added; still no CI).
 
 ## Highest-leverage next moves
-- Before merging hobby-gaps: forward HobbyLM's recorded timers to the parent grade (bench-20) and give both systems the same Calculator start state (bench-21).
+- Before merging hobby-gaps: grade Muselet timers via the new `timers {}` RPC (cancel with `timers_cancel`) and forward HobbyLM's recorded timers (bench-20) and give both systems the same Calculator start state (bench-21).
 - Intersect eligible (id, repeat) across systems in report_math before any headline (bench-16).
 - Accept only --backend mlx results for Muselet headlines (bench-11).
 - Publish the eval-overlap count for the `main` run's route_dedup.jsonl before quoting its scores (bench-18).
