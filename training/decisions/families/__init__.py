@@ -9,4 +9,6 @@ GENERATORS = {
     "probability": probability.generate,
 }
 
-__all__ = ["GENERATORS", "counting", "long_policy", "multi_hop", "numeric", "probability", "temporal"]
+CODE_FAMILIES = tuple(GENERATORS)
+
+__all__ = ["CODE_FAMILIES", "GENERATORS", "counting", "long_policy", "multi_hop", "numeric", "probability", "temporal"]

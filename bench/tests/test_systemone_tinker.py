@@ -121,6 +121,8 @@ def make_decider(maximum: int = 58) -> TinkerDecider:
     decider.client = FakeSamplingClient()
     decider._loop = asyncio.new_event_loop()
     decider.last_input_tokens = None
+    decider.temperature_probs = 1.0
+    decider.temperature_conf = 1.0
     return decider
 
 
@@ -140,7 +142,7 @@ class TinkerDeciderTests(unittest.TestCase):
         labels = [f"option-{index}" for index in range(41)]
         rendering = FakeRendering([(label, "") for label in labels])
 
-        probabilities, tokens = decider._loop.run_until_complete(
+        probabilities, confidence, tokens = decider._loop.run_until_complete(
             decider._score_rendering(rendering)
         )
 
@@ -150,6 +152,7 @@ class TinkerDeciderTests(unittest.TestCase):
         expected = torch.softmax(logits, dim=0).tolist()
         for label, probability in zip(labels, expected, strict=True):
             self.assertAlmostEqual(probabilities[label], probability, places=7)
+            self.assertAlmostEqual(confidence[label], probability, places=7)
         self.assertAlmostEqual(sum(probabilities.values()), 1.0, places=6)
         self.assertEqual(tokens, 3 * len(rendering.tokens))
 
@@ -240,6 +243,23 @@ class TinkerDeciderTests(unittest.TestCase):
 
         self.assertEqual(len(decider.client.calls), 1)
         self.assertAlmostEqual(sum(result[0].values()), 1.0, places=6)
+
+    def test_probability_and_confidence_temperatures_are_applied_separately(self):
+        decider = self.track(make_decider())
+        decider.temperature_probs = 0.5
+        decider.temperature_conf = 2.0
+        rendering = FakeRendering([("yes", ""), ("no", "")])
+
+        probabilities, confidence, _tokens = decider._loop.run_until_complete(
+            decider._score_rendering(rendering)
+        )
+
+        logits = torch.tensor([9.0, 9.1])
+        expected_probs = torch.softmax(logits / 0.5, dim=0).tolist()
+        expected_conf = torch.softmax(logits / 2.0, dim=0).tolist()
+        self.assertAlmostEqual(probabilities["yes"], expected_probs[0], places=7)
+        self.assertAlmostEqual(confidence["yes"], expected_conf[0], places=7)
+        self.assertNotAlmostEqual(probabilities["yes"], confidence["yes"], places=5)
 
 
 if __name__ == "__main__":

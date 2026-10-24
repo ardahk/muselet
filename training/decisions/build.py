@@ -525,8 +525,8 @@ async def label_stage(args, run_dir: Path, rng: random.Random):
     return all_records
 
 
-def decontam_stage(run_dir: Path, include_pilot: bool = False):
-    cleaned, report = decontam(_read_jsonl(run_dir / "records_labeled.jsonl"), ROOT, include_pilot=include_pilot)
+def decontam_stage(run_dir: Path):
+    cleaned, report = decontam(_read_jsonl(run_dir / "records_labeled.jsonl"), ROOT)
     _write_jsonl(run_dir / "records_decontam.jsonl", cleaned)
     (run_dir / "decontam.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return cleaned
@@ -537,6 +537,11 @@ def split_stage(run_dir: Path, seed: int):
     grouped = defaultdict(list)
     for item in records:
         grouped[item["family"]].append(item)
+    missing_code_families = set(CODE_FAMILIES) - {
+        row["family"] for row in records if row.get("source") == "code"
+    }
+    if missing_code_families:
+        raise ValueError(f"decontaminated data is missing code families: {sorted(missing_code_families)}")
     rng = random.Random(seed)
     dev_ids = set()
     for family, rows in grouped.items():
@@ -550,6 +555,14 @@ def split_stage(run_dir: Path, seed: int):
         (dev if item["split"] == "dev" else train).append(item)
     _write_jsonl(run_dir / "train.jsonl", train)
     _write_jsonl(run_dir / "dev.jsonl", dev)
+    train_ids, dev_ids = {row["id"] for row in train}, {row["id"] for row in dev}
+    if train_ids & dev_ids:
+        raise AssertionError("train and dev contain overlapping states")
+    missing_dev_families = set(CODE_FAMILIES) - {
+        row["family"] for row in dev if row.get("source") == "code"
+    }
+    if missing_dev_families:
+        raise AssertionError(f"dev split is missing code families: {sorted(missing_dev_families)}")
     return train, dev
 
 
@@ -1162,8 +1175,10 @@ def upload_stage(args, run_dir: Path):
     repository = "jonsnov/muselet-decisions-v1" if args.run == "full" else f"jonsnov/muselet-decisions-{args.run}"
     api = HfApi(token=os.environ["HF_TOKEN"])
     api.create_repo(repository, repo_type="dataset", private=True, exist_ok=True)
-    api.upload_folder(folder_path=str(run_dir), repo_id=repository, repo_type="dataset", path_in_repo="data")
-    return repository
+    commit = api.upload_folder(
+        folder_path=str(run_dir), repo_id=repository, repo_type="dataset", path_in_repo="data"
+    )
+    return {"repository": repository, "revision": commit.oid}
 
 
 def main(argv=None):

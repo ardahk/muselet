@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -38,13 +39,29 @@ def _is_transient_error(error: Exception) -> bool:
     return status in (408, 425, 429) or isinstance(status, int) and status >= 500
 
 
+class DecisionDistributions(dict):
+    def __init__(self, probabilities: dict, confidence_distributions: dict):
+        super().__init__(probabilities)
+        self.confidence_distributions = confidence_distributions
+
+
 class TinkerDecider:
     """Score shared GenericRenderer tokens using Tinker's sampler logprobs."""
 
-    def __init__(self, model_path: str):
+    def __init__(
+        self,
+        model_path: str,
+        temperature_probs: float = 1.0,
+        temperature_conf: float = 1.0,
+    ):
         import tinker
         import torch
 
+        if (
+            not math.isfinite(temperature_probs) or not math.isfinite(temperature_conf)
+            or temperature_probs <= 0 or temperature_conf <= 0
+        ):
+            raise ValueError("temperatures must be positive")
         service_client = tinker.ServiceClient()
         if model_path.startswith("tinker://"):
             self.client = service_client.create_sampling_client(model_path=model_path)
@@ -54,6 +71,8 @@ class TinkerDecider:
         self.renderer = renderer_type("Qwen/Qwen3.5-4B")
         self._tinker = tinker
         self._torch = torch
+        self.temperature_probs = float(temperature_probs)
+        self.temperature_conf = float(temperature_conf)
         self._loop = asyncio.new_event_loop()
         self.last_input_tokens: int | None = None
 
@@ -93,7 +112,9 @@ class TinkerDecider:
         logprobs = response.target_prompt_logprobs.to_torch()[choice_row]
         return [float(value) for value in logprobs.tolist()]
 
-    async def _score_rendering(self, rendering: Any) -> tuple[dict[str, float], int]:
+    async def _score_rendering(
+        self, rendering: Any
+    ) -> tuple[dict[str, float], dict[str, float], int]:
         labels = list(rendering.labels)
         chunks = [
             labels[offset:offset + _TARGET_IDS_PER_CALL]
@@ -108,36 +129,48 @@ class TinkerDecider:
         remaining = await asyncio.gather(*(score_part(part) for part in chunks[1:]))
         logprobs = first_logprobs + [value for part in remaining for value in part]
         logits = self._torch.tensor(logprobs, dtype=self._torch.float32)
-        probabilities = self._torch.softmax(logits, dim=0).tolist()
-        return dict(zip(labels, probabilities, strict=True)), len(chunks) * len(rendering.tokens)
+        temperature_probs = getattr(self, "temperature_probs", 1.0)
+        temperature_conf = getattr(self, "temperature_conf", 1.0)
+        probabilities = self._torch.softmax(logits / temperature_probs, dim=0).tolist()
+        confidence = self._torch.softmax(logits / temperature_conf, dim=0).tolist()
+        return (
+            dict(zip(labels, probabilities, strict=True)),
+            dict(zip(labels, confidence, strict=True)),
+            len(chunks) * len(rendering.tokens),
+        )
 
-    async def _score_renderings(self, renderings: dict) -> tuple[dict, int]:
+    async def _score_renderings(self, renderings: dict) -> tuple[dict, dict, int]:
         if not renderings:
-            return {}, 0
+            return {}, {}, 0
         values = await asyncio.gather(*(
             self._score_rendering(rendering) for rendering in renderings.values()
         ))
-        results = {
-            key: distribution
-            for key, (distribution, _tokens) in zip(renderings, values, strict=True)
+        probabilities = {
+            key: result[0] for key, result in zip(renderings, values, strict=True)
         }
-        return results, sum(tokens for _distribution, tokens in values)
+        confidence = {
+            key: result[1] for key, result in zip(renderings, values, strict=True)
+        }
+        return probabilities, confidence, sum(result[2] for result in values)
 
-    async def _decide_many(self, state: str, questions: dict[str, dict]) -> dict[str, dict[str, float]]:
+    async def _decide_many(self, state: str, questions: dict[str, dict]) -> DecisionDistributions:
         plans, decisions = self.renderer.prepare(state, questions)
         renderings = self.renderer.render_decisions(decisions)
-        conditional, input_tokens = await self._score_renderings(renderings)
+        conditional, conditional_confidence, input_tokens = await self._score_renderings(renderings)
 
         results = {}
+        confidence_results = {}
         stage_two = {}
         for qid, plan in plans.items():
             chunks = plan["chunks"]
             if not plan["keys"]:
                 results[qid] = {plan["fixed"]: 1.0}
+                confidence_results[qid] = {plan["fixed"]: 1.0}
                 continue
             distributions = [conditional[key] for key in plan["keys"]]
             if len(chunks) == 1:
                 results[qid] = distributions[0]
+                confidence_results[qid] = conditional_confidence[plan["keys"][0]]
                 continue
             winners = []
             for chunk, distribution in zip(chunks, distributions, strict=True):
@@ -146,7 +179,7 @@ class TinkerDecider:
             stage_two[qid] = type(decision)(text=decision.text, choices=winners)
 
         final_renderings = self.renderer.render_decisions(stage_two)
-        final_distributions, final_tokens = await self._score_renderings(final_renderings)
+        final_distributions, final_confidence, final_tokens = await self._score_renderings(final_renderings)
         for qid in stage_two:
             plan = plans[qid]
             results[qid] = self._combine_chunked(
@@ -154,8 +187,13 @@ class TinkerDecider:
                 [conditional[key] for key in plan["keys"]],
                 final_distributions[qid],
             )
+            confidence_results[qid] = self._combine_chunked(
+                plan["chunks"],
+                [conditional_confidence[key] for key in plan["keys"]],
+                final_confidence[qid],
+            )
         self.last_input_tokens = input_tokens + final_tokens
-        return results
+        return DecisionDistributions(results, confidence_results)
 
     def decide_many(self, state: str, questions: dict[str, dict]) -> dict[str, dict[str, float]]:
         return self._loop.run_until_complete(self._decide_many(state, questions))

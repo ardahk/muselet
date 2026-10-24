@@ -18,6 +18,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--backend", choices=("fake", "mlx", "tinker"), default="fake")
     parser.add_argument("--model-path")
     parser.add_argument("--model-name", default="muselet")
+    parser.add_argument("--temperature-probs", type=float, default=1.0)
+    parser.add_argument("--temperature-conf", type=float, default=1.0)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -34,7 +36,11 @@ def main(argv: list[str] | None = None) -> int:
                 decider = GenericMLXDecider(args.model_path)
             else:
                 from .tinker_backend import TinkerDecider
-                decider = TinkerDecider(args.model_path)
+                decider = TinkerDecider(
+                    args.model_path,
+                    temperature_probs=args.temperature_probs,
+                    temperature_conf=args.temperature_conf,
+                )
         except Exception as exc:
             parser.error(f"could not initialize {args.backend} backend: {type(exc).__name__}: {exc}")
 

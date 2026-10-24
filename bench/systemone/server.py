@@ -111,11 +111,15 @@ class _Handler(BaseHTTPRequestHandler):
             state = state_text(request.state)
             with self.server.backend_lock:
                 distributions = decide_many(self.server.decider, state, parsed_questions)
+                confidence_distributions = getattr(distributions, "confidence_distributions", {})
                 input_tokens = getattr(self.server.decider, "last_input_tokens", None)
             if set(distributions) != set(parsed_questions):
                 raise ValueError("backend returned a different set of question IDs")
             answers = {
-                qid: build_answer(request.questions[qid], distributions[qid])
+                qid: build_answer(
+                    request.questions[qid], distributions[qid],
+                    confidence_distribution=confidence_distributions.get(qid),
+                )
                 for qid in parsed_questions
             }
             elapsed_ms = (time.perf_counter() - started) * 1000.0

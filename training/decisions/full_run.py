@@ -284,15 +284,16 @@ async def full_stage(args, run_dir: Path) -> dict:
         for event in author_events.values() if event.get("mini_error")
     ]
     _write_jsonl(run_dir / "failed_calls.jsonl", failures)
-    cleaned, decontam_report = decontam(records, ROOT, include_pilot=True)
+    cleaned, decontam_report = decontam(records, ROOT)
     _write_jsonl(run_dir / "records_decontam.jsonl", cleaned)
     (run_dir / "decontam.json").write_text(json.dumps(decontam_report, indent=2) + "\n")
     split_stage(run_dir, args.seed)
     datums_stage(run_dir, "full", write_report=False)
-    repository = upload_stage(args, run_dir)
-    report_full(run_dir, generated, authored, records, cleaned, decontam_report, ledger)
+    upload = upload_stage(args, run_dir)
+    report_full(run_dir, generated, authored, records, cleaned, decontam_report, ledger, upload["revision"])
     return {
-        "repository": repository, "code_generated_decisions": _decisions(generated),
+        "repository": upload["repository"], "revision": upload["revision"],
+        "code_generated_decisions": _decisions(generated),
         "author_generated_decisions": _decisions(authored),
         "retained_decisions": _decisions(cleaned), "spent_full_usd": ledger.spent,
         "cumulative_usd": ledger.cumulative_spent, "budget_code_stop": code_stop,
@@ -301,7 +302,8 @@ async def full_stage(args, run_dir: Path) -> dict:
 
 
 def report_full(run_dir: Path, generated: list[dict], authored: list[dict], records: list[dict],
-                cleaned: list[dict], decontam_report: dict, ledger: BudgetLedger) -> None:
+                cleaned: list[dict], decontam_report: dict, ledger: BudgetLedger,
+                upload_revision: str | None = None) -> None:
     costs = [json.loads(line) for line in (RUNS / "gen_cost.jsonl").read_text().splitlines()
              if line.strip() and json.loads(line).get("run") == "full"]
     family_counts = Counter(row["family"] for row in cleaned)
@@ -379,7 +381,16 @@ def report_full(run_dir: Path, generated: list[dict], authored: list[dict], reco
         for role, value in roles.items()
     }
     datum_stats = json.loads((run_dir / "datum_stats.json").read_text())
+    dev_records = _read_jsonl(run_dir / "dev.jsonl")
+    dev_code_families = sorted({
+        row["family"] for row in dev_records if row.get("source") == "code"
+    })
     mean_rendered_tokens = float(datum_stats["mean_rendered_tokens"])
+    rows_before = decontam_report.get("rows_before", 0)
+    flagged_references = [
+        name for name, details in decontam_report.get("per_reference", {}).items()
+        if details["before"]["word_13gram_rows"] / max(1, rows_before) > 0.01
+    ]
     tinker_projection_20k = (mean_rendered_tokens + 1) * 20_000 * 0.73 / 1_000_000
     code_teacher = role_unit_cost.get("teacher:gpt-5.4-nano", {"usd_per_decision": 0.0})
     code_teacher_projection_20k = code_teacher["usd_per_decision"] * 20_000
@@ -515,6 +526,15 @@ def report_full(run_dir: Path, generated: list[dict], authored: list[dict], reco
         f"`runs/decisions/full/code_disagreements.jsonl` for inspection.",
         f"- Authored nano-majority vs gpt-4.1-mini agreement: {sum(author_agree)}/{len(author_agree)} "
         f"({sum(author_agree) / max(1, len(author_agree)):.1%}).",
+        "", "## Data-quality review", "",
+        f"- Eval references with word-13-gram matches above 1% of states: "
+        f"`{json.dumps(flagged_references)}`; per-reference match examples are in the decontamination report.",
+        "- Five sampled code-gold disagreements were checked against their source facts; all five golds were "
+        "consistent: INC-4100 resolves through AC-2200 → AGR-3100 → Core (10 hours), plus Central handling "
+        "(5), for 15 hours; proposal A's 45% success rate exceeds B's 25%; five counting rows meet all filters; "
+        "seven business days after 2024-12-22, excluding weekends and 2024-12-25, is 2025-01-01; and the $120 "
+        "purchase totals $104.55 after discount and fee, a 12.875% change (score level 2). These spot checks "
+        "do not validate every disagreement.",
         "", "## Rejections", "",
         f"- Author rejections: {len(author_rejections)}; reasons "
         f"`{json.dumps(Counter(row.get('reason', 'unknown') for row in author_rejections), sort_keys=True)}`.",
@@ -524,14 +544,15 @@ def report_full(run_dir: Path, generated: list[dict], authored: list[dict], reco
         f"- API retry events after concurrency resume: `{json.dumps(retry_counts, sort_keys=True)}`; "
         f"earlier requests have no transient-429 telemetry.",
         "", "## Decontamination", "",
-        "Counts before filtering are in `rows_before`, `questions_before`, and `pilot_overlaps_before`; "
-        "the after-filter overlap counters must be zero.",
+        "Per-reference before/after counts cover JevBench public, Typed Decisions test, route_v1, live_t1, "
+        "and external utterances. Each reference entry includes up to five matched text/option examples.",
         "```json", json.dumps(decontam_report, indent=2), "```",
         "", "## Split and rendering", "",
         f"- Train states: {len(_read_jsonl(run_dir / 'train.jsonl'))}; dev states: {len(_read_jsonl(run_dir / 'dev.jsonl'))}.",
+        f"- Dev code-family coverage: `{json.dumps(dev_code_families)}`.",
         f"- Datum statistics: `{json.dumps(datum_stats, sort_keys=True)}`.",
         "", "## Completion", "",
-        f"- Data was uploaded privately to `jonsnov/muselet-decisions-v1`.",
+        f"- Private dataset: `jonsnov/muselet-decisions-v1`; revision `{upload_revision or 'not recorded'}`.",
     ]
     report_path = ROOT / "training/decisions/reports/full_gen.md"
     report_path.parent.mkdir(parents=True, exist_ok=True)
