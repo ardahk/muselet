@@ -489,18 +489,7 @@ def verify_rendered(record: dict) -> bool:
                 return False
             if question["type"] == "choice" and answer not in question["criteria"]:
                 return False
-        note = re.search(
-            r"Mira \((?:clinical|planning)\): I get \$?([\d,]+(?:\.\d+)?)(%)? as the review estimate\.",
-            record["state"],
-        )
-        meta = record["_meta"]["staff_note"]
-        if meta["included"] != bool(note):
-            return False
-        if note:
-            case = _read_state(record["state"])
-            correct, mistaken = _note_value(case, note.group(1).replace(",", ""))
-            if meta["correct"] is not correct or (not correct and not mistaken):
-                return False
+        return True
     except (ValueError, KeyError, TypeError, AttributeError, IndexError, ZeroDivisionError):
         return False
     return True

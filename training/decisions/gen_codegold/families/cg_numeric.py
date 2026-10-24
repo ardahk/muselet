@@ -125,33 +125,7 @@ def verify_rendered(record: dict) -> bool:
             if answer != wanted:
                 return False
 
-        note_meta = record["_meta"]["staff_note"]
-        note = re.search(
-            r"Mira \(finance\): I get a relative fee-rate change of ([\d.]+)%, "
-            r"which is (above|below) the ([\d.]+)% review point\.",
-            record["state"],
-        )
-        threshold_note = re.search(
-            r"Mira \(finance\): I get a service fee of \$([\d,]+\.\d{2}), "
-            r"which (clears|does not clear) the approval threshold\.",
-            record["state"],
-        )
-        if note_meta["included"] != bool(note or threshold_note):
-            return False
-        if note:
-            amount = Decimal(note.group(1))
-            point = Decimal(note.group(3))
-            correct = amount == relative and point == document["review_point"] and (
-                note.group(2) == ("above" if relative > point else "below")
-            )
-            if note_meta["correct"] is not correct:
-                return False
-        if threshold_note:
-            amount = Decimal(threshold_note.group(1).replace(",", ""))
-            actual_pass = fee >= document["threshold"] if document["comparison"] == "at least" else fee > document["threshold"]
-            phrase_pass = threshold_note.group(2) == "clears"
-            if note_meta["correct"] is not (amount == fee and phrase_pass == actual_pass):
-                return False
+        return True
     except (ValueError, KeyError, IndexError, StopIteration, InvalidOperation, AttributeError, ZeroDivisionError):
         return False
     return True

@@ -316,20 +316,7 @@ def verify_rendered(record: dict) -> bool:
             else:
                 return False
 
-        note_match = re.search(
-            r"Mira \(finance\): I get \$([\d,]+\.\d{2}) for the eligible total, "
-            r"so we're (over|under|right at) the cap\.",
-            record["state"],
-        )
-        note_meta = record["_meta"]["staff_note"]
-        if note_meta["included"] != bool(note_match):
-            return False
-        if note_match:
-            note_amount = Decimal(note_match.group(1).replace(",", ""))
-            note_claim = note_match.group(2)
-            is_correct = note_amount == total and note_claim == _cap_relation(total, cap)
-            if note_meta["correct"] is not is_correct:
-                return False
+        return True
     except (ValueError, KeyError, IndexError, StopIteration, InvalidOperation, AttributeError):
         return False
     return True

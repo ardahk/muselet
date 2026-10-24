@@ -103,12 +103,12 @@ SCHEMAS = {
 }
 
 OUTCOMES = {
-    "not_covered": "outside the scheduled period",
-    "late": "received after the filing window",
-    "not_eligible": "outside the qualifying activity",
-    "exception_authorized": "within the signed exception",
-    "full": "payable in full",
-    "partial": "payable in part",
+    "not_covered": "The request is denied because the event is outside the coverage period.",
+    "late": "The request is denied because it was filed late.",
+    "not_eligible": "The request is denied because the documented activity is not eligible.",
+    "exception_authorized": "The request is approved because the signed exception authorizes the activity.",
+    "full": "The request is approved because it qualifies for full reimbursement.",
+    "partial": "The request is approved because it qualifies for partial reimbursement.",
 }
 
 _FILLER = (
@@ -209,7 +209,7 @@ def _derive(case, policy):
     return {
         "in_period": in_period, "timely": timely, "amended": amended,
         "early": early, "standard_category": case["category"] == policy["covered_category"],
-        "letter_present": signed is not None, "exception_ok": exception_ok, "eligible": eligible,
+        "exception_ok": exception_ok, "eligible": eligible,
         "amount": amount, "outcome": outcome,
     }
 
@@ -364,23 +364,9 @@ def verify_rendered(record: dict) -> bool:
                 wanted = "true" if derived["early"] else "false"
             elif instruction == "Is the documented item the standard qualifying activity?":
                 wanted = "true" if derived["standard_category"] else "false"
-            elif instruction == "Is a signed case letter present in the file?":
-                wanted = "true" if derived["letter_present"] else "false"
             else:
                 return False
             if record["gold"][qid] != wanted:
-                return False
-        note_match = re.search(
-            r"Mira \(claims\): I have \$([\d,]+\.\d{2}) as the reimbursable amount for this file, "
-            r"so the payment can be prepared\.",
-            record["state"],
-        )
-        note_meta = record["_meta"]["staff_note"]
-        if bool(note_match) != note_meta["included"]:
-            return False
-        if note_match:
-            stated = Decimal(note_match.group(1).replace(",", ""))
-            if note_meta["correct"] is not (stated == derived["amount"]):
                 return False
         return True
     except (ValueError, KeyError, InvalidOperation, IndexError, AttributeError, TypeError):
@@ -489,8 +475,8 @@ def generate(rng: random.Random, n_questions: int) -> dict:
     pool = [
         ("choice", "Which disposition follows from the schedule?",
          key_for_value("disposition", derived["outcome"]),
-         {key_for_value("disposition", outcome): f"The file receives the {label} disposition."
-          for outcome, label in OUTCOMES.items()}),
+         {key_for_value("disposition", outcome): text
+          for outcome, text in OUTCOMES.items()}),
         ("noul", "Does the effective-dated rider apply to this event?",
          "true" if derived["amended"] else "false",
          {"false": "The effective-dated rider applies to this event: No.",
@@ -503,21 +489,17 @@ def generate(rng: random.Random, n_questions: int) -> dict:
          "true" if derived["standard_category"] else "false",
          {"false": "The documented item is the standard qualifying activity: No.",
           "true": "The documented item is the standard qualifying activity: Yes."}),
-        ("noul", "Is a signed case letter present in the file?",
-         "true" if derived["letter_present"] else "false",
-         {"false": "A signed case letter is present in the file: No.",
-          "true": "A signed case letter is present in the file: Yes."}),
     ]
     if derived["amount"] > 0:
         band_edges, band_gold = round_bands(
             derived["amount"], "$", [Decimal("10"), Decimal("25"), Decimal("50"), Decimal("100")],
-            rng, metric="The reimbursable amount",
+            rng, metric="The reimbursable amount", levels=(3, 5),
         )
         pool.append((
             "score", "Which band contains the reimbursable amount?",
             str(band_gold), band_edges,
         ))
-    selected = rng.sample(pool, n_questions)
+    selected = rng.sample(pool, min(n_questions, len(pool)))
     specs = [(kind, instruction, answer, criteria) for kind, instruction, answer, criteria in selected]
     record = finish_record(
         rng, FAMILY, schema, state, specs,

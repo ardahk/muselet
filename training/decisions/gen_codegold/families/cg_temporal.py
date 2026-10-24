@@ -293,17 +293,7 @@ def verify_rendered(record: dict) -> bool:
             if record["gold"][qid] != expected:
                 return False
 
-        note_meta = record["_meta"]["staff_note"]
-        note = re.search(
-            r"Mira \(operations\): I have the notice marked (within|outside) the filing window\.",
-            record["state"],
-        )
-        if note_meta["included"] != bool(note):
-            return False
-        if note:
-            claim = note.group(1) == "within"
-            if note_meta["correct"] is not (claim == timely_date):
-                return False
+        return True
     except (ValueError, KeyError, IndexError, OverflowError, ZoneInfoNotFoundError):
         return False
     return True

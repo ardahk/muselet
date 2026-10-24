@@ -171,20 +171,7 @@ def verify_rendered(record: dict) -> bool:
             if answer != wanted:
                 return False
 
-        note = re.search(
-            r"Mira \(procurement\): I get \$([\d,]+\.\d{2}) for the converted invoice, "
-            r"which places it in the ([A-Za-z]+) approval band\.",
-            record["state"],
-        )
-        note_meta = record["_meta"]["staff_note"]
-        if bool(note) != note_meta["included"]:
-            return False
-        if note:
-            stated_amount = Decimal(note.group(1).replace(",", ""))
-            stated_tier = note.group(2)
-            correct = stated_amount == converted and stated_tier == tier
-            if note_meta["correct"] is not correct:
-                return False
+        return True
     except (ValueError, KeyError, IndexError, StopIteration, InvalidOperation, AttributeError):
         return False
     return True

@@ -1,33 +1,11 @@
 from __future__ import annotations
 
-import json
 import random
 import re
 from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP
 from pathlib import Path
 
-from .templates import TEMPLATES
-
 ROOT = Path(__file__).resolve().parents[3]
-PHRASEBANK_PATH = Path(__file__).resolve().parent / "phrasebank.json"
-_PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
-_PHRASEBANK: dict[str, dict[str, list[str]]] | None = None
-
-
-def load_phrasebank(path: Path = PHRASEBANK_PATH) -> dict[str, dict[str, list[str]]]:
-    global _PHRASEBANK
-    if _PHRASEBANK is None:
-        _PHRASEBANK = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
-    return _PHRASEBANK
-
-
-def phrase(family: str, template: str, rng: random.Random, **values) -> str:
-    bank = load_phrasebank().get(family, {})
-    variants = [template, *bank.get(template, [])]
-    selected = rng.choice(variants)
-    for key, value in values.items():
-        selected = selected.replace("{" + key + "}", str(value))
-    return selected
 
 
 def sample_kinds(rng: random.Random, count: int) -> list[str]:
@@ -279,6 +257,46 @@ def finish_record(
         sections.insert(note_position, note_text)
         state = "\n\n".join(sections)
     calculated_tokens = len(state) // 4
+    prose_sections = []
+    for section in state.split("\n\n"):
+        lines = section.splitlines()
+        if not lines or any("," in line and "\n" in section for line in lines):
+            continue
+        if len(lines) == 1 and ":" not in lines[0] and len(lines[0].split()) < 6:
+            continue
+        first = lines[0].strip()
+        if any(":" in line for line in lines) and first.split(":", 1)[0].lower() not in {
+            "review instructions", "operations memo", "finance desk note",
+            "closeout memo", "calculation instructions",
+        }:
+            continue
+        if first.startswith(("Rule ", "SCHEDULE TITLE:", "DEFINITIONS", "OPERATIVE RULES",
+                             "CASE DOSSIER", "EFFECTIVE-DATED", "ADMINISTRATIVE REFERENCE",
+                             "CYCLE RECORD", "INTAKE CLOCK RECORD", "LEDGER EXPORT",
+                             "ENTITY DIRECTORY", "AGREEMENT REGISTER", "FX RATE BULLETIN",
+                             "APPROVAL MATRIX", "FEE CALCULATION", "MARGINAL FEE",
+                             "CURRENT COHORT", "LOT REGISTER", "EVENT ESTIMATES",
+                             "PROPOSAL REGISTER", "FOLLOW-UP CROSS")):
+            continue
+        if len(lines) > 1 and ("—" in first or first.isupper()):
+            candidate = "\n".join(lines[1:]).strip()
+            if candidate:
+                prose_sections.append(candidate)
+            continue
+        candidate = section
+        if ":" in first:
+            label, remainder = first.split(":", 1)
+            if label.lower() not in {
+                "review instructions", "operations memo", "finance desk note",
+                "closeout memo", "calculation instructions",
+            }:
+                continue
+            candidate = remainder.strip()
+            if len(lines) > 1:
+                candidate = "\n".join([candidate, *lines[1:]])
+        prose_sections.append(candidate)
+    if note_text:
+        prose_sections.append(note_text)
     return {
         "id": f"{family}-{rng.getrandbits(48):012x}",
         "family": family,
@@ -300,6 +318,7 @@ def finish_record(
             "approx_tokens": approx_tokens if approx_tokens is not None else calculated_tokens,
             "facts": facts,
             "narrative_section": note_text,
+            "prose_sections": prose_sections,
             "staff_note": {"included": bool(note_text), "correct": note_correct,
                            "position": note_position},
         },

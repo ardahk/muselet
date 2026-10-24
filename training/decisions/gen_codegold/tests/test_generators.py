@@ -140,6 +140,41 @@ def test_long_policy_has_balanced_schema_outcomes_and_nonrepetitive_filler():
         assert max(counts.values()) / sum(counts.values()) <= 0.40
 
 
+def test_long_policy_dispositions_are_natural_and_letter_presence_is_not_asked():
+    for seed in range(300):
+        record = _record("cg_long_policy", seed + 3_000)
+        assert all(
+            question["instructions"] != "Is a signed case letter present in the file?"
+            for question in record["questions"].values()
+        )
+        for question in record["questions"].values():
+            if question["instructions"] != "Which disposition follows from the schedule?":
+                continue
+            assert all(
+                text.startswith("The request is ")
+                and " because " in text
+                and text.endswith(".")
+                for text in question["criteria"].values()
+            )
+        assert cg_long_policy.verify_rendered(record)
+
+
+def test_prose_sections_are_substrings_and_verifier_independent():
+    for family in FAMILIES:
+        verifier = MODULES[family].verify_rendered
+        for seed in range(8):
+            record = _record(family, 120_000 + seed)
+            sections = record["_meta"]["prose_sections"]
+            assert sections
+            for section in sections:
+                assert section in record["state"]
+                words = section.split()
+                random.Random(seed + len(section)).shuffle(words)
+                trial = dict(record)
+                trial["state"] = record["state"].replace(section, " ".join(words), 1)
+                assert verifier(trial), (family, section)
+
+
 def test_each_trap_type_is_decisive_in_generated_records():
     rng = random.Random(31_415)
     deciding = Counter()

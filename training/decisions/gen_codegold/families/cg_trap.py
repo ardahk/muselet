@@ -160,17 +160,7 @@ def verify_rendered(record):
                 return False
             if record["gold"][qid] != expected:
                 return False
-        note = re.search(r"Mira \(AP\): I have \$([\d,]+\.\d{2}) as the cleared amount for this claim\.", record["state"])
-        meta = record["_meta"]["staff_note"]
-        if meta["included"] != bool(note):
-            return False
-        if note:
-            value = Decimal(note.group(1).replace(",", ""))
-            actual = case["payable"]
-            if meta["correct"] is not (value == actual):
-                return False
-            if not meta["correct"] and value != case["wrong"]:
-                return False
+        return True
     except (ValueError, KeyError, AttributeError, TypeError):
         return False
     return True
