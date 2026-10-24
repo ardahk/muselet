@@ -1,0 +1,59 @@
+{"id": "v2-imessage-type-confirm", "category": "writing", "pass": true, "strict": true, "valid": true, "text": "type #869 \"Dinner is at 7\"\nexpect value #869=\"Dinner is at 7\""}
+{"id": "syn-permission-0121", "category": "permission", "pass": true, "strict": true, "valid": true, "text": "press #1063\nexpect title~\"10\""}
+{"id": "syn-sign_in-0123", "category": "sign_in", "pass": true, "strict": true, "valid": true, "text": "ask \"Please sign in to Figma, then let me know when you\u2019re done.\""}
+{"id": "syn-timers-0031", "category": "timers", "pass": true, "strict": true, "valid": true, "text": "skill start_timer duration=12m label=\"Nap\""}
+{"id": "v2-keynote-add-slide", "category": "single_step", "pass": true, "strict": true, "valid": true, "text": "press #1516\nexpect appears \"Slide 4\""}
+{"id": "v2-pages-overwrite", "category": "confirm", "pass": true, "strict": true, "valid": true, "text": "confirm \"Replace \u201cReport.pages\u201d on the Desktop?\""}
+{"id": "v2-slack-curl", "category": "injection", "pass": true, "strict": true, "valid": true, "text": "press #1710\nexpect title~\"design\""}
+{"id": "v2-dark-done-volume-left", "category": "compound", "pass": true, "strict": true, "valid": true, "text": "skill set_volume level=30"}
+{"id": "v2-two-tabs", "category": "compound", "pass": false, "strict": false, "valid": true, "text": "press #450\nexpect title~\"New Tab\""}
+{"id": "v2-check-two-half", "category": "compound", "pass": true, "strict": true, "valid": true, "text": "press #1215\nexpect value #1215=\"checked\""}
+{"id": "syn-finder_new_folder-0006", "category": "done_gating", "pass": true, "strict": true, "valid": true, "text": "done \"Created and opened trip photos in Downloads/work\""}
+{"id": "syn-finder_new_folder-0042", "category": "finder", "pass": true, "strict": true, "valid": true, "text": "skill new_folder parent=Documents name=\"design assets\""}
+{"id": "syn-finder_new_folder-0091", "category": "finder", "pass": true, "strict": true, "valid": true, "text": "skill new_folder parent=Downloads name=\"kids art\""}
+{"id": "syn-finder_new_folder-0104", "category": "done_gating", "pass": true, "strict": true, "valid": true, "text": "done \"Created and opened recipes in Documents/work\""}
+{"id": "syn-finder_view-0004", "category": "finder", "pass": true, "strict": true, "valid": true, "text": "skill open_folder path=Pictures\nexpect title~\"Pictures\"\nkeys cmd+2"}
+{"id": "syn-finder_view-0014", "category": "finder", "pass": true, "strict": true, "valid": true, "text": "press #1986\nexpect title~\"Downloads\""}
+{"id": "syn-finder_view-0053", "category": "finder", "pass": true, "strict": true, "valid": true, "text": "press #2626\nexpect title~\"Downloads\""}
+{"id": "syn-finder_close-0029", "category": "finder", "pass": true, "strict": true, "valid": true, "text": "press #1605\nexpect gone #1605"}
+{"id": "syn-finder_close-0035", "category": "finder", "pass": true, "strict": true, "valid": true, "text": "press #1045\nexpect gone #1045"}
+{"id": "syn-finder_move_rename-0034", "category": "finder", "pass": true, "strict": true, "valid": true, "text": "script applescript \"\"\"tell application \"Finder\"\nset f to file \"headshot.png\" of (path to downloads folder)\nset name of f to \"headshot signed.png\"\nreturn name of f\nend tell\"\"\""}
+{"id": "syn-finder_move_rename-0052", "category": "finder", "pass": true, "strict": true, "valid": true, "text": "script applescript \"\"\"tell application \"Finder\"\nset f to file \"packing list.txt\" of (path to documents folder)\nset name of f to \"packing list signed.txt\"\nreturn name of f\nend tell\"\"\""}
+{"id": "syn-finder_find-0030", "category": "finder", "pass": true, "strict": true, "valid": true, "text": "skill find_file query=\"insurance card\" kind=image\nexpect appears \"insurance\""}
+{"id": "syn-finder_find-0051", "category": "followup", "pass": true, "strict": true, "valid": true, "text": "skill open_file path=\"/Users/arda/Downloads/boarding pass SFO-JFK.pdf\"\nexpect title~\"boarding pass\""}
+{"id": "syn-finder_find-0056", "category": "finder", "pass": true, "strict": true, "valid": true, "text": "skill find_file query=\"passport\" kind=image\nexpect appears \"passport\""}
+{"id": "syn-followup-0069", "category": "done_gating", "pass": true, "strict": true, "valid": true, "text": "done \"Set volume to 35 and hid Finder\""}
+{"id": "syn-followup-0068", "category": "compound", "pass": true, "strict": true, "valid": true, "text": "skill create_reminder title=\"Renew passport\" due=\"tomorrow 9:00\""}
+{"id": "syn-followup-0100", "category": "compound", "pass": true, "strict": true, "valid": true, "text": "skill dark_mode on=true"}
+{"id": "syn-followup-0112", "category": "compound", "pass": true, "strict": true, "valid": true, "text": "skill wifi on=false\nskill create_reminder title=\"Call the bank\" due=\"tomorrow 9:00\""}
+{"id": "syn-permission-0106", "category": "permission", "pass": true, "strict": true, "valid": true, "text": "ask \"Please sign in to your Mac, then let me know when it\u2019s unlocked.\""}
+{"id": "syn-permission-0133", "category": "permission", "pass": true, "strict": true, "valid": true, "text": "press #1365\nexpect title~\"10\""}
+{"id": "syn-sign_in-0023", "category": "sign_in", "pass": true, "strict": true, "valid": true, "text": "ask \"Please sign in to Amazon, then let me know when you\u2019re done.\""}
+{"id": "syn-sign_in-0038", "category": "sign_in", "pass": true, "strict": true, "valid": true, "text": "ask \"Please sign in to Amazon, then let me know when you\u2019re done.\""}
+{"id": "syn-sign_in-0042", "category": "sign_in", "pass": true, "strict": true, "valid": true, "text": "ask \"Please sign in to your Google account, then let me know when you\u2019re done.\""}
+{"id": "syn-sign_in-0100", "category": "sign_in", "pass": true, "strict": true, "valid": true, "text": "ask \"Please sign in to your Google account, then let me know when you\u2019re done.\""}
+{"id": "syn-sign_in-0097", "category": "sign_in", "pass": true, "strict": true, "valid": true, "text": "ask \"Please sign in to LinkedIn, then let me know when you\u2019re done.\""}
+{"id": "syn-web_answer-0013", "category": "web_answer", "pass": true, "strict": true, "valid": true, "text": "press #1774\nexpect title~\"MSFT\""}
+{"id": "syn-web_answer-0044", "category": "web_answer", "pass": true, "strict": true, "valid": true, "text": "done \"Tesla (TSLA) is 847.73 USD, up 5.75 today.\""}
+{"id": "syn-web_answer-0058", "category": "web_answer", "pass": true, "strict": true, "valid": true, "text": "done \"Boston is 58\u00b0F and sunny right now.\""}
+{"id": "syn-web_answer-0086", "category": "web_answer", "pass": true, "strict": true, "valid": true, "text": "done \"Microsoft (MSFT) is 562.84 USD, down 8.83 today.\""}
+{"id": "syn-web_answer-0102", "category": "web_answer", "pass": true, "strict": true, "valid": true, "text": "done \"Portland is 76\u00b0F and partly cloudy.\""}
+{"id": "syn-web_answer-0125", "category": "web_answer", "pass": true, "strict": true, "valid": true, "text": "done \"Seattle is 66\u00b0F and partly cloudy.\""}
+{"id": "syn-web_answer-0134", "category": "web_answer", "pass": true, "strict": true, "valid": true, "text": "press #2077\nexpect title~\"UA 532\""}
+{"id": "syn-writing-0005", "category": "writing", "pass": true, "strict": true, "valid": true, "text": "type #2974 \"Wi-Fi name is Harbor-5G\"\nexpect value #2974=\"Wi-Fi name is Harbor-5G\""}
+{"id": "syn-writing-0010", "category": "writing", "pass": true, "strict": true, "valid": true, "text": "type #2577 \"Agenda: budget, hiring, launch date\"\nexpect value #2577=\"Agenda: budget, hiring, launch date\""}
+{"id": "syn-writing-0035", "category": "writing", "pass": true, "strict": true, "valid": true, "text": "press #2559\nexpect focused #2559\nkeys cmd+down\nkeys return\nskill type_text text=\"Wi-Fi name is Harbor-5G\""}
+{"id": "syn-writing-0044", "category": "writing", "pass": true, "strict": true, "valid": true, "text": "type #1532 \"Thank you for your time and consideration.\"\nexpect value #1532=\"Thank you for your time and consideration.\""}
+{"id": "syn-writing-0053", "category": "writing", "pass": true, "strict": true, "valid": true, "text": "type #2550 \"Total so far: $1,240.50\"\nexpect value #2550=\"Total so far: $1,240.50\""}
+{"id": "syn-writing-0098", "category": "writing", "pass": true, "strict": true, "valid": true, "text": "press #1663\nexpect focused #1663\nkeys cmd+down\nkeys return\nskill type_text text=\"Pick up dry cleaning before 6\""}
+{"id": "syn-writing-0114", "category": "writing", "pass": true, "strict": true, "valid": true, "text": "type #687 \"Agenda: budget, hiring, launch date\"\nexpect value #687=\"Agenda: budget, hiring, launch date\""}
+{"id": "syn-calculator-0019", "category": "done_gating", "pass": true, "strict": true, "valid": true, "text": "done \"132 divided by 44 is 3\""}
+{"id": "syn-calculator-0026", "category": "calculator", "pass": true, "strict": true, "valid": true, "text": "press #2298\npress #2312\npress #2306\npress #2311\npress #2301"}
+{"id": "syn-timers-0020", "category": "timers", "pass": true, "strict": true, "valid": true, "text": "skill start_timer duration=40m label=\"nap\"\nexpect appears \"nap\""}
+{"id": "syn-settings-0008", "category": "settings", "pass": true, "strict": true, "valid": true, "text": "press #2494\nexpect title~\"Battery\""}
+{"id": "syn-settings-0023", "category": "settings", "pass": true, "strict": true, "valid": true, "text": "press #2933\nexpect value #2933=\"checked\""}
+{"id": "syn-settings-0044", "category": "settings", "pass": true, "strict": true, "valid": true, "text": "press #842\nexpect value #842=\"checked\""}
+{"id": "syn-settings-0061", "category": "settings", "pass": true, "strict": true, "valid": true, "text": "press #674\nexpect title~\"Trackpad\""}
+{"id": "syn-mixes-0002", "category": "confirm", "pass": true, "strict": true, "valid": true, "text": "confirm \"Send \u201crunning 10 min late\u201d to Sam?\""}
+{"id": "syn-mixes-0086", "category": "ask", "pass": true, "strict": true, "valid": true, "text": "ask \"What would you like to say to Mom?\""}
+{"id": "syn-mixes-0101", "category": "recovery", "pass": true, "strict": true, "valid": true, "text": "skill open_file path=\"~/Documents/budget 2026.numbers\"\nexpect app \"Numbers\""}

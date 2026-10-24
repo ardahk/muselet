@@ -377,3 +377,41 @@ def test_final_checks_settle_on_state_the_agent_already_caused(tmp_path):
         assert [o["phase"] for o in result["check_observations"]] == ["settle", "settle", "final"]
 
     asyncio.run(scenario())
+
+
+def test_case_launched_apps_and_finder_windows_are_closed_but_preexisting_ones_never():
+    from bench.harness.core import _close_case_launched, _launch_snapshot
+
+    class LaunchRuntime:
+        def __init__(self):
+            self.running = [{"name": "Finder", "bundle_id": "com.apple.finder"}, {"name": "TextEdit"}]
+            self.finder = "11"
+            self.calls = []
+
+        async def run_rpc(self, method, params, **_):
+            return {"ok": True, "running": list(self.running)}
+
+        async def run_skill(self, name, args, **_):
+            self.calls.append((name, args))
+            return {"ok": True, "terminated": True}
+
+        async def run_script(self, lang, code, **_):
+            if "get id of every Finder window" in code:
+                return {"ok": True, "output": self.finder}
+            self.calls.append(("script", code))
+            return {"ok": True, "output": ""}
+
+    async def scenario():
+        runtime = LaunchRuntime()
+        baseline = await _launch_snapshot(runtime)
+        runtime.running += [{"name": "Notes", "bundle_id": "com.apple.Notes"}, {"name": "Zen"}]
+        runtime.finder = "11, 42"
+        result = {"teardown_observations": []}
+        await _close_case_launched(runtime, baseline, result)
+        assert ("quit_app", {"app": "Notes"}) in runtime.calls
+        assert not any(call[0] == "quit_app" and call[1]["app"] == "TextEdit" for call in runtime.calls)
+        scripts = [call[1] for call in runtime.calls if call[0] == "script"]
+        assert len(scripts) == 1 and "{42}" in scripts[0] and "11" not in scripts[0]
+        assert not result.get("teardown_incomplete")
+
+    asyncio.run(scenario())

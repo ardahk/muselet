@@ -1,0 +1,63 @@
+{
+ "demos_in": 1194,
+ "gate_dropped": [
+  "syn-settings-0021",
+  "syn-settings-0030",
+  "syn-settings-0067",
+  "syn-web_answer-0064",
+  "syn-web_answer-0095",
+  "syn-web_answer-0109",
+  "v2-dark-proven"
+ ],
+ "train": 1128,
+ "dev": 59,
+ "gate_hits_before_drop": {
+  "route_v1|short_edit1": 5,
+  "route_v2|exact": 3
+ },
+ "eval_items": {
+  "external/deskmind/diag": 13,
+  "external/deskmind/dyn": 64,
+  "external/deskmind/proposals": 22,
+  "external/hobbylm/calc-tasks/dev": 4,
+  "external/hobbylm/calc-tasks/held-out": 30,
+  "external/hobbylm/sealed-r1": 95,
+  "external/hobbylm/sealed-r2": 95,
+  "external/hobbylm/sealed-r3": 107,
+  "external/hobbylm/sealed-r4": 125,
+  "external/hobbylm/system-settings": 15,
+  "live_t1": 43,
+  "route_v1": 140,
+  "route_v1_clean": 103,
+  "route_v1_clean_both": 103,
+  "route_v2": 955,
+  "v1/holdout": 14,
+  "v1/holdout2": 12,
+  "v1/tune": 25,
+  "v2-holdout": 130
+ },
+ "estimate": {
+  "1": {
+   "epochs": 1,
+   "train_tokens": 3146371,
+   "dev_tokens": 164153,
+   "train_usd": 2.454,
+   "eval_usd_each": 0.186,
+   "evals": 5,
+   "total_usd": 3.382
+  },
+  "2": {
+   "epochs": 2,
+   "train_tokens": 6292742,
+   "dev_tokens": 164153,
+   "train_usd": 4.908,
+   "eval_usd_each": 0.186,
+   "evals": 5,
+   "total_usd": 5.836
+  }
+ },
+ "epochs": 2,
+ "steps": 72,
+ "mean_prompt_tokens": 2767.3,
+ "mean_target_tokens": 22.0
+}

@@ -85,9 +85,18 @@ def _app_for_name_or_bundle(value: str) -> DocumentApp | None:
     return None
 
 
+def _turn_utterances(case: dict) -> list[str]:
+    turns = case.get("turns")
+    if not isinstance(turns, list):
+        return []
+    return [str(turn.get("utterance", "")) for turn in turns if isinstance(turn, dict)]
+
+
 def may_edit_documents(case: dict) -> bool:
     category = str(case.get("category", case.get("kind", ""))).casefold()
     utterance = str(case.get("utterance", case.get("text", "")))
+    if case.get("turns"):
+        utterance = "\n".join(_turn_utterances(case))
     return category in _MAY_EDIT_CATEGORIES or bool(_MAY_EDIT_UTTERANCE.search(utterance))
 
 
@@ -113,6 +122,11 @@ def document_apps_for_case(case: dict) -> list[DocumentApp]:
     texts = [
         str(case.get("utterance", case.get("text", ""))),
         *(text for field in _SCRIPT_FIELDS for text in _iter_strings(case.get(field, []))),
+        *_turn_utterances(case),
+        *(
+            text for turn in case.get("turns") or [] if isinstance(turn, dict)
+            for text in _iter_strings(turn.get("check", []))
+        ),
     ]
     mentioned = {
         app for app in DOCUMENT_APPS

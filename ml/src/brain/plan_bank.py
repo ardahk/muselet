@@ -16,6 +16,9 @@ MAX_OBS_LINES = 12
 STOP = {"app", "window", "focused", "none", "the", "a", "an", "to", "my",
         "in", "on", "of", "and", "for", "this", "is", "it", "me"}
 REQUIRED_FIELDS = ("goal", "app", "category", "obs_header", "batch")
+UNSAFE_APPEND_IDS = {
+    "v2-pages-no-target", "v2-notes-into-search", "v2-note-delete-others",
+}
 
 
 @dataclass
@@ -180,7 +183,7 @@ def load_jsonl(path) -> list[Demo]:
 
 @lru_cache(maxsize=1)
 def denylist() -> tuple[set[str], list[str]]:
-    """Load the complete set of frozen evaluation prompts and identifiers."""
+    """Exclude unsafe demonstrations and frozen evaluation prompts/identifiers."""
     import importlib.util
 
     offline_path = ROOT / "evals" / "planner_offline.py"
@@ -206,7 +209,7 @@ def denylist() -> tuple[set[str], list[str]]:
             goals.append(normalize(scenario["goal"]))
 
     for row in _scenario_rows(v2_path):
-        if row.get("split") == "v2-holdout":
+        if row.get("split") == "v2-holdout" or row.get("id") in UNSAFE_APPEND_IDS:
             if row.get("id"):
                 ids.add(row["id"])
             if row.get("goal"):
