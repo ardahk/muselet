@@ -1,11 +1,11 @@
 {
-  "pass": 19,
-  "ts": "2026-10-24T10:10:00Z",
+  "pass": 20,
+  "ts": "2026-10-24T10:22:00Z",
   "branches": {
     "main": "758a017",
-    "wip/local": "630d661",
+    "wip/local": "4350185",
     "cloud/bench": "f584cb2",
-    "cloud/data-pipeline": "80cb13f",
+    "cloud/data-pipeline": "8881d38",
     "cloud/decisions": "c08a96d",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
@@ -23,5 +23,5 @@
     "cloud/brain-4": "dfb66a3",
     "cloud/brain-5": "003d1bb"
   },
-  "notes": "pass19: cloud/decisions c6f8491/c08a96d add the generic decisions data pipeline. training/decisions/decontam.py follows SPEC:82-87: JevBench public (pinned 609a664, original/easy/hard) + Typed Decisions test (pinned 80cb93a) + route_v1/live_t1/external utterances as word-13-gram refs; exact option-set drop; fails closed if a ref is missing and asserts 0 remaining overlaps. Pilot stopped at label, so decontam hasn't been run yet. server.py refactor (server_questions) is behaviour-neutral. bench/tests 126 passed, 2 skipped (tinker/torch/httpx test modules not collectable here). brain-5 and wip/local: no lane diff vs main. No new findings; bench-11 re-confirmed on decisions."
+  "notes": "pass20: data-pipeline 8881d38 only changes the datums_export help/docs (ARGS answer-only weighting); the `main` run still trained via the route_dedup.jsonl reader (bench-18 open). Still no ScreenSpot/OSWorld/pHash handling in training/src (bench-14 open). wip/local 4350185: no lane diff vs main. No new findings."
 }
