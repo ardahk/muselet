@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+models/
+data/
+runs/
+.DS_Store
+*.safetensors
+.build/
+DerivedData/
+.env
+.env.*
+*.pem
