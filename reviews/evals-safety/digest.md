@@ -1,16 +1,16 @@
-# evals-safety digest, pass 11 (2026-10-24T07:55:35Z)
+# evals-safety digest, pass 12 (2026-10-24T08:01:47Z)
 
 ## Open P0/P1 (ranked)
 No open P0.
-1. evals-safety-11 P1: done is not harness-verified (only the planner prompt rule plus a fresh-observe heuristic) (ml/src/brain/orchestrator.py)
-2. evals-safety-6 P1: destructive-label gating only covers Messages/Mail/Slack. Web AX on main now feeds page text to the planner (ml/src/brain/orchestrator.py)
+1. evals-safety-23 P1: spend guard moved to $120/$140. The level-only latch can skip the $120 warning, and the $140 stop leaves $10 against hours of billing lag (tools/review_pulse.sh, tools/tinker_spend.py)
+2. evals-safety-11 P1: done is not harness-verified (ml/src/brain/orchestrator.py)
+3. evals-safety-6 P1: destructive-label gating covers only Messages/Mail/Slack, but web AX now feeds page text to the planner (ml/src/brain/orchestrator.py)
 
-Open P2: -8, -12, -17, -20 (grounding first-N), -21 (mem_guard kills :8766 = Premiere bridge port), -22 (dead weak script policy is the one tested; `open (POSIX file` paren bypass).
-Resolved this pass: -4 (fixed since brain-2 741465c; my pass 9/10 'unchanged' notes were wrong).
-Checked, nothing new in my lane: advisor-3 ca93147 (fixtures unchanged apart from DEMO.md; 126 tests pass). finance-3 31be399 (polls for the opened table; 164 tests pass). brain-3 14a3f52 compound fast path: each clause runs through _run_skill and execute_actions, so per-skill risk=confirm and label gating still apply, and brain-executor skills are excluded. cloud/bench 6e7cd09 now requires --deskmind-python and checks the pinned deskmind-hands commit. data-pipeline 0f3df7f only changes the parity export.
+Open P2: -8, -12, -17, -20, -21, -22.
+Checked, nothing material: tools/tcc_warm.py (127.0.0.1 only, read-only consent scripts). wip AppleScript handler calls (no arg splicing, fixed sources precompiled but not run). ServeSession (headless never auto-confirms). ControlCenter setToggle (Bluetooth is reversible, catalog risk=safe).
 
 ## Highest-leverage next moves
-- Add a harness-side goal check on done before success (-11).
-- Extend destructive-label gating beyond Messages/Mail/Slack to the web/Electron chat apps that web AX now exposes (Discord, Teams, WhatsApp, Gmail in Chrome) (-6).
-- Delete the dead script_needs_confirm and test the real method with the bypass probes (-22).
-- Move the bench brain off :8766 (-21); stratify grounding --limit (-20).
+- Check/reset runs/tinker_guard.state now. Gate every Tinker job on live spend + estimate <= cap - lag margin (-23).
+- Add a harness-side goal check on done (-11).
+- Extend label gating to web/Electron chat apps (-6).
+- Delete the dead script_needs_confirm and test the real method (-22).
