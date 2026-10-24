@@ -1,9 +1,9 @@
 {
-  "pass": 40,
-  "ts": "2026-10-24T21:00:00Z",
+  "pass": 41,
+  "ts": "2026-10-24T21:12:00Z",
   "last_reviewed": {
-    "main": "27ebd13",
-    "wip/local": "4585ce4",
+    "main": "3876f3a",
+    "wip/local": "3cfa06d",
     "cloud/data-pipeline": "34aff30",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -38,9 +38,9 @@
     "cloud/brain-8": "4546d09",
     "cloud/planner-demos": "9008990",
     "cloud/mascot-animal": "238db23",
-    "cloud/comms-2": "265c86d",
+    "cloud/comms-2": "c65ee70",
     "cloud/clock-timers": "d060b5a",
     "cloud/planner-retrieval": "9786fa4"
   },
-  "notes": "pass 40: new mascot-animal, comms-2, clock-timers, planner-retrieval reviewed; no new findings."
+  "notes": "pass 41: main HandsKit only; wip carries comms-2; comms-2 c65ee70 parser-only. No new findings."
 }
