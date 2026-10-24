@@ -12,3 +12,5 @@ DerivedData/
 .env.*
 *.pem
 training/.venv/
+.build-*/
+app/build/

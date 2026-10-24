@@ -1,6 +1,6 @@
 # Muselet continuous review — shared protocol
 
-You are one of five independent reviewers on **Muselet** (repo `ardahk/muselet`): a fully on-device macOS
+You are one of several independent reviewers (each owns one lane) on **Muselet** (repo `ardahk/muselet`): a fully on-device macOS
 computer-use agent for Apple Silicon (M5 Pro, 64 GB, macOS 27) with voice input, a desktop mascot and a ghost
 cursor. Goal, in priority order: **speed, accuracy, task complexity** — beat HobbyLM-1B Computer Use and
 DeskMind on their own benchmarks and on public ones. All runtime inference is local (MLX). Hackathon

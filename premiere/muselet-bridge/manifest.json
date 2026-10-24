@@ -1,0 +1,27 @@
+{
+  "id": "ai.muselet.bridge",
+  "name": "Muselet Bridge",
+  "version": "0.1.0",
+  "main": "index.html",
+  "host": {
+    "app": "premierepro",
+    "minVersion": "26.0.0"
+  },
+  "manifestVersion": 5,
+  "requiredPermissions": {
+    "network": {
+      "domains": ["ws://127.0.0.1:8766", "ws://localhost:8766"]
+    }
+  },
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "museletbridgepanel",
+      "label": { "default": "Muselet Bridge" },
+      "minimumSize": { "width": 200, "height": 120 },
+      "maximumSize": { "width": 2000, "height": 2000 },
+      "preferredDockedSize": { "width": 240, "height": 160 },
+      "preferredFloatingSize": { "width": 300, "height": 200 }
+    }
+  ]
+}

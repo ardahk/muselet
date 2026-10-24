@@ -11,6 +11,10 @@ final class MockElement: Element {
     var store: [String: Any?] = [:]
     var failAttrs = false
 
+    var stableIdOverride: Int = 0
+    var stableId: Int { stableIdOverride != 0 ? stableIdOverride
+        : ObjectIdentifier(self).hashValue }
+
     init(role: String, title: String? = nil, x: CGFloat = 0, y: CGFloat = 0,
          w: CGFloat = 80, h: CGFloat = 24, children: [MockElement] = []) {
         attrs.role = role
@@ -254,12 +258,14 @@ final class StableRefTests: XCTestCase {
     func testStableRefs() {
         let h = Hands()
         let t = tree()
+        t.stableIdOverride = 42          // same window identity
         let o1 = observe(h, root: t, window: "W")
         XCTAssertTrue(o1.full)
         let refs1 = Dictionary(uniqueKeysWithValues: o1.elements.map { ($0.label, $0.ref) })
 
         // mutate: remove "Cancel", add "New", change value on "Name"
         let t2 = tree()
+        t2.stableIdOverride = 42         // still the same window
         t2.attrs.children = [
             t2.attrs.children[0],
             MockElement(role: "AXButton", title: "New", x: 10, y: 100),
@@ -279,10 +285,22 @@ final class StableRefTests: XCTestCase {
     func testSessionChangeRestarts() {
         let h = Hands()
         _ = observe(h, root: tree(), window: "W1")
-        let o2 = observe(h, root: tree(), window: "W2")
+        // a DIFFERENT window element (new stableId) restarts numbering
+        let o2 = observe(h, root: tree(), window: "W1")
         XCTAssertTrue(o2.full)
         XCTAssertEqual(o2.elements.first?.ref, 1)             // numbering restarts
         XCTAssertEqual(o2.diffText, "")
+    }
+
+    func testTitleChangeKeepsRefs() {
+        let h = Hands()
+        let t = tree()
+        t.stableIdOverride = 7           // same window throughout
+        let o1 = observe(h, root: t, window: "My File.txt")
+        // same window element, title changed (e.g. "Edited" suffix) — refs hold
+        let o2 = observe(h, root: t, window: "My File.txt — Edited")
+        XCTAssertFalse(o2.full)
+        XCTAssertEqual(o1.elements.first?.ref, o2.elements.first?.ref)
     }
 
     func testStaleRefError() {

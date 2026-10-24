@@ -1,0 +1,34 @@
+{
+  "tokenizer": "Qwen/Qwen3-0.6B",
+  "max_words": 350,
+  "products": {
+    "Adobe Premiere Pro": {
+      "pages": 0,
+      "chunks": 0,
+      "tokens": 0,
+      "failed_pages": 1,
+      "sources": [
+        "https://helpx.adobe.com/premiere-pro/user-guide.html",
+        "https://helpx.adobe.com/premiere-pro/using/default-keyboard-shortcuts.html"
+      ]
+    },
+    "Apple Numbers for Mac": {
+      "pages": 171,
+      "chunks": 637,
+      "tokens": 96446,
+      "failed_pages": 0,
+      "sources": [
+        "https://support.apple.com/guide/numbers/welcome/mac"
+      ]
+    },
+    "macOS": {
+      "pages": 1,
+      "chunks": 16,
+      "tokens": 4374,
+      "failed_pages": 0,
+      "sources": [
+        "https://support.apple.com/en-us/102650"
+      ]
+    }
+  }
+}
