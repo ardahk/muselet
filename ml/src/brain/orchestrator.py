@@ -252,6 +252,9 @@ WEB_ANSWER_SYSTEM = (
     "doesn't say, reply exactly NOT_FOUND.")
 WEB_ANSWER_FALLBACK = ("I opened the results; I couldn't confirm it on the "
                        "page.")
+VERIFY_MISSING_SYSTEM = (
+    "You check a computer task. In at most 10 words, say what part of the "
+    "goal is not finished yet, based on the screen. No preamble.")
 _ACT_OPS = {"press", "type", "keys", "click", "scroll", "drag", "select",
             "hover", "focus"}
 
@@ -384,6 +387,8 @@ def observation_blind(obs: dict | None) -> bool:
 class Orchestrator:
     WEB_AX_WINDOW_S = 2.2     # Chrome's web AX tree lands ~2 s after a switch
     COMPOUND_P = 0.75         # every clause must route this confidently
+    VERIFY_P = 0.5
+    MAX_RECOVERY = 2
 
     def __init__(self, server, catalog: Catalog | None = None,
                  tracer: Tracer | None = None, engine=None, tau: float = 0.55):
@@ -437,6 +442,7 @@ class Orchestrator:
         self.grounder_cfg: dict | None = dict(DEFAULT_GROUNDER)   # None = off
         self.grounder = None        # brain.grounder.Grounder, built on first use
         self.screens: list | None = None    # app `hello` screens (backing scale)
+        self.verify_done = True
 
     # ---------- v0 router ----------
 
@@ -1598,6 +1604,115 @@ function run() {
             return f"{act} -> {res}"
         return f"[{res}] {act}"
 
+    async def _missing_text(self, goal: str, actions_log: list[str],
+                            obs_text: str) -> str:
+        fallback = "the goal isn't visible on screen yet"
+        planner = self._active_planner or self.planner
+        if not callable(getattr(planner, "generate", None)):
+            return fallback
+        action_lines = [line[:160] for line in actions_log[-12:]]
+        user = (f'Goal: "{goal}"\nActions taken:\n'
+                f'{"\n".join(action_lines) if action_lines else "(none)"}\n'
+                f"Fresh observation:\n{_headtail(obs_text, 1500)}")
+        try:
+            from .planner import worker
+            answer = await worker().submit_async(
+                planner.generate, VERIFY_MISSING_SYSTEM, user, 24)
+        except Exception as e:  # noqa: BLE001 - missing-text model is optional
+            log.warning("verification missing-text generation failed: %s", e)
+            return fallback
+        lines = str(answer or "").splitlines()
+        answer = lines[0].strip() if lines else ""
+        answer = answer.strip(" \t\r\n\"'`.,!?;:()[]{}")
+        if not answer or re.search(
+                r"\b(done|success(?:ful)?|completed?)\b", answer,
+                re.IGNORECASE):
+            return fallback
+        return " ".join(answer.split()[:12])
+
+    async def _verify_done(self, goal: str, actions_log: list[str],
+                           trace: dict) -> tuple[bool, float | None,
+                                                 dict | None, str]:
+        obs = await self._observe()
+        if obs:
+            self._last_obs = obs
+        if await self._permission_gate(obs, goal):
+            return False, None, obs, "permission prompt"
+        obs_text = str((obs or {}).get("text") or "(no observation available)")
+        ocr_text = ""
+        if len(obs_text.strip()) < 200:
+            ocr_text = await self._window_ocr_text()
+
+        action_lines = [line[:160] for line in actions_log[-12:]]
+        state = (f'Goal: "{goal}"\nActions taken:\n'
+                 f'{"\n".join(action_lines) if action_lines else "(none)"}\n'
+                 f"Fresh observation:\n{_headtail(obs_text, 1500)}")
+        if ocr_text:
+            state += f"\nScreen text (OCR):\n{_headtail(ocr_text, 1500)}"
+        question = {
+            "type": "bool",
+            "instructions": (
+                "Is the goal achieved? Judge only from the fresh observation "
+                "and the actions taken; if any part of the goal is not visibly "
+                "complete, answer No."),
+        }
+        planner = self._active_planner or self.planner
+        started = time.perf_counter()
+        try:
+            from .planner import worker
+            probs = await worker().submit_async(planner.decide, state, question)
+            p_yes = float(probs.get("true", 0.0))
+        except Exception as e:  # noqa: BLE001 - verifier unavailable
+            ms = (time.perf_counter() - started) * 1000
+            log.warning("planner done verifier unavailable: %s", e)
+            trace["decisions"].append({"planner.verify": {
+                "method": "model", "p_yes": None,
+                "threshold": self.VERIFY_P, "ms": round(ms, 1),
+                "result": None, "error": str(e)}})
+            self.tracer.stage("planner.verify", ms)
+            return False, None, obs, ""
+
+        ms = (time.perf_counter() - started) * 1000
+        ok = p_yes >= self.VERIFY_P
+        trace["decisions"].append({"planner.verify": {
+            "method": "model", "p_yes": round(p_yes, 3),
+            "threshold": self.VERIFY_P, "ms": round(ms, 1),
+            "result": ok}})
+        self.tracer.stage("planner.verify", ms)
+        missing = "" if ok else await self._missing_text(
+            goal, actions_log, obs_text)
+        return ok, p_yes, obs, missing
+
+    async def _recover(self, trace: dict, reason: str, detail: str) -> bool:
+        self._recover_round += 1
+        round_no = self._recover_round
+        trace["decisions"].append({"planner.recover": {
+            "round": round_no, "reason": reason}})
+        log.info("planner recovery %s: %s", reason, detail)
+        return round_no <= self.MAX_RECOVERY
+
+    async def _honest_failure(self, text: str, goal: str, trace: dict,
+                              actions_log: list[str], obs_text: str,
+                              detail: str, reason: str,
+                              missing: str | None = None) -> str:
+        if missing and re.search(
+                r"\b(done|success(?:ful)?|completed?)\b", missing,
+                re.IGNORECASE):
+            missing = None
+        if not missing:
+            actions = list(actions_log)
+            if detail:
+                actions.append(f"Last error: {detail}")
+            missing = await self._missing_text(goal, actions, obs_text)
+        trace["decisions"].append({"planner.recover": {
+            "round": self._recover_round, "reason": reason,
+            "exhausted": True}})
+        self._pending_task = {"goal": text, "t": time.time()}
+        bubble = " ".join(f"Not finished: {missing}".split()[:12])
+        await self.server.say(bubble)
+        await self._end_ui("confused")
+        return "failed"
+
     async def _exec_one(self, a: dict) -> dict:
         """Execute one DSL action; `_log` is its Last-batch line."""
         legacy = "script -> " if a["op"] == "script" else _repr_line(a) + "-> "
@@ -2289,14 +2404,30 @@ function run() {
         prev_expect_ok = False
         obs_text = ""
         diffs: list[str] | None = None
+        next_obs = None
+        actions_log: list[str] = []
+        self._recover_round = 0
+        last_failure_detail = ""
         fail_streak, prev_fail_key = 0, None
         noop_press_key, noop_press_count = None, 0
+        last_exp_ok = False
         planner, escalated = self.planner, False
         self._active_planner = planner
         for turn in range(12):
             if time.perf_counter() - t_start > 60:
                 break
-            if diffs is not None and self._last_obs:
+            verify_mode = bool(
+                getattr(self, "verify_done", True) and
+                callable(getattr(planner, "decide", None)))
+            if not verify_mode:
+                last_exp_ok = False
+            if next_obs is not None:
+                obs = next_obs
+                next_obs = None
+                obs_fresh = True
+                obs_text = str(obs.get("text") or "")
+                self._last_obs = obs
+            elif diffs is not None and self._last_obs:
                 # last batch's act diffs describe the UI: skip the observe RPC
                 for d in diffs:
                     obs_text = obsdiff.apply_diff(obs_text, d)
@@ -2354,11 +2485,12 @@ function run() {
             self._batch_confirmed = False
             res_status = "ok"
             done_seen = False
+            done_action = None
             n_executed = 0
-            last_exp_ok = False
             skipped: list[str] = []      # prose / tags / fences, not actions
             n_actions = 0
             fail_key = None              # normalized action line that failed
+            failure_detail = ""
             script_buf: list[str] | None = None   # multi-line """ block
             try:
                 while True:
@@ -2410,10 +2542,12 @@ function run() {
                             noop_press_key, noop_press_count = None, 0
                         if r["status"] == "done":
                             done_seen = True
+                            done_action = a
                             cancel.set()      # done ends the batch's execution
                         else:
                             n_executed += 1
-                            last_exp_ok = bool(r.get("expect_ok"))
+                            if verify_mode or a["op"] not in ("wait", "confirm"):
+                                last_exp_ok = bool(r.get("expect_ok"))
                             if r["status"] != "ok":
                                 failed = True
                                 cancel.set()
@@ -2421,6 +2555,8 @@ function run() {
                                               if r.get("_terminal_failure")
                                               else r["status"])
                                 fail_key = _action_key(a)
+                                failure_detail = str(
+                                    r.get("error") or res_status)
                     try:
                         acts = dsl.parse(line)
                         pending.extend(acts)
@@ -2430,6 +2566,7 @@ function run() {
                         fail_key = " ".join(line.lower().split())
                         batch_log.append(self._batch_line(
                             line, f"failed: {e}", f"{line} -> failed: {e}"))
+                        failure_detail = str(e)
                         cancel.set()
             except asyncio.CancelledError:
                 cancel.set()   # stop the decode
@@ -2457,15 +2594,18 @@ function run() {
                     noop_press_key, noop_press_count = None, 0
                 if r["status"] == "done":
                     done_seen = True
+                    done_action = a
                 else:
                     n_executed += 1
-                    last_exp_ok = bool(r.get("expect_ok"))
+                    if verify_mode or a["op"] not in ("wait", "confirm"):
+                        last_exp_ok = bool(r.get("expect_ok"))
                     if r["status"] != "ok":
                         failed = True
                         res_status = ("terminal_failure"
                                       if r.get("_terminal_failure")
                                       else r["status"])
                         fail_key = _action_key(a)
+                        failure_detail = str(r.get("error") or res_status)
                         cancel.set()
             info = await asyncio.wrap_future(fut)
             trace["decisions"].append({
@@ -2479,6 +2619,7 @@ function run() {
             if skipped:
                 trace["decisions"].append({"skipped_lines": skipped})
                 batch_log.append(f"ignored {len(skipped)} non-action lines")
+            actions_log.extend(batch_log)
             last_batch = batch_log or None
             lo = self._last_obs or {}
             # capped/truncated observations can't be rebuilt from diffs: an
@@ -2495,13 +2636,74 @@ function run() {
                 return "failed"
             if res_status == "fallback":
                 return "fallback"     # brain tool not ready: one bubble (planner-18)
-            # done is verified, never trusted (planner-13): alone in its batch
-            # and either the previous batch's last expect passed, or the
-            # planner saw a fresh observe (not a diff rebuild); after a
-            # failure, done is rejected once
+            # done is verified, never trusted (planner-13)
             if done_seen and not failed:
-                if n_executed == 0 and (prev_expect_ok or obs_fresh and (
-                        not prev_had_failure or done_rejected)):
+                accepted = False
+                verification_missing = ""
+                verification_obs = None
+                verifier_unavailable = False
+                if verify_mode:
+                    if n_executed == 0 and prev_expect_ok:
+                        trace["decisions"].append({"planner.verify": {
+                            "method": "expect", "p_yes": None,
+                            "ms": 0.0, "result": True}})
+                        accepted = True
+                    elif n_executed == 0 and done_action and \
+                            done_action.get("expect"):
+                        exp = done_action["expect"]
+                        params = {"expect": exp}
+                        verify_started = time.perf_counter()
+                        try:
+                            vres = await self.server.rpc(
+                                "verify", params, timeout=15)
+                        except RuntimeError as e:
+                            vres = {"ok": False, "observed": str(e)}
+                        verify_ms = (time.perf_counter() -
+                                     verify_started) * 1000
+                        self.tracer.rpc("verify", params, vres, verify_ms)
+                        accepted = bool(vres.get("ok", False))
+                        observed = vres.get("observed", "?")
+                        trace["decisions"].append({"planner.verify": {
+                            "method": "expect", "p_yes": None,
+                            "ms": round(verify_ms, 1), "result": accepted}})
+                        self.tracer.stage("planner.verify", verify_ms)
+                        if not accepted:
+                            verification_missing = f"expect failed: {observed}"
+                    elif n_executed == 0:
+                        accepted, p_yes, verification_obs, \
+                            verification_missing = await self._verify_done(
+                                goal, actions_log, trace)
+                        if permission_prompt(verification_obs):
+                            return "awaiting_user"
+                        if p_yes is None:
+                            verifier_unavailable = True
+                            accepted = obs_fresh and (
+                                not prev_had_failure or done_rejected)
+                    if not accepted and not verifier_unavailable and \
+                            n_executed == 0:
+                        why = (
+                            f"verification failed: {verification_missing}")
+                        batch_log.append(self._batch_line(
+                            "done", why, f"done -> {why}"))
+                        actions_log.append(batch_log[-1])
+                        last_batch = batch_log
+                        last_failure_detail = verification_missing
+                        spent = not await self._recover(
+                            trace, "verify", verification_missing)
+                        if spent:
+                            return await self._honest_failure(
+                                text, goal, trace, actions_log, obs_text,
+                                verification_missing, "verify",
+                                missing=verification_missing)
+                        prev_had_failure = True
+                        diffs = None
+                        next_obs = verification_obs
+                        continue
+                else:
+                    accepted = n_executed == 0 and (
+                        prev_expect_ok or obs_fresh and (
+                            not prev_had_failure or done_rejected))
+                if accepted:
                     summary = self._done_summary or "Done"
                     await self.server.say(summary[:60])
                     await self._end_ui("success")
@@ -2511,6 +2713,8 @@ function run() {
                 why = "failed: not verified; check the fresh observation"
                 batch_log.append(self._batch_line("done", why,
                                                   f"done -> {why}"))
+                actions_log.append(batch_log[-1])
+                last_batch = batch_log
                 failed = True
                 diffs = None          # force a fresh observe next turn
             prev_expect_ok = n_executed > 0 and not failed and last_exp_ok
@@ -2524,7 +2728,17 @@ function run() {
                 # failed turns -> ask the user instead of burning turns
                 fail_streak += 1
                 same = fail_key is not None and fail_key == prev_fail_key
-                if self.planner_escalate is not None and fail_streak >= 2:
+                recovery_reason = (
+                    "no_action" if not n_actions else
+                    "expect" if failure_detail.startswith("expect failed")
+                    else "action_error")
+                last_failure_detail = failure_detail
+                spent = False
+                if verify_mode:
+                    spent = not await self._recover(
+                        trace, recovery_reason, failure_detail)
+                if self.planner_escalate is not None and fail_streak >= 2 \
+                        and not spent:
                     if not escalated:
                         # opt-in: the escalation planner takes the remaining
                         # turns instead of stopping
@@ -2544,12 +2758,22 @@ function run() {
                     await self.server.say("I'm stuck on that, can you help?")
                     await self._end_ui("confused")
                     return "awaiting_user"
+                if spent:
+                    return await self._honest_failure(
+                        text, goal, trace, actions_log, obs_text,
+                        failure_detail, recovery_reason)
                 prev_fail_key = fail_key
                 prev_had_failure = True
                 continue          # replan with fresh observation
             fail_streak, prev_fail_key = 0, None
             # batch fully executed without a terminal op -> keep going
             prev_had_failure = False
+        if getattr(self, "verify_done", True) and callable(
+                getattr(planner, "decide", None)):
+            return await self._honest_failure(
+                text, goal, trace, actions_log,
+                str((self._last_obs or {}).get("text") or obs_text),
+                last_failure_detail, "turn_limit")
         await self.server.say("That didn't work")
         await self._end_ui("confused")
         return "failed"
@@ -3097,6 +3321,28 @@ function run() {
         return bool(text) and self.planner is not None and \
             self._ctx.get("online") is True and question_like(text)
 
+    async def _window_ocr_text(self) -> str:
+        try:
+            shot = await self.server.rpc(
+                "screenshot", {"window": True, "max_pixels": 1_000_000},
+                timeout=15)
+            if not isinstance(shot, dict) or shot.get("ok") is False:
+                return ""
+            shot_data = (shot or {}).get("result") or shot or {}
+            if not isinstance(shot_data, dict) or \
+                    not shot_data.get("path") or shot_data.get("ok") is False:
+                return ""
+            ocr = await self.server.rpc(
+                "ocr", {"path": shot_data["path"]}, timeout=30)
+            if not isinstance(ocr, dict) or ocr.get("ok") is False:
+                return ""
+            ocr_data = (ocr or {}).get("result") or ocr or {}
+            if not isinstance(ocr_data, dict) or ocr_data.get("ok") is False:
+                return ""
+            return str(ocr_data.get("text") or "")
+        except RuntimeError:
+            return ""
+
     async def _web_answer(self, question: str, trace: dict) -> str:
         """Answer a question from the search results page (brain-8): web
         AX text (OCR only when it's thin) -> planner model, page = data."""
@@ -3108,21 +3354,9 @@ function run() {
             page = str(obs.get("text") or "")
         ocr_used = False
         if len(page.strip()) < 200:
-            try:
-                shot = await self.server.rpc(
-                    "screenshot", {"window": True, "max_pixels": 1_000_000},
-                    timeout=15)
-                if shot and shot.get("ok", True) and \
-                        (shot.get("result") or shot).get("path"):
-                    path = (shot.get("result") or shot)["path"]
-                    ocr = await self.server.rpc("ocr", {"path": path},
-                                                timeout=30)
-                    text = str(((ocr or {}).get("result") or ocr or {})
-                               .get("text") or "")
-                    if len(text.strip()) > len(page.strip()):
-                        page, ocr_used = text, True
-            except RuntimeError:
-                pass
+            text = await self._window_ocr_text()
+            if len(text.strip()) > len(page.strip()):
+                page, ocr_used = text, True
         excerpt = _page_excerpt(page, question)
         self.tracer.stage("web_answer.observe",
                           (time.perf_counter() - t) * 1000)
