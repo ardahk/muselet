@@ -1,6 +1,6 @@
-# finance digest (pass 6, 2026-10-24T08:20Z)
+# finance digest (pass 7, 2026-10-24T08:35Z; finance-2 + advisor-2 merged to main@4a74659, identical lane files)
 Open P0/P1, ranked:
-1. finance-23 P1 Advisor doc-by-path assumes Numbers exposes an imported xlsx's file (needs a 1-line Mac check); ml/src/brain/advisor/scripts.py
+1. finance-23 P1 Advisor doc-by-path assumes Numbers exposes an imported xlsx's file (needs a 1-line Mac check); ml/src/brain/advisor/scripts.py (now on main)
 
 Open P2: finance-24 (merchant prefix over-match), finance-15 (single filers / 401k-HSA-checking as taxable), finance-17 (numbers written as words pass the phrasing filter).
 

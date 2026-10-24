@@ -1,15 +1,15 @@
 {
  "lane": "finance",
- "pass": 6,
- "ts": "2026-10-24T08:20:00Z",
+ "pass": 7,
+ "ts": "2026-10-24T08:35:00Z",
  "last_reviewed": {
-  "main": "d8ad966",
-  "wip/local": "85ec0df",
+  "main": "4a74659",
+  "wip/local": "85c73ed",
   "cloud/finance": "529e9ff",
   "cloud/fixtures-docs": "4bf2291",
-  "cloud/data-pipeline": "b8c0604",
+  "cloud/data-pipeline": "9c526b1",
   "cloud/advisor": "9432c30",
-  "cloud/bench": "911a384",
+  "cloud/bench": "c3ca0b3",
   "cloud/finance-2": "dfaf785",
   "cloud/advisor-2": "0a65f75",
   "cloud/pitch": "ad1b058",
@@ -17,5 +17,5 @@
   "cloud/grounding": "3441ee8"
  },
  "next_id": 25,
- "notes": "pass 6: finance-2 dfaf785 161 tests pass, truth reconciles; advisor-2 0a65f75 82 tests pass, Henderson truth reconciles (reserves list). main/wip: planner row-formula loop recipe is correct."
+ "notes": "pass 7: main 4a74659 merged finance-2 (#7) and advisor-2 (#5); lane files are byte-identical to dfaf785 / 0a65f75. On main: 243 finance+advisor tests pass, finance and Henderson truth reconcile. Open findings unchanged (finance-23 P1; finance-15/17/24 P2), now present on main too."
 }
