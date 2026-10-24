@@ -1,9 +1,10 @@
 """Merchant -> budget category. Keyword rules first; the injected decision model only for unknown merchants.
 
 Rules are general merchant knowledge (chains, transit, utilities, streaming), matched on whole words of the
-normalized description. The longest matching phrase wins, so `UBER EATS` beats `UBER` and `APPLE ICLOUD`
-beats nothing-more-specific. Credits that are not refunds are `Income`; refunds take the category of the
-merchant they reverse.
+normalized description. The most specific phrase wins (more words, then more letters), so `UBER EATS` beats
+`UBER`; remaining ties go to `TIE_PRIORITY`. Ambiguous single words (RENT, SHELL) only count when they are the
+whole description (`EXACT`). Credits are `Income` only when an income keyword says so; refunds take the
+category of the debit they reverse; any other credit (transfers, P2P, rewards) is asked about, never assumed.
 """
 
 from __future__ import annotations
@@ -21,26 +22,33 @@ Decide = Callable[[str, list[str]], Mapping[str, float]]
 
 KEYWORDS: dict[str, list[str]] = {
     INCOME: ["PAYROLL", "DIRECT DEP", "DIRECT DEPOSIT", "SALARY", "INTEREST PAYMENT", "TAX REFUND"],
-    "Rent": ["RENT", "PROPERTY MGMT", "PROPERTY MANAGEMENT", "PROPERTIES", "APARTMENTS", "LEASING", "LANDLORD"],
+    "Rent": ["RENT PAYMENT", "RENT PMT", "PROPERTY MGMT", "PROPERTY MANAGEMENT", "PROPERTIES", "APARTMENTS", "LEASING", "LANDLORD"],
     "Utilities": ["PGE", "PG E", "COMCAST", "XFINITY", "ATT", "VERIZON", "T MOBILE", "TMOBILE", "SPECTRUM",
                   "EBMUD", "WATER DISTRICT", "EDISON", "ELECTRIC", "SONIC NET", "GOOGLE FI", "MINT MOBILE"],
     "Subscriptions": ["SPOTIFY", "NETFLIX", "HULU", "DISNEY PLUS", "DISNEYPLUS", "HBO MAX", "MAX COM", "ICLOUD",
                       "APPLE COM BILL", "APPLE MUSIC", "APPLE TV", "YOUTUBE PREMIUM", "AMAZON PRIME", "PRIME VIDEO",
                       "AUDIBLE", "CHATGPT", "OPENAI", "ANTHROPIC", "CLAUDE AI", "ADOBE", "DROPBOX", "GITHUB",
                       "NOTION", "PATREON", "NYTIMES", "DUOLINGO", "PELOTON"],
-    "Transport": ["UBER", "LYFT", "BART", "CLIPPER", "CALTRAIN", "MUNI", "AMTRAK", "CHEVRON", "SHELL OIL", "EXXON",
-                  "ARCO", "VALERO", "MOBIL", "PARKING", "FASTRAK", "TOLL", "LIME", "WAYMO", "GREYHOUND"],
+    "Transport": ["UBER", "LYFT", "BART", "CLIPPER", "CALTRAIN", "MUNI", "AMTRAK", "CHEVRON", "SHELL OIL",
+                  "SHELL SERVICE", "SHELL STATION", "EXXON", "ARCO", "VALERO", "MOBIL", "COSTCO GAS", "PARKING",
+                  "PARKMOBILE", "PAYBYPHONE", "SPOTHERO", "FASTRAK", "BRIDGE TOLL", "TOLL ROAD", "LIME RIDE",
+                  "LIME SCOOTER", "WAYMO", "GREYHOUND"],
     "Dining": ["UBER EATS", "DOORDASH", "GRUBHUB", "POSTMATES", "CAVIAR", "STARBUCKS", "PEETS", "BLUE BOTTLE",
                "PHILZ", "DUNKIN", "COFFEE", "CAFE", "CHIPOTLE", "SWEETGREEN", "MCDONALDS", "IN N OUT", "TACO BELL",
                "PANDA EXPRESS", "PANERA", "SHAKE SHACK", "DOMINOS", "PIZZA", "RESTAURANT", "TAQUERIA", "SUSHI",
                "BURGER", "BOBA", "BAKERY", "BAR GRILL"],
     "Groceries": ["TRADER JOES", "SAFEWAY", "WHOLE FOODS", "WHOLEFDS", "KROGER", "SPROUTS", "RALPHS", "LUCKY",
-                  "ALDI", "INSTACART", "GROCERY", "GROCERIES", "FARMERS MARKET", "99 RANCH", "H MART", "SMART FINAL"],
-    "Shopping": ["AMAZON", "AMZN", "TARGET", "WALMART", "APPLE STORE", "BEST BUY", "IKEA", "EBAY", "ETSY", "COSTCO",
+                  "ALDI", "INSTACART", "GROCERY", "GROCERIES", "FARMERS MARKET", "99 RANCH", "H MART", "SMART FINAL",
+                  "COSTCO"],
+    "Shopping": ["AMAZON", "AMZN", "TARGET", "WALMART", "APPLE STORE", "BEST BUY", "IKEA", "EBAY", "ETSY",
                  "HOME DEPOT", "UNIQLO", "NORDSTROM", "MACYS", "MARSHALLS", "TJ MAXX"],
     "Health": ["CVS", "WALGREENS", "RITE AID", "PHARMACY", "KAISER", "SUTTER HEALTH", "DENTAL", "DENTIST", "CLINIC",
                "MEDICAL", "HOSPITAL", "COPAY", "OPTOMETRY", "LABCORP", "QUEST DIAGNOSTICS"],
 }
+# Whole-description rules for words that are ambiguous inside longer names (RENT THE RUNWAY, SHELL SHACK).
+EXACT: dict[str, str] = {"RENT": "Rent", "SHELL": "Transport"}
+TIE_PRIORITY = ("Dining", "Groceries", "Health", "Shopping", "Subscriptions", "Utilities", "Transport", "Rent",
+                INCOME)
 REFUND_WORDS = ("REFUND", "RETURN", "REVERSAL", "CREDIT ADJ", "CHARGEBACK")
 
 
@@ -64,12 +72,20 @@ def is_refund_text(description: str) -> bool:
     return any(f" {w} " in norm for w in REFUND_WORDS)
 
 
+def _rank(phrase: tuple[str, ...], cat: str) -> tuple:
+    prio = TIE_PRIORITY.index(cat) if cat in TIE_PRIORITY else len(TIE_PRIORITY)
+    return (len(phrase), len("".join(phrase)), -prio)
+
+
 def _longest(toks: tuple[str, ...], table) -> tuple[int, str, tuple[str, ...]] | None:
-    best = None
+    """The most specific phrase of `table` found in `toks`: more words, then more letters, then TIE_PRIORITY."""
+    best, best_rank = None, None
     for phrase, cat in table:
         n = len(phrase)
-        if (best is None or n > best[0]) and any(toks[i:i + n] == phrase for i in range(len(toks) - n + 1)):
-            best = (n, cat, phrase)
+        if any(toks[i:i + n] == phrase for i in range(len(toks) - n + 1)):
+            r = _rank(phrase, cat)
+            if best_rank is None or r > best_rank:
+                best, best_rank = (n, cat, phrase), r
     return best
 
 
@@ -86,7 +102,10 @@ def rule_match(description: str, user_rules: Mapping[str, str] | None = None) ->
         if hit:
             return hit[1], "user:" + " ".join(hit[2])
     hit = _longest(tuple(normalize_merchant(description).split()), _INCOME_RULES) or _longest(toks, _RULES)
-    return (hit[1], "keyword:" + " ".join(hit[2])) if hit else None
+    if hit:
+        return hit[1], "keyword:" + " ".join(hit[2])
+    whole = " ".join(toks)
+    return (EXACT[whole], "exact:" + whole) if whole in EXACT else None
 
 
 def decision_text(t: Txn) -> str:
@@ -104,23 +123,21 @@ def categorize_with_evidence(
     out: dict[int, tuple[str, float, str]] = {}
     why: dict[int, str] = {}
     refunds = set(find_refunds(txns))
-    cache: dict[str, tuple[str, float, str, str]] = {}
-    options = list(categories)
+    cache: dict[tuple[str, bool], tuple[str, float, str, str]] = {}
     for t in txns:
-        if t.amount > 0 and t.row not in refunds:
-            hit = rule_match(t.description, user_rules)
-            out[t.row] = (INCOME, RULE_CONFIDENCE, "rule")
-            why[t.row] = hit[1] if hit and hit[0] == INCOME else "credit:not_a_refund"
-            continue
+        credit = t.amount > 0 and t.row not in refunds
+        # Debits and refunds pick a spending category; other credits may also be Income.
+        options = ([INCOME] if credit else []) + [c for c in categories if c != INCOME]
         hit = rule_match(t.description, user_rules)
-        if hit and hit[0] != INCOME and (hit[0] in options or not options):
+        if hit and (hit[0] == INCOME and credit or hit[0] != INCOME and (hit[0] in options or not categories)):
             out[t.row] = (hit[0], RULE_CONFIDENCE, "rule")
             why[t.row] = hit[1]
             continue
-        key = strip_refund_words(normalize_merchant(t.description))
+        key = (strip_refund_words(normalize_merchant(t.description)), credit)
         if key not in cache:
-            if decide is None or not options:
-                cache[key] = (UNCATEGORIZED, 0.0, "ask", "ask:no_rule_no_model")
+            if decide is None or not categories:
+                rule = "ask:credit_not_income_or_refund" if credit else "ask:no_rule_no_model"
+                cache[key] = (UNCATEGORIZED, 0.0, "ask", rule)
             else:
                 probs = {o: float(p) for o, p in decide(decision_text(t), options).items() if o in options}
                 top = max(options, key=lambda o: probs.get(o, 0.0))
@@ -156,7 +173,8 @@ def categorize(
     """row -> (category, confidence, source) with source "rule" | "model" | "ask".
 
     `decide(text, options) -> {option: prob}` is the on-device decision model; it is called once per unknown
-    merchant. Below `CONFIDENCE_THRESHOLD` the row is "ask": escalate to the user instead of guessing (the
+    merchant (for credits that are neither income keywords nor refunds, the options include Income).
+    Below `CONFIDENCE_THRESHOLD` the row is "ask": escalate to the user instead of guessing (the
     category is then the model's best guess, or `Uncategorized` without a model). `user_rules` are
     merchant -> category answers the user already gave; they act as rules.
     """

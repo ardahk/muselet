@@ -7,11 +7,12 @@ from decimal import Decimal
 from statistics import median
 
 from . import evidence as ev
-from .budget import budget_report, category_spend
+from .budget import budget_report, category_spend, pending
 from .categorize import INCOME, Decide, categorize_with_evidence, is_refund_text
 from .detect import (
     OUTLIER_FLOOR,
     OUTLIER_Z,
+    duplicate_status,
     find_duplicates,
     find_outliers,
     find_refunds,
@@ -21,6 +22,8 @@ from .detect import (
 )
 from .receipts import reconcile_receipts
 from .statement import CENT, Txn, balance_breaks, opening_balance
+
+NEEDS_REVIEW = "Needs review"
 
 
 def analyze(txns: list[Txn], budget: Mapping[str, Decimal], receipts=None, decide: Decide | None = None,
@@ -33,7 +36,9 @@ def analyze(txns: list[Txn], budget: Mapping[str, Decimal], receipts=None, decid
     flags += [ev.balance_break(by_row[r]) for r in breaks]
 
     dups = find_duplicates(txns)
-    flags += [ev.duplicate(by_row[a], by_row[b]) for a, b in dups]
+    dup_status = duplicate_status(txns, dups)
+    flags += [ev.duplicate(by_row[d["rows"][0]], by_row[d["rows"][1]],
+                           by_row[d["refund_row"]] if d["refund_row"] else None) for d in dup_status]
 
     cat_of = {r: c for r, (c, _, _) in cats.items()}
     outliers = find_outliers(txns, cat_of)
@@ -59,11 +64,17 @@ def analyze(txns: list[Txn], budget: Mapping[str, Decimal], receipts=None, decid
     for desc, rows in asks.items():
         c, p, _ = cats[rows[0]]
         flags.append(ev.ask_category(desc, rows, c, p, why[rows[0]]))
-        ask_list.append({"description": desc, "rows": rows, "guess": c, "p": round(p, 3), "options": list(budget)})
+        credit = by_row[rows[0]].amount > 0 and rows[0] not in refunds
+        ask_list.append({"description": desc, "rows": rows, "guess": c, "p": round(p, 3),
+                         "options": ([INCOME] if credit else []) + [b for b in budget if b != INCOME]})
 
     spend = category_spend(txns, cats)
     spend_all = {c: spend.get(c, Decimal("0.00")) for c in budget} | {c: v for c, v in spend.items() if c not in budget}
-    rep = budget_report(spend_all, budget)
+    unresolved = pending(txns, cats)
+    rep = budget_report(spend_all, budget, unresolved)
+    if unresolved["rows"]:
+        flags.append(ev.pending_budget(unresolved["rows"], unresolved["debits"], unresolved["credits"],
+                                       rep["needs_review"]))
     for c in rep["over_budget"]:
         rows = [r for r, (cc, _, _) in cats.items() if cc == c]
         flags.append(ev.over_budget(c, rows, budget[c], rep["actual"][c], rep["remaining"][c]))
@@ -73,7 +84,7 @@ def analyze(txns: list[Txn], budget: Mapping[str, Decimal], receipts=None, decid
         rec = reconcile_receipts(receipts, txns)
         flags += [ev.receipt(rid, e) for rid, e in rec.items()]
 
-    income = sum((t.amount for t in txns if cat_of[t.row] == INCOME), Decimal("0.00"))
+    income = sum((t.amount for t in txns if cat_of[t.row] == INCOME and cats[t.row][2] != "ask"), Decimal("0.00"))
     total_spend = sum(spend.values(), Decimal("0.00"))
     opening = opening_balance(txns)
     return {
@@ -84,11 +95,13 @@ def analyze(txns: list[Txn], budget: Mapping[str, Decimal], receipts=None, decid
             "net": income - total_spend,
             "opening_balance": opening,
             "closing_balance": txns[-1].balance if txns else opening,
-            "balance_ok": not breaks and (not txns or opening + income - total_spend == txns[-1].balance),
+            "balance_ok": not breaks and (not txns or opening + sum(t.amount for t in txns) == txns[-1].balance),
+            "pending": unresolved,
         },
         "rows": [{"row": r, "category": c, "confidence": round(p, 3), "source": s, "rule": why[r]}
                  for r, (c, p, s) in sorted(cats.items())],
         "duplicates": [list(p) for p in dups],
+        "duplicate_status": dup_status,
         "outliers": outliers,
         "refunds": refunds,
         "weekend_charges": weekend,
