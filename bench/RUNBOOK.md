@@ -106,7 +106,35 @@ For example, inspect the pending T2 cases with
 `uv run --project ml python bench/live/run_live.py --dry-run --tier T2 --include-pending`,
 or preview execution with
 `uv run --project ml python bench/live/run_live.py --dry-run --tier T2 --run-pending --allow-user-ok`.
-Stop the brain afterwards.
+
+### 5b. New-capability multi-turn cases (`evals/live_t2_new.jsonl`: memory, Clock, again/undo, Notes)
+Six T2 cases; four use `turns` (sent in order by one `hands serve` client on one brain WebSocket, so
+working memory carries over; the proxy holds each next utterance until the previous turn's outcome,
+`wait_s` and per-turn checks are done). Before running: quit Safari and Chrome (`mem-wiki-search`
+needs neither running, and is skipped by `--offline`), quit Notes and Clock, close every Finder
+window, no Clock timer running, and no document-app windows open (`notes-template` inventories every
+document app). A failed precondition is a SKIP, never a manual workaround.
+```sh
+# plan only (no OS actions): lists every turn per case
+uv run --project ml python bench/live/run_live.py --suite evals/live_t2_new.jsonl --dry-run
+# only the new cases
+uv run --project ml python bench/live/run_live.py --suite evals/live_t2_new.jsonl --brain-url ws://127.0.0.1:8765 \
+  --proxy-port 8790 --hands-bin "$HANDS_BIN" --repeat 3 --out runs/bench/live/t2new-$(date -u +%Y%m%dT%H%M%SZ)
+# one case, or one category (memory | timers | notes)
+uv run --project ml python bench/live/run_live.py --suite evals/live_t2_new.jsonl --brain-url ws://127.0.0.1:8765 \
+  --proxy-port 8790 --hands-bin "$HANDS_BIN" --id mem-again-volume
+uv run --project ml python bench/live/run_live.py --suite evals/live_t2_new.jsonl --brain-url ws://127.0.0.1:8765 \
+  --proxy-port 8790 --hands-bin "$HANDS_BIN" --category memory
+# whole suite: live_t1 then live_t2_new, same brain, separate result dirs
+STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+uv run --project ml python bench/live/run_live.py --suite evals/live_t1.jsonl --brain-url ws://127.0.0.1:8765 \
+  --proxy-port 8790 --hands-bin "$HANDS_BIN" --tier T1 --tier T2 --repeat 3 --out runs/bench/live/t1-$STAMP
+uv run --project ml python bench/live/run_live.py --suite evals/live_t2_new.jsonl --brain-url ws://127.0.0.1:8765 \
+  --proxy-port 8790 --hands-bin "$HANDS_BIN" --repeat 3 --out runs/bench/live/t2new-$STAMP
+```
+Each multi-turn result row has `turns` (per turn: `utterance`, `status`, `observed_outcome`, `mood`,
+`reply`, `latency_s`, `first_action_latency_s`, `check_observations`, `passed`), `turns_ok` and
+`saved_values`; `strict_pass` also requires `turns_ok`. Stop the brain afterwards.
 
 ## 6. DeskMind diag-v27 (zh-Hans for every system)
 Put Simplified Chinese first in System Settings > General > Language & Region, log out and in, then
