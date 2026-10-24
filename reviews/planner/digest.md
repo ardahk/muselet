@@ -1,15 +1,12 @@
-# planner lane — pass 7 (main d8ad966, wip 85ec0df, cloud/brain-2 741465c, cloud/finance-2 dfaf785)
+# planner lane — pass 8 (main 4a74659 = brain-2 + finance-2 + advisor-2 + grounding + pitch merged; wip 85c73ed)
 
-Resolved: planner-8 on main. planner-4, -13, -16 and -18 are fixed on cloud/brain-2, but main and wip only get those fixes once brain-2 is merged.
-wip 85ec0df WebAX (Safari AXEnhancedUserInterface + Chromium manual AX, 0.3 s populate wait) reviewed. It helps demo goal 2, and I found no issues.
+Resolved: planner-4, -9, -13, -16 and -18 are now on main, and planner-11 is fixed on wip.
+Non-MLX tests on main: 224 passed (dsl, orchestrator, catalog, finance, tool_finance_review). test_planner_loop needs mlx, so I couldn't run it on Linux.
+wip 85c73ed changes reviewed with no issues: the Expect `appears` no longer matches menu-bar items, shell timeout/exit handling, and the truncated flag that breaks the diff chain.
 
-## Open P1 (ranked)
-1. planner-9 P1 — finance_review exists only on cloud/finance-2. Main and wip still fall back — ml/src/brain/tools/
-2. planner-6 P1 — Premiere runs via keyboard shortcuts only; the UXP bridge isn't connected, so results can't be verified — Skills.swift
-3. planner-11 P1 — A shell script that exits non-zero is reported ok — Act.swift
-(On main and wip, planner-4/13/16/18 stay open until brain-2 is merged.)
+## Open P1
+1. planner-6 P1 — Premiere runs via keyboard shortcuts only. The UXP bridge (8766) isn't connected, so marker/razor/export results can't be verified — app/Sources/HandsKit/Skills.swift
 
 ## Highest-leverage next moves
-- Merge cloud/brain-2 (fixes 4 planner findings in one step) and then cloud/finance-2 (finance demo).
-- Premiere: connect the 8766 UXP bridge for add_marker/export so the result can be verified, or add an expect via the window title / Export dialog.
-- Act.swift: set ok=false when a shell script exits non-zero.
+- Premiere demo: give each premiere_command an expect (the Export dialog `appears "Export"`, a marker panel count). Alternatively, connect the bridge's add_marker/export_sequence so the result can be verified.
+- Run test_planner_loop on the Mac (needs MLX) before the demo. It covers the streaming/done/fallback paths I could only check by reading the code.
