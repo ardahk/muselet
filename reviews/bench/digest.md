@@ -1,18 +1,19 @@
-# bench digest — pass 15 (PULSE, 2026-10-24T09:08Z)
+# bench digest — pass 16 (2026-10-24T09:20Z, main@2920225)
 
-P0: 0. Open P1: 3. Open P2: 3. New: bench-17 (pass 14), bench-16 (pass 13).
-Reviewed: cloud/bench@f584cb2 (127 tests pass), cloud/data-pipeline@70b7d1b (bench-17 still open), main@bb494af, wip/local@c85a000.
+P0: 0 | open P1: 4 | open P2: 3
 
-## Open P0/P1 (ranked)
-1. bench-14: Nothing dedups training data against ScreenSpot-Pro/OSWorld-G before grounding training. Becomes P0 once Phase-4 data is built. (training/src/muselet_train/decontam.py)
-2. bench-17: The Phase 1 trainer now reads route_train/route_val, which no committed code writes, so there is no proof the data passed eval decontam. (training/src/muselet_train/datums.py)
-3. bench-16: Per-run safety skips (open user documents, calendar preflight) give Muselet and HobbyLM different task denominators. (bench/hobbylm/replay.py)
+## Open P1 (ranked)
+1. bench-16 — Per-run safety skips give the two systems different task denominators — `bench/hobbylm/replay.py` (main)
+2. bench-11 — Non-MLX backends (fake, and Tinker on cloud/decisions) report as 'muselet' — `bench/systemone/cli.py` (main)
+3. bench-18 — 'main' router run trained on route_dedup.jsonl with unrecorded eval filtering — `training/src/muselet_train/datums_export.py` (cloud/data-pipeline)
+4. bench-14 — No ScreenSpot-Pro/OSWorld-G decontamination for grounding training data — `training/src/muselet_train/decontam.py` (branch-only, cloud/data-pipeline)
 
-Open P2: bench-11 (systemone CLI defaults to fake with name muselet), bench-12 (chunked probabilities can contradict the stage-2 winner), bench-15 (--limit takes a single-app ScreenSpot-Pro subset).
+Open P2: bench-12 (chunked choice probabilities can contradict the stage-two winner), bench-15 (grounding --limit takes a single-app prefix), bench-19 (planner knobs tuned and selected on the same small set).
+Retracted: bench-17 (dedup.py does write route_train/val after the eval filter).
 
 ## Highest-leverage next moves
-- Commit the route_train/route_val split script, and make datums refuse a split without an eval-decontam sidecar (bench-17).
-- Score HobbyLM vs Muselet only on (id, repeat) pairs eligible in both runs, and list the skipped ids (bench-16).
-- Before any grounding data build, export the SSPro/OSW-G instructions and image phashes, and make decontam fail closed (bench-14).
-- Use a stratified --limit in run_screenspot.py for tuned-vs-tuned grounder runs (bench-15).
-- Use the stage-2 argmax for chunked choice answers (bench-12).
+- Intersect eligible (id, repeat) across systems in HobbyLM report_math before publishing any headline (bench-16).
+- Make Muselet headline publishers accept only --backend mlx results; derive model_name from the backend (bench-11).
+- Re-run the current eval filter on the `main` run's route_dedup.jsonl and publish the overlap count before quoting its scores (bench-18).
+- Build the ScreenSpot-Pro/OSWorld-G instruction + pHash manifest before any grounding data generation (bench-14).
+- Add a holdout split and Wilson CIs to evals/planner_offline.py before choosing a planner (bench-19).

@@ -1,22 +1,24 @@
 {
-  "pass": 15,
-  "ts": "2026-10-24T09:08:00Z",
+  "pass": 16,
+  "ts": "2026-10-24T09:20:00Z",
   "branches": {
-    "main": "bb494af",
-    "wip/local": "c85a000",
+    "main": "2920225",
+    "wip/local": "3e03686",
     "cloud/bench": "f584cb2",
-    "cloud/data-pipeline": "70b7d1b",
+    "cloud/data-pipeline": "5371185",
+    "cloud/decisions": "3a865a0",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
+    "cloud/finance-3": "31be399",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
+    "cloud/advisor-3": "ca93147",
     "cloud/pitch": "ad1b058",
+    "cloud/pitch-2": "3303678",
     "cloud/grounding": "3441ee8",
     "cloud/brain-2": "741465c",
-    "cloud/advisor-3": "ca93147",
-    "cloud/brain-3": "14a3f52",
-    "cloud/finance-3": "31be399"
+    "cloud/brain-3": "14a3f52"
   },
-  "notes": "pass15 (PULSE 09:01:21Z): cloud/bench f584cb2 Typed Decisions normalize_answer (scalar noul -> {false,true}; scalar score -> one-hot over gold levels), counted in normalized_answers, applied equally to all systems; bench/tests 127 passed, 3 skipped. data-pipeline 70b7d1b: datums still reads route_train/route_val, which still have no committed producer (bench-17 open). main/wip: merges of brain-3/finance-3/advisor-3 plus router check; no lane changes. No new findings."
+  "notes": "pass16: re-verified all open findings against main@2920225 (lead request). bench-16 open (fresh report_math repro, 1.0 vs 0.76). bench-11 raised to P1 (Tinker backend on cloud/decisions). bench-12 and bench-15 open on main. bench-14 branch-only (no training/src on main). bench-17 retracted (dedup.py writes the split after the eval filter). New: bench-18 (P1, main-run provenance) and bench-19 (P2, planner_offline tune=select). main lane merges: #8 bench is identical to cloud/bench f584cb2 except the run_muselet.py symlink-resolve fix (fine); grounder matches 3441ee8; planner_offline runtime-equivalent grading matches orchestrator dsl.action_line + MAX_BATCH. wip/local 3e03686 has no lane diff vs main."
 }
