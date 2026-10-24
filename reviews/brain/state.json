@@ -1,10 +1,10 @@
 {
- "pass": 34,
- "ts": "2026-10-24T16:45:00Z",
+ "pass": 35,
+ "ts": "2026-10-24T17:05:00Z",
  "branches": {
-  "main": "c949565",
-  "wip/local": "4ec066f",
-  "cloud/data-pipeline": "6c1e565",
+  "main": "cf53292",
+  "wip/local": "e14fa54",
+  "cloud/data-pipeline": "f8b721a",
   "cloud/fixtures-docs": "4bf2291",
   "cloud/finance": "529e9ff",
   "cloud/finance-2": "dfaf785",
@@ -17,7 +17,7 @@
   "cloud/brain-3": "14a3f52",
   "cloud/advisor-3": "ca93147",
   "cloud/finance-3": "31be399",
-  "cloud/decisions": "184c80f",
+  "cloud/decisions": "43abfa3",
   "cloud/pitch-2": "3303678",
   "cloud/brain-4": "dfb66a3",
   "cloud/hobby-gaps": "156556e",
@@ -29,6 +29,8 @@
   "cloud/brain-7": "13432fe",
   "cloud/app-ui": "afb2688",
   "cloud/native-research": "fa88c22",
-  "cloud/report": "dffa733"
+  "cloud/report": "dffa733",
+  "cloud/comms": "956d4ac",
+  "cloud/report-2": "3c25e78"
  }
 }
