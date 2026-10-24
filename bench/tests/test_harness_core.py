@@ -1,0 +1,225 @@
+import asyncio
+import json
+import os
+import time
+from datetime import date, datetime, timezone
+
+from bench.harness.core import (
+    evaluate_predicate,
+    find_trace_record,
+    report_math,
+    run_case,
+    template_values,
+)
+
+
+class FakeRuntime:
+    def __init__(self, fail_script=None):
+        self.calls = []
+        self.fail_script = fail_script
+        self.first_action_monotonic = None
+        self.terminal_monotonic = None
+        self.utterance_monotonic = None
+
+    async def start_scripts(self):
+        self.calls.append(("start_scripts",))
+
+    async def run_script(self, lang, code, *, allow_inflight=False):
+        self.calls.append(("script", lang, code, allow_inflight))
+        if code == self.fail_script:
+            raise RuntimeError("script failure")
+        return {"ok": True, "output": "ok"}
+
+    async def start_utterance(self, utterance):
+        self.calls.append(("utterance", utterance))
+
+    async def prepare_for_cleanup(self):
+        self.calls.append(("prepare_cleanup",))
+
+    async def stop(self):
+        self.calls.append(("stop",))
+
+    def snapshot(self):
+        return {"frames": [], "confirm_count": 0}
+
+
+def test_template_values_use_unpadded_dates_and_strict_next_friday():
+    values = template_values(today=date(2026, 1, 2))
+    assert values["tomorrow_ymd"] == "2026-1-3"
+    assert values["next_friday_ymd"] == "2026-1-9"
+
+
+def test_precondition_failure_skips_every_later_case_step(tmp_path):
+    async def scenario():
+        runtime = FakeRuntime()
+        case = {
+            "id": "protected",
+            "utterance": "do not run",
+            "precondition": [{"shell": "false", "equals": "true"}],
+            "restore": [{"get": "volume", "set": "volume {value}"}],
+            "setup": [{"shell": "create"}],
+            "teardown": [{"shell": "remove"}],
+        }
+        result = await run_case(
+            case, runtime, values={}, trace_path=tmp_path / "traces.jsonl"
+        )
+        assert result["status"] == "skipped"
+        assert [call[2] for call in runtime.calls if call[0] == "script"] == ["false"]
+        assert not any(call[0] in ("utterance", "prepare_cleanup") for call in runtime.calls)
+        assert runtime.calls[-1] == ("stop",)
+
+    asyncio.run(scenario())
+
+
+def test_restore_set_and_teardown_run_when_setup_fails(tmp_path):
+    async def scenario():
+        runtime = FakeRuntime(fail_script="broken setup")
+        case = {
+            "id": "partial-setup",
+            "utterance": "should not run",
+            "restore": [{"get": "get value", "set": "set value {value}"}],
+            "setup": [{"shell": "broken setup"}],
+            "teardown": [{"shell": "cleanup"}],
+        }
+        result = await run_case(
+            case, runtime, values={}, trace_path=tmp_path / "traces.jsonl"
+        )
+        assert result["status"] == "failed"
+        script_codes = [call[2] for call in runtime.calls if call[0] == "script"]
+        assert script_codes == ["get value", "broken setup", "cleanup", "set value ok"]
+        assert not any(call[0] == "utterance" for call in runtime.calls)
+
+    asyncio.run(scenario())
+
+
+def test_trace_predicates_and_refused_outcome_use_recorded_evidence():
+    async def scenario():
+        context = {
+            "trace": {
+                "decisions": {"router": {"route_probs": [["REFUSE", 0.9], ["ANSWER", 0.1]]}},
+                "rpc": [{"method": "skill", "params": {"name": "create_event", "args": {"title": "Lunch"}}}],
+            },
+            "capture": {"frames": [
+                {"direction": "brain_to_hands", "frame": {"t": "say", "text": "I found lunch."}},
+            ]},
+        }
+        skill = await evaluate_predicate(
+            {"trace_skill": {"name": "create_event", "args": {"title": "Lunch"}}},
+            None,
+            context,
+        )
+        rpc = await evaluate_predicate(
+            {"trace_rpc": {"method": "skill", "name": "create_event"}}, None, context
+        )
+        say = await evaluate_predicate(
+            {"trace_say": {"contains": "found lunch"}}, None, context
+        )
+        assert skill["passed"] and rpc["passed"] and say["passed"]
+        from bench.harness.core import outcome_matches
+
+        assert outcome_matches("refused", context["trace"])
+
+    asyncio.run(scenario())
+
+
+def test_find_trace_requires_matching_utterance_and_case_start(tmp_path):
+    path = tmp_path / "traces.jsonl"
+    path.write_text(
+        "\n".join(json.dumps(record) for record in [
+            {"ts": "2026-01-01T00:00:00+00:00", "utterance": "same", "outcome": "old"},
+            {"ts": "2026-01-01T00:00:02+00:00", "utterance": "other", "outcome": "wrong"},
+            {"ts": "2026-01-01T00:00:03+00:00", "utterance": "same", "outcome": "new"},
+        ]) + "\n",
+        encoding="utf-8",
+    )
+    record = find_trace_record(path, "same", "2026-01-01T00:00:01+00:00")
+    assert record["outcome"] == "new"
+
+
+def test_find_trace_interprets_naive_brain_timestamp_as_local(tmp_path, monkeypatch):
+    if not hasattr(time, "tzset"):
+        return
+    old_tz = os.environ.get("TZ")
+    monkeypatch.setenv("TZ", "Etc/GMT+5")
+    time.tzset()
+    try:
+        path = tmp_path / "traces.jsonl"
+        path.write_text(
+            json.dumps({
+                "ts": "2026-01-01T00:00:03",
+                "utterance": "same",
+                "outcome": "ok",
+            }) + "\n",
+            encoding="utf-8",
+        )
+        record = find_trace_record(path, "same", "2026-01-01T04:00:00+00:00")
+        assert record["outcome"] == "ok"
+    finally:
+        if old_tz is None:
+            monkeypatch.delenv("TZ", raising=False)
+        else:
+            monkeypatch.setenv("TZ", old_tz)
+        time.tzset()
+
+
+def test_pass_k_excludes_skipped_repeats_and_reports_latency_quantiles():
+    records = [
+        {"id": "a", "tier": "T1", "category": "system", "kind": "volume",
+         "repeat": 1, "status": "passed", "strict_pass": True,
+         "first_action_latency_s": 0.1, "verified_latency_s": 0.2},
+        {"id": "a", "tier": "T1", "category": "system", "kind": "volume",
+         "repeat": 2, "status": "failed", "strict_pass": False,
+         "first_action_latency_s": 0.3, "verified_latency_s": 0.4, "false_done": True},
+        {"id": "b", "tier": "T2", "category": "apps", "kind": "open",
+         "repeat": 1, "status": "skipped", "strict_pass": False},
+    ]
+    report = report_math(records, repeats=2)
+    assert report["pass^k"] == {"k": 2, "eligible": 1, "passed": 0, "rate": 0.0}
+    assert report["by_tier"]["T1"]["strict_pass_rate"] == 0.5
+    assert report["false_done"] == 1
+    assert report["latency_s"]["first_action_p50"] == 0.2
+
+
+def test_trace_ends_case_and_final_check_records_verified_latency(tmp_path):
+    class TraceRuntime(FakeRuntime):
+        def __init__(self):
+            super().__init__()
+            self.utterance_wall = None
+
+        async def start_utterance(self, utterance):
+            self.calls.append(("utterance", utterance))
+            self.utterance_monotonic = asyncio.get_running_loop().time()
+            self.utterance_wall = datetime.now(timezone.utc).isoformat()
+            self.trace_path.write_text(
+                json.dumps({
+                    "ts": self.utterance_wall, "utterance": utterance, "outcome": "ok",
+                }) + "\n",
+                encoding="utf-8",
+            )
+
+        def snapshot(self):
+            return {
+                "frames": [], "confirm_count": 0,
+                "utterance_wall": self.utterance_wall,
+            }
+
+        def mark_utterance_finished(self):
+            self.terminal_monotonic = asyncio.get_running_loop().time()
+
+    async def scenario():
+        runtime = TraceRuntime()
+        runtime.trace_path = tmp_path / "traces.jsonl"
+        case = {
+            "id": "answer",
+            "utterance": "answer only",
+            "expect_outcome": "ok",
+            "check": [lambda _runtime, _context: {"passed": True}],
+        }
+        result = await run_case(
+            case, runtime, values={}, trace_path=runtime.trace_path
+        )
+        assert result["status"] == "passed"
+        assert result["verified_latency_s"] is not None
+        assert result["timed_out"] is False
+
+    asyncio.run(scenario())
