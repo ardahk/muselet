@@ -1,28 +1,22 @@
-# bench digest — pass 45 (2026-10-24T22:35Z, main@ebdd639)
+# bench digest — pass 46 (2026-10-24T22:50Z, main@806b0d4)
 
-P0: 0 | open P1: 9 | open P2: 10
+P0: 0 | open P1: 9 | open P2: 9
 
 ## Open P1 (ranked)
-0. bench-31 — Planner LoRA now TRAINED with ~21 v2-tune demos on v2-holdout screens (gate checks goals only); score v2-holdout on the 105 unshared rows — `training/planner_lora/common.py` (cloud/planner-lora@ceafe3d)
-1. bench-16 — Per-run safety skips give the two systems different task denominators — `bench/hobbylm/replay.py` (main)
-2. bench-20 — Timer tasks graded for Muselet but always ungradable for HobbyLM — `bench/hobbylm/replay.py` (main@d502b78)
-3. bench-21 — Calculator tasks start pre-opened for Muselet, quit for HobbyLM — `bench/hobbylm/replay.py` (main@d502b78)
-4. bench-11 — Non-MLX backends (fake, Tinker) report as 'muselet' — `bench/systemone/cli.py` (main)
-5. bench-15 — Grounding subset in pitch/claims.md not reproducible (--limit is a sorted prefix; no stratified sampler committed; ±6.7 pt at n=200) — `bench/grounding/run_screenspot.py` (main)
-6. bench-28 — Planner v2 gold/accept rewards `type "\n…"` appends that replace the field (5 holdout + 3 tune cases) — `evals/planner_scenarios_v2.jsonl` (main)
-7. bench-29 — Retrieval bank shows v2-holdout the identical tune screen (19/130 top-1, 0 directly copyable); k=1 now SHIPPED on main@3772f7c without a same-screen slice — `ml/src/brain/plan_bank.py` (main)
-8. bench-14 — No ScreenSpot-Pro/OSWorld-G decontamination for grounding training data — `training/src/muselet_train/decontam.py` (branch-only)
+1. bench-31 — Planner LoRA trained with ~21 v2-tune demos on v2-holdout screens; gate checks goals only — `training/planner_lora/common.py` (cloud/planner-lora)
+2. bench-16 — HobbyLM replay: Muselet-only skips/--exclude-kind (calc = 30/125 of r4) shrink its denominator — `bench/hobbylm/replay.py`
+3. bench-20 — Timer tasks graded for Muselet, ungradable for HobbyLM — `bench/hobbylm/replay.py`
+4. bench-21 — Calculator starts in different initial states per arm — `bench/hobbylm/replay.py`
+5. bench-29 — Retrieval bank exposes identical v2-holdout screens (19/130 top-1) — `ml/src/brain/plan_bank.py`
+6. bench-28 — v2 gold/accept treats field-replacing type "\n..." as append — `evals/planner_offline.py`
+7. bench-11 — Non-MLX systemone backends report as `muselet` — `bench/systemone/`
+8. bench-14 — No ScreenSpot-Pro/OSWorld-G decontam for grounding data — grounding pipeline
+9. bench-15 — Grounding --limit is a sorted prefix, not a stratified sample — grounding runner
 
-Open P2: bench-33 (claims.md misstates the retrieval ship rule: 100 ms/smallest-k vs code 150 ms all sets/best gain + drop guard), bench-32 (memory_followups not in router evalcheck EVALS), bench-30 (retrieval '+7.2 pts' = unweighted mean where two n<=14 sets moved by 1 scenario each; v2-holdout alone +6.2, unpaired), bench-26 (planner v2 tune/holdout share 14 screens; exact-goal split check only; now on main via #29; measured: 21 demo states reuse 12 holdout observations), bench-25 (live T1 86.4% over ran cases; 8 eligible T1 skipped at runtime, reasons untracked; live_t1 edited on main@fb2cfd0 and graders changed on 7065dd3 after that run, incl. a post-hoc volume band widening; no suite hash; claims.md/REPORT.md on main now quote that pre-change run via #26), bench-23 (route_v2 gold judge = it3 relabel judge; hard items dropped), bench-24 (evalcheck skips missing eval files), bench-22 (route evalcheck fixed on data-pipeline@512cce0; only the decisions decontam tokenizer still drops CJK; it has now run on the full decisions data, e125c13), bench-12 (chunked choice probabilities), bench-19 (claims.md quotes consumed holdout-1, n=14, overlapping CIs; use holdout2 + CI).
+Open P2: bench-12, 19, 22, 23, 24, 25 (live graders changed after quoted run), 26, 30 (unweighted mean also in think rule), 33 (claims rule text; fixed on docs-demo-2).
 
 ## Highest-leverage next moves
-- Planner-LoRA Mac eval: apply the ship rule on v2-holdout minus the 25 shared-screen rows (105), with paired W/L; add an observation drop to gate.hits before any retrain (bench-31, bench-30).
-- Intersect the k0->k1 v2-holdout flips (runs/planner_offline/ret_k{0,1}_v2ho.json) with the 19 same-screen ids from reviews/bench/tests/retrieval_leak_pass43.py; quote v2-holdout with paired W/L, not the 3-set mean (bench-29, bench-30).
-- Fix the 8 clobbering v2 gold/accept rules and add a clobber reject to planner_offline.grade before quoting v2-holdout (bench-28).
-- Make teachers.py refuse non-v2-tune states and record input sha256 + split in meta.json before any planner demo generation/upload; split v2 by screen first (bench-26). bench-27 resolved on planner-demos@9008990 (build_states takes v2-tune only + gate).
-- hobby-gaps is merged: forward HobbyLM's recorded timers to its grade (bench-20; the Muselet side now uses the timers RPC) and give both systems the same Calculator start state (bench-21).
-- Intersect eligible (id, repeat) across systems in report_math before any headline (bench-16).
-- Accept only --backend mlx results for Muselet headlines (bench-11).
-- Build the ScreenSpot-Pro/OSWorld-G manifest before any grounding data generation (bench-14).
-- Commit the stratified ScreenSpot-Pro sampler + sample IDs and report CIs before the grounding numbers go in the pitch (bench-15).
-- Reuse the CJK-aware norm in training/decisions/decontam.py (bench-22).
+- HobbyLM r4: apply --exclude-kind to both arms, or report on the intersection of graded ids with excluded counts printed (bench-16).
+- Planner-LoRA / think ship decisions: paired W/L on v2-holdout minus the 25 shared-screen rows (bench-31, 29, 30).
+- Re-grade/re-run live T1 at 806b0d4 before quoting live numbers (bench-25).
+- Merge docs-demo-2 so the claims match the code (bench-33).

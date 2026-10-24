@@ -1,12 +1,12 @@
 {
-  "pass": 45,
-  "ts": "2026-10-24T22:35Z",
+  "pass": 46,
+  "ts": "2026-10-24T22:50Z",
   "branches": {
-    "main": "ebdd639",
-    "wip/local": "eb1d232",
+    "main": "806b0d4",
+    "wip/local": "6b1006e",
     "cloud/bench": "f584cb2",
     "cloud/data-pipeline": "830ba35",
-    "cloud/decisions": "f6fb133",
+    "cloud/decisions": "08dae49",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
     "cloud/finance-3": "31be399",
@@ -42,14 +42,19 @@
     "cloud/mascot-animal": "4b7d95a",
     "cloud/planner-retrieval": "7df32b1",
     "cloud/data-decisions": "91de461",
-    "cloud/w9-safety": "2a7d0df",
-    "cloud/memory": "5cd44e6",
+    "cloud/w9-safety": "6aa332a",
+    "cloud/memory": "e96ec18",
     "cloud/memory-eval": "c05944e",
-    "cloud/memory-lt": "5cd44e6",
+    "cloud/memory-lt": "f0ea345",
     "cloud/planner-lora": "ceafe3d",
     "cloud/router-it3-serve": "b455d2c",
     "cloud/docs-demo": "095d4ef",
-    "cloud/ui-polish": "e8bceef"
+    "cloud/ui-polish": "e8bceef",
+    "cloud/docs-demo-2": "fa79929",
+    "cloud/hands-clock": "26d4427",
+    "cloud/live-cases": "5c173f6",
+    "cloud/planner-think": "6d14a7a",
+    "cloud/planner-verify": "c9de7aa"
   },
-  "notes": "pass45: planner-lora trained (bench-31 update, contamination now realized); docs-demo misstates retrieval rule (bench-33); main adds live-cases/planner-think/verify briefs (no lane code yet); router-it3-serve opt-in only, not on competitor runs. ui-polish/memory-lt/w9-safety: no lane files."
+  "notes": "pass46: no new findings. bench-16 updated (Muselet-only --exclude-kind calc = 30/125 r4), bench-25 (grader changed again), bench-30 (think rule), bench-32 resolved, bench-33 partly fixed on docs-demo-2. Reviewed clean: live-cases multi-turn harness (turns_ok gates strict_pass; teardown only on case-created state), decisions calibration (dev-only fit), planner-verify generic_decide.inline, memory eval rules (holdout-only ship)."
 }
