@@ -55,61 +55,6 @@ public enum Catalog {
     }
 }
 
-// MARK: - Script runner (NSAppleScript, compiled once, cached)
-
-public protocol ScriptRunning {
-    func run(_ source: String) throws -> String
-}
-
-public final class AppleScriptRunner: ScriptRunning {
-    private static let capacity = 64
-    private var cache: [String: NSAppleScript] = [:]
-    private var lru: [String] = []          // oldest first
-    private let lock = NSLock()
-    public init() {}
-    public func run(_ source: String) throws -> String {
-        lock.lock(); defer { lock.unlock() }
-        let script: NSAppleScript
-        if let s = cache[source] {
-            lru.removeAll { $0 == source }
-            lru.append(source)
-            script = s
-        } else {
-            var err: NSDictionary?
-            guard let s = NSAppleScript(source: source) else {
-                throw HandsError.skillFailed("applescript init failed")
-            }
-            s.compileAndReturnError(&err)
-            if let e = err { throw HandsError.skillFailed("applescript compile: \(e)") }
-            cache[source] = s
-            lru.append(source)
-            if lru.count > Self.capacity {
-                cache.removeValue(forKey: lru.removeFirst())
-            }
-            script = s
-        }
-        var err: NSDictionary?
-        let out = script.executeAndReturnError(&err)
-        if let e = err {
-            throw HandsError.skillFailed(
-                "applescript: \((e["NSAppleScriptErrorMessage"] as? String) ?? "\(e)")")
-        }
-        return out.stringValue ?? ""
-    }
-
-    /// Precompile and run `return 1` + the fixed (argument-free) skill
-    /// scripts, so the first real call doesn't pay the ~9 s compile cost.
-    public func warmUp() {
-        let fixed: [String] = [
-            "return 1",
-            "output volume of (get volume settings)",
-            Skills.volumeStateScript,
-            "tell application \"System Events\" to tell appearance preferences to get dark mode",
-        ]
-        for src in fixed { _ = try? run(src) }
-    }
-}
-
 // MARK: - System hooks (private frameworks, sounds, notifications)
 
 /// Side effects that can't run in unit tests, injectable as closures.
@@ -297,6 +242,12 @@ public final class Skills {
     private var wifiDevice: String?
     /// Receives `handsTimerFired` (set by RPCHandler.delegate).
     public weak var delegate: HandsDelegate?
+    /// AX application element for a pid (tests pass a mock app).
+    var axApp: (pid_t) -> Element = { pid in
+        let n = AXNode(AXUIElementCreateApplication(pid))
+        n.setMessagingTimeout(0.25)
+        return n
+    }
 
     private let timerQueue = DispatchQueue(label: "hands.timers")
     private let timerLock = NSLock()
@@ -367,6 +318,7 @@ public final class Skills {
         } catch let e as HandsError {
             out["ok"] = false
             out["error"] = e.description
+            if let o = e.observed { out["observed"] = o }
         } catch {
             out["ok"] = false
             out["error"] = "\(error)"
@@ -381,26 +333,26 @@ public final class Skills {
         // Read-back skills return the state actually observed afterwards
         // (drives the app's feedback HUD): volume {level, muted},
         // brightness {level}, toggles {on}.
+        // Scripts with arguments are handlers of precompiled SkillScripts
+        // (compiled once, never per argument).
         case "set_volume":
             let lvl = max(0, min(100, try intArg(a, "level")))
-            _ = try scripts.run("set volume output volume \(lvl)")
-            return volumeResult(fallbackLevel: lvl, fallbackMuted: false)
+            let st = try scripts.call(SkillScripts.volume, "set_level", [lvl])
+            return volumeResult(st, fallbackLevel: lvl, fallbackMuted: false)
         case "change_volume":
             let d = try intArg(a, "delta")
             let cur = Int(try scripts.run("output volume of (get volume settings)").trimmingCharacters(in: .whitespacesAndNewlines)) ?? 50
             let lvl = max(0, min(100, cur + d))
-            _ = try scripts.run("set volume output volume \(lvl)")
-            return volumeResult(fallbackLevel: lvl, fallbackMuted: false)
+            let st = try scripts.call(SkillScripts.volume, "set_level", [lvl])
+            return volumeResult(st, fallbackLevel: lvl, fallbackMuted: false)
         case "mute":
             let on = try boolArg(a, "on")
-            _ = try scripts.run(on ? "set volume with output muted"
-                                   : "set volume without output muted")
-            return volumeResult(fallbackLevel: nil, fallbackMuted: on)
+            let st = try scripts.call(SkillScripts.volume, "set_muted", [on])
+            return volumeResult(st, fallbackLevel: nil, fallbackMuted: on)
         case "dark_mode":
             let on = try boolArg(a, "on")
-            _ = try scripts.run(
-                "tell application \"System Events\" to tell appearance preferences to set dark mode to \(on)")
-            let read = (try? scripts.run(
+            let back = try scripts.call(SkillScripts.appearance, "set_dark", [on])
+            let read = parseBool(back) ?? (try? scripts.run(
                 "tell application \"System Events\" to tell appearance preferences to get dark mode"))
                 .flatMap { parseBool($0) }
             let now = read ?? on
@@ -543,11 +495,8 @@ public final class Skills {
         case "new_note":
             let body = try strArg(a, "body")
             let title = a["title"] as? String ?? String(body.prefix(40))
-            _ = try scripts.run("""
-                tell application "Notes"
-                    make new note at folder "Notes" with properties {name:"\(asq(title))", body:"<h1>\(asq(title))</h1><br>\(asq(body))"}
-                end tell
-                """)
+            _ = try scripts.call(SkillScripts.notes, "new_note",
+                                 [title, Self.noteHTML(title: title, body: body)])
             return ["title": title]
 
         // ---- media ----
@@ -564,24 +513,25 @@ public final class Skills {
             return ["action": action]
         case "play_music":
             let q = try strArg(a, "query")
-            _ = try scripts.run("""
-                tell application "Music"
-                    activate
-                    if (count (every track of library playlist 1 whose name contains "\(asq(q))")) > 0 then
-                        play (first track of library playlist 1 whose name contains "\(asq(q))")
-                    else if (count (every playlist whose name contains "\(asq(q))")) > 0 then
-                        play (first playlist whose name contains "\(asq(q))")
-                    else
-                        play (first track of library playlist 1 whose artist contains "\(asq(q))")
-                    end if
-                end tell
-                """)
+            _ = try scripts.call(SkillScripts.music, "play_query", [q])
             return ["query": q]
 
         // ---- input ----
         case "type_text":
-            Events.typeText(try strArg(a, "text"))
-            return ["typed": (a["text"] as? String)?.count ?? 0]
+            // Types to the keyboard focus of the frontmost app; refuse when
+            // nothing there takes text (never "ok" while typing into nothing).
+            let text = try strArg(a, "text")
+            let pid = apps.frontmostPid()
+            let info = apps.app(pid: pid)
+            let chk = TextTarget.check(app: axApp(pid), appName: info?.name ?? apps.name(pid: pid),
+                                       bundleId: info?.bundleId)
+            guard chk.ok else { throw HandsError.noTextTarget(observed: chk.observed) }
+            if let t = chk.focusTarget {
+                _ = t.setAttr(kAXFocusedAttribute, true)
+                usleep(30_000)
+            }
+            events.typeText(text)
+            return ["typed": text.count, "target": chk.via ?? "focused", "observed": chk.observed]
         case "copy_selection":
             Combo.post(try Combo.parse("cmd+c"))
             return ["copied": true]
@@ -590,11 +540,7 @@ public final class Skills {
         case "send_message":
             let to = try strArg(a, "to")
             let body = try strArg(a, "body")
-            _ = try scripts.run("""
-                tell application "Messages"
-                    send "\(asq(body))" to participant "\(asq(to))" of first account
-                end tell
-                """)
+            _ = try scripts.call(SkillScripts.messages, "send_text", [to, body])
             return ["to": to]
         case "compose_email":
             let to = try strArg(a, "to")
@@ -661,6 +607,20 @@ public final class Skills {
 
     // MARK: read-backs
 
+    /// Notes body HTML: `<h1>title</h1><br>body`, text HTML-escaped and
+    /// newlines as <br> (handler args are passed verbatim, not spliced into
+    /// AppleScript source, so no AppleScript escaping is needed).
+    static func noteHTML(title: String, body: String) -> String {
+        func esc(_ s: String) -> String {
+            s.replacingOccurrences(of: "&", with: "&amp;")
+                .replacingOccurrences(of: "<", with: "&lt;")
+                .replacingOccurrences(of: ">", with: "&gt;")
+                .replacingOccurrences(of: "\r\n", with: "\n")
+                .replacingOccurrences(of: "\n", with: "<br>")
+        }
+        return "<h1>\(esc(title))</h1><br>\(esc(body))"
+    }
+
     /// Parse "30,false" from `volumeStateScript` ("missing value" volume ->
     /// nil level, e.g. outputs without a volume control).
     static func parseVolumeState(_ s: String) -> (level: Int?, muted: Bool?) {
@@ -670,8 +630,11 @@ public final class Skills {
         return (Int(parts[0]) ?? Double(parts[0]).map { Int($0.rounded()) }, parseBool(parts[1]))
     }
 
-    private func volumeResult(fallbackLevel: Int?, fallbackMuted: Bool) -> [String: Any] {
-        let st = Self.parseVolumeState((try? scripts.run(Self.volumeStateScript)) ?? "")
+    /// `state`: the "<volume>,<muted>" the volume handler read back; when it
+    /// doesn't parse, read again with `volumeStateScript`.
+    private func volumeResult(_ state: String?, fallbackLevel: Int?, fallbackMuted: Bool) -> [String: Any] {
+        var st = Self.parseVolumeState(state ?? "")
+        if st.muted == nil { st = Self.parseVolumeState((try? scripts.run(Self.volumeStateScript)) ?? "") }
         var r: [String: Any] = ["muted": st.muted ?? fallbackMuted]
         if let l = st.level ?? fallbackLevel { r["level"] = l }
         return r

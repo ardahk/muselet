@@ -54,6 +54,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         voice.brain = brain
         voice.mascot = mascot
         voice.onConfirmAnswer = { [weak self] yes in self?.replyConfirm(yes: yes) }
+        // Ghost targets (Dock icons, menu extras) are read while the user
+        // talks, so the skill RPC doesn't pay the AX read.
+        voice.onPressBegan = { [weak self] in self?.rpc.skillTargets.prefetch() }
         mascot.onConfirmReply = { [weak self] yes in self?.replyConfirm(yes: yes) }
 
         permissionWatcher.onChange = { [weak self] _ in self?.voice.startHotkey() }

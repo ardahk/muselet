@@ -55,6 +55,18 @@ public final class SkillTargets {
 
     public init() {}
 
+    private let prefetchQueue = DispatchQueue(label: "hands.skilltargets", qos: .utility)
+
+    /// Refresh stale caches in the background (the app calls this at
+    /// push-to-talk key-down, so the skill RPC a second later hits a warm
+    /// cache instead of a ~30-60 ms Dock / menu-bar AX read).
+    public func prefetch() {
+        prefetchQueue.async { [self] in
+            _ = dockItems()
+            _ = extras()
+        }
+    }
+
     /// Does this skill have a natural target at all (cheap, no AX)?
     public static func hasTarget(_ skill: String) -> Bool {
         appSkills.contains(skill) || finderSkills.contains(skill)
@@ -201,8 +213,15 @@ public final class SkillTargets {
         return CGRect(origin: p, size: s)
     }
 
+    /// Dock auto-hide is on: its icons sit off screen, so never pay the AX read.
+    static func dockAutoHides() -> Bool {
+        CFPreferencesAppSynchronize("com.apple.dock" as CFString)
+        return (CFPreferencesCopyAppValue("autohide" as CFString, "com.apple.dock" as CFString) as? Bool) ?? false
+    }
+
     /// Dock process: AXList > AXDockItem (title, AXURL, frame).
     static func liveDock() -> [DockItem] {
+        if dockAutoHides() { return [] }
         guard let dock = NSRunningApplication.runningApplications(
             withBundleIdentifier: "com.apple.dock").first else { return [] }
         let app = AXUIElementCreateApplication(dock.processIdentifier)

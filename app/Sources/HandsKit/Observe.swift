@@ -39,6 +39,11 @@ public struct Observation {
     /// The app's web tree was switched on < ~2.5 s ago and Chrome is still
     /// debouncing: web content will appear on a later observation.
     public var webAXPending = false
+    /// Which root the walk used: "focused" | "main" | "windows" (frontmost
+    /// AXWindows entry: the app has windows but none is focused/main, e.g.
+    /// it isn't active) | "app" (window-like app children; no AXWindows) |
+    /// "none" (no windows at all) | "menubar" | "all_windows" (scope "app").
+    public var windowSource = "focused"
 }
 
 public enum ObserveError: Error, CustomStringConvertible {
@@ -64,9 +69,10 @@ let kRoleMap: [String: String] = [
     "AXMenuBarItem": "menuitem",
 ]
 
-// Containers we traverse into but never emit.
+// Containers we traverse into but never emit. AXApplication has no frame
+// (zero size): without it here an app-element root pruned everything.
 let kContainerRoles: Set<String> = [
-    "AXGroup", "AXScrollArea", "AXSplitGroup", "AXLayoutArea",
+    "AXGroup", "AXScrollArea", "AXSplitGroup", "AXLayoutArea", "AXApplication",
 ]
 
 // Scrollable containers that narrow the visible clip rect for descendants.
@@ -109,14 +115,30 @@ public enum Walker {
            !ident.isEmpty, !ident.hasPrefix("_NS:"), !ident.hasPrefix("_") {
             return ident
         }
-        // First AXImage / AXStaticText child's title or description (<=6 kids).
-        for child in a.children.prefix(6) {
-            let ca = child.copyAttrs()
-            if ca.role == "AXImage" || ca.role == "AXStaticText" {
-                if let t = ca.title, !t.isEmpty { return t }
-                if let d = ca.desc, !d.isEmpty { return d }
+        // A static-text child (title, description or value) wins over an
+        // image child's title/description (<= 6 kids). Rows/cells also look
+        // one level into an AXCell/AXGroup child: sidebar rows (Open panel,
+        // Finder) are row > cell > {image, text "Downloads"}.
+        func nonEmpty(_ s: String?) -> String? { (s?.isEmpty ?? true) ? nil : s }
+        var imageLabel: String?
+        func scan(_ kids: [Element], depth: Int) -> String? {
+            for child in kids.prefix(6) {
+                let ca = child.copyAttrs()
+                switch ca.role {
+                case "AXStaticText":
+                    if let t = nonEmpty(ca.title) ?? nonEmpty(ca.desc)
+                        ?? nonEmpty(ca.value as? String) { return String(t.prefix(80)) }
+                case "AXImage":
+                    if imageLabel == nil { imageLabel = nonEmpty(ca.title) ?? nonEmpty(ca.desc) }
+                case "AXCell", "AXGroup":
+                    if depth == 0, role == "row" || role == "cell",
+                       let t = scan(ca.children, depth: 1) { return t }
+                default: break
+                }
             }
+            return nil
         }
+        if let t = scan(a.children, depth: 0) ?? imageLabel { return t }
         // AXRoleDescription (e.g. "close button").
         if let rd = el.copySingleAttr("AXRoleDescription") as? String,
            !rd.isEmpty {
@@ -368,6 +390,10 @@ public final class Hands {
     var observeOverride: (() throws -> Observation)?
     var settleOverride: ((pid_t) -> Double)?
     var labelSearchOverride: ((String, pid_t) -> Bool)?
+    /// Synthetic typing (tests record instead of posting key events).
+    var typeTextOverride: ((String) -> Void)?
+    /// AX application element for a pid (tests pass a mock app).
+    var axAppOverride: ((pid_t) -> Element)?
 
     // Process-wide monotonic ref counter: a ref number is never reused,
     // so a ref from a previous window can never alias a new element.
@@ -430,32 +456,14 @@ public final class Hands {
                                 bundleURL: running.bundleURL,
                                 launchDate: running.launchDate)
 
-        var roots: [Element]
-        var windowEl: AXUIElement?
-        switch scope {
-        case "menubar":
-            if let bar = appEl.copySingleAttr("AXMenuBar"),
-               CFGetTypeID(bar as CFTypeRef) == AXUIElementGetTypeID() {
-                roots = [AXNode(bar as! AXUIElement)]
-            } else { roots = [appEl] }
-        default:
-            var winRef: CFTypeRef?
-            if AXUIElementCopyAttributeValue(
-                (appEl as! AXNode).el, kAXFocusedWindowAttribute as CFString, &winRef) == .success,
-               let w = winRef { windowEl = (w as! AXUIElement) }
-            if windowEl == nil,
-               AXUIElementCopyAttributeValue(
-                   (appEl as! AXNode).el, kAXMainWindowAttribute as CFString, &winRef) == .success,
-               let w = winRef { windowEl = (w as! AXUIElement) }
-            if let w = windowEl {
-                roots = [AXNode(w)]
-                var title: CFTypeRef?
-                if AXUIElementCopyAttributeValue(w, kAXTitleAttribute as CFString, &title) == .success,
-                   let t = title as? String { obs.window = t }
-            } else {
-                roots = [appEl]
-            }
-        }
+        // An app launched a moment ago (open_app) may not have a window
+        // yet: give it up to ~0.8 s to show one before falling back.
+        let justLaunched = running.launchDate.map { t0.timeIntervalSince($0) < 5 } ?? false
+        let picked = Self.observationRoots(
+            app: appEl, scope: scope,
+            waitForWindowUntil: justLaunched ? t0.addingTimeInterval(0.8) : nil)
+        let roots = picked.roots
+        obs.window = picked.window
         // Just turned on the web AX tree: let the web area populate
         // (<= 300 ms, once per process) so this observation already sees
         // it. Skipped when it can't populate that fast (Chrome's 2 s debounce).
@@ -477,7 +485,76 @@ public final class Hands {
         if let webOn { out.webAX = webOn.mode.rawValue }
         if let w = webWait { out.webAXWaitMs = w.ms }
         out.webAXPending = webAXEnabled && webAXRegistry.pending(pid: obs.pid)
+        out.windowSource = picked.source
         return out
+    }
+
+    /// Window the user is looking at in `app`: AXFocusedWindow, else
+    /// AXMainWindow, else the frontmost usable AXWindows entry (AXWindows
+    /// is front-to-back; minimized / zero-size / off-screen ones skipped).
+    /// An app that isn't active (launched in the background, or its key
+    /// window just closed) reports no focused or main window although its
+    /// windows are on screen (TextEdit after open_app). nil = no window.
+    public static func pickWindow(app: Element) -> (window: Element, source: String)? {
+        if let w = axElement(app.copySingleAttr(kAXFocusedWindowAttribute as String)) {
+            return (w, "focused")
+        }
+        if let w = axElement(app.copySingleAttr(kAXMainWindowAttribute as String)) {
+            return (w, "main")
+        }
+        let screens = Walker.screenUnion()
+        for w in axElements(app.copySingleAttr(kAXWindowsAttribute as String)) {
+            if (w.copySingleAttr(kAXMinimizedAttribute as String) as? Bool) == true { continue }
+            let f = w.copyAttrs().frame
+            guard f.width > 0, f.height > 0 else { continue }
+            if !screens.isNull, !screens.isEmpty, !f.intersects(screens) { continue }
+            return (w, "windows")
+        }
+        return nil
+    }
+
+    static func windowTitle(_ w: Element) -> String {
+        (w.copySingleAttr(kAXTitleAttribute as String) as? String) ?? w.copyAttrs().title ?? ""
+    }
+
+    /// Walk roots for `scope`:
+    ///  - "menubar": the AXMenuBar (else the app element).
+    ///  - "app": every window-like root (AXWindows, sheets/popovers/drawers
+    ///    that are app children, open menus), front to back.
+    ///  - else (focused_window): `pickWindow`, polling until
+    ///    `waitForWindowUntil` when there is none yet; then the app-scope
+    ///    roots (window-like app children outside AXWindows); else none.
+    /// The menu bar is never a fallback root (its File/Edit/Format titles
+    /// would satisfy `appears` predicates).
+    static func observationRoots(app: Element, scope: String,
+                                 waitForWindowUntil: Date? = nil)
+        -> (roots: [Element], window: String, source: String) {
+        switch scope {
+        case "menubar":
+            if let bar = axElement(app.copySingleAttr("AXMenuBar")) { return ([bar], "", "menubar") }
+            return ([app], "", "menubar")
+        case "app":
+            let all = labelSearchRoots(app: app)
+            let title = all.first { $0.window }.map { windowTitle($0.el) } ?? ""
+            return (all.map(\.el), title, all.isEmpty ? "none" : "all_windows")
+        default:
+            var pick = pickWindow(app: app)
+            if pick == nil, let until = waitForWindowUntil {
+                while pick == nil && Date() < until {
+                    usleep(50_000)
+                    pick = pickWindow(app: app)
+                }
+            }
+            if let p = pick { return ([p.window], windowTitle(p.window), p.source) }
+            let rest = labelSearchRoots(app: app).filter {
+                !$0.window || ($0.el.copySingleAttr(kAXMinimizedAttribute as String) as? Bool) != true
+            }
+            if !rest.isEmpty {
+                let title = rest.first { $0.window }.map { windowTitle($0.el) } ?? ""
+                return (rest.map(\.el), title, "app")
+            }
+            return ([], "", "none")
+        }
     }
 
     /// Shared tail of observe(): walk, ref/session bookkeeping, serialize, diff.

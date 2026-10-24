@@ -49,10 +49,30 @@ struct OcrCmd: ParsableCommand {
 /// Read-only state probes (never change anything).
 struct ProbeCmd: ParsableCommand {
     static var configuration = CommandConfiguration(
-        commandName: "probe", abstract: "Read-only probes: bluetooth | volume | brightness | symbols")
-    @Argument(help: "bluetooth | volume | brightness | symbols") var what: String
+        commandName: "probe", abstract: "Read-only probes: bluetooth | volume | brightness | symbols | skill-targets")
+    @Argument(help: "bluetooth | volume | brightness | symbols | skill-targets") var what: String
     func run() throws {
         switch what {
+        case "skill-targets":
+            // Ghost-cursor targets for skills (Dock icons, menu extras), read over AX.
+            let t = SkillTargets()
+            let browser = NSWorkspace.shared.urlForApplication(toOpen: URL(string: "https://example.com")!)
+            var d: [String: Any] = ["default_browser": browser?.path ?? NSNull()]
+            let cases: [(String, [String: Any])] = [
+                ("open_app", ["app": "Safari"]), ("open_app", ["app": "Google Chrome"]),
+                ("quit_app", ["app": "Numbers"]), ("open_folder", ["path": "~/Downloads"]),
+                ("web_search", ["query": "x"]), ("set_volume", ["level": 30]),
+                ("wifi", ["on": true]), ("bluetooth", ["on": true]), ("dark_mode", ["on": true]),
+            ]
+            for (name, args) in cases {
+                let t0 = Date()
+                let r = t.target(skill: name, args: args)
+                let key = "\(name) \(args.values.map { "\($0)" }.joined(separator: ","))"
+                d[key] = r.map { ["frame": [$0.frame.minX, $0.frame.minY, $0.frame.width, $0.frame.height],
+                                  "label": $0.label ?? "", "ms": (Date().timeIntervalSince(t0) * 1000).rounded(to: 1)] as Any }
+                    ?? "none (\((Date().timeIntervalSince(t0) * 1000).rounded(to: 1)) ms)"
+            }
+            printJSON(d)
         case "bluetooth":
             let get = PrivateSymbols.resolves("IOBluetoothPreferenceGetControllerPowerState")
             let set = PrivateSymbols.resolves("IOBluetoothPreferenceSetControllerPowerState")

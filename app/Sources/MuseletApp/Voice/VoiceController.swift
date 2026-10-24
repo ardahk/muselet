@@ -13,6 +13,8 @@ final class VoiceController {
     weak var brain: BrainConnection?
     weak var mascot: MascotController?
     var onConfirmAnswer: ((Bool) -> Void)?
+    /// Key-down of a real recording (prefetch work the request will need).
+    var onPressBegan: (() -> Void)?
 
     private(set) var transcriber: Transcriber?
     private let parakeet = ParakeetTranscriber()
@@ -170,6 +172,7 @@ final class VoiceController {
         if model.mood != .listening { moodBeforeListening = model.mood }
         model.mood = .listening
         mascot?.showBubble("", style: .transcript, autoHide: false)
+        onPressBegan?()
         listenTiming = ListenTiming()
         DispatchQueue.main.async { [weak self] in
             // Next main-loop turn: the mood change has been committed to the render server.
