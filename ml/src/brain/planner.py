@@ -19,7 +19,7 @@ import mlx_lm
 import numpy as np
 from tinker_cookbook.renderers import Message
 
-from .decision import DecisionEngine, split_model, _OnlineProbe  # noqa: F401
+from .decision import DecisionEngine, _OnlineProbe, split_model  # noqa: F401
 
 PROMPT_PATH = Path(__file__).resolve().parents[3] / "prompts" / "planner_system.md"
 TERMINAL_OPS = {"ask", "confirm", "done", "refuse"}
@@ -30,6 +30,27 @@ SENTINEL = "SENTINELMARKER9Z"
 
 _WORKER = None
 _WORKER_LOCK = threading.Lock()
+
+
+class BatchCutter:
+    """Streaming batch limits: <= 5 actions (a script block is one action),
+    the 5th action's `expect` is kept (brain-11), a terminal op ends it."""
+
+    def __init__(self, max_actions: int = 5):
+        self.max, self.n, self.full, self.done = max_actions, 0, False, False
+
+    def push(self, line: str) -> str | None:
+        """The line to emit, or None. Sets .done when the batch is over."""
+        if self.full:
+            if line.startswith("#"):
+                return None
+            self.done = True
+            return line if line.startswith("expect") else None
+        if not re.match(r"^(expect|#)", line):
+            self.n += 1
+            self.done = line.split()[0] in TERMINAL_OPS
+            self.full = self.n >= self.max
+        return line
 
 
 class MLXWorker:
@@ -164,7 +185,7 @@ class Planner:
             parts.append(f"Hint: likely {hint}")
         parts.append(observation)
         if script_output:
-            parts.append(f"Script result: {script_output[:300]}")
+            parts.append(f"Script result: {script_output[:1600]}")
         if last_batch:
             parts.append("Last batch:")
             parts.extend(last_batch)
@@ -197,8 +218,7 @@ class Planner:
         cur = mx.array([toks[self._cut:acut]])
         buf = ""
         lines: list[str] = []
-        n_actions = 0
-        terminal = False
+        cutter = BatchCutter()
         ttft = None
         n_decoded = 0
         in_script = False      # inside a `script ... """` block
@@ -219,33 +239,28 @@ class Planner:
             while "\n" in buf:
                 line, buf = buf.split("\n", 1)
                 if in_script:
-                    # inside """...""" — never count/stop; emit whole block
+                    # inside """...""" — emit the whole block as one action
                     script_lines.append(line)
-                    if '"""' in line:
-                        in_script = False
-                        block = "\n".join(script_lines).strip()
-                        script_lines = []
-                        lines.append(block)
-                        loop.call_soon_threadsafe(
-                            lines_out.put_nowait, block)
-                    continue
-                line = line.strip()
-                if not line:
-                    continue
-                if re.match(r"^script\b", line) and line.count('"""') % 2:
-                    # opening line of a multi-line script block
-                    in_script = True
-                    script_lines = [line]
-                    continue
-                if not re.match(r"^(expect|#)", line):
-                    n_actions += 1
-                    if line.split()[0] in TERMINAL_OPS:
-                        terminal = True
-                lines.append(line)
-                loop.call_soon_threadsafe(lines_out.put_nowait, line)
-                if terminal or n_actions >= 5:
+                    if '"""' not in line:
+                        continue
+                    in_script = False
+                    line = "\n".join(script_lines).strip()
+                    script_lines = []
+                else:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    if re.match(r"^script\b", line) and line.count('"""') % 2:
+                        in_script = True     # opening line of a script block
+                        script_lines = [line]
+                        continue
+                out = cutter.push(line)
+                if out is not None:
+                    lines.append(out)
+                    loop.call_soon_threadsafe(lines_out.put_nowait, out)
+                if cutter.done:
                     break
-            if terminal or n_actions >= 5 or cancel.is_set():
+            if cutter.done or cancel.is_set():
                 break
         if in_script and script_lines:
             tail_block = "\n".join(script_lines + [buf]).strip()
@@ -253,9 +268,9 @@ class Planner:
             loop.call_soon_threadsafe(lines_out.put_nowait, tail_block)
             buf = ""
         tail = buf.strip()
-        if tail and not terminal:
-            lines.append(tail)
-            loop.call_soon_threadsafe(lines_out.put_nowait, tail)
+        if tail and not cutter.done and (out := cutter.push(tail)):
+            lines.append(out)
+            loop.call_soon_threadsafe(lines_out.put_nowait, out)
         loop.call_soon_threadsafe(lines_out.put_nowait, None)
         dt = (time.perf_counter() - t0) * 1000
         return {"lines": lines, "ttft_ms": ttft or dt,

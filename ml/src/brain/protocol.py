@@ -44,11 +44,18 @@ def rpc_result(rid: str, ok: bool, result=None, error=None) -> dict:
     return m
 
 
-def ui(mascot: str, bubble: str | None = None) -> dict:
+def ui(mascot: str, bubble: str | None = None,
+       ms: float | None = None) -> dict:
     m = {"t": "ui", "mascot": mascot}
     if bubble is not None:
         m["bubble"] = bubble
+    if ms is not None:
+        m["ms"] = int(round(ms))
     return m
+
+
+def confirm_cancel(cid: str) -> dict:
+    return {"t": "confirm_cancel", "id": cid}
 
 
 def say(text: str) -> dict:

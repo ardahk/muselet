@@ -142,7 +142,7 @@ class BrainServer:
         await self.send(protocol.rpc(rid, method, params))
         try:
             reply = await asyncio.wait_for(fut, timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self._late.add(rid)   # a later reply gets logged as late_reply
             raise RuntimeError(f"rpc {method} timed out")
         finally:
@@ -167,12 +167,20 @@ class BrainServer:
         await self.send(protocol.confirm(cid, summary))
         try:
             return await asyncio.wait_for(fut, timeout)
-        except asyncio.TimeoutError:
+        except (TimeoutError, asyncio.CancelledError) as e:
+            # the app leaves confirm mode (AGENTS.md confirm_cancel)
             self._confirms.pop(cid, None)
+            try:
+                await self.send(protocol.confirm_cancel(cid))
+            except Exception:
+                pass
+            if isinstance(e, asyncio.CancelledError):
+                raise
             raise RuntimeError("confirm timed out")
 
     async def say(self, text: str):
         await self.send(protocol.say(text))
 
-    async def ui(self, mascot: str, bubble: str | None = None):
-        await self.send(protocol.ui(mascot, bubble))
+    async def ui(self, mascot: str, bubble: str | None = None,
+                 ms: float | None = None):
+        await self.send(protocol.ui(mascot, bubble, ms))
