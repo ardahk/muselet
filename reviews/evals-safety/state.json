@@ -1,9 +1,9 @@
 {
-  "pass": 45,
-  "ts": "2026-10-24T21:55:43Z",
+  "pass": 46,
+  "ts": "2026-10-24T22:00:44Z",
   "last_reviewed": {
     "main": "3772f7c",
-    "wip/local": "3cfa06d",
+    "wip/local": "8fcf55f",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -50,6 +50,6 @@
     "cloud/planner-retrieval-handoff": "f728b79",
     "cloud/w9-safety": "d5fe82b"
   },
-  "next_id": 43,
-  "note": "pass 45 reviewed main@3772f7c fully for the lane; wip/local 8fcf55f and the new cloud/* heads were not diffed this pass (carry over)."
+  "next_id": 44,
+  "note": "pass 46: wip/local, data-decisions and the handoff-note branches reviewed."
 }
