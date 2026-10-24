@@ -73,13 +73,16 @@ public struct SystemHooks {
     public var brightnessSet: (Float) -> Bool
     public var playSound: (String) -> Void
     public var notify: (_ title: String, _ body: String) -> Void
+    /// The pending timers changed (live: the `hands probe timers` snapshot file).
+    public var timersChanged: ([TimerRegistry.Info]) -> Void
 
     public init(bluetoothGet: @escaping () -> Bool?, bluetoothSet: @escaping (Bool) -> Bool,
                 bluetoothControlCenter: @escaping (Bool) throws -> Bool,
                 lockScreenPrivate: @escaping () -> Bool,
                 brightnessGet: @escaping () -> Float?, brightnessSet: @escaping (Float) -> Bool,
                 playSound: @escaping (String) -> Void,
-                notify: @escaping (String, String) -> Void) {
+                notify: @escaping (String, String) -> Void,
+                timersChanged: @escaping ([TimerRegistry.Info]) -> Void = { _ in }) {
         self.bluetoothGet = bluetoothGet
         self.bluetoothSet = bluetoothSet
         self.bluetoothControlCenter = bluetoothControlCenter
@@ -88,6 +91,7 @@ public struct SystemHooks {
         self.brightnessSet = brightnessSet
         self.playSound = playSound
         self.notify = notify
+        self.timersChanged = timersChanged
     }
 
     /// No side effects at all (unit tests start from this).
@@ -97,7 +101,7 @@ public struct SystemHooks {
             bluetoothControlCenter: { _ in throw HandsError.skillFailed("inert") },
             lockScreenPrivate: { false },
             brightnessGet: { nil }, brightnessSet: { _ in false },
-            playSound: { _ in }, notify: { _, _ in })
+            playSound: { _ in }, notify: { _, _ in }, timersChanged: { _ in })
     }
 
     public static var live: SystemHooks {
@@ -115,7 +119,8 @@ public struct SystemHooks {
                     s?.play()
                 }
             },
-            notify: { title, body in Notifier.post(title: title, body: body) })
+            notify: { title, body in Notifier.post(title: title, body: body) },
+            timersChanged: { TimerSnapshot.write($0) })
     }
 }
 
@@ -233,11 +238,36 @@ public enum PathAlias {
 
 // MARK: - Skills engine
 
+/// Native skill executor (catalog skills; `skill {name, args}` RPC).
+///
+/// Beyond the catalog arg lists:
+///  - `set_brightness` takes `delta` (int, +/-) instead of `level`: current
+///    brightness + delta, clamped to 0...100, set, read back
+///    (`{level, previous, delta}`). The brain sends `delta` only for
+///    directional phrasing ("a bit dimmer").
+///  - `open_folder` takes an optional `view` (`list|icons|columns|gallery`):
+///    cmd+2 / cmd+1 / cmd+3 / cmd+4 on the Finder window it opened, read back
+///    from `current view of front Finder window` (`{view, view_applied}`).
+///  - `type_text` into a keystroke app (Calculator) posts key presses
+///    (`target: "keystroke_app"`); `screen_locked` while the lock screen is up.
+///
+/// Launches report truthfully: `open_app` waits <= 1.5 s for the app to be
+/// frontmost (`{app, frontmost, launched}`); `open_url` / `web_search` wait
+/// <= 3 s for the default browser frontmost with a changed window title
+/// (`{browser, frontmost, window_title, title_changed}`); `open_folder` /
+/// `open_file` wait <= 3 s for Finder / the file's app frontmost with the
+/// window title read back (`{app, frontmost, window_title, title_matches}`).
+/// Never frontmost -> ok=false, error `not_frontmost`, `observed`, and the
+/// result payload anyway.
+///
+/// Timers started by `start_timer` are listed / cancelled with the
+/// `timers` / `timers_cancel` RPCs (`timerList()`, `cancelTimers(id:)`).
 public final class Skills {
     private let catalog: [String: SkillDef]
-    private let scripts: ScriptRunning
-    private let events: EventPosting
-    private let apps: AppControlling
+    let scripts: ScriptRunning
+    let events: EventPosting
+    let apps: AppControlling
+    let launcher: Launching
     private let hooks: SystemHooks
     private var wifiDevice: String?
     /// Receives `handsTimerFired` (set by RPCHandler.delegate).
@@ -249,9 +279,16 @@ public final class Skills {
         return n
     }
 
-    private let timerQueue = DispatchQueue(label: "hands.timers")
-    private let timerLock = NSLock()
-    private var timers: [String: DispatchSourceTimer] = [:]
+    /// Launch verification bounds (tests shorten them).
+    var openAppTimeout: TimeInterval = 1.5
+    var openTimeout: TimeInterval = 3.0
+    var launchPollInterval: TimeInterval = 0.03
+    var viewPollInterval: TimeInterval = 0.1
+    /// Folder display name (Finder window title); tests stub it.
+    var displayNameOverride: ((String) -> String)?
+
+    /// Muselet-started timers (`start_timer`; `timers` / `timers_cancel` RPCs).
+    public let timers = TimerRegistry()
 
     /// Premiere Pro default keyboard shortcuts per `premiere_command`.
     public static let premiereKeys: [String: String] = [
@@ -274,24 +311,41 @@ public final class Skills {
 
     public init(catalog: [String: SkillDef], scripts: ScriptRunning = AppleScriptRunner(),
                 events: EventPosting = CGEventPoster(), apps: AppControlling = WorkspaceApps(),
-                hooks: SystemHooks = .live) {
+                hooks: SystemHooks = .live, launcher: Launching = WorkspaceLauncher()) {
         self.catalog = catalog
         self.scripts = scripts
         self.events = events
         self.apps = apps
         self.hooks = hooks
+        self.launcher = launcher
+        timers.onChange = { [hooks] in hooks.timersChanged($0) }
     }
     public convenience init() {
         self.init(catalog: (try? Catalog.load()) ?? [:])
     }
 
     /// Number of timers scheduled and not yet fired.
-    public var pendingTimers: Int {
-        timerLock.lock(); defer { timerLock.unlock() }
-        return timers.count
+    public var pendingTimers: Int { timers.count }
+
+    /// `timers {}` RPC: pending Muselet timers, soonest first
+    /// (`{id, label?, total_s, left_s, minutes, fires_at}`).
+    public func timerList(now: Date = Date()) -> [[String: Any]] {
+        timers.list().map { TimerRegistry.dict($0, now: now) }
+    }
+
+    /// `timers_cancel {id?}` RPC: cancel one timer, or all when `id` is nil.
+    /// Returns the cancelled timers (wire form; empty for an unknown id).
+    public func cancelTimers(id: String?, now: Date = Date()) -> [[String: Any]] {
+        timers.cancel(id: id).map { TimerRegistry.dict($0, now: now) }
     }
 
     public func def(_ name: String) -> SkillDef? { catalog[name] }
+
+    /// Required catalog args that another arg may stand in for
+    /// (`set_brightness delta=-10` instead of `level`).
+    static let argAlternatives: [String: [String: [String]]] = [
+        "set_brightness": ["level": ["delta"]],
+    ]
 
     /// Execute a skill by name. Returns {ok, result?, error?, ms}.
     public func execute(name: String, args inArgs: [String: Any]) -> [String: Any] {
@@ -305,9 +359,10 @@ public final class Skills {
             if def.risk == "confirm", inArgs["confirmed"] as? Bool != true {
                 throw HandsError.needsConfirmation
             }
-            // Required-arg check.
+            // Required-arg check (an alternative arg satisfies it).
             for a in def.args where a.required {
-                if inArgs[a.name] == nil {
+                let alts = Self.argAlternatives[name]?[a.name] ?? []
+                if inArgs[a.name] == nil && !alts.contains(where: { inArgs[$0] != nil }) {
                     throw HandsError.invalidParams("\(name): missing arg \(a.name)")
                 }
             }
@@ -319,6 +374,7 @@ public final class Skills {
             out["ok"] = false
             out["error"] = e.description
             if let o = e.observed { out["observed"] = o }
+            if let r = e.result { out["result"] = r }
         } catch {
             out["ok"] = false
             out["error"] = "\(error)"

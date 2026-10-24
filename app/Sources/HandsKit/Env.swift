@@ -32,6 +32,13 @@ public protocol EventPosting: AnyObject {
     func post(_ combo: KeyCombo)
     /// Type `text` as synthetic unicode key events (to the keyboard focus).
     func typeText(_ text: String)
+    /// Type `text` as key presses (virtual key + unicode) for keystroke-
+    /// driven apps such as Calculator. Default: `typeText`.
+    func typeKeystrokes(_ text: String)
+}
+
+public extension EventPosting {
+    func typeKeystrokes(_ text: String) { typeText(text) }
 }
 
 /// Live poster: tagged CGEvents at the HID tap.
@@ -39,6 +46,19 @@ public final class CGEventPoster: EventPosting {
     public init() {}
     public func post(_ combo: KeyCombo) { Combo.post(combo) }
     public func typeText(_ text: String) { Events.typeText(text) }
+    public func typeKeystrokes(_ text: String) { Events.typeKeystrokes(text) }
+}
+
+// MARK: - Session state
+
+public enum SessionState {
+    /// The console session's screen is locked (lock screen up). Read from
+    /// the window server's session dictionary; never blocks.
+    public static func screenLocked() -> Bool {
+        guard let d = CGSessionCopyCurrentDictionary() as? [String: Any] else { return false }
+        let v = d["CGSSessionScreenIsLocked"]
+        return (v as? Bool) ?? (v as? NSNumber)?.boolValue ?? false
+    }
 }
 
 // MARK: - App focus (injectable for tests)
@@ -58,9 +78,14 @@ public protocol AppControlling: AnyObject {
     @discardableResult func activate(pid: pid_t) -> Bool
     func app(pid: pid_t) -> RunningAppInfo?
     func runningApp(bundlePrefix: String) -> RunningAppInfo?
+    /// The lock screen is up: synthetic input would land in loginwindow's
+    /// password field. Default false (mocks); live: the session dictionary.
+    func screenLocked() -> Bool
 }
 
 public extension AppControlling {
+    func screenLocked() -> Bool { false }
+
     /// True when `pid` is frontmost, activating it and waiting up to
     /// `timeout` (polling every 15 ms) if it isn't.
     func ensureFrontmost(pid: pid_t, timeout: TimeInterval = 0.3) -> Bool {
@@ -69,7 +94,7 @@ public extension AppControlling {
         let end = Date().addingTimeInterval(timeout)
         while Date() < end {
             if frontmostPid() == pid { return true }
-            usleep(15_000)
+            Hands.pollWait(0.015)
         }
         return frontmostPid() == pid
     }
@@ -106,6 +131,8 @@ public final class WorkspaceApps: AppControlling {
         return RunningAppInfo(pid: pid, name: a.localizedName ?? "?",
                               bundleId: a.bundleIdentifier ?? "")
     }
+
+    public func screenLocked() -> Bool { SessionState.screenLocked() }
 
     /// Exact bundle id first, else a regular (Dock) app whose id starts with
     /// the prefix (e.g. "com.adobe.PremierePro" -> "com.adobe.PremierePro.26";
