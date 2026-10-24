@@ -20,7 +20,7 @@ from .label import (
     LABEL_SYSTEM, ApiClient, BudgetExceeded, BudgetLedger, PRICES, floored, label_item, render_question,
 )
 from .paraphrase import PARAPHRASE_PROMPT, validate_paraphrase
-from .render import render_records
+from .render import GenericRenderer, render_question, render_records
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNS = ROOT / "runs" / "decisions"
@@ -47,6 +47,11 @@ def _run_dir(run: str) -> Path:
 
 def _write_jsonl(path: Path, rows: list[dict]):
     path.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows), encoding="utf-8")
+
+
+def _append_jsonl(path: Path, row: dict):
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
 def _read_jsonl(path: Path) -> list[dict]:
@@ -520,8 +525,8 @@ async def label_stage(args, run_dir: Path, rng: random.Random):
     return all_records
 
 
-def decontam_stage(run_dir: Path):
-    cleaned, report = decontam(_read_jsonl(run_dir / "records_labeled.jsonl"), ROOT)
+def decontam_stage(run_dir: Path, include_pilot: bool = False):
+    cleaned, report = decontam(_read_jsonl(run_dir / "records_labeled.jsonl"), ROOT, include_pilot=include_pilot)
     _write_jsonl(run_dir / "records_decontam.jsonl", cleaned)
     (run_dir / "decontam.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return cleaned
@@ -1105,34 +1110,56 @@ async def mini_check_stage(args, run_dir: Path, rng: random.Random):
     return {"spend": mini_spend, "cumulative": cumulative_spend, "report": str(report_dir / "mini_check.md")}
 
 
-def datums_stage(run_dir: Path, run: str):
+def datums_stage(run_dir: Path, run: str, write_report: bool = True):
     records = _read_jsonl(run_dir / "train.jsonl") + _read_jsonl(run_dir / "dev.jsonl")
-    rendered = render_records(records)
     token_counts = []
-    rows = []
-    for entry in rendered:
-        rendering = entry["rendering"]
-        token_counts.append(rendering.choice_pos)
-        tensor = entry["datum"].loss_fn_inputs["weights"].to_torch()
-        rows.append({
-            "record_id": entry["record_id"], "qid": entry["qid"], "family": entry["family"],
-            "input_tokens": rendering.tokens[:rendering.choice_pos], "choice_pos": rendering.choice_pos,
-            "label_token_ids": rendering.label_tokens, "target": entry["target"],
-            "weights": tensor.tolist(),
-        })
-    _write_jsonl(run_dir / "datums.jsonl", rows)
+    datum_path = run_dir / "datums.jsonl"
+    if run == "full":
+        renderer = GenericRenderer("Qwen/Qwen3.5-4B")
+        with datum_path.open("w", encoding="utf-8") as handle:
+            for item in records:
+                for qid, question in item["questions"].items():
+                    target = item.get("target", {}).get(qid) or {item["gold"][qid]: 1.0}
+                    datum, rendering = render_question(renderer, item["state"], question, target)
+                    tensor = datum.loss_fn_inputs["weights"].to_torch()
+                    if tensor.is_sparse:
+                        tensor = tensor.to_dense()
+                    token_counts.append(rendering.choice_pos)
+                    row = {
+                        "record_id": item["id"], "qid": qid, "family": item["family"],
+                        "input_tokens": rendering.tokens[:rendering.choice_pos],
+                        "choice_pos": rendering.choice_pos, "label_token_ids": rendering.label_tokens,
+                        "target": target, "weights": tensor.tolist(),
+                    }
+                    handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+    else:
+        rows = []
+        for entry in render_records(records):
+            rendering = entry["rendering"]
+            token_counts.append(rendering.choice_pos)
+            tensor = entry["datum"].loss_fn_inputs["weights"].to_torch()
+            if tensor.is_sparse:
+                tensor = tensor.to_dense()
+            rows.append({
+                "record_id": entry["record_id"], "qid": entry["qid"], "family": entry["family"],
+                "input_tokens": rendering.tokens[:rendering.choice_pos], "choice_pos": rendering.choice_pos,
+                "label_token_ids": rendering.label_tokens, "target": entry["target"],
+                "weights": tensor.tolist(),
+            })
+        _write_jsonl(datum_path, rows)
     stats = {
-        "datum_count": len(rows),
+        "datum_count": len(token_counts),
         "mean_rendered_tokens": statistics.mean(token_counts) if token_counts else 0,
         "p95_rendered_tokens": sorted(token_counts)[int(0.95 * (len(token_counts)-1))] if token_counts else 0,
     }
     (run_dir / "datum_stats.json").write_text(json.dumps(stats, indent=2) + "\n", encoding="utf-8")
-    report_stage(run_dir, run)
+    if write_report:
+        report_stage(run_dir, run)
     return stats
 
 
 def upload_stage(args, run_dir: Path):
-    repository = f"jonsnov/muselet-decisions-{args.run}"
+    repository = "jonsnov/muselet-decisions-v1" if args.run == "full" else f"jonsnov/muselet-decisions-{args.run}"
     api = HfApi(token=os.environ["HF_TOKEN"])
     api.create_repo(repository, repo_type="dataset", private=True, exist_ok=True)
     api.upload_folder(folder_path=str(run_dir), repo_id=repository, repo_type="dataset", path_in_repo="data")
@@ -1142,12 +1169,16 @@ def upload_stage(args, run_dir: Path):
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Build the generic-decision generation dataset.")
     parser.add_argument(
-        "stage", choices=("gen", "label", "mini-check", "decontam", "split", "datums", "upload")
+        "stage", choices=("gen", "label", "mini-check", "full", "decontam", "split", "datums", "upload")
     )
     parser.add_argument("--run", default="pilot")
-    parser.add_argument("--budget", type=float, default=5.0)
-    parser.add_argument("--seed", type=int, default=814)
+    parser.add_argument("--budget", type=float)
+    parser.add_argument("--seed", type=int)
     args = parser.parse_args(argv)
+    if args.seed is None:
+        args.seed = 20261027 if args.stage == "full" else 814
+    if args.budget is None and args.stage != "full":
+        args.budget = 5.0
     run_dir = _run_dir(args.run)
     rng = random.Random(args.seed)
     if args.stage == "gen":
@@ -1156,6 +1187,19 @@ def main(argv=None):
         asyncio.run(label_stage(args, run_dir, rng))
     elif args.stage == "mini-check":
         print(json.dumps(asyncio.run(mini_check_stage(args, run_dir, rng)), indent=2))
+    elif args.stage == "full":
+        from .full_run import _cost_total, full_stage
+
+        prior_spend = _cost_total(RUNS / "gen_cost.jsonl") if (RUNS / "gen_cost.jsonl").is_file() else 0.0
+        ledger_path = RUNS / "gen_cost.jsonl"
+        full_spend = sum(
+            float(json.loads(line).get("cost_usd", 0))
+            for line in ledger_path.read_text().splitlines()
+            if line.strip() and json.loads(line).get("run") == args.run
+        ) if ledger_path.is_file() else 0.0
+        args.budget = args.budget if args.budget is not None else max(0.0, 57.0 - (prior_spend - full_spend))
+        (run_dir / "run_config.json").write_text(json.dumps({"seed": args.seed, "budget_usd": args.budget}) + "\n")
+        print(json.dumps(asyncio.run(full_stage(args, run_dir)), indent=2))
     elif args.stage == "decontam":
         decontam_stage(run_dir)
     elif args.stage == "split":

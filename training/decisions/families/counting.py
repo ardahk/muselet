@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 
-from .core import NAMES, choose_domain, near_miss_values, question_specs, record
+from .core import NAMES, choose_domain, count_phrase, near_miss_values, question_specs, record
 
 
 def count_eligible(rows: list[dict], *, minimum_days: int = 3) -> int:
@@ -71,7 +71,8 @@ def generate(rng: random.Random, domain: str, n_questions: int, types: list[str]
     else:
         entries = "\n".join(
             f"{row['ticket']}: region {row['region']}; account "
-            f"{'active' if row['active'] else 'suspended'}; {row['days']} open days." for row in rows
+            f"{'active' if row['active'] else 'suspended'}; "
+            f"{count_phrase(row['days'], 'open day')}." for row in rows
         )
         state = (
             f"{analyst} is reviewing {domain} referrals in batch {batch}. A row qualifies only when its account "

@@ -58,7 +58,7 @@ def _deadline(rng: random.Random, domain: str, name: str):
         f"receipt on the cutoff {'qualifies' if inclusive else 'does not qualify'}. The notice arrived "
         f"{arrived.isoformat()}.",
     ))
-    candidates = [due + timedelta(days=delta) for delta in (-2, -1, 0, 1, 2)]
+    candidates = [due + timedelta(days=delta) for delta in range(-12, 14)]
     date_options = {_date_key(value): f"The filing deadline is {value.isoformat()}." for value in candidates}
     specs = [
         ("choice", f"What is the business-day filing deadline for {name}?",
@@ -97,6 +97,7 @@ def _appointment(rng: random.Random, domain: str, name: str):
         utc, *sorted(wrong_offsets - {utc}), utc - timedelta(hours=1),
         utc + timedelta(hours=1), wrong_sign,
     ]
+    utc_candidates.extend(utc + timedelta(hours=offset) for offset in range(-12, 14))
     utc_candidates = list(dict.fromkeys(utc_candidates))
     state = (
         f"CALENDAR INVITATION\nHost: {name}\nPurpose: {domain} review\n"
@@ -141,7 +142,7 @@ def _proration(rng: random.Random, domain: str, name: str):
     thirty_day_base = round(monthly * period_days / 30, 2)
     values = near_miss_values(
         amount, (one_day_short, one_day_long, thirty_day_base, monthly),
-        minimum=5, lower=0, upper=monthly * 1.1, step=0.5,
+        minimum=26, lower=0, upper=monthly * 1.1, step=0.5,
     )
     options = {_amount_key(value): f"The prorated allowance is ${value:.2f}." for value in values}
     start = date(year, month, 1)
@@ -180,9 +181,7 @@ def _leap_year(rng: random.Random, domain: str, name: str):
         f"RENEWAL FORM — {domain}\nSubmitted by: {name}\nCoverage starts on {year}-02-01 and runs through "
         "the final calendar day of February, inclusive. The Gregorian calendar determines the month boundary."
     )
-    dates = [date(year, 2, 27), date(year, 2, 28), date(year, 3, 1), date(year, 3, 2)]
-    if is_leap:
-        dates.insert(2, date(year, 2, 29))
+    dates = [renewal_day + timedelta(days=offset) for offset in range(-12, 14)]
     options = {
         _date_key(value): f"The inclusive renewal window ends on {value.isoformat()}."
         for value in dates

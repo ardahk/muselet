@@ -2,6 +2,7 @@ import asyncio
 import json
 import math
 import random
+import re
 from collections import Counter, defaultdict
 from datetime import date
 
@@ -10,7 +11,7 @@ import pytest
 from bench.systemone.schema import parse_request
 from training.decisions.author import AUTHOR_SCHEMA, _parse_item, author_items
 from training.decisions.families import GENERATORS, counting, multi_hop, numeric, probability, temporal
-from training.decisions.families.core import choice_question
+from training.decisions.families.core import choice_question, count_phrase
 from training.decisions.paraphrase import validate_paraphrase
 
 
@@ -81,6 +82,15 @@ def test_generated_criteria_are_question_specific_and_articles_are_grammatical(f
     assert "a insurance" not in item["state"].lower()
     assert "a education" not in item["state"].lower()
     assert "a it operations" not in item["state"].lower()
+
+
+def test_count_phrase_fixes_singular_plural_across_counting_states():
+    assert count_phrase(1, "open day") == "1 open day"
+    assert count_phrase(2, "open day") == "2 open days"
+    for seed in range(300):
+        item = counting.generate(random.Random(seed), "mixed", 3, ["choice", "noul", "score"])
+        assert "1 open days" not in item["state"]
+        assert not re.search(r"\b[2-9] open day\b", item["state"])
 
 
 def _gold_surface(value: str) -> str | None:

@@ -40,7 +40,22 @@ def _jev_dir(root: Path) -> Path:
     raise FileNotFoundError(f"pinned JevBench clone at {JEV_PIN} was not found")
 
 
-def load_references(root: Path) -> tuple[set[tuple[str, ...]], set[frozenset[str]]]:
+def _pilot_references(root: Path) -> tuple[set[tuple[str, ...]], set[frozenset[str]], int, int]:
+    path = root / "runs/decisions/pilot/records_decontam.jsonl"
+    if not path.is_file():
+        raise FileNotFoundError(f"pilot decontamination reference missing: {path}")
+    text_grams, option_sets = set(), set()
+    records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    questions = 0
+    for row in records:
+        text_grams.update(grams(" ".join([row.get("state", ""), *strings(row.get("questions", {}))])))
+        for question in row.get("questions", {}).values():
+            questions += 1
+            _add_option_set(question, option_sets)
+    return text_grams, option_sets, len(records), questions
+
+
+def load_references(root: Path, include_pilot: bool = False) -> tuple[set[tuple[str, ...]], set[frozenset[str]]]:
     import pyarrow.parquet as parquet
 
     text_grams, option_sets = set(), set()
@@ -71,6 +86,10 @@ def load_references(root: Path) -> tuple[set[tuple[str, ...]], set[frozenset[str
             raise FileNotFoundError(f"required contamination reference missing: {path}")
         for line in path.read_text(encoding="utf-8").splitlines():
             text_grams.update(grams(" ".join(strings(json.loads(line)))))
+    if include_pilot:
+        pilot_grams, pilot_options, _, _ = _pilot_references(root)
+        text_grams.update(pilot_grams)
+        option_sets.update(pilot_options)
     return text_grams, option_sets
 
 
@@ -85,9 +104,25 @@ def _add_option_set(question: dict, option_sets: set[frozenset[str]]):
         option_sets.add(frozenset(str(level).lower() for level in criteria))
 
 
-def decontam(records: list[dict], root: Path) -> tuple[list[dict], dict]:
-    reference_grams, option_sets = load_references(root)
+def decontam(records: list[dict], root: Path, include_pilot: bool = False) -> tuple[list[dict], dict]:
+    reference_grams, option_sets = load_references(root, include_pilot=include_pilot)
+    pilot_grams, pilot_options, pilot_rows, pilot_questions = (
+        _pilot_references(root) if include_pilot else (set(), set(), 0, 0)
+    )
     before_questions = sum(len(item["questions"]) for item in records)
+    pilot_text_before = pilot_option_before = 0
+    if include_pilot:
+        for item in records:
+            body = " ".join([
+                item["state"],
+                *(text for question in item["questions"].values()
+                  for text in [str(question.get("instructions", "")), *strings(question.get("criteria", {}))]),
+            ])
+            pilot_text_before += int(bool(grams(body) & pilot_grams))
+            for question in item["questions"].values():
+                candidate = set()
+                _add_option_set(question, candidate)
+                pilot_option_before += int(bool(candidate & pilot_options))
     kept, text_dropped, option_dropped = [], 0, 0
     for item in records:
         body = " ".join([item["state"], *(
@@ -130,6 +165,10 @@ def decontam(records: list[dict], root: Path) -> tuple[list[dict], dict]:
         "rows_before": len(records), "rows_after": len(kept),
         "questions_before": before_questions, "questions_after": after_questions,
         "dropped_text_13gram_rows": text_dropped, "dropped_option_questions": option_dropped,
+        "pilot_reference_rows": pilot_rows, "pilot_reference_questions": pilot_questions,
+        "pilot_overlaps_before": {
+            "word_13gram_rows": pilot_text_before, "option_set_questions": pilot_option_before,
+        },
         "remaining_overlaps": {"word_13gram": remaining_text, "option_sets": remaining_options},
     }
     if remaining_text or remaining_options:

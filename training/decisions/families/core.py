@@ -22,6 +22,10 @@ def article(noun: str) -> str:
     return "an" if noun[:1].lower() in "aeiou" else "a"
 
 
+def count_phrase(count: int, singular: str, plural: str | None = None) -> str:
+    return f"{count} {singular if count == 1 else plural or singular + 's'}"
+
+
 def near_miss_values(answer, mistake_values, *, minimum: int = 5, lower=None, upper=None, step=1):
     values = []
 
@@ -50,7 +54,8 @@ def choice_question(rng: random.Random, instructions: str, answer: str, options:
         raise ValueError("choice answer missing from options")
     if len(options) < 2:
         raise ValueError("choice questions require at least two plausible options")
-    requested = rng.randint(min(4, len(options)), min(8, len(options)))
+    requested = 26 if rng.random() < 0.05 else rng.randint(2, 12)
+    requested = min(requested, len(options))
     answer_row = (answer, options.pop(answer))
     distractors = rng.sample(list(options.items()), requested - 1)
     position = rng.randrange(requested)

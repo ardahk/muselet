@@ -36,7 +36,7 @@ def generate(rng: random.Random, domain: str, n_questions: int, types: list[str]
         inverted_evidence = posterior_positive(base, false_positive, sensitivity)
         candidates = near_miss_values(
             posterior, (normalized_positive, ignored_false_positive, inverted_evidence),
-            minimum=5, lower=0.0, upper=1.0, step=0.025,
+            minimum=26, lower=0.0, upper=1.0, step=0.025,
         )
         options = {
             f"posterior_{value:.4f}".replace(".", "_"):
