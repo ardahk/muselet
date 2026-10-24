@@ -1,6 +1,6 @@
-# training lane digest — pass 41 (main 026aff0, cloud/brain-8 4546d09, cloud/planner-demos 84798ec)
+# training lane digest — pass 42 (main dae4b26, cloud/data-pipeline f6354d6, cloud/planner-demos 9008990)
 
-Open: 0 P0, 12 P1, 15 P2. New: training-46 (P2). main merged data-route and report-2; training-44 now has both sides on main.
+Open: 0 P0, 12 P1, 14 P2. Resolved training-46 (planner demos gate + render.py). it3 now uses catalog v3 with 43-option parity samples; main runtime still v2 with draft_email/compose_text router:false (training-44).
 
 ## Ranked open P0/P1
 1. training-44 P1 — it3cand trains draft_email (330) + compose_text (127) as routable; main marks both router:false (comms merged).
