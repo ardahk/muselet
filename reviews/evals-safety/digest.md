@@ -1,4 +1,4 @@
-# evals-safety digest, pass 17 (2026-10-24T09:16:01Z): full re-verify against main 2920225
+# evals-safety digest, pass 18 (2026-10-24T09:16:57Z): wip/local 3e03686 has no diff vs main 2920225; open findings unchanged from the pass-17 re-verify
 
 ## Open P0/P1 (ranked)
 No open P0.
