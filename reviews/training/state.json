@@ -1,6 +1,6 @@
 {
-  "pass": 45,
-  "ts": "2026-10-24T22:25:00Z",
+  "pass": 46,
+  "ts": "2026-10-24T22:45:00Z",
   "mode": "pulse",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
@@ -47,13 +47,16 @@
     "cloud/planner-retrieval-handoff": "f728b79",
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
-    "cloud/w9-safety": "d5fe82b",
-    "main": "3772f7c",
-    "wip/local": "8fcf55f"
+    "cloud/w9-safety": "50a3b25",
+    "main": "2a2c2a9",
+    "wip/local": "4f963a7",
+    "cloud/memory": "4b519b1",
+    "cloud/memory-eval": "c05944e"
   },
-  "next_id": 49,
+  "next_id": 51,
   "notes_pass39": "main fb2cfd0: evals/live_t1.jsonl changed only precondition/check/teardown/document_apps on 6 cases; all 43 utterances unchanged, so decontam gates and it2/it3cand overlap results stand. No lane findings.",
   "notes_pass43": "planner-retrieval: default retrieval bank is v2-tune (the planner-demos bank); fine for holdout scoring, but scores on v2-tune with retrieval on are leaky.",
   "notes_pass44": "main 3876f3a: HandsKit comms/contacts/windows probe, document-inventory safety, hobbylm replay Path fix (helper.ROOT/WORK) + skip_reason kept. wip/local 3cfa06d: comms parser/orchestrator. comms-2: comms.py parser tweak. None touch training/eval data/catalog/router. training-5 corrected to P2 (spend guard exists since 085b0c8).",
-  "notes_pass45": "data-pipeline 34aff30..830ba35: it3 handoff, after_it3/post_it3/eval_args_v3 scripts, tau default rule mac (val-fitted, OK). decisions: metric snapshots only. main/wip: training/planner_demos (planner lane). Verified with HF tokenizer: choice# -> [11409, 2], 58-id alphabet, Qwen3_5Renderer; training tests 16 pass / 1 skip."
+  "notes_pass45": "data-pipeline 34aff30..830ba35: it3 handoff, after_it3/post_it3/eval_args_v3 scripts, tau default rule mac (val-fitted, OK). decisions: metric snapshots only. main/wip: training/planner_demos (planner lane). Verified with HF tokenizer: choice# -> [11409, 2], 58-id alphabet, Qwen3_5Renderer; training tests 16 pass / 1 skip.",
+  "notes_pass46": "main 2a2c2a9: briefs (planner-lora Tinker <= $7, builder_common $148). w9-safety: serve_brain retrieval_k docs only. memory: AGENTS ctx.url/window_title (no training data yet uses them; future ctx-schema drift risk for router prompts). memory-eval: new frozen evals/memory_followups.jsonl + gate wiring (training-49). No data-pipeline change; open findings unchanged."
 }
