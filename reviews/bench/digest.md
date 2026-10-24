@@ -1,7 +1,7 @@
-# bench digest — pass 14 (PULSE, 2026-10-24T08:52Z)
+# bench digest — pass 15 (PULSE, 2026-10-24T09:08Z)
 
 P0: 0. Open P1: 3. Open P2: 3. New: bench-17 (pass 14), bench-16 (pass 13).
-Reviewed: cloud/data-pipeline@a6b229a, cloud/bench@2c57d7f (118 tests pass). Other branches unchanged.
+Reviewed: cloud/bench@f584cb2 (127 tests pass), cloud/data-pipeline@70b7d1b (bench-17 still open), main@bb494af, wip/local@c85a000.
 
 ## Open P0/P1 (ranked)
 1. bench-14: Nothing dedups training data against ScreenSpot-Pro/OSWorld-G before grounding training. Becomes P0 once Phase-4 data is built. (training/src/muselet_train/decontam.py)
