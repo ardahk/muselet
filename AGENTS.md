@@ -41,7 +41,7 @@ Hackathon deadline: Cal Hacks submission Sun Oct 25 2026, 09:00 PDT. Tinker budg
   for that set (it2: HobbyLM r4 and DeskMind Bench 0 real overlaps after the CJK-aware gate). Never run r1/r2
   (main-final data: 12-15 near-duplicates per HobbyLM sealed round) on sealed sets.
 - Planner: base 4B-4bit, greedy, `prompts/planner_fewshot.md` (rules 16-18 + examples), DSL history, line-start op
-  constraint, done-alone. 35B-A3B via `--planner-model` or `ESCALATE=1`. Offline planner bench: `evals/planner_offline.py`
+  constraint, done-alone, 1 BM25-retrieved example from the v2-tune bank (`RETRIEVAL_K=0|1|2`, default 1). 35B-A3B via `--planner-model` or `ESCALATE=1`. Offline planner bench: `evals/planner_offline.py`
   (tune / holdout / holdout2 sets; never tune on holdouts).
 - Grounder: eyes-4b, two-stage zoom, 1 MP (`click "<description>"` in the DSL), lazy-loaded; 2 MP / UI-Venus selectable.
 
