@@ -24,7 +24,7 @@ has not been run, the line stays out of the pitch. Mac = the demo MacBook Pro M5
 | `{{cat_rule_acc}}`, `{{cat_ask_rows}}` | Finance categorize accuracy with rules only; rows escalated to ASK | `PYTHONPATH=ml/src python3 -m pytest ml/tests/test_finance.py -s` | `ml/src/brain/finance/categorize.py` | not run yet |
 | `{{hobby_muselet_pass}}`/125, `{{hobby_muselet_p50_s}}` | Muselet (router it2 only, §1b) on HobbyLM's 125 sealed-r4 live requests, strict final-state grading | `bench/hobbylm/replay.py --system muselet --round r4` | `runs/bench/hobbylm/` | pending morning run |
 | `{{hobby_rerun_pass}}`/125, `{{hobby_rerun_p50_s}}` | HobbyLM itself, same Mac, its published harness | `bench/hobbylm/replay.py --system hobbylm --round r4` | same | pending morning run |
-| `{{dm_muselet_strict}}`/39, `{{dm_muselet_strict_clean}}`/36, `{{dm_muselet_false_done}}`, `{{dm_muselet_step_p50_s}}` | Muselet (router it2 only, §1b) on DeskMind Bench `diag` (13 tasks x 3), graded by `deskmind-bench score`; `_clean` = without the 1 affected task (§1b) | `bench/deskmind/README.md` (c) | `runs/bench/deskmind/` | pending morning run |
+| `{{dm_muselet_strict}}`/39, `{{dm_muselet_false_done}}`, `{{dm_muselet_step_p50_s}}` | Muselet (router it2 only, §1b) on DeskMind Bench `diag` (13 tasks x 3), graded by `deskmind-bench score` | `bench/deskmind/README.md` (c) | `runs/bench/deskmind/` | pending morning run |
 | `{{dm_rerun_strict}}`/39, `{{dm_rerun_step_p50_s}}` | DeskMind G18b on the same Mac, their commands | `bench/deskmind/README.md` (a) | same | pending morning run |
 | `{{act_ms_p50}}` | HandsKit act + settle, median | same traces as `{{instant_e2e_ms_p50}}` | `act_ms` + `settle_ms` in `rpc_result` | pending live run (screen was locked overnight) |
 | `{{stt_budget_ms}}`, `{{args_budget_ms}}`, `{{act_budget_ms}}`, `{{e2e_budget_ms}}` | Latency *targets* (not measurements); label "target" wherever shown | set by the lead from the speed-lab results | `architecture.md` budget table | targets, not set yet |
@@ -77,23 +77,32 @@ not given): eyes-4b two-stage zoom 63.5% at 1 MP, 67.5% at 2 MP (no zoom: 36.0% 
 
 ## 1b. Contamination disclosures (review decisions-21)
 
-Source: cloud A's overlap check on PR #2 (`cloud/data-pipeline` @ 0ce9ea6),
-`training/reports/evalcheck/{main_report_v2,it2_report_v2,clean_subsets}.json`: router training rows vs each eval
-set, rule `short_edit1` (short near-duplicates). Policy: `AGENTS.md:37-41`. "main-final" = the training data behind
-r1/r2; it2 = the serving router (`tools/serve_brain.sh:3`).
+Source: cloud A's overlap check on PR #2 (`cloud/data-pipeline`),
+`training/reports/evalcheck/{main_report_v2,it2_report_v2,clean_subsets}.json` @ 0ce9ea6 and
+`training/reports/evalcheck/external_affected_it2.json` @ 735686f (it2 datums exactly as trained, per id): router
+training rows vs each eval set, rule `short_edit1` (token edit distance <= 1 when either side has <= 5 tokens).
+Policy: `AGENTS.md:37-41`. "main-final" = the training data behind r1/r2; it2 = the serving router (`tools/serve_brain.sh:3`).
 
 | Eval set | Cases | Affected, main-final (r1/r2) | Affected, it2 | How we quote it |
 |---|---|---|---|---|
 | route_v1 | 140 | 37 | 7 (all among the 37) | only on `evals/route_v1_clean.jsonl`: 103 cases, clean for both; say "37 of 140 excluded for short near-duplicates" |
 | live_t1 | 43 | 10 | 0 | it2 only |
-| HobbyLM sealed-r4 | 125 | 15 | 0 (cloud A is confirming per id) | it2 only; pending morning run |
-| HobbyLM sealed-r1 / r2 / r3 | 95 / 95 / 107 | 12 / 13 / 10 | 0 / 1 / 1 | not quoted |
-| DeskMind Bench `diag` | 13 tasks | 1 | 1 (`affected` idx 6: "在工作目录里新建一个名为 archive 的文件夹。不要做别的。") | it2 only; report with and without that task (`{{dm_muselet_strict}}`/39 and `{{dm_muselet_strict_clean}}`/36); pending morning run |
-| DeskMind `dyn` | 64 | 16 | 16 | not quoted |
+| HobbyLM sealed-r4 | 125 | 15 | 0 (all 125 ids checked) | it2 only; pending morning run |
+| HobbyLM sealed-r1 / r2 / r3 | 95 / 95 / 107 | 12 / 13 / 10 | 0 / 1 (A04) / 1 (D09) | not quoted |
+| DeskMind Bench `diag` | 13 tasks | 1 (not re-traced) | 0 real; the check reports 1 (G07-finder-newfolder), a normalizer artifact (below) | it2 only; pending morning run |
+| DeskMind `dyn` | 64 | 16 (not re-traced) | 0 real; the check reports 16, the same artifact | not in the pinned comparison; not quoted |
+
+DeskMind artifact: `norm()` (`training/src/muselet_train/decontam.py:26` on PR #2) keeps only `[a-z0-9']` characters, and
+DeskMind's tasks are written in Chinese (98 of the 99 DeskMind items checked contain CJK). G07 normalizes to
+"archive" and the 16 `dyn` ids to an empty string; each is one token edit from the training row "unmute", which
+trips `short_edit1`. The as-trained it2 rows contain 0 CJK/kana/hangul characters (0 of 65,697), so they share no
+Chinese task text with DeskMind.
 
 Rules:
-- Never quote any HobbyLM sealed-set or DeskMind Bench number from r1/r2 (main-final data has 12-15 near-duplicates
-  per HobbyLM sealed round).
+- it2 has 0 real overlaps with HobbyLM sealed-r4 and DeskMind Bench. Its only external near-duplicates are HobbyLM
+  sealed-r2 A04 and sealed-r3 D09.
+- Never quote any sealed-set number (HobbyLM sealed r1-r4, DeskMind Bench) from r1/r2 (main-final data has 12-15
+  near-duplicates per HobbyLM sealed round).
 - The §1a router table is r2 on the route_v1 clean subset only; it is not the serving router (it2).
 - it2b (0 overlaps on every set, `training/reports/phase1_it2.md:292` on PR #2) is not the serving router.
 
