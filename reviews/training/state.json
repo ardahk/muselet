@@ -1,6 +1,6 @@
 {
-  "pass": 49,
-  "ts": "2026-10-24T23:30:00Z",
+  "pass": 50,
+  "ts": "2026-10-24T23:40:00Z",
   "mode": "pulse",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
@@ -48,8 +48,8 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "a97fcba",
-    "wip/local": "ac41cd2",
+    "main": "46b97f5",
+    "wip/local": "719907a",
     "cloud/memory": "ba3dc0a",
     "cloud/memory-eval": "c05944e",
     "cloud/memory-lt": "cc056af",
@@ -57,14 +57,19 @@
     "cloud/router-it3-serve": "b455d2c",
     "cloud/ui-polish": "e8bceef",
     "cloud/docs-demo": "095d4ef",
-    "cloud/live-cases": "5c173f6",
+    "cloud/live-cases": "fa9c374",
     "cloud/planner-think": "3677348",
     "cloud/planner-verify": "d22b9a9",
     "cloud/hands-clock": "26d4427",
     "cloud/docs-demo-2": "fa79929",
-    "cloud/brain-9": "3f9718b",
+    "cloud/brain-9": "e9e9b42",
     "cloud/safety-bench28": "a0c456e",
-    "cloud/safety-brain27": "ac43219"
+    "cloud/safety-brain27": "ac43219",
+    "cloud/safety-architect27": "4edcba5",
+    "cloud/safety-brain12": "97c5242",
+    "cloud/safety-brain18": "9aa2e4c",
+    "cloud/safety-brain38": "54ca8f6",
+    "cloud/safety-planner28": "fb4a45a"
   },
   "next_id": 52,
   "notes_pass39": "main fb2cfd0: evals/live_t1.jsonl changed only precondition/check/teardown/document_apps on 6 cases; all 43 utterances unchanged, so decontam gates and it2/it3cand overlap results stand. No lane findings.",
@@ -74,5 +79,6 @@
   "notes_pass46": "main 2a2c2a9: briefs (planner-lora Tinker <= $7, builder_common $148). w9-safety: serve_brain retrieval_k docs only. memory: AGENTS ctx.url/window_title (no training data yet uses them; future ctx-schema drift risk for router prompts). memory-eval: new frozen evals/memory_followups.jsonl + gate wiring (training-49). No data-pipeline change; open findings unchanged.",
   "notes_pass47": "router-it3-serve resolves training-44 (opt-in). router_check fits tau only on val (in_it2_train rows dropped, exact only; training-48 stays open). planner-lora: gate covers route_v1/v2, live_t1, HobbyLM, DeskMind, planner holdouts; 7 demos dropped; memory_followups (memory-eval, unmerged) not in gate. main/wip: briefs only. w9-safety/memory: outside lane.",
   "notes_pass48": "main: memory-eval gate merged (training-49 now on main); memory_eval.py scorer, docs. decisions 08dae49: bench route parity test now pytest.skip when sample option count != catalog (weaker gate; samples reset to main's). It is the decisions lane's own renderer, so no new finding. planner-think/verify/memory/memory-lt each edit cli.py + serve_brain.sh, so expect merge conflicts with router-it3-serve's route_catalog()/ROUTER=it3 lines (outside lane, verify after merges).",
-  "notes_pass49": "main merged router-it3 (#52) and W9 safety (#46). brain-9 adds hidden 'browser' arg to open_url/web_search in skills/catalog.json. Hidden args are skipped in the ARGS signature (decision.py ~415), and route options use only name+description, so router parity for it2/v2 samples is unaffected; catalog_v3 (it3) has no browser arg, and the orchestrator fills it from skills/catalog.json. training-49 still on main unchanged."
+  "notes_pass49": "main merged router-it3 (#52) and W9 safety (#46). brain-9 adds hidden 'browser' arg to open_url/web_search in skills/catalog.json. Hidden args are skipped in the ARGS signature (decision.py ~415), and route options use only name+description, so router parity for it2/v2 samples is unaffected; catalog_v3 (it3) has no browser arg, and the orchestrator fills it from skills/catalog.json. training-49 still on main unchanged.",
+  "notes_pass50": "main 46b97f5: harness proxy only. wip/local diff = already-reviewed main merges. brain-9: test only. New safety-* and live-cases branches touch no training/catalog/router files. Open findings re-checked: training-49 still on main; others unchanged."
 }

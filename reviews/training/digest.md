@@ -1,6 +1,6 @@
-# training lane digest — pass 49 (main a97fcba, wip/local ac41cd2, brain-9 3f9718b)
+# training lane digest — pass 50 (main 46b97f5, wip/local 719907a)
 
-Open: 0 P0, 14 P1, 16 P2. No new findings. training-44 fix is merged to main (#52); it3 serving is opt-in. brain-9's hidden 'browser' arg leaves router/ARGS parity intact.
+Open: 0 P0, 14 P1, 16 P2. No lane changes since pass 49; open findings unchanged.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
