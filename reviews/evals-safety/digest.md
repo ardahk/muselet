@@ -1,4 +1,4 @@
-# evals-safety digest, pass 22 (2026-10-24T10:18:17Z): main 758a017 unchanged; reviewed wip/local 4350185 (HandsKit parity fixes; no confirm/network/shell changes) and data-pipeline 8881d38 (doc-only), nothing material
+# evals-safety digest, pass 23 (2026-10-24T10:33:28Z): main d514300 (brain-4 merged, serve_brain.sh defaults)
 
 ## Open P0/P1 (ranked)
 No open P0.
@@ -6,7 +6,7 @@ No open P0.
 2. evals-safety-6 P1: Enter/Send in Discord/WhatsApp/web composers is unconfirmed (ml/src/brain/orchestrator.py)
 3. evals-safety-11 P1: done is accepted after an expect-less batch + fresh observe (ml/src/brain/orchestrator.py:1076-1093)
 4. evals-safety-23 P1: the spend guard's level-only latch and $10 margin (tools/review_pulse.sh:25-31)
-5. evals-safety-26 P1 (cloud/data-pipeline): main-final's training rows have no decontam record (training/src/muselet_train/datums_export.py)
+5. evals-safety-26 P1 (now main: serve_brain.sh defaults to main-final, picked on route_v1): main-final's training rows have no decontam record (training/src/muselet_train/datums_export.py)
 
 Resolved this pass: -29 (hobby-gaps ef95140: calc before the router only in Calculator context). Open P2: -8, -12, -20, -21, -22, -24, -28.
 Pass 21 checked, nothing material: brain-5 pathfind (a single resolved path for move_to_trash still goes through confirm, which now shows the full path); decisions decontam (fails closed if the JevBench/Typed-Decisions references are missing); wip keystroke typing for Calculator. Earlier: the brain-4 escalate planner (opt-in, same done gate); the pitch-2 claims re-verify (-2 resolved, -11 partial: both correct).
