@@ -1,4 +1,8 @@
-# planner lane — pass 36 (main e56582b, wip 73f7044 = main in this lane; comms c94a407, data-planner ee8ae33, bench-fix 4bcf0db)
+# planner lane — pass 37 (main fb2cfd0, wip 9ed6bc8 = main in this lane)
+
+Pass 37: no lane changes. main merged bench-fix (harness fixes) and added live-suite preconditions and final-state checks, outside this lane. Open findings on main are unchanged (line numbers moved): planner-24 orchestrator.py L1074, planner-26 L293, planner-27 L1704, planner-28 compose_text.py L70, planner-25 planner.py L339, planner-6. planner-29 is still on data-planner.
+
+## Pass 36 notes
 
 Pass 36: 1 new P1 (planner-29: planner bench v2 goals near-duplicate the few-shot examples the runner puts in the prompt, and the validator doesn't check against the few-shot file). comms c94a407 is a merge of main plus a fix to the fake planner worker in tests; the send confirms are unchanged. bench-fix only brings in main's brain-7 files plus harness fixes. app-ui, decisions and data-route don't touch the planner lane. Open findings on main are unchanged: planner-28 compose_text L70, planner-24 L984, planner-6, planner-26, planner-27, planner-25.
 
