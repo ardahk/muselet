@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 from . import numbers_script as ns
-from .report import analyze, jsonable
+from .report import NEEDS_REVIEW, analyze, jsonable
 from .statement import load_budget, load_statement
 
 
@@ -22,6 +22,19 @@ def _receipts(path: str):
     if isinstance(data, dict):
         data = [{"id": k, **v} for k, v in data.items()]
     return [{k: r[k] for k in ("id", "merchant", "date", "total")} for r in data]
+
+
+def ns_resolved(rep: dict) -> list[int]:
+    return [r for d in rep["duplicate_status"] if d["status"] == "refunded" for r in d["rows"] + [d["refund_row"]]]
+
+
+def write_budget_script(rep: dict) -> str:
+    """Final budget as is; with unresolved rows, notes on the partial categories plus a "Needs review" line."""
+    b = rep["budget"]
+    if rep["complete"]:
+        return ns.write_budget(b["actual"], b["remaining"])
+    notes, row = ns.budget_review(b, NEEDS_REVIEW)
+    return ns.write_budget(b["actual"], b["remaining"], notes=notes, pending_row=row)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -42,8 +55,11 @@ def main(argv: list[str] | None = None) -> int:
     rep = analyze(txns, budget, receipts, user_rules=rules)
     if args.scripts:
         rep["numbers_scripts"] = {
-            "highlight": ns.highlight_flags(rep["duplicates"], rep["outliers"], rep["weekend_charges"]),
-            "write_budget": ns.write_budget(rep["budget"]["actual"], rep["budget"]["remaining"]),
+            "highlight": ns.highlight_flags([d["rows"] for d in rep["duplicate_status"]], rep["outliers"],
+                                            resolved=ns_resolved(rep)),
+            # Unresolved rows: the budget is written with a "Needs review" note on the categories they could
+            # still flip (finance-9), never as if it were final.
+            "write_budget": write_budget_script(rep),
             "summary": ns.add_summary_table(ns.summary_rows(rep)),
         }
     json.dump(jsonable(rep), sys.stdout, indent=1)

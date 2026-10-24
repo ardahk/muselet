@@ -21,7 +21,7 @@ CAL_NAME="${MUSELET_CALENDAR:-Clients}"
 EVENT_SUMMARY="Henderson annual review"
 NOTES_FOLDER="Clients"
 PRIOR_TITLE="Henderson - meeting notes - 2026-07-23"   # first line of last_meeting_notes.txt
-PREP_TITLE="Henderson — annual review prep"             # written by the agent during the demo
+PREP_TITLE="Henderson — annual review prep (Muselet)"           # written by the agent during the demo
 
 CMD="setup"
 MODE="dry-run"
@@ -241,12 +241,26 @@ plan_reset() {
   echo "Plan ($CMD, $MODE):"
   say "Notes: delete \"$PREP_TITLE\" in folder \"$NOTES_FOLDER\" (the agent's output)"
   say "restore ${FILES[*]} in $DEST from the fixture (undo any saved edits)"
-  say "Numbers: close portfolio without saving if it is open"
+  say "Numbers: close $DEST/portfolio.xlsx without saving if it is open (matched by file path)"
 }
 
 do_reset() {
   echo "Notes: $(notes_delete "$PREP_TITLE" no)"
-  osascript -e 'tell application id "com.apple.Numbers" to if it is running then close (every document whose name starts with "portfolio") saving no' || true
+  # close only the demo workbook (by file path), never another client's portfolio
+  osascript - "$DEST/portfolio.xlsx" <<'OSA' || true
+on run argv
+  set p to item 1 of argv
+  tell application id "com.apple.Numbers"
+    if it is running then
+      repeat with d in (get every document)
+        try
+          if POSIX path of ((file of d) as alias) is p then close d saving no
+        end try
+      end repeat
+    end if
+  end tell
+end run
+OSA
   local f
   for f in "${FILES[@]}"; do cp "$SRC/$f" "$DEST/$f"; done
   echo "Reset done."

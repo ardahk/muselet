@@ -42,13 +42,18 @@ Savings $236,480.00. 22 lots / 15 positions; VTI, MSFT, VXUS and BND have multip
   any account (IRAs included, per IRS Pub. 550) in the 30 days before the as-of date; earliest clean sale =
   last such buy + 31 days. Pairs: VTI→ITOT, VXUS→IXUS, BND→AGG, VNQ→SCHH, VOO→IVV, VEA→IEFA, VWO→IEMG,
   BNDX→IAGG.
-- **Cash excess** = savings − 6 × monthly expenses − lake-house reserve (the $ amount in the notes sentence
-  mentioning the lake house down payment; kept liquid because it is needed within a year).
+- **Cash excess** = savings − 6 × monthly expenses − planned-expense reserves. Reserves come from
+  `profile.json` `liquidity_reserves: [{label, amount, source_quote}]` when present; otherwise from every notes
+  sentence with a $ amount, a near-term cue (next/this/by/target/plan/want/due/keep/a season/a year) and a
+  planned-expense keyword (down payment, tuition/college, wedding, car, remodel/roof, home purchase, tax bill,
+  medical, "keep ... liquid"); past spending ("last year", gave, paid, spent) is ignored. Henderson: only the
+  $120,000 lake house down payment qualifies (the $5,000 church gift is past).
 - **Roth room** = top of the 2026 MFJ 22% bracket − estimated taxable income, floor 0.
 - **Donation candidates**: taxable lots with a gain held more than 1 year (holding period starts the day
   after the trade date, IRS Pub. 550), top 2 by gain %.
 - **Opportunities** are ranked by `impact_usd`: dollars to move (rebalance), idle savings (cash), convertible
-  amount (Roth), harvestable losses (TLH), gains avoided (donation).
+  amount (Roth), harvestable losses (TLH), gains avoided (donation). These are different kinds of dollars, so
+  the order is by size only; the brief lists each amount separately and nothing ever adds them up.
 
 ## Truth values
 

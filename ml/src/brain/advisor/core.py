@@ -11,7 +11,7 @@ Rules (also documented in evals/fixtures/advisor/README.md):
   it uses the replacement from PAIRS instead.
 - TLH: taxable lots with unrealized loss >= min_loss. Blocked if the same ticker was bought in any
   account within wash_days before the as-of date (IRS Pub. 550; IRA buys count).
-- Cash excess: savings - months x monthly expenses - lake-house reserve parsed from the last notes.
+- Cash excess: savings - months x monthly expenses - planned-expense reserves (profile or parsed from notes).
 - Roth room: top of the 22% bracket (IRS Rev. Proc. 2025-32) - estimated taxable income, floor 0.
 - Donation candidates: taxable lots with a gain, held more than 1 year, top n by gain percentage.
 """
@@ -333,17 +333,63 @@ def tlh_candidates(h: Household, min_loss: Decimal | str = Decimal(1000), wash_d
             "harvestable_loss_total": money(total), "evidence": evidence}
 
 
-_DOLLARS = re.compile(r"\$\s?([\d,]+(?:\.\d{2})?)")
+_AMOUNT = re.compile(r"\$\s?(\d[\d,]*(?:\.\d+)?)\s*(k|m|thousand|million)?\b", re.IGNORECASE)
+_SCALE = {"k": 1000, "thousand": 1000, "m": 1000000, "million": 1000000}
+_FUTURE = re.compile(r"\b(next|this|due|keep|coming|upcoming|plan|plans|planned|planning|want|wants|will|need|needs|"
+                     r"expect|expects|by|before|target|starting|spring|summer|fall|autumn|winter|20\d\d)\b", re.IGNORECASE)
+_PAST = re.compile(r"\b(last year|last month|gave|paid|spent|bought|sold|already)\b", re.IGNORECASE)
+_PROPERTY = r"((?:[a-z]+ )?(?:house|home|condo|cabin|apartment|property))"
+# (pattern, label template); first hit wins. \1 is the object of a down payment when one is named.
+PLANNED_EXPENSES = [
+    (re.compile(rf"down payment (?:on|for) (?:the |a |their |an )?{_PROPERTY}", re.IGNORECASE), "{} down payment"),
+    (re.compile(rf"\bdown (?:on|for) (?:the |a |their |an )?{_PROPERTY}", re.IGNORECASE), "{} down payment"),
+    (re.compile(rf"{_PROPERTY} down payment", re.IGNORECASE), "{} down payment"),
+    (re.compile(r"down payment|put [^.]{0,30}\bdown\b", re.IGNORECASE), "down payment"),
+    (re.compile(r"\b(tuition|college|university|school fees)\b", re.IGNORECASE), "tuition"),
+    (re.compile(r"\bwedding\b", re.IGNORECASE), "wedding"),
+    (re.compile(r"\b(car|vehicle|truck|ev)\b", re.IGNORECASE), "car purchase"),
+    (re.compile(r"\b(remodel|renovation|renovate|roof|kitchen|addition)\b", re.IGNORECASE), "home project"),
+    (re.compile(r"\b(home|house|condo) purchase\b|\bbuy (?:a |the )?(?:house|home|condo)\b", re.IGNORECASE),
+     "home purchase"),
+    (re.compile(r"\btax (?:bill|payment)\b|\bestimated tax", re.IGNORECASE), "tax bill"),
+    (re.compile(r"\b(medical|surgery|hospital|long-term care)\b", re.IGNORECASE), "medical"),
+    (re.compile(r"\bkeep (?:[^.]{0,30})liquid\b", re.IGNORECASE), "kept liquid"),
+]
 
 
-def lake_house_reserve(notes: str) -> tuple[Decimal, str | None]:
+def parse_amount(text: str) -> Decimal | None:
+    m = _AMOUNT.search(text)
+    if not m:
+        return None
+    return _d(m.group(1)) * _SCALE.get((m.group(2) or "").lower(), 1)
+
+
+def planned_expenses(notes: str) -> list[dict]:
+    """Near-term planned expenses with a dollar amount, one per sentence: down payment, tuition, wedding, car,
+    remodel, tax bill, medical, or anything the notes say to keep liquid. Past spending is ignored."""
+    out = []
     for sentence in re.split(r"(?<=[.!?])\s+|\n", notes):
-        low = sentence.lower()
-        if "lake house" in low and "down" in low:
-            m = _DOLLARS.search(sentence)
+        sentence = sentence.strip().lstrip("-* ").strip()
+        amount = parse_amount(sentence)
+        if amount is None or amount <= 0 or _PAST.search(sentence) or not _FUTURE.search(sentence):
+            continue
+        for pat, label in PLANNED_EXPENSES:
+            m = pat.search(sentence)
             if m:
-                return _d(m.group(1)), sentence.strip()
-    return Decimal(0), None
+                obj = next((g for g in m.groups() if g), None) if "{}" in label else None
+                out.append({"label": label.format(obj.lower()) if obj else label.replace("{} ", ""),
+                            "amount": money(amount), "quote": sentence})
+                break
+    return out
+
+
+def liquidity_reserves(h: Household) -> tuple[list[dict], str]:
+    """profile.json `liquidity_reserves` [{label, amount}] wins over what the notes say; else parse the notes."""
+    given = h.profile.get("liquidity_reserves")
+    if given is not None:
+        return [{"label": r["label"], "amount": money(Decimal(str(r["amount"]))), "quote": r.get("source_quote")}
+                for r in given], "profile.json liquidity_reserves"
+    return planned_expenses(h.notes), "planned expenses with amounts parsed from last meeting notes"
 
 
 def cash_excess(h: Household, months: int | None = None) -> dict:
@@ -351,14 +397,17 @@ def cash_excess(h: Household, months: int | None = None) -> dict:
     savings_lots = [x for x in h.lots if x.kind == "savings"]
     savings = sum((x.market_value for x in savings_lots), Decimal(0))
     monthly = Decimal(h.profile["monthly_expenses"])
-    lake, sentence = lake_house_reserve(h.notes)
-    excess = savings - months * monthly - lake
-    evidence = [{"rule": f"excess = savings - {months} x monthly expenses - lake-house reserve (kept liquid)",
+    reserves, source = liquidity_reserves(h)
+    reserved = sum((Decimal(r["amount"]) for r in reserves), Decimal(0))
+    excess = savings - months * monthly - reserved
+    evidence = [{"rule": f"excess = savings - {months} x monthly expenses - planned-expense reserves (kept liquid)",
                  "rows": [x.row for x in savings_lots]}]
-    if sentence:
-        evidence.append({"rule": "lake-house reserve parsed from last meeting notes", "quote": sentence})
+    evidence += [{"rule": f"reserve from {source}", "label": r["label"], "amount": r["amount"],
+                  "quote": r["quote"]} for r in reserves]
     return {"savings": money(savings), "months": months, "monthly_expenses": money(monthly),
-            "emergency_reserve": money(months * monthly), "lake_house_reserve": money(lake),
+            "emergency_reserve": money(months * monthly),
+            "reserves": [{"label": r["label"], "amount": r["amount"]} for r in reserves],
+            "reserve_total": money(reserved),
             "excess": money(max(excess, Decimal(0))), "evidence": evidence}
 
 

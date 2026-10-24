@@ -9,15 +9,18 @@ import socket
 import string
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 
+import dateparser as _dp
 import mlx.core as mx
 import mlx_lm
 import numpy as np
-import dateparser as _dp
 from tinker_cookbook import model_info, renderers, tokenizer_utils
 
 from .vendor.tinker_decisions import (
-    ChoiceRendering, Decision, DecisionRenderer, PrefixedChoiceRenderer,
+    Decision,
+    DecisionRenderer,
+    PrefixedChoiceRenderer,
 )
 
 SPECIAL = ["MULTI_STEP", "ASK", "REFUSE", "ANSWER"]
@@ -54,33 +57,89 @@ _WORD_SCALE = {"hundred": 100}
 
 def parse_duration(text: str) -> int | None:
     """Spoken duration -> seconds. 'ten minutes', '90 seconds',
-    '1 hour 30 minutes', 'an hour and a half'."""
-    t = text.lower().strip()
-    m = re.match(r"^an?\s+(hour|minute|second)s?\s+and a half$", t)
-    if m:
-        return int(1.5 * _UNITS[m.group(1)])
+    '1 hour 30 minutes', 'an hour and a half', 'one hour twenty five minutes'."""
+    from . import calc
+    t = calc.normalize(text.lower().strip())[0].replace("-", " ")
     m = re.search(r"half an? (hour|minute|second)s?", t)
-    if m:
+    if m and not re.search(r"\d", t):
         return int(0.5 * _UNITS[m.group(1)])
-    total = 0.0
-    found = False
+    total, found = 0.0, False
     for m in re.finditer(
-            r"(\d+(?:\.\d+)?|a|an|one|two|three|four|five|six|seven|eight|nine|ten|"
-            r"eleven|twelve|fifteen|twenty|thirty|forty|sixty|ninety)\s*"
-            r"(seconds?|secs?|minutes?|mins?|hours?|hrs?)\b", t):
-        num = _WORD_NUM.get(m.group(1), None)
-        if num is None:
-            try:
-                num = float(m.group(1))
-            except ValueError:
-                return None
-        total += num * _UNITS[m.group(2)]
+            r"(\d+(?:\.\d+)?|an?)\s*(and a half\s+)?"
+            r"(seconds?|secs?|minutes?|mins?|hours?|hrs?)\b(\s+and a half)?", t):
+        num = 1.0 if m.group(1) in ("a", "an") else float(m.group(1))
+        if m.group(2) or m.group(4):
+            num += 0.5
+        total += num * _UNITS[m.group(3)]
         found = True
     return int(total) if found else None
 
 
-def parse_datetime(text: str) -> str | None:
-    """Spoken date/time -> ISO-8601 local. Returns None if unparsable."""
+_WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday",
+             "saturday", "sunday"]
+_DAY_RE = re.compile(r"\b(today|tonight|tomorrow|(?:next |this )?(?:%s))\b"
+                     % "|".join(_WEEKDAYS))
+_TIME_RE = re.compile(r"\b(?:at |by |@ ?)?(noon|midnight|(\d{1,2})(?:[: ](\d\d))?"
+                      r"\s*(a\.?m\.?|p\.?m\.?|o'?clock)?)(?![\d%])")
+_PART = {"morning": 9, "afternoon": 15, "evening": 19, "tonight": 20}
+
+
+def _clock(t: str, day_word: str | None):
+    """(hour, minute) for the time phrase in `t`, or None."""
+    for m in _TIME_RE.finditer(t):
+        if m.group(1) in ("noon", "midnight"):
+            return (12 if m.group(1) == "noon" else 0), 0
+        if not (m.group(0).startswith(("at", "by", "@")) or m.group(4)
+                or m.group(3)):
+            continue                     # a bare number is not a time
+        h, mi = int(m.group(2)), int(m.group(3) or 0)
+        if h > 23 or mi > 59:
+            return None
+        suf = (m.group(4) or "").replace(".", "")
+        if suf.startswith("p") and h < 12:
+            h += 12
+        elif suf.startswith("a") and h == 12:
+            h = 0
+        elif not suf.startswith(("a", "p")) and h < 12 and (
+                day_word == "tonight" or "evening" in t or "night" in t
+                or "afternoon" in t or 1 <= h <= 7):
+            h += 12                      # 'tonight at 8', 'at 5' -> pm
+        return h, mi
+    for w, h in _PART.items():
+        if w in t:
+            return h, 0
+    return None
+
+
+def parse_datetime(text: str, now: datetime | None = None) -> str | None:
+    """Spoken date/time -> ISO-8601 local. Returns None if unparsable.
+    Relative phrases ('in 20 minutes', 'tonight at 8', 'next tuesday at 9',
+    'friday at 3pm', 'tomorrow at noon') are parsed by code; anything else
+    goes to dateparser."""
+    from . import calc
+    now = (now or datetime.now()).replace(microsecond=0)
+    t = text.lower().strip()
+    if not re.search(r"\d:\d", t):     # normalize() would split '7:30'
+        t = calc.normalize(t)[0]
+    m = re.search(r"\bin\s+(.+?(?:seconds?|minutes?|mins?|hours?|hrs?)"
+                  r"(?:\s+and a half)?)\b", t)
+    if m and (secs := parse_duration(m.group(1))):
+        return (now + timedelta(seconds=secs)).isoformat(timespec="seconds")
+    dm = _DAY_RE.search(t)
+    day_word = dm.group(1) if dm else None
+    clock = _clock(t, day_word)
+    if dm or clock:
+        day = now.date()
+        if day_word == "tomorrow":
+            day += timedelta(days=1)
+        elif day_word and day_word not in ("today", "tonight"):
+            wd = _WEEKDAYS.index(day_word.split()[-1])
+            day += timedelta(days=(wd - now.weekday()) % 7 or 7)
+        h, mi = clock or (9, 0)
+        dt = datetime.combine(day, datetime.min.time()).replace(hour=h, minute=mi)
+        if dt <= now and not dm:
+            dt += timedelta(days=1)      # 'at 5' already passed -> tomorrow
+        return dt.isoformat(timespec="seconds")
     d = _dp.parse(text, languages=["en"],
                   settings={"PREFER_DATES_FROM": "future"})
     return d.isoformat(timespec="seconds") if d else None
@@ -233,7 +292,7 @@ class RouteRenderer:
             app=ctx.get("app") or "none",
             focused=ctx.get("focused") or "none",
             sel="yes" if ctx.get("selection") else "no",
-            online="yes" if ctx.get("online", True) else "no",
+            online="no" if str(ctx.get("online", True)).lower() in ("false", "no", "0", "none") else "yes",
             last=ctx.get("last_action") or "none",
             request=utterance)
         return Decision(text=text, choices=self._options)

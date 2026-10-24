@@ -17,15 +17,19 @@ The text content and all truth files do not depend on the font.
 | File | What it is |
 |---|---|
 | `bank_statement_oct2026.csv` | 120-row checking statement, `Date,Description,Amount,Balance`; opening balance 3,120.55; debits negative; running balance; sorted by date. |
-| `bank_statement_oct2026.truth.json` | Per-row category, duplicate pairs, outlier row, refund row, `category_spend` (debits minus refunds), `total_income`, `total_spend`, `net`, `closing_balance`. Rows are 1-based (excluding header). |
+| `bank_statement_oct2026.truth.json` | Per-row category, duplicate pairs, `duplicate_status` (`open`, or `refunded` with the `refund_row` that reversed it), outlier row, refund row, `weekend_charges` (debits on Sat/Sun), `category_spend` (debits minus refunds), `total_income`, `total_spend`, `net`, `closing_balance`. Rows are 1-based (excluding header). |
 | `budget_oct2026.xlsx` | Sheet `Budget`: `Category | Budget | Actual | Remaining` for Rent, Groceries, Dining, Transport, Shopping, Subscriptions, Utilities, Health. Actual and Remaining are empty (the agent fills them). |
 | `budget_oct2026.truth.json` | Expected `actual` (= category_spend), `remaining` (= Budget - Actual) and `over_budget`. |
-| `receipts/receipt_01..08.png` | 600x900 receipts. 1-6 match a statement row exactly (merchant, date, total); 7 matches merchant+date but its TOTAL has two digits transposed; 8 (`PHILZ COFFEE`) matches nothing. |
-| `receipts.truth.json` | `{receipt: {match_row, status: matched|amount_mismatch|no_match, total, merchant, date}}`; the amount_mismatch entry also has `statement_amount` and `transposed_digits: true`. |
+| `receipts/receipt_01..08.png` | 600x900 receipts. 1-6 match a statement row (same total): receipts 2 and 4 print the store name (`Trader Joe's #127`, `Berkeley Bowl #2`) instead of the bank descriptor, so matching must be fuzzy, and receipt 5 is dated the day before the charge posts (`posting_delay_days: 1`). 7 matches merchant+date but its TOTAL has two digits transposed; 8 (`PHILZ COFFEE`, between Peet's and Blue Bottle charges) matches nothing. Every line item is at least 20% of the subtotal; groceries carry no sales tax (California exempts them), everything else 10.25%. |
+| `receipts.truth.json` | `{receipt: {match_row, status: matched|amount_mismatch|no_match, total, merchant, date}}` (`merchant`/`date` as printed on the receipt); the delayed receipt has `posting_delay_days`, the amount_mismatch entry has `statement_amount` and `transposed_digits: true`. |
+| `setup_mac.sh` | Stages the demo on the Mac: copies the statement, budget and receipts into `~/Documents/Finance/` (`Receipts/`), opens nothing. `--dry-run` (default) / `--apply`; `teardown` removes only what it created; `reset` closes the demo documents without saving and restores the files. |
 
 Planted anomalies: duplicate `UBER TRIP -23.47` on 10-09, duplicate `AMAZON MKTP -64.99` on 10-21,
 outlier `APPLE STORE -1299.00` on Sat 10-24, refund `AMAZON MKTP REFUND +64.99` on 10-28 (Shopping,
-counts as negative spend). No other exact (date, description, amount) duplicates exist.
+counts as negative spend). No other exact (date, description, amount) duplicates exist. The Amazon
+duplicate was already refunded on 10-28 (`duplicate_status: refunded`), so only the Uber pair is an open
+dispute. `VENMO FROM SAM` (+45.00) is Income in the truth, but no general rule can know a P2P credit is
+income, so the engine asks (with `BERKELEY BOWL`, an unknown grocer) instead of assuming.
 
 ## Demo / eval tasks
 
