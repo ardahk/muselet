@@ -1,14 +1,17 @@
 {
- "pass": 3,
- "ts": "2026-10-24T05:56:40Z",
+ "pass": 4,
+ "ts": "2026-10-24T06:10:48Z",
  "branches": {
-  "main": "dec310b",
-  "wip/local": "cbc4879",
-  "cloud/bench": "8429245",
-  "cloud/data-pipeline": "8c7c023",
+  "main": "e78f143",
+  "wip/local": "e0bdc65",
+  "cloud/bench": "14c7eb1",
+  "cloud/data-pipeline": "153a01c",
   "cloud/finance": "529e9ff",
+  "cloud/finance-2": "f4ae461",
   "cloud/fixtures-docs": "4bf2291",
-  "cloud/advisor": "9432c30"
+  "cloud/advisor": "9432c30",
+  "cloud/advisor-2": "ec98013",
+  "cloud/pitch": "454a563"
  },
- "notes": "cloud/bench reviewed in full (statically; bench/tests: 8 passed, 1 skipped (mlx tokenizer test)). No lane changes on main/wip/finance/advisor/fixtures-docs."
+ "notes": "bench/tests at 14c7eb1: 15 passed, 1 skipped. No lane changes on main/wip/finance-2/advisor-2/pitch."
 }
