@@ -1,8 +1,8 @@
 {
-  "pass": 48,
-  "ts": "2026-10-24T23:27:00Z",
+  "pass": 49,
+  "ts": "2026-10-24T23:45:00Z",
   "last_reviewed": {
-    "main": "46b97f5",
+    "main": "18c139f",
     "wip/local": "719907a",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
@@ -54,7 +54,7 @@
     "cloud/memory-lt": "cc056af",
     "cloud/ui-polish": "e8bceef",
     "cloud/docs-demo": "095d4ef",
-    "cloud/planner-lora": "ceafe3d",
+    "cloud/planner-lora": "79f0a97",
     "cloud/router-it3-serve": "b455d2c",
     "cloud/docs-demo-2": "fa79929",
     "cloud/hands-clock": "26d4427",
@@ -70,5 +70,5 @@
     "cloud/safety-brain38": "54ca8f6",
     "cloud/safety-planner28": "fb4a45a"
   },
-  "notes": "pass 48: only cloud/decisions moved (no lane files). No new findings."
+  "notes": "pass 49: main 18c139f merged brain-12/18, planner-think (default off), live-cases, planner-lora; lane diff 70 lines with no new bubble/ui copy. No new findings."
 }
