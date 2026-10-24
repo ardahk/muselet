@@ -1,0 +1,36 @@
+[project]
+name = "muselet-train"
+version = "0.1.0"
+description = "muselet cloud data + training pipeline (Tinker)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "tinker==0.34.0",
+    # 0.5.8 (2026-10-21) is the first release that ships tinker_cookbook.recipes.decisions (required by SPEC 1.2)
+    "tinker-cookbook==0.5.8",
+    # tinker-cookbook 0.5.8 requires transformers<=5.5.4
+    "transformers==5.5.4",
+    "torch==2.14.1",
+    "anthropic==1.15.0",
+    "openai==3.33.0",
+    "datasets==5.1.0",
+    "datasketch==2.0.0",
+    "numpy==2.5.4",
+]
+
+[dependency-groups]
+dev = ["pytest==9.1.1"]
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[build-system]
+requires = ["uv_build>=0.11.6,<0.14.0"]
+build-backend = "uv_build"
