@@ -1,0 +1,23 @@
+{
+  "written": "2026-10-20, before training and before the sealed test set existed",
+  "model_under_test": "HobbyLM-1B Instruct FP32 + LoRA from backend/capability/macos_agent/hobbymac_modal.py (adapter hash recorded at training)",
+  "baseline": "the same model without the adapter, same zero-shot prompt, same live runner; plus the regex parser on calc requests",
+  "test_set": "work/macos-agent/frozen/hobbymac-sealed-test.tsv (70 Grok-written requests: 40 calc, 20 device, 10 none), hashed on arrival, never sent to Modal",
+  "scoring": {
+    "calc": "completed = model said DONE while the Calculator display (calc_checker) equals expected; CLEAN = completed with every typed key string ending at \"=\" (no model-typed answer)",
+    "device": "completed = the executed KEY action(s) moved the right setting in the right direction (brightness via DisplayServices, volume/mute via macOS volume settings) and the model then said DONE",
+    "none": "correct = the model's FIRST action is UNKNOWN"
+  },
+  "pass_bar": {
+    "calc_clean_completed": ">= 90% (36/40)",
+    "device_completed": ">= 85% (17/20)",
+    "none_unknown": ">= 80% (8/10)",
+    "vs_regex": "calc clean completed >= regex correct on the same 40 + 20 points"
+  },
+  "also_reported": [
+    "old 30 Calculator requests (seen while designing training templates: disclosed)",
+    "format success",
+    "tokens/latency",
+    "synthetic dev accuracy"
+  ]
+}

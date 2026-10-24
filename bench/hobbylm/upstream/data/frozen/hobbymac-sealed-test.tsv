@@ -1,0 +1,95 @@
+C01	calc	whats 57 plus 36	93
+C02	calc	92 minus 47 pls	45
+C03	calc	19 times 8?	152
+C04	calc	225 divided by 15	15
+C05	calc	how much is 403 + 298	701
+C06	calc	64 x 25	1600
+C07	calc	12.5 minus 4.75	7.75
+C08	calc	take 13 off 50	37
+C09	calc	how much less is 27 than 90	63
+C10	calc	knock 140 off 600	460
+C11	calc	how many 6s fit in 96	16
+C12	calc	whats 14 short of 100	86
+C13	calc	how much bigger is 210 than 150	60
+C14	calc	pull 75 out of 320, what remains	245
+C15	calc	120 shared equally by 8, each gets?	15
+C16	calc	eighty one minus twenty seven	54
+C17	calc	a dozen into seven	84
+C18	calc	forty plus sixty six	106
+C19	calc	nine hundred divided by thirty	30
+C20	calc	thirteen times seven	91
+C21	calc	one fifty minus eighty eight	62
+C22	calc	fifteen into six kitna	90
+C23	calc	paid 1200 for 5 notebooks, cost of one?	240
+C24	calc	electricity bill 3150, 3 flatmates splitting, my part	1050
+C25	calc	gave a 2000 note, spent 1460, how much change i shud get	540
+C26	calc	6 friends each paying 450 for the trip, total collected?	2700
+C27	calc	chai is 15 each, ordered 8 cups, total	120
+C28	calc	did 250 km on 10 litres, how many km per litre	25
+C29	calc	had 18 laddoos, ate 5, how many left	13
+C30	calc	flight was 4800 and baggage 650 extra, total paid	5450
+D01	device	screen is too bright, its night	BRIGHTNESS_DOWN
+D02	device	lower brightness a bit yaar	BRIGHTNESS_DOWN
+D03	device	my eyes are burning from this glare	BRIGHTNESS_DOWN
+D04	device	cant read anything, screen too dark	BRIGHTNESS_UP
+D05	device	brighten the display pls	BRIGHTNESS_UP
+D06	device	working outside, screen is too dim	BRIGHTNESS_UP
+D07	device	volume down a little	VOLUME_DOWN
+D08	device	this video is blasting, reduce sound	VOLUME_DOWN
+D09	device	bit softer pls, neighbours are sleeping	VOLUME_DOWN
+D10	device	I cant hear anything	VOLUME_UP
+D11	device	louder, the podcast is too quiet	VOLUME_UP
+D12	device	increse the volume	VOLUME_UP
+D13	device	shh, meeting starting	MUTE
+D14	device	mute pls, boss calling	MUTE
+D15	device	kill all sound	MUTE
+K01	dark	my eyes hurt at night, make everything dark	DARK_MODE ON
+K02	dark	turn on dark mode	DARK_MODE ON
+K03	dark	switch to the black theme	DARK_MODE ON
+K04	dark	switch back to the white look	DARK_MODE OFF
+K05	dark	dark mode off pls, cant see well in sunlight	DARK_MODE OFF
+K06	dark	go back to light mode	DARK_MODE OFF
+A01	app	I need to jot something down	OPEN Notes
+A02	app	open notes app	OPEN Notes
+A03	app	whats on my schedule	OPEN Calendar
+A04	app	show calender, need to check friday	OPEN Calendar
+A05	app	open finder	OPEN Finder
+A06	app	i want to browse my files	OPEN Finder
+A07	app	play some music, open the music app	OPEN Music
+A08	app	open apple music	OPEN Music
+A09	app	open my to-do reminders	OPEN Reminders
+A10	app	where is my reminders list, open it	OPEN Reminders
+F01	folder	where did that file I just downloaded go	FOLDER Downloads
+F02	folder	show downloads folder	FOLDER Downloads
+F03	folder	show me my desktop files	FOLDER Desktop
+F04	folder	open desktop folder pls	FOLDER Desktop
+F05	folder	open documents	FOLDER Documents
+F06	folder	need my docs folder	FOLDER Documents
+T01	timer	set a timer for 25 mins	TIMER 25
+T02	timer	remind me in half an hour	TIMER 30
+T03	timer	ping me in an hour	TIMER 60
+T04	timer	fifteen minute timer for the pasta	TIMER 15
+T05	timer	timer for 1.5 hours	TIMER 90
+T06	timer	remind me after 2 hrs to check the oven	TIMER 120
+T07	timer	45 minutes timer	TIMER 45
+T08	timer	five min timer for maggi	TIMER 5
+S01	screenshot	take a screenshot	SCREENSHOT
+S02	screenshot	grab my screen	SCREENSHOT
+S03	screenshot	capture whats on screen rn	SCREENSHOT
+S04	screenshot	ss lena hai, take one	SCREENSHOT
+N01	none	will it rain in bangalore today	UNKNOWN
+N02	none	send rahul a whatsapp that im running late	UNKNOWN
+N03	none	open flipkart.com	UNKNOWN
+N04	none	whats 12 times 3 plus 7	UNKNOWN
+N05	none	hey hows ur day going	UNKNOWN
+N06	none	what's the brightest star	UNKNOWN
+N07	none	play loud music on Spotify	UNKNOWN
+N08	none	calculate my taxes	UNKNOWN
+N09	none	open a new tab in Chrome	UNKNOWN
+N10	none	what does dark matter mean	UNKNOWN
+N11	none	how many minutes till my flight	UNKNOWN
+N12	none	delete the screenshots on my desktop	UNKNOWN
+N13	none	average of 40, 55 and 70	UNKNOWN
+N14	none	who is the prime minister of japan	UNKNOWN
+N15	none	write a mail to my landlord	UNKNOWN
+N16	none	is my volume button broken	UNKNOWN

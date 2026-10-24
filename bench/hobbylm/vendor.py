@@ -26,6 +26,30 @@ FILES = [
 ]
 
 
+def verify_provenance(upstream: Path) -> None:
+    provenance = upstream / "PROVENANCE.md"
+    if not provenance.is_file():
+        raise RuntimeError(f"missing HobbyLM provenance manifest: {provenance}")
+    entries = re.findall(
+        r"^\| `([^`]+)` \| `([0-9a-f]{64})` \|$",
+        provenance.read_text(encoding="utf-8"),
+        re.MULTILINE,
+    )
+    if not entries:
+        raise RuntimeError(f"no file hashes found in {provenance}")
+    errors = []
+    for relative, expected in entries:
+        path = upstream / relative
+        if not path.is_file():
+            errors.append(f"{relative}: missing")
+            continue
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        if actual != expected:
+            errors.append(f"{relative}: expected {expected}, got {actual}")
+    if errors:
+        raise RuntimeError("HobbyLM provenance verification failed:\n" + "\n".join(errors))
+
+
 def vendor(source: Path, destination: Path) -> list[tuple[str, str]]:
     files = list(FILES)
     files.extend(str(path.relative_to(source)) for path in sorted((source / "data/frozen").rglob("*")) if path.is_file())

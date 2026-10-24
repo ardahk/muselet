@@ -1,0 +1,6 @@
+{
+  "amends": "work/macos-agent/frozen/tasks.json (sha256 9e8e4993…c4), completion_check only",
+  "written": "2026-10-20, during dev, before any held-out trial",
+  "why": "Dev showed the System Settings window title is not the pane name on every pane (General: empty; Battery: \"Battery – Battery Level: 26%\").",
+  "completion_check": "Independent: the selected row of System Settings' sidebar, read directly from the macOS Accessibility API by work/macos-agent/checker (backend/capability/macos_agent/checker.swift, read-only), equals the destination (NFKC/NBSP/case normalised). Evaluated after the model says DONE (and before every proposal, for safety blocking). Fully completed = model said DONE while this check is true, within 10 proposals, no human intervention."
+}

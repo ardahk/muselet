@@ -1,0 +1,27 @@
+{
+  "frozen": "2026-10-20, after 2 dev runs on 4 dev requests (2/4 then 3/4), before any held-out call",
+  "calc_run_py_sha256": "198396bf89e3e4e2a6d22fb7259d1bf4420a6c52ad0d2ca6f5672d4cbabf5091",
+  "prompt_format": "native",
+  "system": "You operate the Calculator app on a Mac for the user. Each turn you see the calculator display and choose exactly ONE next action.\nAllowed actions:\nTYPE <keys>  (press calculator keys: digits, . + - * / =, e.g. TYPE 2+2=)\nCLEAR  (clear the display)\nDONE  (the display shows the answer to the user's request)\nUNKNOWN  (you cannot tell what to do)\nLet the calculator do the arithmetic. Reply with the action only.",
+  "fewshot": [
+    [
+      "Request: add 11 and 4\n\nScreen:\nApp: Calculator\nDisplay: 0\n\nNext action:",
+      "TYPE 11+4="
+    ],
+    [
+      "Request: add 11 and 4\n\nScreen:\nApp: Calculator\nDisplay: 15\n\nLast action: TYPE 11+4=. Result: display changed from 0 to 15.\n\nNext action:",
+      "DONE"
+    ],
+    [
+      "Request: subtract 2 from 8\n\nScreen:\nApp: Calculator\nDisplay: 0\n\nNext action:",
+      "TYPE 8-2="
+    ]
+  ],
+  "max_new_tokens": 16,
+  "decoding": "greedy",
+  "parse_rule": "action read from the start of the first non-empty line; trailing text dropped and flagged (clean=false); keys must end in a digit or =; keys are never edited",
+  "dev_changes": [
+    "parse: read the action prefix instead of requiring the whole line (model appended copied \"Result:\" text)",
+    "keys must end in digit or = (a sentence full stop was read as a decimal point)"
+  ]
+}

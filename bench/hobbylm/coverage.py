@@ -6,8 +6,13 @@ import argparse
 import json
 import re
 from pathlib import Path
+import sys
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from bench.hobbylm.vendor import verify_provenance
+VENDORED_UPSTREAM = Path(__file__).resolve().parent / "upstream"
 DATASETS = ("r4", "r1", "r2", "r3", "calc", "settings")
 GAP_EVIDENCE = {
     "Calculator/arithmetic has no executable skill or route": (
@@ -40,6 +45,7 @@ def _sealed(path: Path) -> list[tuple[str, str, str, str]]:
 
 
 def _datasets(upstream: Path) -> dict[str, list[tuple[str, str, str, str]]]:
+    verify_provenance(VENDORED_UPSTREAM)
     frozen = upstream / "data/frozen"
     datasets = {
         "r4": _sealed(frozen / "hobbymac-sealed-test-r4.tsv"),
@@ -201,7 +207,7 @@ def build(upstream: Path, catalog_path: Path) -> str:
         "",
         "- EventKit `create_event` has no calendar argument and always uses the default calendar "
         "(`skills/catalog.json:72-73`; `app/Sources/HandsKit/Skills.swift:575-584`). "
-        "The replay harness therefore requires `Hobby Test` to be the default calendar; frozen tasks do not "
+        "The replay harness therefore requires `Muselet Bench` to be a local default calendar; frozen tasks do not "
         "request choosing a different calendar.",
         "- Relative `remind me in` / `ping me in` tasks are included in the timer gap (T02, T04, T07 in r4): "
         "`create_reminder` requires a title and optional ISO due date, while `start_timer` has no HandsKit case. "

@@ -26,7 +26,7 @@ Ranked by the number of matching r4 tasks; `none` IDs include the likely catalog
 
 ## Audited but not ranked
 
-- EventKit `create_event` has no calendar argument and always uses the default calendar (`skills/catalog.json:72-73`; `app/Sources/HandsKit/Skills.swift:575-584`). The replay harness therefore requires `Hobby Test` to be the default calendar; frozen tasks do not request choosing a different calendar.
+- EventKit `create_event` has no calendar argument and always uses the default calendar (`skills/catalog.json:72-73`; `app/Sources/HandsKit/Skills.swift:575-584`). The replay harness therefore requires `Muselet Bench` to be a local default calendar; frozen tasks do not request choosing a different calendar.
 - Relative `remind me in` / `ping me in` tasks are included in the timer gap (T02, T04, T07 in r4): `create_reminder` requires a title and optional ISO due date, while `start_timer` has no HandsKit case. No separate timer-vs-reminder count is added.
 - Event text is routed through the catalog-backed `DecisionEngine.route` and `DecisionEngine.args`; datetime and duration arguments are normalized in `Orchestrator._coerce_typed`. No natural-language routing failure is claimed from the unused v0 regex router.
 - Relative volume, mute paraphrases, agenda lookup, and unknown-intent false positives are not ranked from the unused v0 regex router; these require live model evaluation.

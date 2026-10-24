@@ -1,0 +1,123 @@
+{
+  "written": "2026-10-20, before any held-out trial and before the prompt was frozen",
+  "goal_template": "Open System Settings and navigate to {dest}.",
+  "completion_check": "Independent: after the model says DONE, a fresh macos-use refresh of System Settings shows the first visible [AXWindow (standard window)] title equal to the destination (NFKC, NBSP/non-breaking-hyphen and case normalised). Fully completed = model said DONE while the check is true, within 10 proposals, no human intervention.",
+  "starts": {
+    "closed": "System Settings quit (osascript quit) before the trial; the model must OPEN it",
+    "pane_top": "System Settings open on a given pane, sidebar scrolled to the top (setup clicks done by the harness, not the model)",
+    "pane_bottom": "System Settings open on a given pane, sidebar scrolled to the bottom (setup by the harness)"
+  },
+  "dev": [
+    {
+      "id": "D1",
+      "dest": "Sound",
+      "start": "closed"
+    },
+    {
+      "id": "D2",
+      "dest": "Displays",
+      "start": "pane_top",
+      "start_pane": "General"
+    },
+    {
+      "id": "D3",
+      "dest": "Keyboard",
+      "start": "pane_top",
+      "start_pane": "Battery"
+    }
+  ],
+  "held_out": [
+    {
+      "id": "H01",
+      "dest": "Wallpaper",
+      "start": "closed"
+    },
+    {
+      "id": "H02",
+      "dest": "Wallpaper",
+      "start": "pane_bottom",
+      "start_pane": "Trackpad"
+    },
+    {
+      "id": "H03",
+      "dest": "Bluetooth",
+      "start": "pane_bottom",
+      "start_pane": "Keyboard"
+    },
+    {
+      "id": "H04",
+      "dest": "Notifications",
+      "start": "closed"
+    },
+    {
+      "id": "H05",
+      "dest": "Appearance",
+      "start": "pane_top",
+      "start_pane": "Wi‑Fi"
+    },
+    {
+      "id": "H06",
+      "dest": "Battery",
+      "start": "pane_bottom",
+      "start_pane": "Game Center"
+    },
+    {
+      "id": "H07",
+      "dest": "Trackpad",
+      "start": "pane_top",
+      "start_pane": "Network"
+    },
+    {
+      "id": "H08",
+      "dest": "Control Centre",
+      "start": "pane_top",
+      "start_pane": "Sound"
+    },
+    {
+      "id": "H09",
+      "dest": "Lock Screen",
+      "start": "closed"
+    },
+    {
+      "id": "H10",
+      "dest": "Printers & Scanners",
+      "start": "pane_top",
+      "start_pane": "Bluetooth"
+    },
+    {
+      "id": "H11",
+      "dest": "Wi‑Fi",
+      "start": "pane_bottom",
+      "start_pane": "iCloud"
+    },
+    {
+      "id": "H12",
+      "dest": "Game Center",
+      "start": "pane_top",
+      "start_pane": "Appearance"
+    }
+  ],
+  "conditions": {
+    "A": "compact current state + list of the last 3 actions (no outcomes)",
+    "B": "same state + last action with a goal-independent diff of what changed (title, sidebar items)"
+  },
+  "stop_rules": [
+    "10 model proposals",
+    "same action proposed twice in a row after it produced no screen change",
+    "an AXSheet dialog or a different frontmost app after an action",
+    "any out-of-scope proposal",
+    "STOP file present or Ctrl-C",
+    "destination reached but model proposes another action (not executed; counted as missed completion)"
+  ],
+  "metrics": [
+    "fully completed / attempted",
+    "format success rate",
+    "correct next actions (vs a reference judgement written after the run, see report)",
+    "invalid/invented targets",
+    "rejected and out-of-scope proposals",
+    "repeats and no-progress loops",
+    "completion recognition (DONE when reached; no DONE when not)",
+    "human interventions",
+    "tokens and latency per step, total time"
+  ]
+}
