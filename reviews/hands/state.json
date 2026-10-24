@@ -3,7 +3,7 @@
  "last_reviewed": {
   "main": "c2d2988",
   "wip/local": "d5d2d7d",
-  "cloud/data-pipeline": "153a01c",
+  "cloud/data-pipeline": "8f0b9bc",
   "cloud/finance": "529e9ff",
   "cloud/finance-2": "f4ae461",
   "cloud/fixtures-docs": "4bf2291",
@@ -11,7 +11,8 @@
   "cloud/advisor-2": "ec98013",
   "cloud/bench": "911a384",
   "cloud/pitch": "454a563",
-  "cloud/grounding": "42310cd"
+  "cloud/grounding": "42310cd",
+  "cloud/brain-2": "9f41c11"
  },
- "self_poll": "2026-10-24T06:40Z"
+ "self_poll": "2026-10-24T07:02Z"
 }
