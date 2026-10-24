@@ -18,6 +18,8 @@ public protocol Launching: AnyObject {
     /// /Applications, /System/Applications, ~/Applications). Returns its
     /// pid (0 if unknown) and whether it had to be launched.
     func openApp(named name: String) throws -> (pid: pid_t, launched: Bool)
+    /// An installed app resolved by its user-visible name.
+    func app(named name: String) -> LaunchTarget?
     /// The app that opens `url` by default: the browser for http(s), the
     /// file's app for a file URL (Finder for a folder).
     func defaultApp(for url: URL) -> LaunchTarget?
@@ -34,6 +36,11 @@ public final class WorkspaceLauncher: Launching {
         let before = Set(NSWorkspace.shared.runningApplications.map(\.processIdentifier))
         let pid = try openAppNamed(name)
         return (pid, pid > 0 && !before.contains(pid))
+    }
+
+    public func app(named name: String) -> LaunchTarget? {
+        guard let path = SkillTargets.liveAppPath(name) else { return nil }
+        return Self.target(appURL: URL(fileURLWithPath: path))
     }
 
     public func defaultApp(for url: URL) -> LaunchTarget? {
@@ -174,17 +181,19 @@ extension Skills {
         return false
     }
 
-    /// Open `url` in the default browser, wait (<= `openTimeout`) until the
-    /// browser is frontmost with a front-window title that changed (or, on
-    /// a fresh launch, any real page title). {browser, frontmost,
-    /// window_title, title_changed} + `extra`; never frontmost -> not_frontmost.
-    func openInBrowser(_ url: URL, extra: [String: Any]) throws -> [String: Any] {
-        let browser = launcher.defaultApp(for: url)
-        let bid = browser?.bundleId ?? ""
+    /// Open `url` in the requested or default browser, waiting for the same
+    /// frontmost and title verification. Returns the browser actually used.
+    func openInBrowser(_ url: URL, extra: [String: Any],
+                       browser: String? = nil) throws -> [String: Any] {
+        let requested = browser?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let requestedName = requested?.isEmpty == false ? requested : nil
+        let requestedApp = requestedName.flatMap { launcher.app(named: $0) }
+        let target = requestedApp ?? launcher.defaultApp(for: url)
+        let bid = target?.bundleId ?? ""
         let running = bid.isEmpty ? nil : apps.runningApp(bundlePrefix: bid)
         let before = running.flatMap { frontWindowTitle(pid: $0.pid) }
-        let opened = try launcher.open(url, with: browser)
-        let name = browser?.name ?? "browser"
+        let opened = try launcher.open(url, with: target)
+        let name = target?.name ?? "browser"
         let w = waitForeground(pid: opened > 0 ? opened : (running?.pid ?? 0), bundleId: bid,
                                timeout: openTimeout) { title in
             guard let t = title, t != before else { return false }
@@ -192,6 +201,10 @@ extension Skills {
         }
         var r = extra
         r["browser"] = name
+        if let requestedName {
+            r["browser_requested"] = requestedName
+            if requestedApp == nil { r["browser_fallback"] = true }
+        }
         r["frontmost"] = apps.name(pid: apps.frontmostPid())
         r["window_title"] = w.title ?? ""
         r["title_changed"] = w.done

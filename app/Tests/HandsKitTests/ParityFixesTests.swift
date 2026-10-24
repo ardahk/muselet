@@ -497,6 +497,7 @@ final class MockLauncher: Launching {
     var apps: [String: (pid: pid_t, launched: Bool)] = [:]
     /// URL scheme, file extension, or "folder" -> default app.
     var defaults: [String: LaunchTarget] = [:]
+    var named: [String: LaunchTarget] = [:]
     var opened: [(url: URL, app: LaunchTarget?)] = []
     var openPid: pid_t = 0
     var onOpen: ((URL, LaunchTarget?) -> Void)?
@@ -511,6 +512,10 @@ final class MockLauncher: Launching {
     func defaultApp(for url: URL) -> LaunchTarget? {
         if url.isFileURL { return defaults[url.pathExtension.isEmpty ? "folder" : url.pathExtension] }
         return defaults[url.scheme ?? ""]
+    }
+
+    func app(named name: String) -> LaunchTarget? {
+        named[name.lowercased()]
     }
 
     func open(_ url: URL, with app: LaunchTarget?) throws -> pid_t {
@@ -558,6 +563,10 @@ final class TruthfulLaunchTests: XCTestCase {
     private let preview = RunningAppInfo(pid: 900, name: "Preview", bundleId: "com.apple.Preview")
     private var zenTarget: LaunchTarget {
         LaunchTarget(name: "Zen", bundleId: zen.bundleId, url: URL(fileURLWithPath: "/Applications/Zen.app"))
+    }
+    private var safariTarget: LaunchTarget {
+        LaunchTarget(name: "Safari", bundleId: safari.bundleId,
+                     url: URL(fileURLWithPath: "/Applications/Safari.app"))
     }
     private var cleanup: [String] = []
 
@@ -671,6 +680,51 @@ final class TruthfulLaunchTests: XCTestCase {
         XCTAssertEqual(res?["title_changed"] as? Bool, true)
         XCTAssertEqual(launcher.opened.first?.url.absoluteString, "https://example.com")
         XCTAssertEqual(launcher.opened.first?.app?.bundleId, "app.zen-browser.zen")   // the default browser
+    }
+
+    func testOpenURLUsesAnInstalledNamedBrowser() {
+        let apps = MockApps(frontmost: 1, running: [term, safari, zen])
+        let launcher = MockLauncher()
+        launcher.defaults["https"] = zenTarget
+        launcher.named["safari"] = safariTarget
+        launcher.openPid = 600
+        var opened = false
+        launcher.onOpen = { _, app in
+            XCTAssertEqual(app?.bundleId, "com.apple.Safari")
+            apps.frontmost = 600
+            opened = true
+        }
+        let s = skills(apps, launcher) { pid in
+            pid == 600 ? (opened ? "Example Domain — Safari" : "Start Page") : nil
+        }
+        let r = s.execute(name: "open_url", args: [
+            "url": "https://example.com", "browser": "Safari"])
+        XCTAssertEqual(r["ok"] as? Bool, true, "\(r)")
+        let res = r["result"] as? [String: Any]
+        XCTAssertEqual(res?["browser"] as? String, "Safari")
+        XCTAssertEqual(res?["browser_requested"] as? String, "Safari")
+        XCTAssertNil(res?["browser_fallback"])
+        XCTAssertEqual(launcher.opened.first?.app?.bundleId, "com.apple.Safari")
+    }
+
+    func testWebSearchFallsBackWhenTheRequestedBrowserIsUnavailable() {
+        let apps = MockApps(frontmost: 1, running: [term, zen])
+        let launcher = MockLauncher()
+        launcher.defaults["https"] = zenTarget
+        launcher.openPid = 700
+        var opened = false
+        launcher.onOpen = { _, _ in apps.frontmost = 700; opened = true }
+        let s = skills(apps, launcher) { pid in
+            pid == 700 ? (opened ? "Example Domain — Zen Browser" : "Start Page") : nil
+        }
+        let r = s.execute(name: "web_search", args: [
+            "query": "example", "browser": "Arc"])
+        XCTAssertEqual(r["ok"] as? Bool, true, "\(r)")
+        let res = r["result"] as? [String: Any]
+        XCTAssertEqual(res?["browser"] as? String, "Zen")
+        XCTAssertEqual(res?["browser_requested"] as? String, "Arc")
+        XCTAssertEqual(res?["browser_fallback"] as? Bool, true)
+        XCTAssertEqual(launcher.opened.first?.app?.bundleId, "app.zen-browser.zen")
     }
 
     func testOpenURLUnchangedTitleIsReported() {

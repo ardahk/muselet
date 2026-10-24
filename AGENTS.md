@@ -134,13 +134,16 @@ RPC methods (HandsKit):
 - `skill {name, args}` -> `{ok, result?, error?, ms}`. `type_text`/`type` fail with `error: "no_text_target"` and an
   `observed` hint when nothing focused accepts text (never "type into nothing"); Calculator accepts typed keystrokes
   (`target: "keystroke_app"`); shell scripts fail on non-zero exit (`exit_code`, `stdout`, `stderr`, `timed_out`).
-  Launch skills verify the result: `open_app` -> `{app, frontmost, launched}`; `open_url`/`web_search` ->
-  `{browser, frontmost, window_title, title_changed}`; `open_folder`/`open_file` -> `{app, frontmost, window_title,
-  title_matches}`; failure `not_frontmost` (failures may carry `result`). `open_folder {view: list|icons|columns|gallery}`;
+  Launch skills verify the result: `open_app` -> `{app, frontmost, launched}`; `open_url`/`web_search` accept
+  optional `browser` (use it if installed, otherwise the default) and return
+  `{browser, browser_requested?, browser_fallback?, frontmost, window_title, title_changed}`;
+  `open_folder`/`open_file` -> `{app, frontmost, window_title, title_matches}`; failure `not_frontmost` (failures may
+  carry `result`). `open_folder {view: list|icons|columns|gallery}`;
   `set_brightness {delta}` (alternative to `level`, returns `{level, previous, delta}`).
   `type`/`keys`/`click`/`type_text` fail with `screen_locked` while the lock screen is up.
 - `act {op:"keys", combo: brightness_up|brightness_down|volume_up|volume_down|mute|play_pause|next_track|previous_track}`
   posts media keys and reads the level back (`media_key, level_before, level, changed`, `muted`).
+- `act {op:"url", url, browser?}` opens in the named installed browser, or the default when unavailable.
 - `timers {clock_status?}` -> `{timers:[{id, label, total_s, left_s, minutes, fires_at, backend}], clock, backend}`;
   `timers_cancel {id?}` -> `{cancelled, timers}` (`unknown_timer: <id>`; Clock timers without the cancel shortcut:
   `unsupported`); `timer_backend {refresh?}` -> `{clock_ready, shortcuts, enabled, backend}`. `start_timer` goes to
