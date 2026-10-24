@@ -237,6 +237,31 @@ class BenchProxy:
     async def wait_disconnected(self, timeout: float = 10) -> None:
         await asyncio.wait_for(self._disconnected.wait(), timeout)
 
+    def _slot_released(self) -> bool:
+        return (
+            self._disconnected.is_set()
+            and self._hands is None
+            and self._brain is None
+        )
+
+    async def release_slot(self, timeout: float = 5.0) -> bool:
+        deadline = time.monotonic() + max(0.0, timeout)
+        while not self._slot_released() and time.monotonic() < deadline:
+            await asyncio.sleep(min(0.1, max(0.0, deadline - time.monotonic())))
+        if self._slot_released():
+            return True
+
+        for connection in (self._hands, self._brain):
+            if connection is not None:
+                try:
+                    await connection.close()
+                except Exception:
+                    pass
+        deadline = time.monotonic() + 1.0
+        while not self._slot_released() and time.monotonic() < deadline:
+            await asyncio.sleep(min(0.1, max(0.0, deadline - time.monotonic())))
+        return self._slot_released()
+
     def mark_utterance_finished(self) -> None:
         self.capture.active = False
         if self.capture.terminal_monotonic is None:
@@ -427,8 +452,6 @@ class BenchProxy:
             finally:
                 self._connected.clear()
                 self._hands = None
-                self._brain = None
-                self._disconnected.set()
                 for future in (*self._pending_scripts.values(), *self._pending_rpcs.values()):
                     if not future.done():
                         future.set_exception(ConnectionError("HandsKit disconnected"))
@@ -436,6 +459,8 @@ class BenchProxy:
                 self._pending_rpcs.clear()
                 if brain is not None:
                     await brain.close()
+                self._brain = None
+                self._disconnected.set()
 
     async def _forward_pair(
         self, hands: ServerConnection, brain: ClientConnection
