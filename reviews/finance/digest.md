@@ -1,4 +1,4 @@
-# finance digest (Pass 40, 2026-10-24T20:58Z; no lane code changes since pass 13; it2 router routes finance/advisor 100% on val)
+# finance digest (Pass 41, 2026-10-24T21:12Z; no lane code changes since pass 13; it2 router routes finance/advisor 100% on val)
 Open P0/P1: none. finance-26 now P2: live checks verify the sheet colors and the Notes brief, but both cases are still marked pending, so a default run skips them.
 
 Open P2: finance-27 (pass 40: also reaches the opt-in BM25 retrieval bank on cloud/planner-retrieval 9786fa4) (planner v2 Numbers golds use per-cell loops, cell clicks and tell application "Numbers", against rule 8), finance-23 (advisor doc-by-path; now degrades to 'skipped Numbers'), finance-25 (4 s Numbers table poll on cold open), finance-24 (merchant prefix over-match), finance-15 (single filers / 401k-HSA-checking as taxable), finance-17 (numbers written as words pass the phrasing filter).
