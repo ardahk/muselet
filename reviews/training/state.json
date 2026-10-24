@@ -1,10 +1,10 @@
 {
-  "pass": 43,
-  "ts": "2026-10-24T20:52:46Z",
+  "pass": 44,
+  "ts": "2026-10-24T21:10:03Z",
   "mode": "pulse",
   "last_reviewed": {
-    "main": "27ebd13",
-    "wip/local": "4585ce4",
+    "main": "3876f3a",
+    "wip/local": "3cfa06d",
     "cloud/data-pipeline": "34aff30",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -39,11 +39,12 @@
     "cloud/brain-8": "4546d09",
     "cloud/planner-demos": "9008990",
     "cloud/clock-timers": "d060b5a",
-    "cloud/comms-2": "265c86d",
+    "cloud/comms-2": "c65ee70",
     "cloud/mascot-animal": "238db23",
     "cloud/planner-retrieval": "9786fa4"
   },
   "next_id": 38,
   "notes_pass39": "main fb2cfd0: evals/live_t1.jsonl changed only precondition/check/teardown/document_apps on 6 cases; all 43 utterances unchanged, so decontam gates and it2/it3cand overlap results stand. No lane findings.",
-  "notes_pass43": "planner-retrieval: default retrieval bank is v2-tune (the planner-demos bank); fine for holdout scoring, but scores on v2-tune with retrieval on are leaky."
+  "notes_pass43": "planner-retrieval: default retrieval bank is v2-tune (the planner-demos bank); fine for holdout scoring, but scores on v2-tune with retrieval on are leaky.",
+  "notes_pass44": "main 3876f3a: HandsKit comms/contacts/windows probe, document-inventory safety, hobbylm replay Path fix (helper.ROOT/WORK) + skip_reason kept. wip/local 3cfa06d: comms parser/orchestrator. comms-2: comms.py parser tweak. None touch training/eval data/catalog/router. training-5 corrected to P2 (spend guard exists since 085b0c8)."
 }
