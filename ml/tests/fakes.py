@@ -1,13 +1,15 @@
 """In-process fakes (no WebSocket): a server that records say/ui/confirm/rpc
 and a scripted System-1 engine with the DecisionEngine route/args API."""
 
+import inspect
 import threading
 
 from brain.decision import RouteResult
 
 
 class FakeServer:
-    def __init__(self, act=None, observe=None, apps=None):
+    def __init__(self, act=None, observe=None, apps=None, handlers=None,
+                 confirm_raises=False):
         self.said: list[str] = []
         self.apps = apps or {"running": [], "installed": []}
         self.uis: list[str] = []
@@ -15,6 +17,8 @@ class FakeServer:
         self.confirms: list[str] = []
         self.rpcs: list[tuple[str, dict]] = []
         self.confirm_yes = True
+        self.confirm_raises = confirm_raises
+        self.handlers = handlers or {}
         self.act = act or (lambda p: {"ok": True, "act_ms": 1, "epoch": 2})
         self.observe = observe or (lambda: {
             "epoch": 1, "app": "Finder", "window": "Recents",
@@ -31,10 +35,15 @@ class FakeServer:
 
     async def ask_confirm(self, summary, timeout=120):
         self.confirms.append(summary)
+        if self.confirm_raises:
+            raise RuntimeError("timeout")
         return self.confirm_yes
 
     async def rpc(self, method, params, timeout=30):
         self.rpcs.append((method, params))
+        if method in self.handlers:
+            result = self.handlers[method](params)
+            return await result if inspect.isawaitable(result) else result
         if method == "observe":
             return self.observe()
         if method == "act":

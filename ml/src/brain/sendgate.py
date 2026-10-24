@@ -54,6 +54,11 @@ def is_composer_app(app: str | None, window_title: str | None = None) -> bool:
                 _BROWSER_TITLE_RE.search(str(window_title or "")))
 
 
+def is_browser(app: str | None) -> bool:
+    """Whether an app name identifies a supported browser."""
+    return bool(_BROWSER_RE.search(str(app or "")))
+
+
 def enter_sends(app, window_title, focused_role, focused_label) -> bool:
     """Whether Enter in the current app/focused element could send a message."""
     if is_composer_app(app, window_title):

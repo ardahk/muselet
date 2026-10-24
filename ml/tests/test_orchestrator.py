@@ -189,7 +189,7 @@ def test_confirm_denied_cancels(tracer):
         await server.wait_connected(5)
         orch = Orchestrator(server, Catalog.load(), tracer)
         ok = await orch.execute_actions(
-            [{"op": "skill", "name": "send_message",
+            [{"op": "skill", "name": "compose_email",
               "args": {"to": "nobody", "body": "x"}}])
         await asyncio.sleep(0.1)
         await fake.close()

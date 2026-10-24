@@ -402,7 +402,8 @@ class Planner:
                 "decode_tok_s": n_decoded / max(dt - (ttft or 0), 1) * 1000,
                 "tokens": n_decoded, "plan_ms": dt}
 
-    def generate(self, system: str, user: str, max_tokens: int = 48) -> str:
+    def generate(self, system: str, user: str, max_tokens: int = 48,
+                 stop_at_newline: bool = True) -> str:
         """One short greedy generation on the worker (ANSWER path)."""
         msgs = [Message(role="system", content=system),
                 Message(role="user", content=user),
@@ -412,7 +413,8 @@ class Planner:
         from mlx_lm.models.cache import make_prompt_cache
         cache = make_prompt_cache(self.model)
         stop_ids = {self.tokenizer.eos_token_id}
-        for s in ("<" + "|im_end|>", chr(10)):
+        for s in (("<" + "|im_end|>", chr(10)) if stop_at_newline
+                  else ("<" + "|im_end|>",)):
             t_ = self.tokenizer.encode(s, add_special_tokens=False)
             if len(t_) == 1:
                 stop_ids.add(t_[0])

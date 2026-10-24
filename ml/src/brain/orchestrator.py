@@ -316,6 +316,8 @@ class Orchestrator:
         self._first_action_ms: float | None = None
         self._batch_confirmed = False
         self._pending_task: dict | None = None
+        self._comms: dict | None = None
+        self._draft: dict | None = None
         self._script_output: str | None = None
         self._spec_norm = ""
         self._spec_fut = None
@@ -397,10 +399,33 @@ class Orchestrator:
         try:
             await self.server.ui("thinking")
             self._utterance = text
+            handled_pending = False
+            if self._comms and \
+                    time.time() - self._comms["t"] >= slots.SLOT_TTL_S:
+                self._comms = None
+            if self._comms:
+                from . import comms
+                outcome = await comms.answer(self, text)
+                handled_pending = True
+            elif self._draft and \
+                    time.time() - self._draft["t"] >= 120:
+                self._draft = None
+            elif self._draft and re.fullmatch(
+                    r"(?:ok(?:ay)?,?\s+)?(?:send|send it|send the "
+                    r"(?:e-?mail|reply|draft)|yes,? send it)[.!]?",
+                    text.strip(), re.IGNORECASE):
+                from .tools import draft_email
+                outcome = await draft_email.send_draft(self)
+                handled_pending = True
+            elif self._slot and \
+                    time.time() - self._slot["t"] >= slots.SLOT_TTL_S:
+                self._slot = None
             if self._slot and \
                     time.time() - self._slot["t"] >= slots.SLOT_TTL_S:
                 self._slot = None
-            if self._slot:
+            if handled_pending:
+                pass
+            elif self._slot:
                 outcome = await self._slot_answer(text, trace)
             # a pending ask keeps task state for 90 s: next utterance answers it
             elif self._pending_task and \
@@ -431,10 +456,18 @@ class Orchestrator:
                     outcome = await self._deliver_calc(
                         parsed, trace, calculator=False)
                 else:
-                    await self._observe()
-                    await self.server.say("I can't do that yet")
-                    await self._end_ui("confused")
-                    outcome = "fallback"
+                    from .tools import draft_email
+                    dargs = draft_email.parse_request(text, self._ctx)
+                    if dargs is not None:
+                        trace["decisions"].append(
+                            {"draft_redirect": dargs})
+                        outcome = await self._brain_tool(
+                            "draft_email", dargs, text)
+                    else:
+                        await self._observe()
+                        await self.server.say("I can't do that yet")
+                        await self._end_ui("confused")
+                        outcome = "fallback"
             trace["release_to_first_action_ms"] = self._first_action_ms
             self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
             return {"outcome": outcome}
@@ -464,7 +497,7 @@ class Orchestrator:
         from . import tools
         self._ms_kind = "total"
         out = await tools.run(self, label, args, text)
-        if out == "fallback":
+        if out == "fallback" and label != "draft_email":
             await self.server.say("That workflow is almost ready")
             await self._end_ui("confused")
         elif out == "ok":
@@ -473,6 +506,12 @@ class Orchestrator:
 
     async def _engine_route(self, text: str, trace: dict, pre=None) -> str:
         from .planner import worker
+        if pre is None:
+            from .tools import draft_email
+            dargs = draft_email.parse_request(text, self._ctx)
+            if dargs is not None:
+                trace["decisions"].append({"draft_redirect": dargs})
+                return await self._brain_tool("draft_email", dargs, text)
         # reuse a speculative route (+ARGS) when the final text matches the
         # last partial (architect-5a)
         if pre is None and self._collect is None:
@@ -724,6 +763,7 @@ class Orchestrator:
             routed.append((i, c, r.top, r.p_top))
             routed_for_trace.append([c, r.top, round(r.p_top, 3)])
             if not spec or spec.get("executor") == "brain" or \
+                    r.top == "send_message" or \
                     r.p_top < self.COMPOUND_P:
                 self._reject_compound(parts, routed_for_trace, trace)
                 return None
@@ -1238,6 +1278,28 @@ function run() {
             a = dict(a)
             a.get("args", {}).pop("confirmed", None)   # model can't self-confirm
             spec = self.catalog.get(a["name"]) or {}
+            if a["name"] == "send_message":
+                self._take_confirm()
+                args = a.get("args", {})
+                missing = "to" if not args.get("to") else \
+                    "body" if not args.get("body") else None
+                if missing:
+                    return {"status": "failed",
+                            "_terminal_failure": True,
+                            "_log": f"{dsl_line}-> failed: missing {missing}"}
+                from . import comms
+                result = await comms.send_message(
+                    self, args["to"], args["body"], from_planner=True)
+                status = {
+                    "ok": "ok",
+                    "cancelled": "cancelled",
+                    "awaiting_user": "awaiting_user",
+                }.get(result, "failed")
+                out = {"status": status,
+                       "_log": f"{dsl_line}-> {status}"}
+                if status == "failed":
+                    out["_terminal_failure"] = True
+                return out
             if spec.get("executor") == "brain":
                 # brain-executor skills never reach HandsKit
                 st = await self._brain_tool(
@@ -2164,6 +2226,10 @@ function run() {
         args.update(code_args)
         validated_args = dict(args)
         spec = self.catalog.get(name) or {}
+        if name == "send_message":
+            from . import comms
+            return await comms.send_message(
+                self, args["to"], args["body"])
         if spec.get("risk") == "confirm" and not args.get("confirmed"):
             summary = await self._confirm_summary(
                 {"op": "skill", "name": name, "args": args})
