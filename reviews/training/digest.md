@@ -1,6 +1,6 @@
-# training lane digest — pass 19 (main 28dc259, cloud/data-pipeline 80cb13f, wip/local e1701a3, cloud/brain-4 3aca368, cloud/hobby-gaps 14ff59b)
+# training lane digest — pass 20 (main 758a017, cloud/data-pipeline 80cb13f, wip/local a3f82f1 = main tree, cloud/brain-4 dfb66a3, cloud/hobby-gaps 929b931)
 
-Open: 1 P0, 11 P1, 9 P2. New this pass: training-29, -30, -31. training-27 downgraded P1->P2 (it2 plan now selects on route_val only).
+Open: 1 P0, 11 P1, 9 P2. Pass 20: no new findings, none resolved. New main/brain-4/hobby-gaps commits are planner/live-runner/calc/pitch; only lane effects are the re-checks of training-14, -27 and -31.
 
 ## Open P0/P1 (ranked)
 1. **training-23 (P0, main)** — shipped router `route-4b-main` trained on stale pre-fix route data; `evals/router_check.py` still runs it. it2 plan pins main's split, but no retrain yet.
