@@ -30,12 +30,15 @@ public enum SyntheticEvent {
 
 public protocol EventPosting: AnyObject {
     func post(_ combo: KeyCombo)
+    /// Type `text` as synthetic unicode key events (to the keyboard focus).
+    func typeText(_ text: String)
 }
 
 /// Live poster: tagged CGEvents at the HID tap.
 public final class CGEventPoster: EventPosting {
     public init() {}
     public func post(_ combo: KeyCombo) { Combo.post(combo) }
+    public func typeText(_ text: String) { Events.typeText(text) }
 }
 
 // MARK: - App focus (injectable for tests)

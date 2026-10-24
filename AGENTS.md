@@ -13,6 +13,25 @@ with short text (<= 12 words) in a speech bubble. Demo covers macOS system tasks
 spreadsheet finance (Numbers / Google Sheets), Premiere Pro, plus 1-2 "wow" moments.
 Hackathon deadline: Cal Hacks submission Sun Oct 25 2026, 09:00 PDT. Tinker budget: $150 hard cap.
 
+## Standing decisions from the user (Sat Oct 24)
+- Before declaring any model/config "better" (router, planner, grounder, quantization), tune the tweakable knobs
+  of EACH option fairly first (prompt/format, decoding, thresholds, cache use, quantization, image size/zoom, LR/epochs)
+  and compare tuned vs tuned, with the numbers and settings recorded. Every knob change starts from research
+  (model cards, papers, upstream code, our traces) and a written hypothesis with the reasoning; record whether the
+  result confirmed or refuted it.
+- LIVE-TEST SAFETY (after an incident: a manual E2E typed into a user's open TextEdit document outside this project,
+  and autosave wrote it to disk): live UI cases run only through a runner that enforces each case's `precondition`
+  mechanically, never by hand; a failed precondition means SKIP. Agents never type into, edit, save or close
+  documents/windows they did not create in the same case, and never interact with apps that have user documents
+  open unless the case created them.
+- Reviewed PRs that pass tests may be merged by the lead without asking.
+- Tinker: iterate beyond the $60 phase budget when results fall short (diagnose why, research, retry), but stay
+  within the $150 hard cap.
+- Model choices (planner, grounder, router incl. the trained one): ship a recommended default but keep every
+  alternative selectable by flag/config; never delete an option until the user has reviewed it.
+- Demo setup scripts (finance + advisor) are approved to run; HUD style = glass; Dock auto-hide is off for the demo.
+- Nothing destructive, nothing outside this project; commit to GitHub often so any step can be reverted.
+
 ## Repo layout
 - `app/`    Swift package: menu-bar app (voice, mascot, ghost cursor overlay) + `HandsKit` (AX observe/act, native skills, screenshots)
 - `ml/`     Python (uv, 3.12): `brain` (orchestrator, model runtime, router, planner, grounder), data, training, evals
@@ -78,12 +97,15 @@ Brain -> app:
 RPC methods (HandsKit):
 - `observe {scope:"focused_window"|"app"|"menubar", app?, max_nodes:150, diff:true}` ->
   `{epoch, app, window, focused_ref, elements:[{ref,role,label,value?,enabled,frame:[x,y,w,h]}], text, diff_text?, ax_ms}`
-  Refs are valid for the returned `epoch`. Frames are global, top-left origin, points.
+  Refs are valid for the returned `epoch`. Frames are global, top-left origin, points. Also `window_source`
+  (focused|main|windows|app|none), `truncated`, and `web_ax_pending` (Chrome's web tree fills ~2 s after enabling).
 - `act {op, ref?, text?, combo?, x?, y?, ..., epoch?, expect?}` -> `{ok, error?, act_ms, settle_ms, diff_text?, expect_ok?, observed?}`
   `expect` is sent as the DSL predicate string (e.g. `title~"Downloads"`). Refs are stable across epochs
   while the element persists; `rpc_result` always carries `result` when the handler produced one, even if `ok` is false.
   (fused act-and-observe; the app animates the ghost cursor to the target frame first, `cursor_lead_ms` default 120)
-- `skill {name, args}` -> `{ok, result?, error?, ms}`
+- `skill {name, args}` -> `{ok, result?, error?, ms}`. `type_text`/`type` fail with `error: "no_text_target"` and an
+  `observed` hint when nothing focused accepts text (never "type into nothing"); shell scripts fail on non-zero exit
+  (`exit_code`, `stdout`, `stderr`, `timed_out`).
 - `screenshot {window:true, max_pixels:1000000, region?}` -> `{path, width, height, origin:[x,y], scale}` (own windows excluded)
 - `verify {expect}` -> `{ok, observed}`
 - `ocr {path? | region?:[x,y,w,h]}` -> `{text, lines:[{text, frame}], ms}` (Apple Vision, accurate, en-US; region = screen points)

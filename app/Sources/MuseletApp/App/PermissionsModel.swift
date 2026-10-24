@@ -2,6 +2,7 @@ import AppKit
 import ApplicationServices
 import AVFoundation
 import CoreGraphics
+import HandsKit
 
 enum PermissionKind: String, CaseIterable, Identifiable {
     case accessibility, screenRecording, microphone, inputMonitoring
@@ -111,11 +112,37 @@ enum Permissions {
     }
 }
 
+/// Automation (Apple Events) consent per target app: bundle id -> status.
+/// Optional (not part of `allGranted`): skills ask on first use otherwise,
+/// and that first call blocks behind the system prompt.
+enum AutomationPermissions {
+    /// Read statuses (never prompts, never launches anything).
+    static func snapshot() -> [String: Automation.Status] {
+        var d: [String: Automation.Status] = [:]
+        for (t, s) in Automation.statuses() { d[t.bundleId] = s }
+        return d
+    }
+
+    /// Grant: denied -> open System Settings > Automation (the prompt never
+    /// shows again); else ask (launches the target hidden if needed).
+    static func request(_ t: Automation.Target, current: Automation.Status?,
+                        completion: @escaping (Automation.Status?) -> Void) {
+        if current == .denied {
+            NSWorkspace.shared.open(Automation.settingsURL)
+            completion(nil)
+            return
+        }
+        Automation.request(t) { completion($0) }
+    }
+}
+
 /// Polls permission state only while someone is looking (panel open or a
 /// grant is in flight) — never an always-on timer.
 final class PermissionWatcher {
     private var timer: Timer?
     private var deadline = Date.distantPast
+    private var automationInFlight = false
+    private let automationQueue = DispatchQueue(label: "ai.muselet.automation-status", qos: .utility)
     var onChange: ((PermissionSnapshot) -> Void)?
 
     func refreshNow() {
@@ -123,6 +150,21 @@ final class PermissionWatcher {
         if AppModel.shared.permissions != s {
             AppModel.shared.permissions = s
             onChange?(s)
+        }
+        refreshAutomation()
+    }
+
+    /// Automation statuses off the main thread (AE/TCC queries), published
+    /// on main when they change.
+    func refreshAutomation() {
+        guard !automationInFlight else { return }
+        automationInFlight = true
+        automationQueue.async { [weak self] in
+            let snap = AutomationPermissions.snapshot()
+            DispatchQueue.main.async {
+                self?.automationInFlight = false
+                if AppModel.shared.automation != snap { AppModel.shared.automation = snap }
+            }
         }
     }
 

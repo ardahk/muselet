@@ -1,10 +1,13 @@
 import AppKit
+import HandsKit
 import SwiftUI
 
 /// Actions the panel can trigger; wired up by the AppDelegate.
 final class AppActions {
     static let shared = AppActions()
     var requestPermission: (PermissionKind) -> Void = { _ in }
+    /// Ask Automation consent for one target app (or open Settings if denied).
+    var requestAutomation: (Automation.Target) -> Void = { _ in }
     var reconnect: () -> Void = {}
     var resetMascot: () -> Void = {}
     var panelVisible: (Bool) -> Void = { _ in }
@@ -117,6 +120,7 @@ struct PanelView: View {
                 ForEach(PermissionKind.allCases) { k in
                     PermissionRow(kind: k, state: model.permissions[k]) { actions.requestPermission(k) }
                 }
+                AutomationRow(statuses: model.automation) { actions.requestAutomation($0) }
             }
         }
     }
@@ -277,6 +281,95 @@ private struct PermissionRow: View {
                     .controlSize(.small)
             }
         }
+    }
+}
+
+/// Automation (Apple Events) consent for the apps skills script. Status is
+/// read without prompting; "Grant" asks once (the target is launched hidden
+/// if it isn't running). A target that isn't running reads as unknown.
+private struct AutomationRow: View {
+    let statuses: [String: Automation.Status]
+    let request: (Automation.Target) -> Void
+
+    private var installed: [Automation.Target] {
+        Automation.targets.filter { statuses[$0.bundleId] != .notInstalled }
+    }
+    private var granted: Int { installed.filter { statuses[$0.bundleId] == .granted }.count }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 9) {
+                Image(systemName: "applescript")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(granted == installed.count && granted > 0 ? Brand.tintColor : .secondary)
+                    .frame(width: 20)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Automation").font(.system(size: 12.5, weight: .medium))
+                    Text("let skills script these apps").font(.system(size: 10.5)).foregroundStyle(.secondary)
+                }
+                Spacer()
+                if granted == installed.count && granted > 0 {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 15))
+                        .foregroundStyle(.green)
+                        .help("Granted")
+                } else {
+                    Text("\(granted)/\(installed.count)")
+                        .font(.system(size: 11, weight: .medium))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+            }
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)],
+                      alignment: .leading, spacing: 4) {
+                ForEach(Automation.targets) { t in
+                    AutomationChip(target: t, status: statuses[t.bundleId]) { request(t) }
+                }
+            }
+            .padding(.leading, 29)
+        }
+    }
+}
+
+private struct AutomationChip: View {
+    let target: Automation.Target
+    let status: Automation.Status?
+    let action: () -> Void
+
+    private var hint: String {
+        switch status {
+        case .granted: return "\(target.name): allowed"
+        case .denied: return "\(target.name): denied — change it in System Settings › Privacy & Security › Automation"
+        case .notDetermined: return "\(target.name): not asked yet"
+        case .notRunning: return "\(target.name): unknown until it runs; Grant launches it hidden and asks"
+        case .notInstalled: return "\(target.name) is not installed"
+        case .unknown(let s): return "\(target.name): status \(s)"
+        case nil: return "\(target.name): checking…"
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(target.name).font(.system(size: 11)).lineLimit(1)
+            Spacer(minLength: 2)
+            switch status {
+            case .granted:
+                Image(systemName: "checkmark.circle.fill").font(.system(size: 11)).foregroundStyle(.green)
+            case .notInstalled:
+                Text("n/a").font(.system(size: 9.5)).foregroundStyle(.tertiary)
+            case nil:
+                ProgressView().controlSize(.mini)
+            default:
+                Button(status == .denied ? "Settings…" : "Grant", action: action)
+                    .buttonStyle(.glassProminent)
+                    .tint(status == .denied ? .orange : Brand.tintColor)
+                    .controlSize(.mini)
+            }
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .help(hint)
     }
 }
 

@@ -105,6 +105,12 @@ final class DebugHooks {
                 // Same path as a fired start_timer (bubble + success mood).
                 let label = (info["label"] as? String).flatMap { $0.isEmpty ? nil : $0 }
                 bridge.handsTimerFired(label: label)
+            case "automation_status":
+                // Automation consent per target, read without prompting
+                // (targets that aren't running read not_running = unknown).
+                DispatchQueue.global(qos: .utility).async {
+                    FileLog.shared.raw("automation " + Automation.summaryLine(Automation.statuses()))
+                }
             case "status":
                 let p = Permissions.snapshot()
                 FileLog.shared.raw("status brain=\(model.brainStatus) stt=\(model.sttState) ptt=\(model.pushToTalkActive) "

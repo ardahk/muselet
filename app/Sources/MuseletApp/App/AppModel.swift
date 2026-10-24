@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import Foundation
+import HandsKit
 
 /// Mascot moods driven by brain `ui.mascot` (plus local voice states).
 enum MascotMood: String, CaseIterable {
@@ -106,6 +107,8 @@ final class AppModel: ObservableObject {
     @Published var lastSTTms: Double?
     @Published var isRecording = false
     @Published var permissions = PermissionSnapshot()
+    /// Automation consent per target app (bundle id -> status).
+    @Published var automation: [String: Automation.Status] = [:]
     @Published var pushToTalkActive = false
     /// Live mic level 0...1 while recording (drives the bubble waveform).
     @Published var micLevel: Float = 0
