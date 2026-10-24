@@ -206,6 +206,47 @@ def test_person_selection_uses_all_turns_and_gender_hints():
     assert not result.changed
 
 
+def test_person_pronouns_use_recent_comms_recipient_not_body_names():
+    wm = WorkingMemory()
+    wm.record(
+        "message Noah that yoga moved to Sunday",
+        "message Noah saying yoga moved to Sunday", "send_message",
+        {"to": "Noah", "body": "Yoga moved to Sunday"}, True,
+        {"app": "Messages"}, t=1)
+    wm.record(
+        "remind me to call Grace", "remind me to call Grace",
+        "create_reminder", {"title": "Call Grace"}, True,
+        {"app": "Reminders"}, t=2)
+
+    result = resolve("tex him the studio is on Elm Street", wm, {}, 3)
+    assert result.changed
+    assert result.text == "text Noah the studio is on Elm Street"
+
+
+def test_person_pronouns_use_to_for_each_comms_skill_and_unknown_gender():
+    for skill in ("send_message", "compose_email", "draft_email"):
+        wm = WorkingMemory()
+        wm.record("message Xinyi", "message Xinyi", skill,
+                  {"to": "Xinyi", "body": "The report is ready"},
+                  True, {"app": "Messages"}, t=1)
+        result = resolve("please email her the report", wm, {}, 2)
+        assert result.changed
+        assert "Xinyi" in result.text
+
+
+def test_person_pronoun_after_event_can_resolve_event_destination():
+    wm = WorkingMemory()
+    wm.record(
+        "create an event physio with doctor Amara Okafor",
+        "create event Physio with Dr. Amara Okafor", "create_event",
+        {"title": "Physio with Dr. Amara Okafor"}, True,
+        {"app": "Calendar"}, t=1)
+
+    result = resolve("remind me to ask Leo to drive me there", wm, {}, 2)
+    assert result.changed
+    assert result.text == "remind me to ask Leo to drive me Physio"
+
+
 def test_item_referent_uses_current_app_and_parent_folder():
     app = _memory("open_app", {"app": "Calendar"}, ctx={"app": "Calendar"})
     assert resolve("hide it", app, {"app": "Calendar"}, 11).text == \

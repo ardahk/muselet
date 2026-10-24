@@ -46,8 +46,7 @@ _UNDO = re.compile(
     r"revert(?:\s+that)?|back\s+to\s+how\s+it\s+was)\b",
     re.IGNORECASE)
 _PERSON = re.compile(
-    r"\b(?:him|her|them)\b.*\b(?:text|message|email|mail|call|send|tell|remind)\b|"
-    r"\b(?:text|message|email|mail|call|send|tell|remind)\b.*\b(?:him|her|them)\b",
+    r"\b(?:him|her|them)\b",
     re.IGNORECASE)
 _ITEM = re.compile(
     r"\b(?:quit|close|hide|minimize|maximize|snap)\b.*"

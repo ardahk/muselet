@@ -38,7 +38,7 @@ def resolve(text: str, wm: WorkingMemory, ctx: dict, now: float,
         return Resolution("none", source_text, False, reason)
     if result.reason == "guard":
         return Resolution("none", source_text, False, "guard")
-    if result.changed and not allowed(source_text, result.text):
+    if result.changed and not allowed(text, result.text):
         return Resolution("none", source_text, False, "guard")
     result.reason = reason
     if memory_changed and not result.changed and result.path == "none":
