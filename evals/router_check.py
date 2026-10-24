@@ -51,6 +51,8 @@ def main():
     ap.add_argument("--cases", default=str(ROOT / "evals" / "route_v1.jsonl"))
     ap.add_argument("--tag", required=True)
     ap.add_argument("--no-logit-parity", action="store_true")
+    ap.add_argument("--args-model", help="also score ARGS end-to-end on route_v1 with this model doing ARGS "
+                                         "(routing stays with --model); default: --model")
     a = ap.parse_args()
 
     from brain.catalog import Catalog
@@ -98,6 +100,41 @@ def main():
         ms.append(res.ms["route_ms"])
     acc_v1, f1_v1 = gated(v1, tau)
     acc_def, f1_def = gated(v1, 0.55)
+
+    # ARGS end-to-end exactly as cli.eval_route scores it (same coercion and match rules), at the fitted tau
+    from brain.orchestrator import Orchestrator
+    args_eng = eng if not a.args_model or a.args_model == a.model else DecisionEngine(a.args_model, Catalog.load())
+    orch = Orchestrator.__new__(Orchestrator)
+    orch.catalog = Catalog.load()
+
+    def args_match(got: dict, gold: dict) -> bool:
+        if set(got) != set(gold):
+            return False
+        for k, gv in gold.items():
+            v = got[k]
+            if isinstance(gv, (int, float)) and isinstance(v, (int, float)):
+                if v != gv:
+                    return False
+            elif str(v).strip().lower() != str(gv).strip().lower():
+                return False
+        return True
+
+    e2e_n = args_scored = args_hits = 0
+    args_ms = []
+    for c, (gold, top, p) in zip(cases, v1):
+        if not c.get("args"):
+            continue
+        e2e_n += 1
+        lab = top if p >= tau else "MULTI_STEP"
+        if lab != gold:
+            continue
+        ext = args_eng.args(lab, c["utterance"], c.get("ctx", {}))
+        args_ms.append(ext["ms"]["args_ms"])
+        got = {k: v for k, v in ext.items() if k not in ("ms", "_raw", "missing")}
+        got = Orchestrator._coerce_args(orch, lab, got, utterance=c["utterance"])
+        got = {k: got[k] for k in c["args"] if k in got}
+        args_scored += 1
+        args_hits += args_match(got, c["args"])
     out = {
         "tag": a.tag, "model": a.model, "parity_file": a.parity, "n_parity": n,
         "render_parity": round(render_ok / n, 4), "render_mismatches": render_bad,
@@ -111,7 +148,12 @@ def main():
                      "acc_at_fitted_tau": round(acc_v1, 4), "macro_f1_at_fitted_tau": round(f1_v1, 4),
                      "acc_at_0.55": round(acc_def, 4), "macro_f1_at_0.55": round(f1_def, 4),
                      "route_ms_p50": round(statistics.median(ms), 1),
-                     "route_ms_p95": round(sorted(ms)[int(0.95 * (len(ms) - 1))], 1)},
+                     "route_ms_p95": round(sorted(ms)[int(0.95 * (len(ms) - 1))], 1),
+                     "args_model": a.args_model or a.model,
+                     "args_exact": round(args_hits / args_scored, 4) if args_scored else None,
+                     "n_args_scored": args_scored,
+                     "e2e_exact": round(args_hits / e2e_n, 4) if e2e_n else None,
+                     "args_ms_p50": round(statistics.median(args_ms), 1) if args_ms else None},
         "sec": round(time.time() - t0, 1),
     }
     d = ROOT / "runs" / "router"
