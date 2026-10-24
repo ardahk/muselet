@@ -63,7 +63,7 @@ def main():
     c.add_argument("--prompt-file", required=True)
     c.add_argument("--repo", action="append", default=[])
     c.add_argument("--acu", type=int, default=None)
-    c.add_argument("--mode", default=None)
+    c.add_argument("--mode", default="fusion")
     m = sub.add_parser("msg")
     m.add_argument("session_id")
     g = m.add_mutually_exclusive_group(required=True)
