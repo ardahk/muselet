@@ -6,7 +6,7 @@ from .guard import allowed
 from .rules import Resolution
 
 
-STATIC = """Rewrite the user's latest voice command into ONE self-contained command for a Mac assistant, using only the context lines. Copy names, sites and values from the context; never add new actions. If the command is already self-contained or the context does not determine what it refers to, reply UNCHANGED. If you must know which one the user means, reply ASK: <short question>.
+STATIC = """Rewrite the user's latest voice command into ONE self-contained command for a Mac assistant, using only the context lines. Merge new constraints into the previous request and keep every previous detail unless the user replaces it. Copy names, sites and values from the context; never add new actions. If the command is already self-contained or the context does not determine what it refers to, reply UNCHANGED. If you must know which one the user means, reply ASK: <short question>.
 
 Focus: app=Zen site=wikipedia.org recent: search for history
 Say: search for history
@@ -35,6 +35,15 @@ Recent: play song ok
 Say: turn it up
 Output: UNCHANGED
 
+Focus: app=Music
+Recent: play instrumental music for reading ok
+Say: make it calmer
+Output: play calmer instrumental music for reading
+
+Recent: create_event title=Planning review start=Monday 10:00 ok
+Say: move it to the afternoon
+Output: move the Planning review to the afternoon
+
 """
 
 
@@ -46,8 +55,9 @@ def dynamic(text: str, wm, ctx: dict, now: float,
         f"{key}={focus[key]}" for key in fields if focus.get(key))
     lines = [focus_line] if focus_line != "Focus: " else []
     recent_count = 3 if lines else 4
+    detailed = getattr(wm, "recent_detail_lines", wm.recent_lines)
     lines.extend(f"Recent: {line}"
-                 for line in wm.recent_lines(recent_count, now=now))
+                 for line in detailed(recent_count, now=now))
     if memory:
         from .store import render
         lines.append("Memory:")

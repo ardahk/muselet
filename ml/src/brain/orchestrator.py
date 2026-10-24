@@ -846,7 +846,7 @@ class Orchestrator:
         observation = (self._last_obs or {}).get("text", "")
         header = observation.splitlines()[0] if observation else ""
         app = (self._last_obs or {}).get("app") or self._ctx.get("app") or ""
-        demo = Demo(goal=goal, app=str(app), category="workflow",
+        demo = Demo(goal=goal, app=str(app), category="user",
                     obs_header=header, batch=actions, source="memory")
         try:
             filtered, _ = _filter_demos([demo])

@@ -203,6 +203,8 @@ class MemoryStore:
             self._db.executemany(
                 "UPDATE memories SET used=? WHERE id=?",
                 [(stamp, row["id"]) for row in selected])
+        for row in selected:
+            row["used"] = stamp
         return selected
 
     def _search_fts(self, tokens: list[str]) -> list[tuple[sqlite3.Row, float]]:

@@ -6,12 +6,12 @@ import re
 import time
 from typing import Callable
 
-from .detect import detect
+from .detect import detect, normalize_utterance
 from .guard import allowed
 from .policy import allowed_value
 from .rewrite import llm_rewrite
 from .rules import Resolution, apply
-from .store import MemoryStore
+from .store import MemoryStore, TYPES
 from .working import Turn, WorkingMemory
 
 
@@ -19,11 +19,13 @@ def resolve(text: str, wm: WorkingMemory, ctx: dict, now: float,
             catalog=None, llm=None,
             longterm: list[dict] | None = None) -> Resolution:
     source_text = text
-    if longterm is not None:
-        text = apply_longterm(text, longterm)
-    reason = detect(text, wm, ctx, now)
+    memory_text = apply_longterm(text, longterm) if longterm is not None \
+        else text
+    memory_changed = memory_text != source_text
+    text = normalize_utterance(memory_text)
+    reason = detect(text, wm, ctx, now, catalog)
     if reason is None:
-        if text != source_text:
+        if memory_changed:
             return Resolution("memory", text, True, "memory")
         return Resolution("none", source_text, False, None)
     result = apply(text, reason, wm, ctx, now, catalog)
@@ -31,18 +33,20 @@ def resolve(text: str, wm: WorkingMemory, ctx: dict, now: float,
         result = llm_rewrite(text, wm, ctx, now, llm,
                              memory=longterm)
     if result is None:
-        if text != source_text:
+        if memory_changed:
             return Resolution("memory", text, True, "memory")
-        return Resolution("none", text, False, reason)
+        return Resolution("none", source_text, False, reason)
     if result.reason == "guard":
-        return Resolution("none", text, False, "guard")
-    if result.changed and not allowed(text, result.text):
-        return Resolution("none", text, False, "guard")
+        return Resolution("none", source_text, False, "guard")
+    if result.changed and not allowed(source_text, result.text):
+        return Resolution("none", source_text, False, "guard")
     result.reason = reason
-    if text != source_text and not result.changed:
+    if memory_changed and not result.changed and result.path == "none":
         result.text = text
         result.changed = True
         result.path = "memory"
+    if not result.changed and not memory_changed:
+        result.text = source_text
     return result
 
 
@@ -52,9 +56,20 @@ def apply_longterm(text: str, rows: list[dict]) -> str:
     from ..comms import is_messaging
 
     allow_person = is_messaging(text)
+    file_command = re.search(
+        r"\b(?:open|find|move|rename|trash|delete|save|export)\b",
+        text, re.IGNORECASE)
+    search_command = re.search(r"\b(?:search|look up|find)\b",
+                               text, re.IGNORECASE)
     result = text
-    eligible = [row for row in rows if row.get("type") == "correction" or
-                row.get("type") == "person" and allow_person]
+    eligible = []
+    for row in rows:
+        kind = row.get("type")
+        if kind == "correction" or \
+                kind in {"person", "contact"} and allow_person or \
+                kind in {"file", "folder"} and file_command or \
+                kind == "site" and search_command:
+            eligible.append(row)
     eligible.sort(key=lambda row: len(str(row.get("key") or "")),
                   reverse=True)
     for row in eligible:
@@ -78,13 +93,17 @@ def eval_adapter(utterance: str, ctx: dict, history: list[dict],
     else:
         store = MemoryStore(":memory:")
         try:
+            additional = []
             for row in longterm:
                 if isinstance(row, dict):
-                    store.upsert(
-                        row.get("type", ""), row.get("key", ""),
-                        row.get("value", ""),
-                        now=row.get("created", now))
-            rows = store.list(limit=1000)
+                    kind = row.get("type", "")
+                    if kind in TYPES:
+                        store.upsert(
+                            kind, row.get("key", ""), row.get("value", ""),
+                            now=row.get("created", 0))
+                    else:
+                        additional.append({**row, "created": 0})
+            rows = store.list(limit=1000) + additional
             result = resolve(utterance, wm, ctx or {}, now, llm=llm,
                              longterm=rows)
         finally:

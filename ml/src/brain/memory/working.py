@@ -35,7 +35,8 @@ def site_for_url(url: str | None) -> str | None:
     if host == "google.com" and urlsplit(str(url)).path.startswith("/maps"):
         return "maps.google.com"
     if host in {"maps.google.com", "mail.google.com",
-                "developer.mozilla.org"}:
+                "developer.mozilla.org", "news.ycombinator.com",
+                "docs.python.org"}:
         return host
     labels = host.split(".")
     return ".".join(labels[-2:]) if len(labels) > 1 else host
@@ -43,15 +44,15 @@ def site_for_url(url: str | None) -> str | None:
 
 def _safe_args(skill: str, args: dict | None) -> dict:
     result = dict(args or {})
-    keys = {"body", "text", "message"} if skill in _COMMS else set()
-    if skill == "type_text":
-        keys.add("text")
+    keys = {"body", "text", "message", "content"}
     for key in keys:
         result.pop(key, None)
     return result
 
 
-def _safe_turn_text(value: str, skill: str) -> str:
+def _safe_turn_text(value: str, skill: str, private: bool = False) -> str:
+    if private:
+        return "[text redacted]"
     if skill in _COMMS:
         return f"{skill} {_REDACTED}"
     if skill == "type_text":
@@ -92,9 +93,7 @@ class WorkingMemory:
                t: float | None = None, result: dict | None = None) -> None:
         now = float(time.time() if t is None else t)
         skill = skill or None
-        stored_args = _safe_args(skill or "", args)
-        safe_utterance = _safe_turn_text(str(utterance), skill or "")
-        safe_resolved = _safe_turn_text(str(resolved), skill or "")
+        stored_args = dict(args or {})
         turn_result = {
             k: v for k, v in (result or {}).items()
             if k in {"previous", "level_before"}
@@ -105,9 +104,9 @@ class WorkingMemory:
         app = (ctx or {}).get("app")
         title = (ctx or {}).get("window_title")
         turn = Turn(
-            t=now, utterance=safe_utterance, resolved=safe_resolved,
+            t=now, utterance=str(utterance), resolved=str(resolved),
             skill=skill, args=stored_args, ok=bool(ok),
-            said=_safe_turn_text(str(said), skill or "") if said else None,
+            said=str(said) if said else None,
             app=str(app) if app is not None else None,
             window_title=str(title) if title is not None else None,
             url=url or None, site=site_for_url(url), result=turn_result)
@@ -162,6 +161,14 @@ class WorkingMemory:
         return None
 
     def recent_lines(self, n: int = 5, now: float | None = None) -> list[str]:
+        return self._recent_lines(n, now, private=False)
+
+    def recent_detail_lines(self, n: int = 5,
+                            now: float | None = None) -> list[str]:
+        return self._recent_lines(n, now, private=True)
+
+    def _recent_lines(self, n: int, now: float | None,
+                      private: bool) -> list[str]:
         if n <= 0:
             return []
         now = time.time() if now is None else now
@@ -169,10 +176,18 @@ class WorkingMemory:
                  if 0 <= now - turn.t <= self.ttl_s]
         lines = []
         for turn in turns[-max(0, n):]:
-            args = " ".join(f"{key}={value}" for key, value in turn.args.items())
+            content_keys = {"body", "text", "message", "content"}
+            has_private = any(key in content_keys for key in turn.args)
+            args_dict = (turn.args if private else
+                         _safe_args(turn.skill or "", turn.args))
+            args = " ".join(f"{key}={value}"
+                            for key, value in args_dict.items())
             action = " ".join(part for part in (turn.skill, args) if part)
-            line = f"{turn.utterance} → {action} {'ok' if turn.ok else 'failed'}"
-            lines.append(line[:80])
+            utterance = (turn.utterance if private else
+                         _safe_turn_text(turn.utterance, turn.skill or "",
+                                         has_private))
+            line = f"{utterance} → {action} {'ok' if turn.ok else 'failed'}"
+            lines.append(line[:400 if private else 80])
         return lines
 
     def save(self) -> None:
@@ -182,7 +197,7 @@ class WorkingMemory:
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             payload = {
-                "turns": [asdict(turn) for turn in self.turns],
+                "turns": [self._safe_turn(turn) for turn in self.turns],
                 "focus": {
                     key: {"value": value, "t": stamp}
                     for key, (value, stamp) in self._focus.items()
@@ -203,6 +218,21 @@ class WorkingMemory:
                     tmp_path.unlink(missing_ok=True)
                 except OSError:
                     pass
+
+    @staticmethod
+    def _safe_turn(turn: Turn) -> dict:
+        row = asdict(turn)
+        has_private = any(key in {"body", "text", "message", "content"}
+                          for key in turn.args)
+        row["utterance"] = _safe_turn_text(
+            turn.utterance, turn.skill or "", has_private)
+        row["resolved"] = _safe_turn_text(
+            turn.resolved, turn.skill or "", has_private)
+        row["said"] = (_safe_turn_text(
+            turn.said, turn.skill or "", has_private)
+            if turn.said else None)
+        row["args"] = _safe_args(turn.skill or "", turn.args)
+        return row
 
     @classmethod
     def from_history(cls, history: list[dict], now_ctx: dict):

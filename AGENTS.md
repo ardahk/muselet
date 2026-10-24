@@ -26,6 +26,8 @@ Hackathon deadline: Cal Hacks submission Sun Oct 25 2026, 09:00 PDT. Tinker budg
   open unless the case created them. Live UI runs require an unlocked screen (`hands probe session` ->
   `screen_locked:false`); results gathered while locked are invalid (the lock screen is frontmost, AX is blind).
 - Reviewed PRs that pass tests may be merged by the lead without asking.
+- Intelligence over latency for multi-step work (user, Sat evening): planner steps may take a few seconds if that
+  raises pass rates (ship gate: per-step p50 <= 3 s on the Mac); single commands on the System 1 fast path stay instant.
 - Tinker: iterate beyond the $60 phase budget when results fall short (diagnose why, research, retry), but stay
   within the $150 hard cap.
 - Model choices (planner, grounder, router incl. the trained one): ship a recommended default but keep every
@@ -208,4 +210,4 @@ actions, results, per-stage latencies, final verification. Traces feed evals, fa
 - Pin dependency versions; prefer releases at least 7 days old.
 - No secrets in the repo; API keys only via environment variables (TINKER_API_KEY, HF_TOKEN, OPENAI_API_KEY, ANTHROPIC_API_KEY).
 - Licenses: non-commercial datasets (e.g. GUIrilla CC-BY-NC) are allowed for the hackathon build only; track them in `data/LICENSES.md`.
-- Never train on eval sets (ScreenSpot-Pro, OSWorld-G, UI-Vision, GUIrilla-Gold, HobbyLM frozen tests, DeskMind Bench, macOSWorld, MacAgentBench); dedupe training data against them.
+- Never train on eval sets (ScreenSpot-Pro, OSWorld-G, UI-Vision, GUIrilla-Gold, HobbyLM frozen tests, DeskMind Bench, macOSWorld, MacAgentBench, `evals/memory_followups.jsonl`); dedupe training data against them.

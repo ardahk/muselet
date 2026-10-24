@@ -140,7 +140,9 @@ async def serve(port: int = 8765, model: str | None = None,
             result.update(await orch.set_escalation(
                 bool(msg.get("escalate_planner"))))
         if "memory" in msg:
-            orch.longterm_enabled = bool(msg["memory"] and orch.memory_enabled)
+            orch.memory_enabled = bool(msg["memory"])
+            orch.longterm_enabled = bool(
+                msg["memory"] and longterm_enabled)
             result["memory"] = orch.longterm_enabled
             result.setdefault("loaded", True)
         return result
