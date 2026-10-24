@@ -120,3 +120,16 @@ Restore your language order afterwards.
 
 ## 7. Cleanup
 Stop every server. Delete the `Muselet Bench` calendar if you no longer need it.
+
+## Mac results (2026-10-24, lead's run)
+
+| System | JevBench (public) | JevBench hard | Typed Decisions (400 test) |
+|---|---:|---:|---:|
+| Muselet System One shim, base Qwen3.5-4B (no LoRA) | 0.719 | 0.523 | 0.569 |
+| DeskMind brain-4b (`deskmind-brain-serve`) | 0.831 | not reported | 0.658 |
+
+brain-serve returns noul and score answers without probabilities. From this commit on,
+`typed_decisions.py` converts them, noul to `{false: 1-p, true: p}` and score to one-hot at the
+half-up rounded value, and records the counts in `summary.json` `normalized_answers`. The 0.658
+above predates that counter, so rerun brain-4b to get the disclosed counts. One-hot scores also
+inflate KL and Brier for score questions.
