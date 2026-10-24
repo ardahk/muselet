@@ -235,8 +235,8 @@ def test_utterance_frame_over_ws(tracer):
         await server.wait_connected(5)
         orch = Orchestrator(server, Catalog.load(), tracer)
 
-        async def cb(text, final):
-            await orch.handle_utterance(text)
+        async def cb(text, final, ctx=None):
+            await orch.handle_utterance(text, ctx)
         server.on_utterance = cb
         await fake.ws.send(json.dumps(
             protocol.utterance("u1", "set volume to 40", True)))
@@ -259,7 +259,8 @@ def test_utterance_frame_cancel(tracer):
         await fake.connect(server.port)
         await server.wait_connected(5)
         orch = Orchestrator(server, Catalog.load(), tracer)
-        server.on_utterance = lambda text, final: orch.handle_utterance(text)
+        server.on_utterance = lambda text, final, ctx=None: \
+            orch.handle_utterance(text, ctx)
         await fake.ws.send(json.dumps(
             protocol.utterance("u1", "trash file x", True)))
         # router won't match -> fallback; use a direct batch for determinism:
