@@ -17,7 +17,8 @@ MLX 4-bit CPU kernels run ~23 s/token on this VM (bf16 ~1.1 s/token), so CPU par
 model dequantized to bf16 (mlx_lm.convert dequantize=True): same 4-bit weight values, bf16 matmuls.
 
 parity.jsonl rows (from muselet_train.export): tokens (full route prompt incl. answer placeholder),
-choice_pos, label_tokens {label: id}, probs {label: p} from the Tinker sampler.
+choice_pos, choice_ids {label: id}, tinker_probs {label: p} from the Tinker sampler
+(older files: label_tokens / probs).
 """
 
 import argparse
@@ -50,11 +51,12 @@ def parity(a):
     agree, dmax, dsum, t0 = 0, 0.0, 0.0, time.time()
     worst = []
     for r in rows:
-        labels = list(r["probs"])
-        ids = mx.array([r["label_tokens"][k] for k in labels])
+        probs = r.get("tinker_probs") or r["probs"]
+        labels = list(probs)
+        ids = mx.array([(r.get("choice_ids") or r["label_tokens"])[k] for k in labels])
         logits = model(mx.array([r["tokens"][k: r["choice_pos"]]]), cache=copy.deepcopy(base))[0, -1]
         p = mx.softmax(logits[ids].astype(mx.float32)).tolist()
-        q = [r["probs"][k] for k in labels]
+        q = [probs[k] for k in labels]
         d = max(abs(x - y) for x, y in zip(p, q))
         agree += max(range(len(p)), key=p.__getitem__) == max(range(len(q)), key=q.__getitem__)
         dmax, dsum = max(dmax, d), dsum + d
@@ -76,7 +78,7 @@ def merge(a):
     got = [json.loads(x) for f in a.rows for x in open(f) if x.strip()]
     agree, ds = 0, []
     for g in got:
-        q = ref[g["utterance"]]["probs"]
+        q = ref[g["utterance"]].get("tinker_probs") or ref[g["utterance"]]["probs"]
         agree += max(g["mlx"], key=g["mlx"].get) == max(q, key=q.get)
         ds.append(max(abs(g["mlx"][k] - q[k]) for k in q))
     out = {"n": len(got), "argmax_agreement": agree / len(got), "max_abs_dp": max(ds),
