@@ -53,6 +53,12 @@ class ReplayTests(unittest.TestCase):
         self.assertEqual([row["repeat"] for row in rows], [1, 2])
         self.assertEqual({row["port"] for row in rows}, {8877})
         self.assertEqual({row["text"] for row in rows}, {"two plus two"})
+        input_row = replay.plan(
+            "muselet", "r4",
+            [{"id": "I01", "kind": "input", "text": "type a short phrase"}],
+            1, 8877,
+        )[0]
+        self.assertIn("Numbers", input_row["document_apps"])
 
     def test_report_math_reports_pass_k_false_done_and_latency(self):
         rows = [
@@ -87,6 +93,12 @@ class ReplayTests(unittest.TestCase):
         self.assertEqual(row[0]["app"], task.app)
         self.assertEqual(row[0]["reset_apps"], task.reset_apps)
         self.assertEqual(row[0]["stage"], task.stage)
+        from bench.deskmind.run_muselet import _document_apps_for_task
+
+        self.assertEqual(
+            {app.name for app in _document_apps_for_task(task)},
+            {"TextEdit", "Safari"},
+        )
 
     def test_deskmind_workspace_page_server_serves_only_workspace_files(self):
         with tempfile.TemporaryDirectory() as directory:

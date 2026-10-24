@@ -20,6 +20,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from bench.harness.core import report_math, resolve_templates, run_case, template_values
+from bench.harness.documents import document_apps_for_case
 from bench.harness.proxy import BenchProxy
 from bench.harness.runtime import HandsRuntime
 
@@ -104,6 +105,9 @@ def _dry_run(cases: list[dict[str, Any]], args: argparse.Namespace) -> int:
             "id": case["id"],
             "tier": tier,
             "category": case.get("category"),
+            "document_apps": [
+                app.name for app in document_apps_for_case(case)
+            ],
             "filter": "skip" if reasons else "run",
             "skip_reason": "; ".join(reasons) if reasons else None,
             "resolved": resolve_templates(case, values),

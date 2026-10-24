@@ -77,13 +77,20 @@ def run_task(
     emit: Callable[[dict[str, Any]], None] = _emit,
     wait_for_ack: Callable[[float], bool] = _wait_for_ack,
 ) -> dict[str, Any]:
+    from bench.hobbylm.replay import _finder_window_ids
+
     task_id, *_ = item
     _guard_native_helpers(helper, mcp, emit)
     original_complete = model.complete
     original_validate = helper.validate
     original_sh = helper.sh
     original_snapshot = helper.snapshot
+    original_finder_windows = getattr(helper, "finder_windows", None)
     sent = set()
+    baseline_finder_ids = None
+    baseline_finder_count = 0
+    case_created_finder_ids = set()
+    teardown_started = False
 
     def complete(*args, **kwargs):
         if "t0" not in sent:
@@ -104,6 +111,7 @@ def run_task(
         return result
 
     def sh(*args, **kwargs):
+        nonlocal teardown_started
         if (
             "pre_teardown" not in sent
             and len(args) >= 2
@@ -114,11 +122,69 @@ def run_task(
             emit({"ev": "pre_teardown", "task_id": task_id})
             if not wait_for_ack(30):
                 raise TimeoutError("parent did not acknowledge pre-teardown snapshot")
-        return original_sh(*args, **kwargs)
+            teardown_started = True
+            if callable(original_finder_windows):
+                helper.finder_windows = teardown_finder_windows
+        if (
+            teardown_started
+            and len(args) >= 3
+            and str(args[0]) == "osascript"
+            and str(args[1]) == "-e"
+            and 'tell application "Finder"' in str(args[2])
+            and "close front window" in str(args[2])
+        ):
+            try:
+                current_ids = set(_finder_window_ids(helper))
+            except Exception:
+                current_ids = set()
+            for identifier in sorted(case_created_finder_ids & current_ids):
+                original_sh(
+                    "osascript",
+                    "-e",
+                    'tell application "Finder" to close '
+                    f'(every Finder window whose id is {int(identifier)})',
+                )
+            return ""
+        is_case_folder_open = (
+            len(args) >= 2
+            and str(args[0]) == "open"
+            and item[1] == "folder"
+        )
+        output = original_sh(*args, **kwargs)
+        if is_case_folder_open and baseline_finder_ids is not None:
+            try:
+                current_ids = set(_finder_window_ids(helper))
+            except Exception:
+                current_ids = set()
+            case_created_finder_ids.update(current_ids - baseline_finder_ids)
+        return output
+
+    def teardown_finder_windows():
+        if not callable(original_finder_windows) or baseline_finder_ids is None:
+            return baseline_finder_count
+        try:
+            current_ids = set(_finder_window_ids(helper))
+        except Exception:
+            return baseline_finder_count
+        return baseline_finder_count + len(case_created_finder_ids & current_ids)
 
     def snapshot(*args, **kwargs):
+        nonlocal baseline_finder_ids, baseline_finder_count
         result = original_snapshot(*args, **kwargs)
         if "setup_done" not in sent:
+            try:
+                baseline_finder_ids = set(_finder_window_ids(helper))
+            except Exception:
+                baseline_finder_ids = None
+            baseline_finder_count = (
+                len(baseline_finder_ids)
+                if baseline_finder_ids is not None
+                else int(result.get("finder_windows", 0))
+            )
+            result["finder_window_ids"] = (
+                sorted(baseline_finder_ids)
+                if baseline_finder_ids is not None else None
+            )
             sent.add("setup_done")
             emit({"ev": "setup_done", "task_id": task_id})
             if not wait_for_ack(30):
@@ -145,6 +211,8 @@ def run_task(
         helper.validate = original_validate
         helper.sh = original_sh
         helper.snapshot = original_snapshot
+        if callable(original_finder_windows):
+            helper.finder_windows = original_finder_windows
 
 
 def _load_upstream(home: Path, model_name: str, round_name: str, runtime: str):

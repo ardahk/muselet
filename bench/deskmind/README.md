@@ -1,5 +1,14 @@
 # DeskMind Bench comparisons
 
+The Muselet runner inventories task, reset, and staged document apps before
+creating a run directory or staging the task. Existing windows/documents cause
+a `user_documents_open` skip; inventory failures cause
+`user_documents_unverifiable`. Skips are appended to
+`runs/bench/deskmind/muselet/skipped.jsonl` and must be rerun before claiming a
+complete score. Cleanup is limited to case-created window IDs and the existing
+TextEdit path-, Safari URL-, and Finder path-scoped closes. Terminal apps are
+deliberately excluded from the document-app registry, a residual risk.
+
 Pinned comparison: DeskMind Bench `diag-v27`, suite hash `5eec62a0c662`,
 public DeskMind Hands commit `89be730acdbdd50a77bb6ac44583e190c719a14a`,
 locale `zh-Hans`. The Muselet runner refuses a different suite hash or installed
@@ -74,8 +83,7 @@ running local Muselet brain. Set `DM` to the pinned DeskMind checkout and
 `HANDS_BIN` to Muselet's built Swift HandsKit binary as in the runbook:
 
 ```sh
-uv run --project ml python bench/deskmind/run_muselet.py --repeats 3 --port 8765 \
-  --hands-command "$HANDS_BIN" --deskmind-python "$DM/dm-venv/bin/python" --bench-dir "$DM/bench"
+uv run --project ml python bench/deskmind/run_muselet.py --repeats 3 --port 8765 --hands-command "$HANDS_BIN" --deskmind-python "$DM/dm-venv/bin/python" --bench-dir "$DM/bench"
 deskmind-bench score runs/bench/deskmind/muselet --suite-version diag-v27 --out runs/bench/deskmind/muselet/score.json
 deskmind-bench table runs/bench/deskmind/muselet/score.json
 ```

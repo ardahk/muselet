@@ -2,6 +2,14 @@
 
 The full M5 Pro setup and benchmark sequence is in [`../RUNBOOK.md`](../RUNBOOK.md).
 
+Before an eligible task is sent to the HobbyLM worker, the parent inventories
+the document apps the task may touch. Existing windows/documents produce a
+`user_documents_open` skip; an untrusted inventory produces
+`user_documents_unverifiable`. The worker's Finder teardown closes only
+case-created window IDs, never the front window. Re-run skipped tasks before
+claiming a complete score. Terminal apps are deliberately excluded from the
+registry, so terminal-driven changes remain a residual risk.
+
 `upstream/PROVENANCE.md` records the vendored HobbyLM revision, Apache-2.0 license,
 source links, and hashes. The frozen r1–r4 inputs are included unchanged.
 
@@ -32,6 +40,8 @@ strict failure. Missing required snapshots are marked `ungradable` and excluded
 from pass-rate denominators. The worker uses the pinned vendored harness and
 the external HobbyLM `.venv`/model runtime. `hobbylm-published` is reference
 only and intentionally cannot execute through this guarded harness.
+The `hobbylm-published` reference path has no document guard and must not be
+used for headline runs.
 
 The Muselet path requires macOS, Accessibility/Screen Recording permissions,
 and a `hands` binary. It starts a benchmark Brain server by default and routes

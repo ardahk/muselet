@@ -1,5 +1,18 @@
 # M5 Pro benchmark runbook (run in this order, from the muselet repo root)
 
+## Document-app safety
+
+The shared live harness, HobbyLM worker, and DeskMind runner inventory the
+document apps a case may touch before setup or staging. A case is skipped as
+`user_documents_open` if that inventory finds an existing window or document;
+an inventory that cannot be trusted is skipped as
+`user_documents_unverifiable`. Skipped cases do not receive setup or an
+utterance. Teardown closes only case-created windows/documents identified by
+captured window IDs or document name/path; broad close commands are forbidden.
+Re-run skipped cases before claiming a complete benchmark score. Terminal apps
+are deliberately excluded from the document-app registry, so terminal-driven
+changes remain a residual risk and must be reviewed separately.
+
 Pins: DeskMind Bench `888035da50299f5523a5b55844a2114c4b8c6c3d` (suite diag-v27, hash 5eec62a0c662),
 DeskMind Hands `89be730acdbdd50a77bb6ac44583e190c719a14a`, DeskMind Brain `dadf97d01512f6384ca8bfd90a77cc88ae1a2f43`,
 HobbyLM `4ea1389b68f5a6f7ec72200543fd8374c14d4526`. JevBench and Typed Decisions are pinned inside their scripts.
@@ -92,8 +105,7 @@ mkdir -p runs/deskmind/brain-0.8b-runs runs/deskmind/brain-4b-runs runs/deskmind
 (cd runs/deskmind/muselet-shim-runs && \
   DESKMIND_RUNS_DIR=. $DM/dm-venv/bin/deskmind-bench run --set diag --repeats 3 --url http://127.0.0.1:8793 --label muselet-shim --out ../muselet-shim.json)
 # 6d Muselet's own loop (terminal A: brain as in 4b)
-uv run --project ml python bench/deskmind/run_muselet.py --repeats 3 --port 8765 \
-  --hands-command "$HANDS_BIN" --deskmind-python "$DM/dm-venv/bin/python" --bench-dir "$DM/bench"
+uv run --project ml python bench/deskmind/run_muselet.py --repeats 3 --port 8765 --hands-command "$HANDS_BIN" --deskmind-python "$DM/dm-venv/bin/python" --bench-dir "$DM/bench"
 # 6e Regrade everything with the same scorer and suite version
 for r in brain-0.8b brain-4b muselet-shim; do
   (cd runs/deskmind/$r-runs && \

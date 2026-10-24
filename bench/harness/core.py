@@ -17,6 +17,19 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
+from bench.harness.documents import (
+    DocumentApp,
+    DocumentInventoryError,
+    close_created_script,
+    created_items,
+    document_apps_for_case,
+    foreign_items,
+    is_broad_close,
+    quit_target,
+    take_inventory,
+    unclosable_items,
+)
+
 
 _TEMPLATE = re.compile(r"\{\{([a-z_]+)\}\}")
 _SCRIPT_LANGS = ("applescript", "shell", "jxa")
@@ -314,6 +327,32 @@ def _said_success(trace: dict[str, Any] | None, context: dict[str, Any]) -> bool
     return any(re.search(r"\b(done|success(?:ful)?)\b", text, re.IGNORECASE) for text in _trace_says(context))
 
 
+def _precondition_steps(case: dict[str, Any]) -> list[Any]:
+    predicates = case.get("precondition", [])
+    if predicates is None:
+        return []
+    return predicates if isinstance(predicates, list) else [predicates]
+
+
+def _has_nonmechanical_precondition(predicates: list[Any]) -> bool:
+    return any(
+        callable(predicate)
+        or (
+            isinstance(predicate, dict)
+            and any(str(key).startswith("trace_") for key in predicate)
+        )
+        for predicate in predicates
+    )
+
+
+def _app_running_in_baseline(app: DocumentApp, baseline: dict) -> bool:
+    return any(
+        bool(baseline.get(bundle_id, {}).get("running"))
+        for bundle_id in app.bundle_ids
+        if isinstance(baseline.get(bundle_id), dict)
+    )
+
+
 async def run_case(
     case: dict[str, Any],
     runtime: Any,
@@ -325,6 +364,7 @@ async def run_case(
     """Run one live-style task, keeping all safety and grading logic shared."""
     case = resolve_templates(case, values)
     utterance = str(case.get("utterance", case.get("text", "")))
+    precondition_steps = _precondition_steps(case)
     result: dict[str, Any] = {
         "id": case.get("id"),
         "tier": case.get("tier"),
@@ -339,16 +379,70 @@ async def run_case(
         "teardown_observations": [],
         "restore_observations": [],
     }
-    await runtime.start_scripts()
-    preconditions = await evaluate_predicates(
-        case.get("precondition", []), runtime, {"capture": runtime.snapshot(), "trace": None}
-    )
+    if _has_nonmechanical_precondition(precondition_steps):
+        result["status"] = "skipped"
+        result["skip_reason"] = "precondition not mechanical"
+        result["precondition_observations"] = [
+            {"predicate": predicate, "passed": False, "error": "precondition not mechanical"}
+            for predicate in precondition_steps
+            if callable(predicate)
+            or (
+                isinstance(predicate, dict)
+                and any(str(key).startswith("trace_") for key in predicate)
+            )
+        ]
+        await runtime.stop()
+        return result
+    try:
+        await runtime.start_scripts()
+        preconditions = await evaluate_predicates(
+            precondition_steps,
+            runtime,
+            {"capture": runtime.snapshot(), "trace": None},
+        )
+    except Exception as exc:
+        result["status"] = "skipped"
+        result["skip_reason"] = "precondition error"
+        result["precondition_error"] = str(exc)
+        result["precondition_observations"] = []
+        await runtime.stop()
+        return result
     result["precondition_observations"] = preconditions
+    evaluation_errors = [item["error"] for item in preconditions if item.get("error")]
+    if evaluation_errors:
+        result["status"] = "skipped"
+        result["skip_reason"] = "precondition error"
+        result["precondition_error"] = "; ".join(str(error) for error in evaluation_errors)
+        await runtime.stop()
+        return result
     if any(not item["passed"] for item in preconditions):
         result["status"] = "skipped"
         result["skip_reason"] = "precondition failed"
         await runtime.stop()
         return result
+
+    document_apps = document_apps_for_case(case)
+    document_baseline: dict[str, dict] = {}
+    document_after_setup: dict[str, dict] | None = None
+    result["document_apps"] = [app.name for app in document_apps]
+    result["document_baseline"] = document_baseline
+    if document_apps:
+        try:
+            document_baseline = await take_inventory(runtime.run_script, document_apps)
+        except DocumentInventoryError as exc:
+            result["status"] = "skipped"
+            result["skip_reason"] = "user_documents_unverifiable"
+            result["document_inventory_error"] = str(exc)
+            await runtime.stop()
+            return result
+        result["document_baseline"] = document_baseline
+        user_documents = foreign_items(document_baseline)
+        if user_documents:
+            result["status"] = "skipped"
+            result["skip_reason"] = "user_documents_open"
+            result["user_documents"] = user_documents
+            await runtime.stop()
+            return result
 
     restore_values: list[tuple[dict[str, Any], str]] = []
     setup_error = None
@@ -373,9 +467,18 @@ async def run_case(
             result["setup_observations"].append({"step": step, "error": str(exc)})
             setup_error = setup_error or f"setup failed: {exc}"
 
+    if document_apps:
+        try:
+            document_after_setup = await take_inventory(runtime.run_script, document_apps)
+            result["document_after_setup"] = document_after_setup
+        except Exception as exc:
+            result["document_after_setup_error"] = str(exc)
+
     trace: dict[str, Any] | None = None
-    check_context: dict[str, Any] = {"capture": runtime.snapshot(), "trace": None, "utterance": utterance}
     try:
+        check_context: dict[str, Any] = {
+            "capture": runtime.snapshot(), "trace": None, "utterance": utterance
+        }
         if setup_error is None:
             await runtime.start_utterance(utterance)
             capture = runtime.snapshot()
@@ -490,7 +593,42 @@ async def run_case(
         result["strict_pass"] = False
         await runtime.prepare_for_cleanup()
     finally:
-        # The precondition passed, so cleanup is permitted even after setup or utterance failure.
+        document_pre_teardown: dict[str, dict] | None = None
+        if document_apps:
+            try:
+                document_pre_teardown = await take_inventory(runtime.run_script, document_apps)
+                result["document_pre_teardown"] = document_pre_teardown
+            except Exception as exc:
+                result["document_pre_teardown_error"] = str(exc)
+            created = created_items(
+                document_baseline,
+                *(
+                    snapshot
+                    for snapshot in (document_after_setup, document_pre_teardown)
+                    if snapshot is not None
+                ),
+            )
+            result["document_created"] = created
+            incomplete = unclosable_items(created)
+            if incomplete:
+                result["teardown_incomplete"] = True
+                result["teardown_incomplete_items"] = incomplete
+            cleanup_script = close_created_script(created)
+            if cleanup_script is not None:
+                try:
+                    cleanup_result = await runtime.run_script("jxa", cleanup_script)
+                    result["teardown_observations"].append({
+                        "step": "close_created_documents",
+                        "result": cleanup_result,
+                    })
+                except Exception as exc:
+                    result["teardown_observations"].append({
+                        "step": "close_created_documents",
+                        "error": str(exc),
+                    })
+                    result["strict_pass"] = False
+                    result["status"] = "failed"
+
         for step in case.get("teardown", []):
             if callable(step):
                 try:
@@ -510,8 +648,29 @@ async def run_case(
             if lang is None:
                 result["teardown_observations"].append({"step": step, "error": "unsupported teardown step"})
                 continue
+            script = str(step[lang])
+            if is_broad_close(script):
+                result["teardown_observations"].append({
+                    "step": step,
+                    "skipped": "broad close forbidden",
+                })
+                continue
+            target = quit_target(script)
+            if target is not None:
+                if re.search(r"\bsaving\s+no\b", script, re.IGNORECASE):
+                    result["teardown_observations"].append({
+                        "step": step,
+                        "skipped": "quit with saving no forbidden",
+                    })
+                    continue
+                if _app_running_in_baseline(target, document_baseline):
+                    result["teardown_observations"].append({
+                        "step": step,
+                        "skipped": "document app was running at baseline",
+                    })
+                    continue
             try:
-                script_result = await runtime.run_script(lang, str(step[lang]))
+                script_result = await runtime.run_script(lang, script)
                 result["teardown_observations"].append({"step": step, "result": script_result})
             except Exception as exc:
                 result["teardown_observations"].append({"step": step, "error": str(exc)})
@@ -526,8 +685,10 @@ async def run_case(
                 result["restore_observations"].append({"set": script, "error": str(exc)})
                 result["strict_pass"] = False
                 result["status"] = "failed"
-        result["frames"] = runtime.snapshot().get("frames", result.get("frames", []))
-        await runtime.stop()
+        try:
+            result["frames"] = runtime.snapshot().get("frames", result.get("frames", []))
+        finally:
+            await runtime.stop()
     return result
 
 

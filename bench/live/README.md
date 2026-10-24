@@ -1,6 +1,15 @@
 # Live suite
 
 The full M5 Pro benchmark sequence is in [`../RUNBOOK.md`](../RUNBOOK.md).
+Before restore reads or setup, the shared harness inventories the document apps
+each case may touch. Cases with a pre-existing app window or document are
+skipped as `user_documents_open`; failed inventory is skipped as
+`user_documents_unverifiable`. Skips do not run setup, utterance, teardown, or
+restore writes. Teardown only closes items captured as created by the case and
+never runs broad window/document closes. Re-run skipped cases before claiming
+a complete score. Terminal apps are deliberately excluded from the registry,
+so terminal-driven changes remain a residual risk.
+
 The live runner executes `evals/live_t1.jsonl` against a macOS desktop. It
 starts a local WebSocket proxy and launches `hands serve` clients as needed;
 start the Brain server separately. Do not run the suite while another person

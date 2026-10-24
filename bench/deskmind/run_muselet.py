@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import http.server
 import json
 import os
@@ -20,6 +21,19 @@ from pathlib import Path
 from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from bench.harness.documents import (
+    DocumentInventoryError,
+    close_created_script,
+    created_items,
+    document_apps_for_case,
+    foreign_items,
+    osascript_run_script,
+    take_inventory,
+    unclosable_items,
+)
+
 DEFAULT_BENCH = Path("/home/ubuntu/ext/deskmind-ai__bench")
 SUITE_VERSION = "diag-v27"
 SUITE_HASH = "5eec62a0c662"
@@ -115,7 +129,11 @@ def _app_running(process_name: str) -> bool:
         return False
 
 
-def _close_app_windows(bundle: str, runs_dir: Path):
+def _close_app_windows(
+    bundle: str,
+    runs_dir: Path,
+    created_window_ids: list[int] | tuple[int, ...] = (),
+):
     app_name = {
         "com.apple.finder": "Finder",
         "com.apple.textedit": "TextEdit",
@@ -130,24 +148,9 @@ def _close_app_windows(bundle: str, runs_dir: Path):
         )
         subprocess.run(["osascript", "-e", script], check=True, timeout=30, capture_output=True)
         return
-    script = (
-        f'tell application id {json.dumps(bundle)}\n'
-        "  repeat with i from (count of windows) to 1 by -1\n"
-        "    try\n"
-        "      close window i\n"
-        "    end try\n"
-        "  end repeat\n"
-        "end tell"
-    )
-    subprocess.run(["osascript", "-e", script], check=True, timeout=30, capture_output=True)
-
-
-def _stage_task(task, workspace: Path, runs_dir: Path, page_servers: list[_WorkspacePageServer]):
-    for bundle in task.reset_apps:
-        _close_app_windows(bundle, runs_dir)
-
-    stage_apps = _stage_app_names(task)
-    if task.app.lower() == "com.apple.finder" or any(name.lower() == "finder" for name in stage_apps):
+    if bundle.lower() == "com.apple.safari":
+        return
+    if bundle.lower() == "com.apple.finder":
         script = (
             'tell application "Finder"\n'
             "  repeat with i from (count of Finder windows) to 1 by -1\n"
@@ -159,7 +162,23 @@ def _stage_task(task, workspace: Path, runs_dir: Path, page_servers: list[_Works
             "end tell"
         )
         subprocess.run(["osascript", "-e", script], check=True, timeout=30, capture_output=True)
+        return
+    ids = sorted({int(identifier) for identifier in created_window_ids})
+    if not ids:
+        return
+    script = (
+        f'tell application id {json.dumps(bundle)}\n'
+        + "\n".join(
+            f"  try\n    close (every window whose id is {identifier})\n  end try"
+            for identifier in ids
+        )
+        + "\nend tell"
+    )
+    subprocess.run(["osascript", "-e", script], check=True, timeout=30, capture_output=True)
 
+
+def _stage_task(task, workspace: Path, runs_dir: Path, page_servers: list[_WorkspacePageServer]):
+    stage_apps = _stage_app_names(task)
     commands = list(task.stage)
     for command in commands:
         browser = re.search(r"open\s+(?:-g\s+)?-a\s+['\"]?Safari['\"]?\s+(.+)$", command)
@@ -196,6 +215,126 @@ def _stage_task(task, workspace: Path, runs_dir: Path, page_servers: list[_Works
         subprocess.run(["open", str(workspace)], check=True, timeout=30, capture_output=True)
     elif not task.stage:
         subprocess.run(["open", "-b", task.app], check=True, timeout=30, capture_output=True)
+
+
+def _document_apps_for_task(task):
+    explicit = [
+        getattr(task, "app", ""),
+        *getattr(task, "reset_apps", []),
+        *_stage_app_names(task),
+    ]
+    return document_apps_for_case({
+        "document_apps": explicit,
+        "utterance": str(getattr(task, "goal", "")),
+        "category": str(getattr(task, "category", "")),
+    })
+
+
+async def _task_document_inventory(task, run_script=None):
+    apps = _document_apps_for_task(task)
+    app_names = [app.name for app in apps]
+    if not apps:
+        return {"document_apps": [], "document_baseline": {}}
+    try:
+        baseline = await take_inventory(run_script or osascript_run_script, apps)
+    except DocumentInventoryError as exc:
+        return {
+            "status": "skipped",
+            "skip_reason": "user_documents_unverifiable",
+            "document_apps": app_names,
+            "document_inventory_error": str(exc),
+        }
+    user_documents = foreign_items(baseline)
+    result = {
+        "document_apps": app_names,
+        "document_baseline": baseline,
+    }
+    if user_documents:
+        result.update({
+            "status": "skipped",
+            "skip_reason": "user_documents_open",
+            "user_documents": user_documents,
+        })
+    return result
+
+
+def _append_skipped_task(runs_dir: Path, task, repeat: int, guard: dict) -> dict:
+    record = {
+        "task_id": task.id,
+        "repeat": repeat,
+        "status": "skipped",
+        **guard,
+    }
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    with (runs_dir / "skipped.jsonl").open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps(record, ensure_ascii=False) + "\n")
+    print(json.dumps(record, ensure_ascii=False), flush=True)
+    return record
+
+
+def _guard_before_run(task, repeat: int, runs_dir: Path, run_dir: Path, run_script=None):
+    guard = asyncio.run(_task_document_inventory(task, run_script))
+    if guard.get("status") == "skipped":
+        _append_skipped_task(runs_dir, task, repeat, guard)
+        return None
+    return guard
+
+
+def _teardown_created_items(
+    baseline: dict,
+    current: dict,
+    workspace: Path,
+    page_servers: list[_WorkspacePageServer],
+) -> tuple[dict, list[dict]]:
+    created = created_items(baseline, current)
+    incomplete = unclosable_items(created)
+    for bundle_id, row in created.items():
+        lowered = bundle_id.lower()
+        if lowered == "com.apple.textedit":
+            if any(
+                item.get("path") and not str(item["path"]).startswith(str(workspace.resolve()) + "/")
+                for item in row.get("documents", [])
+            ):
+                incomplete.extend(
+                    {"bundle_id": bundle_id, "type": "document", "item": item}
+                    for item in row.get("documents", [])
+                    if item.get("path") and not str(item["path"]).startswith(str(workspace.resolve()) + "/")
+                )
+            _close_app_windows(bundle_id, workspace)
+            continue
+        if lowered == "com.apple.finder":
+            _close_app_windows(bundle_id, workspace)
+            continue
+        if lowered == "com.apple.safari":
+            staged_urls = {
+                getattr(server, "page_url", None) for server in page_servers
+            }
+            if row.get("windows") or any(
+                document.get("URL") not in staged_urls
+                for document in row.get("documents", [])
+            ):
+                incomplete.append({
+                    "bundle_id": bundle_id,
+                    "type": "browser_items",
+                    "item": {"windows": row.get("windows", []), "documents": row.get("documents", [])},
+                })
+            continue
+        window_ids = [
+            int(window["id"]) for window in row.get("windows", [])
+            if isinstance(window, dict) and window.get("id") is not None
+        ]
+        _close_app_windows(bundle_id, workspace, window_ids)
+        documents_only = {
+            bundle_id: {
+                "name": row.get("name"),
+                "windows": [],
+                "documents": row.get("documents", []),
+            }
+        }
+        script = close_created_script(documents_only)
+        if script:
+            asyncio.run(osascript_run_script("jxa", script))
+    return created, incomplete
 
 
 def _close_staged_pages(page_servers: list[_WorkspacePageServer]):
@@ -345,6 +484,11 @@ def main(argv=None):
         for repeat in range(1, args.repeats + 1):
             run_id = f"muselet-{task.id}-{repeat}-{uuid.uuid4().hex[:8]}"
             run_dir = args.runs_dir / run_id
+            document_guard = _guard_before_run(
+                task, repeat, args.runs_dir, run_dir,
+            )
+            if document_guard is None:
+                continue
             run_dir.mkdir(parents=True)
             ws = _unpack(task, fixtures, run_dir)
             harness_commit = subprocess.run(
@@ -403,6 +547,8 @@ def main(argv=None):
                 "metrics": dict(NULL_METRICS), "driver_state": {},
                 "elapsed_s": time.monotonic() - started,
                 "grade": None, "failure": {"class": "none", "detail": "", "auto": False},
+                "document_apps": document_guard.get("document_apps", []),
+                "document_baseline": document_guard.get("document_baseline", {}),
             }
             context = GradeContext(
                 workspace=ws, vars=task.vars, driver_state=run["driver_state"],
@@ -411,6 +557,21 @@ def main(argv=None):
             )
             grade_result = grade(task, context, sentinel_digests=pristine_sentinels(task, fixtures))
             run["grade"] = grade_result.to_json()
+            apps = _document_apps_for_task(task)
+            try:
+                after_inventory = asyncio.run(take_inventory(osascript_run_script, apps))
+                created, incomplete = _teardown_created_items(
+                    document_guard.get("document_baseline", {}),
+                    after_inventory,
+                    ws,
+                    page_servers,
+                )
+                run["document_created"] = created
+                run["teardown_incomplete"] = bool(incomplete)
+                if incomplete:
+                    run["teardown_incomplete_items"] = incomplete
+            except (DocumentInventoryError, OSError, subprocess.SubprocessError) as exc:
+                run["teardown_inventory_error"] = str(exc)
             write_run_files(
                 run_dir, task, run, trace_lines,
                 suite_hash=suite_hash(args.task_set), repeat=repeat,

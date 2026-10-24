@@ -30,6 +30,13 @@ from bench.harness.core import (
     report_math as shared_report_math,
     run_case,
 )
+from bench.harness.documents import (
+    DocumentInventoryError,
+    document_apps_for_case,
+    foreign_items,
+    osascript_run_script,
+    take_inventory,
+)
 from bench.harness.runtime import HandsRuntime
 from bench.hobbylm.vendor import verify_provenance
 
@@ -51,7 +58,19 @@ def load_tasks(home: Path, round_name: str):
 
 def plan(system: str, round_name: str, tasks: list[dict], repeats: int, port: int):
     return [
-        {"system": system, "round": round_name, "repeat": repeat, **task, "port": port}
+        {
+            "system": system,
+            "round": round_name,
+            "repeat": repeat,
+            **task,
+            "port": port,
+            "document_apps": [
+                app.name for app in document_apps_for_case({
+                    "utterance": task["text"],
+                    "category": task["kind"],
+                })
+            ],
+        }
         for repeat in range(1, repeats + 1)
         for task in tasks
     ]
@@ -323,6 +342,10 @@ try store.commit()
 
 def _start_state(helper, record):
     start = helper.snapshot()
+    try:
+        start["finder_window_ids"] = _finder_window_ids(helper)
+    except Exception:
+        start["finder_window_ids"] = None
     if record["kind"] in ("screenshot", "none"):
         location = _screenshot_location()
         start["screenshot_location"] = str(location)
@@ -335,11 +358,44 @@ def _start_state(helper, record):
     return start
 
 
+def _finder_window_ids(helper):
+    if callable(getattr(helper, "finder_window_ids", None)):
+        values = helper.finder_window_ids()
+    else:
+        values = helper.osa(
+            'tell application "Finder" to get id of every Finder window'
+        )
+    if values is None or values == "":
+        return []
+    if isinstance(values, (list, tuple, set)):
+        candidates = values
+    else:
+        candidates = re.findall(r"\d+", str(values))
+    ids = []
+    for value in candidates:
+        try:
+            identifier = int(value)
+        except (TypeError, ValueError):
+            continue
+        if identifier not in ids:
+            ids.append(identifier)
+    return ids
+
+
 def _capture_final_state(helper, record, start):
     current = helper.snapshot()
+    try:
+        current["finder_window_ids"] = _finder_window_ids(helper)
+    except Exception:
+        current["finder_window_ids"] = None
     if record["kind"] == "calc":
         current["display"] = helper.display() if helper.running("Calculator") else None
-    if record["kind"] == "folder" and helper.finder_windows() > start["finder_windows"]:
+    if (
+        record["kind"] == "folder"
+        and current.get("finder_window_ids") is not None
+        and start.get("finder_window_ids") is not None
+        and set(current["finder_window_ids"]) - set(start["finder_window_ids"])
+    ):
         current["finder_path"] = helper.finder_path()
     if record["kind"] in ("screenshot", "none"):
         current["screenshot_files"] = _image_files(Path(start["screenshot_location"]))
@@ -500,8 +556,14 @@ def _restore(helper, before, trace, current=None):
         'tell application "System Events" to tell appearance preferences to '
         f'set dark mode to {"true" if before["dark"] else "false"}'
     )
-    while helper.finder_windows() > before["finder_windows"]:
-        helper.osa('tell application "Finder" to close front window')
+    baseline_finder_ids = before.get("finder_window_ids")
+    if baseline_finder_ids is not None:
+        for identifier in _finder_window_ids(helper):
+            if identifier not in set(baseline_finder_ids):
+                helper.osa(
+                    'tell application "Finder" to close '
+                    f'(every Finder window whose id is {int(identifier)})'
+                )
     for app, was_running in before["running"].items():
         if not was_running and app not in ("Finder", "Calculator") and helper.running(app):
             helper.osa(f'quit app "{app}"')
@@ -539,13 +601,22 @@ import hobbymac_run as helper
 kind = {kind!r}
 before = json.loads(base64.b64decode({encoded!r}).decode())
 state = helper.snapshot()
+try:
+    state["finder_window_ids"] = replay._finder_window_ids(helper)
+except Exception:
+    state["finder_window_ids"] = None
 if before:
     if kind == "calc":
         state["display"] = helper.display() if helper.running("Calculator") else None
     if kind in ("screenshot", "none"):
         location = Path(before["screenshot_location"])
         state["screenshot_files"] = replay._image_files(location)
-    if kind == "folder" and helper.finder_windows() > before["finder_windows"]:
+    if (
+        kind == "folder"
+        and state.get("finder_window_ids") is not None
+        and before.get("finder_window_ids") is not None
+        and set(state["finder_window_ids"]) - set(before["finder_window_ids"])
+    ):
         state["finder_path"] = helper.finder_path()
     if kind in ("event", "none"):
         start, end = (datetime.fromisoformat(value) for value in before["calendar_window"])
@@ -846,11 +917,45 @@ async def _worker_event(stdout):
             return event
 
 
-async def _run_hobby_worker_case(proc, helper, task, repeat):
+async def _hobby_worker_document_guard(task, run_script=None):
+    case = {"utterance": task["text"], "category": task["kind"]}
+    apps = document_apps_for_case(case)
+    app_names = [app.name for app in apps]
+    if not apps:
+        return {"document_apps": [], "document_baseline": {}}
+    try:
+        baseline = await take_inventory(run_script or osascript_run_script, apps)
+    except DocumentInventoryError as exc:
+        return {
+            "status": "skipped",
+            "strict_pass": False,
+            "ungradable": False,
+            "skip_reason": "user_documents_unverifiable",
+            "document_apps": app_names,
+            "document_inventory_error": str(exc),
+        }
+    user_documents = foreign_items(baseline)
+    result = {"document_apps": app_names, "document_baseline": baseline}
+    if user_documents:
+        result.update({
+            "status": "skipped",
+            "strict_pass": False,
+            "ungradable": False,
+            "skip_reason": "user_documents_open",
+            "user_documents": user_documents,
+        })
+    return result
+
+
+async def _run_hobby_worker_case(proc, helper, task, repeat, *, run_script=None):
     record = {
         "id": task["id"], "kind": task["kind"], "expected": task["expected"],
         "text": task["text"],
     }
+    document_guard = await _hobby_worker_document_guard(task, run_script)
+    if document_guard.get("status") == "skipped":
+        return {**record, "repeat": repeat, **document_guard}
+    record.update(document_guard)
     proc.stdin.write((json.dumps(task, ensure_ascii=False) + "\n").encode())
     await proc.stdin.drain()
     events = []
@@ -955,6 +1060,8 @@ async def _run_hobby_worker_case(proc, helper, task, repeat):
     finished = time.monotonic()
     return {
         "id": task["id"], "kind": task["kind"], "repeat": repeat,
+        "document_apps": document_guard.get("document_apps", []),
+        "document_baseline": document_guard.get("document_baseline", {}),
         "status": "ungradable" if final_grade["ungradable"] else "completed",
         "strict_pass": strict_pass, "pass": strict_pass,
         "pass_final_state": strict_pass, "final_state_only": strict_pass,
