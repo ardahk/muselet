@@ -1,6 +1,6 @@
-# decisions — digest (pass 19)
+# decisions — digest (pass 20)
 
-Heads: main 82d94d9 (brain-6 + sendgate merged; no lane diff), data-pipeline 512cce0 (CJK-aware evalcheck, it2 v3 report), cloud/decisions 6d395df unchanged, wip/local 49f808f (no lane diff); brain-6 780f49d = send/click safety gates, no router/decision changes.
+Heads: main 5292608 (AGENTS.md DeskMind wording only), data-pipeline 512cce0 (CJK-aware evalcheck, it2 v3 report), cloud/decisions 6d395df unchanged, wip/local 49f808f (no lane diff); brain-6 780f49d = send/click safety gates, no router/decision changes.
 Resolved this pass: decisions-21 (competitor-bench contamination disclosed and policed; it2 0 on HobbyLM r4 and DeskMind).
 
 ## Open P0/P1
