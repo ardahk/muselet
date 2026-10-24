@@ -14,9 +14,14 @@ python3 bench/hobbylm/replay.py \
 ```
 
 The HobbyLM path invokes the pinned upstream `hobbymac_run.py` and
-`hobbymac_score.py`; it stores the upstream run paths and scorer output beside
-the strict-completion and independently recomputed final-state results. HobbyLM
-requires its own `.venv`, model/runtime artifacts, and the macOS fixture setup.
+`hobbymac_score.py`; it preserves the upstream `completed` value and stores the
+upstream run paths and scorer output beside `pass_final_state`, which is
+recomputed with the same grader used for Muselet. The `completed` metric is
+final-state success plus the system's reported success; `false_done` is a
+reported success with a final-state failure. HobbyLM requires its own `.venv`,
+model/runtime artifacts, and the macOS fixture setup. Older upstream event and
+`none` rows do not include the complete before/after snapshots needed by the
+independent grader, so those rows are conservatively marked as not verified.
 
 The Muselet path requires macOS, Accessibility/Screen Recording permissions,
 and `hands` on `PATH`. It starts and tears down a benchmark-instrumented local
@@ -29,10 +34,22 @@ state satisfying the task grader. The grader checks the final OS state and does
 not treat the Brain's outcome as proof of success.
 
 Event trials require `--allow-calendar` and the macOS default Calendar must be
-the dedicated `Hobby Test` calendar. Created test events are read back and
-removed during teardown. Screenshot files are checked and removed. The current
-HandsKit `start_timer` skill is not implemented, so timer tasks are reported as
-unverifiable failures instead of being counted from a success message.
+the dedicated `Hobby Test` calendar. Event grading snapshots the test calendar
+with EventKit from one day before to 400 days after the trial, then diffs by
+event identifier; teardown removes only events added in that diff. Expected
+event starts use HobbyLM's `plan_event` in `Asia/Kolkata`. Because HobbyLM test
+mode creates events with `with_invite=False`, its person check is adapted to
+verify the expected person in the created event's title, notes, or attendees
+rather than requiring an invitation. Screenshot grading compares image files
+in the directory reported by `defaults read com.apple.screencapture location`
+(or `~/Desktop`) before and after the utterance and removes new files during
+teardown; it does not trust RPC-returned paths. A `none` task passes only when
+no `act`/`skill` RPC was dispatched and the relevant device, app, Finder,
+screenshot, and Calendar state is unchanged.
+
+The current HandsKit `start_timer` skill is not implemented, so timer tasks are
+reported as unverifiable failures instead of being counted from a success
+message.
 
 Run artifacts are written under `runs/bench/hobbylm/`. Do not use a personal
 Calendar or run these desktop trials while another user is operating the Mac.
