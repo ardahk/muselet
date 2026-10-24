@@ -1,4 +1,7 @@
-# brain digest — pass 4 (2026-10-24T06:25Z)
+# brain digest — pass 5, self-poll (2026-10-24T06:50Z)
+Pass 5: main c2d2988 now has the brain-5 fix. cloud/brain-2 9f41c11 (slots, calc, obsdiff, spec ARGS, confirm summaries): 15 suites pass (calc 77, slot_fill 37, confirm_summary 21, planner_loop 23...); it fixes brain-6 and partly fixes brain-13/brain-12. calc.answer probed with 44 utterances: no false positives on commands, arithmetic exact. cloud/grounding 42310cd grounder.py: coordinate math (norm1000 -> resized -> crop -> image px) checked, 114 tests pass, not wired into the orchestrator yet. No new findings.
+
+## Pass 4 notes
 Reviewed: wip/local e0bdc65, main e78f143, cloud/data-pipeline 153a01c, cloud/bench 14c7eb1, cloud/finance-2 f4ae461 (144 tests pass), cloud/advisor-2 ec98013; cloud/pitch has nothing in lane.
 Suites at e0bdc65: catalog 9, dsl 45, orchestrator 9, planner_loop 14, finance 90, advisor 22 pass; route_parity 51 xfail (stale v1 artifact on wip).
 Resolved this pass: brain-5 on wip/local (v2 parity 50/50 vs data-pipeline artifact) — main e78f143 still lacks the fix.
