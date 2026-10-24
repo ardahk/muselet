@@ -1,4 +1,8 @@
-# planner lane — pass 34 (main c949565 unchanged; new cloud/brain-7 13432fe, app-ui afb2688)
+# planner lane — pass 35 (main cf53292, wip e14fa54 [behind main: lacks brain-7], new cloud/comms 956d4ac)
+
+Pass 35: no new findings. brain-7 (#25), report (#22) and native-research (#23) are merged, so planner-28 is now on main. cloud/comms: messages_send and the draft_email send are both behind ask_confirm, with an excerpt and the recipient in the summary; a confirm timeout counts as no. Before sending, it re-checks that the draft window is still frontmost. The Mail send combo is cmd+shift+d and Gmail's is cmd+return. No issues found in a static review. Open findings on main are unchanged: planner-24 L984, planner-26 L289, planner-27 L1516, planner-25, planner-6.
+
+## Pass 34 notes
 
 Pass 34: 1 new P1 (planner-28: compose_text types generated multi-line text into the focused field with no sendgate or confirm). brain-7 also adds: a sign-in gate that blocks typing values the user never said into email/password fields (good, matches rule 16); a login-page hint for the planner; a spoken site-name to URL table; and set_escalation, which loads or unloads the 35B planner with a 48 GB and memory_level>=40 guard (matches AGENTS). app-ui adds config frames that are acked via server tasks; no issues. native-research, report, decisions and data-pipeline don't touch this lane. Open findings on main are unchanged.
 
