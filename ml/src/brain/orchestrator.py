@@ -482,6 +482,18 @@ class Orchestrator:
 
         return {"kind": "fallback"}
 
+    def _new_command_during_ask(self, text: str) -> bool:
+        value = text.strip()
+        if not value or value[0] in "\"'“‘/~" or \
+                re.search(r"\.[a-z0-9]{1,8}$", value, re.IGNORECASE):
+            return False
+        if not re.match(
+                r"^(?:please\s+)?(?:set|turn|open|launch|start|mute|unmute|"
+                r"silence|search|google|look\s+up|lookup|take|make|grab|go)\b",
+                value, re.IGNORECASE):
+            return False
+        return self.route(value).get("kind") == "skill"
+
     # ---------- utterance ----------
 
     async def handle_utterance(self, text: str, ctx: dict | None = None) -> dict:
@@ -527,11 +539,18 @@ class Orchestrator:
             if self._pending_task and self._pending_task.get("reroute") and \
                     not _CONTINUE.fullmatch(text.strip()):
                 self._pending_task = None   # a new command, not "continue"
+            if self._pending_task and \
+                    time.time() - self._pending_task["t"] < 90 and \
+                    self._new_command_during_ask(text):
+                trace["decisions"].append({
+                    "pending_ask_cancelled": self._pending_task["goal"]})
+                self._pending_task = None
+                self._answer_history = []
             if handled_pending:
                 pass
             elif self._slot:
                 outcome = await self._slot_answer(text, trace)
-            # a pending ask keeps task state for 90 s: next utterance answers it
+            # Ambiguous replies keep the pending task for 90 s.
             elif self._pending_task and \
                     time.time() - self._pending_task["t"] < 90:
                 pending = self._pending_task
