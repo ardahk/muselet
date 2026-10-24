@@ -34,7 +34,7 @@ public enum DSLLine {
             p["op"] = "type"; p["ref"] = n; p["text"] = text; p["enter"] = enter
         case "keys":
             guard !rest.isEmpty else { throw HandsError.invalidParams("keys <combo>") }
-            _ = try Combo.parse(rest)  // validate
+            if MediaKey.parse(rest) == nil { _ = try Combo.parse(rest) }  // validate
             p["op"] = "keys"; p["combo"] = rest
         case "scroll":
             guard let n = refNum(rest) else { throw HandsError.invalidParams("scroll #ref dir [n]") }

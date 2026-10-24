@@ -50,15 +50,32 @@ struct OcrCmd: ParsableCommand {
 struct ProbeCmd: ParsableCommand {
     static var configuration = CommandConfiguration(
         commandName: "probe",
-        abstract: "Read-only probes: bluetooth | volume | brightness | symbols | skill-targets | applescript | automation | control-center")
-    @Argument(help: "bluetooth | volume | brightness | symbols | skill-targets | applescript | automation | control-center")
+        abstract: "Read-only probes: bluetooth | volume | brightness | symbols | skill-targets | applescript | automation | control-center | timers | session")
+    @Argument(help: "bluetooth | volume | brightness | symbols | skill-targets | applescript | automation | control-center | timers | session")
     var what: String
     @Flag(help: "applescript: time the old per-argument compile path instead")
     var legacy = false
     @Flag(help: "control-center: open the panel to find the Bluetooth switch (never pressed; closed again)")
     var open = false
+    @Flag(help: "timers: run start_timer / timers / timers_cancel in this process instead (nothing fires)")
+    var demo = false
     func run() throws {
         switch what {
+        case "session":
+            // Live-test precondition: input acts refuse (screen_locked) while locked.
+            let front = NSWorkspace.shared.frontmostApplication
+            var active: UInt32 = 0
+            CGGetActiveDisplayList(0, nil, &active)
+            printJSON(["screen_locked": SessionState.screenLocked(),
+                       "frontmost": front?.localizedName ?? NSNull(),
+                       "frontmost_bundle_id": front?.bundleIdentifier ?? NSNull(),
+                       "main_display_asleep": CGDisplayIsAsleep(CGMainDisplayID()) != 0,
+                       "active_displays": Int(active)])
+        case "timers":
+            // Live: the timers of running Muselet / `hands serve` processes
+            // (their snapshot files). --demo: the RPC round trip in-process.
+            printJSON(demo ? TimerProbe.demo() : ["timers": TimerSnapshot.read(),
+                                                  "source": TimerSnapshot.directory.path])
         case "applescript":
             printJSON(legacy ? AppleScriptProbe.legacy() : AppleScriptProbe.handlers())
         case "automation":
@@ -114,6 +131,34 @@ struct ProbeCmd: ParsableCommand {
         default:
             throw ValidationError("unknown probe \(what)")
         }
+    }
+}
+
+/// `hands probe timers --demo`: the timers RPCs end to end in this process
+/// (two timers started, listed, one cancelled, the rest cancelled). Inert
+/// hooks: no sound, no notification, no snapshot file; nothing fires.
+enum TimerProbe {
+    static func demo() -> [String: Any] {
+        let skills = Skills(catalog: (try? Catalog.load()) ?? [:], hooks: .inert)
+        let rpc = RPCHandler(skills: skills, warmUp: false)
+        var steps: [[String: Any]] = []
+        func call(_ method: String, _ params: [String: Any]) -> Any? {
+            let (ok, r, e) = rpc.handle(method: method, params: params)
+            var d: [String: Any] = ["rpc": method, "params": params, "ok": ok]
+            if let r { d["result"] = r }
+            if let e { d["error"] = e }
+            steps.append(d)
+            return r
+        }
+        let a = call("skill", ["name": "start_timer", "args": ["duration": 600, "label": "probe tea"]])
+        _ = call("skill", ["name": "start_timer", "args": ["duration": "90s"]])
+        _ = call("timers", [:])
+        let id = ((a as? [String: Any])?["result"] as? [String: Any])?["timer_id"] as? String ?? "?"
+        _ = call("timers_cancel", ["id": id])
+        _ = call("timers_cancel", ["id": "timer-nope"])
+        _ = call("timers_cancel", [:])
+        _ = call("timers", [:])
+        return ["steps": steps, "pending_after": skills.pendingTimers]
     }
 }
 
