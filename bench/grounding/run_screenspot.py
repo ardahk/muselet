@@ -11,6 +11,9 @@ from them (AGENTS.md); downloads go to data/ (gitignored), results to runs/groun
 Sources: ScreenSpot-Pro = HF dataset `likaixin/ScreenSpot-Pro` (annotations/*.json + images/, 1581 samples,
 bbox = [x1, y1, x2, y2] original pixels). OSWorld-G = HF dataset `MMInstruction/OSWorld-G` (one parquet, 510
 samples; `bbox` = [x, y, w, h], `polygon` = flat [x1, y1, x2, y2, ...]).
+
+--zoom crops the full-resolution dataset image, i.e. the same pixels the runtime gets from its native-scale
+HandsKit region capture (`Grounder` with `shot` + `capture`), so zoom gains measured here transfer.
 """
 from __future__ import annotations
 

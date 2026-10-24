@@ -151,6 +151,42 @@ def zoom_region(pt: Point, shot: dict, frac: float = 0.35, min_points: float = 2
     return [ox + x1, oy + y1, x2 - x1, y2 - y1]
 
 
+
+def native_scale_at(pt_global: Point, screens: Optional[list], default: float = 2.0) -> float:
+    """Backing scale (px/pt) of the display containing a global point, from the app's `hello` screens."""
+    for s in screens or []:
+        x, y, w, h = s["frame"]
+        if x <= pt_global[0] < x + w and y <= pt_global[1] < y + h:
+            return float(s.get("scale") or 1.0)
+    return default
+
+
+def native_zoom_region(pt: Point, shot: dict, *, native_scale: float, max_pixels: int = DEFAULT_MAX_PIXELS,
+                       frac: float = 0.4, min_points: float = 160.0) -> list[float]:
+    """Region [x, y, w, h] in global points around a screenshot-pixel guess, sized so that HandsKit's
+    `screenshot {region, max_pixels}` returns it at the display's native backing scale (no downscale):
+    w * h * native_scale**2 <= 0.99 * max_pixels. The region stays inside the original shot."""
+    scale = float(shot.get("scale") or 1.0)
+    sw, sh = shot["width"] / scale, shot["height"] / scale
+    cw = min(sw, max(min_points, sw * frac))
+    ch = min(sh, max(min_points, sh * frac))
+    cap = 0.99 * max_pixels / (native_scale * native_scale)   # margin: HandsKit rounds the pixel size
+    if cw * ch > cap:
+        k = math.sqrt(cap / (cw * ch))
+        cw, ch = cw * k, ch * k
+    gx, gy = pt[0] / scale, pt[1] / scale
+    x1 = min(max(gx - cw / 2, 0.0), sw - cw)
+    y1 = min(max(gy - ch / 2, 0.0), sh - ch)
+    ox, oy = shot["origin"]
+    return [ox + x1, oy + y1, cw, ch]
+
+
+def handskit_capture(rpc: Callable) -> Callable:
+    """Adapt the brain server's async `rpc(method, params)` into a Grounder `capture`."""
+    async def capture(region: list[float], max_pixels: int) -> dict:
+        return await rpc("screenshot", {"region": [round(v, 3) for v in region], "max_pixels": max_pixels})
+    return capture
+
 # ---------------------------------------------------------------- output parsers
 
 _NUM = r"-?\d+(?:\.\d+)?"
@@ -416,22 +452,31 @@ class Stage:
     raw: str
     point: Optional[Point]  # source-image pixels
     ms: float
+    capture_ms: float = 0.0  # region screenshot round trip (runtime native zoom only)
 
 
 class Grounder:
-    """`locate(image_path, instruction, *, hint_box=None) -> {x, y, conf, ms}` in screenshot pixels.
+    """`locate(image_path, instruction, *, hint_box=None, shot=None) -> {x, y, conf, ms}` in screenshot pixels.
 
-    Stage 1 runs on the full screenshot (or on `hint_box`, padded, when the caller already knows the area).
-    With `zoom`, stage 2 crops `zoom_frac` of the screenshot around the first guess, upsamples it to the
-    pixel cap, re-locates, and maps back. `conf` is a heuristic (agreement between stages), not a probability.
-    Images are never retained between calls.
+    Stage 1 runs on the screenshot (or on `hint_box`, padded, when the caller already knows the area).
+    Zoom (stage 2) re-locates in a small region around the first guess and maps back:
+      - runtime (`shot` + `capture`): a fresh HandsKit `screenshot {region}` of that area at the display's
+        native backing scale (`native_zoom_region`), never a re-crop of the ~1 MP downscaled shot;
+      - offline (`shot` is None, e.g. the benchmark's full-resolution images): a crop of the image itself,
+        which is the same pixels the native region capture returns;
+      - a downscaled `shot` without `capture`: no zoom (re-cropping it adds no detail).
+    `capture(region, max_pixels) -> shot dict` may be sync (`locate`) or async (`alocate`); see
+    `handskit_capture`. `screens` is the app's `hello` list (per-display backing scale).
+    `conf` is a heuristic (agreement between stages), not a probability. Images are never retained.
     """
 
     def __init__(self, model: str = "eyes-4b", *, repo: Optional[str] = None, max_pixels: int = DEFAULT_MAX_PIXELS,
-                 zoom: bool = True, zoom_frac: float = 0.4, min_crop: int = 448, backend: Optional[Backend] = None):
+                 zoom: bool = True, zoom_frac: float = 0.4, min_crop: int = 448, backend: Optional[Backend] = None,
+                 capture: Optional[Callable] = None, screens: Optional[list] = None, native_scale: float = 2.0):
         self.adapter = get_adapter(model)
         self.max_pixels = max_pixels
         self.zoom, self.zoom_frac, self.min_crop = zoom, zoom_frac, min_crop
+        self.capture, self.screens, self.native_scale = capture, screens, native_scale
         self.backend = backend or MLXBackend(repo or self.adapter.repo,
                                              None if repo else self.adapter.revision)
 
@@ -466,20 +511,93 @@ class Grounder:
         ch = max(self.min_crop, ih * self.zoom_frac)
         return crop_around(pt, image_size, (cw, ch))
 
-    def run(self, image, instruction: str, *, hint_box: Optional[Box] = None,
-            zoom: Optional[bool] = None) -> list[Stage]:
-        zoom = self.zoom if zoom is None else zoom
+    # -- stages
+
+    def first_stage(self, image, instruction: str, hint_box: Optional[Box] = None) -> Stage:
         if hint_box is not None:
             box = pad_box(hint_box, image.size, min_side=self.min_crop / 2)
-            stages = [self.ground(image, instruction, box, "hint")]
-        else:
-            stages = [self.ground(image, instruction)]
-        first = stages[0]
-        if zoom and first.point is not None:
-            zb = self.zoom_box(first.point, image.size)
-            seen = first.box
-            if (zb[2] - zb[0]) * (zb[3] - zb[1]) < (seen[2] - seen[0]) * (seen[3] - seen[1]):
-                stages.append(self.ground(image, instruction, zb, "zoom"))
+            return self.ground(image, instruction, box, "hint")
+        return self.ground(image, instruction)
+
+    def crop_zoom(self, image, instruction: str, first: Stage) -> Optional[Stage]:
+        """Stage 2 from the image itself (only valid when `image` is full resolution)."""
+        zb = self.zoom_box(first.point, image.size)
+        seen = first.box
+        if (zb[2] - zb[0]) * (zb[3] - zb[1]) >= (seen[2] - seen[0]) * (seen[3] - seen[1]):
+            return None
+        return self.ground(image, instruction, zb, "zoom")
+
+    def zoom_plan(self, first: Stage, shot: Optional[dict]):
+        """None (no zoom) | ("crop", None) | ("native", region in global points)."""
+        if first.point is None:
+            return None
+        if shot is None:
+            return "crop", None
+        ns = native_scale_at(to_global(first.point, shot), self.screens, self.native_scale)
+        if self.capture is not None:
+            region = native_zoom_region(first.point, shot, native_scale=ns, max_pixels=self.max_pixels,
+                                        frac=self.zoom_frac)
+            scale = float(shot.get("scale") or 1.0)
+            whole = region[2] >= shot["width"] / scale - 1e-6 and region[3] >= shot["height"] / scale - 1e-6
+            if whole and scale >= ns - 1e-6:
+                return None   # the shot already is this region at native scale
+            return "native", region
+        if float(shot.get("scale") or 1.0) >= ns - 1e-6:
+            return "crop", None
+        return None
+
+    def region_stage(self, region_shot: dict, instruction: str, shot: dict, capture_ms: float) -> Stage:
+        """Stage 2 on a native-scale region capture, mapped back into `shot` pixels."""
+        from PIL import Image
+        with Image.open(region_shot["path"]) as im:
+            img = im.convert("RGB")
+        st = self.ground(img, instruction, name="zoom")
+        del img
+        if st.point is not None:
+            st.point = from_global(to_global(st.point, region_shot), shot)
+        x1, y1 = from_global(tuple(region_shot["origin"]), shot)
+        x2, y2 = from_global(to_global((region_shot["width"], region_shot["height"]), region_shot), shot)
+        st.box = (x1, y1, x2, y2)
+        st.capture_ms = capture_ms
+        return st
+
+    def run(self, image, instruction: str, *, hint_box: Optional[Box] = None, zoom: Optional[bool] = None,
+            shot: Optional[dict] = None) -> list[Stage]:
+        stages = [self.first_stage(image, instruction, hint_box)]
+        plan = self.zoom_plan(stages[0], shot) if (self.zoom if zoom is None else zoom) else None
+        if plan is not None:
+            kind, region = plan
+            if kind == "crop":
+                st = self.crop_zoom(image, instruction, stages[0])
+            else:
+                t0 = time.perf_counter()
+                rs = self.capture(region, self.max_pixels)
+                if hasattr(rs, "__await__"):
+                    getattr(rs, "close", lambda: None)()
+                    raise TypeError("async capture: use `await Grounder.alocate(...)`")
+                st = self.region_stage(rs, instruction, shot, (time.perf_counter() - t0) * 1000)
+            if st is not None:
+                stages.append(st)
+        return stages
+
+    async def arun(self, image, instruction: str, *, hint_box: Optional[Box] = None, zoom: Optional[bool] = None,
+                   shot: Optional[dict] = None) -> list[Stage]:
+        import asyncio
+        stages = [await asyncio.to_thread(self.first_stage, image, instruction, hint_box)]
+        plan = self.zoom_plan(stages[0], shot) if (self.zoom if zoom is None else zoom) else None
+        if plan is not None:
+            kind, region = plan
+            if kind == "crop":
+                st = await asyncio.to_thread(self.crop_zoom, image, instruction, stages[0])
+            else:
+                t0 = time.perf_counter()
+                rs = self.capture(region, self.max_pixels)
+                if hasattr(rs, "__await__"):
+                    rs = await rs
+                st = await asyncio.to_thread(self.region_stage, rs, instruction, shot,
+                                             (time.perf_counter() - t0) * 1000)
+            if st is not None:
+                stages.append(st)
         return stages
 
     @staticmethod
@@ -504,15 +622,31 @@ class Grounder:
                 return s.point
         return None
 
-    def locate(self, image_path: str, instruction: str, *, hint_box: Optional[Box] = None) -> dict:
+    @staticmethod
+    def _open(image_path: str):
         from PIL import Image
-        t0 = time.perf_counter()
         with Image.open(image_path) as im:
-            image = im.convert("RGB")
-        stages = self.run(image, instruction, hint_box=hint_box)
-        del image
+            return im.convert("RGB")
+
+    def _result(self, stages: list[Stage], t0: float) -> dict:
         pt = self.final_point(stages)
         ms = round((time.perf_counter() - t0) * 1000, 1)
         if pt is None:
             return {"x": None, "y": None, "conf": 0.0, "ms": ms}
         return {"x": round(pt[0], 1), "y": round(pt[1], 1), "conf": self.confidence(stages), "ms": ms}
+
+    def locate(self, image_path: str, instruction: str, *, hint_box: Optional[Box] = None,
+               shot: Optional[dict] = None) -> dict:
+        t0 = time.perf_counter()
+        image = self._open(image_path)
+        stages = self.run(image, instruction, hint_box=hint_box, shot=shot)
+        del image
+        return self._result(stages, t0)
+
+    async def alocate(self, image_path: str, instruction: str, *, hint_box: Optional[Box] = None,
+                      shot: Optional[dict] = None) -> dict:
+        t0 = time.perf_counter()
+        image = self._open(image_path)
+        stages = await self.arun(image, instruction, hint_box=hint_box, shot=shot)
+        del image
+        return self._result(stages, t0)

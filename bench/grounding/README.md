@@ -77,6 +77,22 @@ time, and latency p50/p95 for each stage (`full`, `zoom`) and in total.
 | `--max-pixels 1000000` | pixel cap per model call (AGENTS.md: ~1 MP) |
 | `--oracle` | no model; ground-truth answers through the full adapter pipeline |
 
+## Bench zoom vs runtime zoom
+
+The bench's `--zoom` crops the dataset's full-resolution image around the stage-1 guess. At runtime the
+grounder does the equivalent on the live screen: given the HandsKit `shot` and a `capture`
+(`brain.grounder.handskit_capture(server.rpc)`), stage 2 requests `screenshot {region, max_pixels}` for a
+region sized by `native_zoom_region` so it comes back at the display's native backing scale (Retina 2 px/pt)
+under the cap. It never re-crops the ~1 MP downscaled shot, which would add no detail; a downscaled shot
+without `capture` skips zoom. So the bench zoom gain carries over to runtime.
+
+```python
+g = Grounder("eyes-4b", capture=handskit_capture(server.rpc), screens=hello["screens"])
+shot = await server.rpc("screenshot", {"window": True, "max_pixels": 1_000_000})
+pt = await g.alocate(shot["path"], "the razor tool", shot=shot)     # {x, y, conf, ms} in shot pixels
+x, y = to_global(pt, shot)                                          # global points for `click`
+```
+
 Other adapters (`ui-venus-2-9b`, `ui-venus-1.5-2b`, `gui-owl-1.5-8b`, `holo2-8b`, `holo2-4b`, `qwen3-vl-4b`,
 `qwen3.5-4b`, `fara1.5-4b`, `gta1-7b`, `ui-tars-1.5-7b`) load their MLX repo from HF by default
 (`holo2-4b` / `gui-owl-1.5-8b` need a local `mlx_vlm.convert` like step 2.3).

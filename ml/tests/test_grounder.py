@@ -367,3 +367,168 @@ def test_oracle_pipeline_hits_every_target(tmp_path, name, zoom):
     res = bench.evaluate(gr, rows, zoom)
     assert all(r["hit"] for r in res), [(r["point"], r["raw"]) for r in res]
     assert all(("zoom" in r["stage_ms"]) == zoom for r in res)
+
+
+# ---------------------------------------------------------------- runtime zoom: native-scale region capture
+
+def test_native_scale_at_uses_hello_screens():
+    screens = [{"id": 1, "frame": [0, 0, 1512, 982], "scale": 2.0},
+               {"id": 2, "frame": [-1920, -1080, 1920, 1080], "scale": 1.0}]
+    assert g.native_scale_at((100, 100), screens) == 2.0
+    assert g.native_scale_at((-10, -10), screens) == 1.0
+    assert g.native_scale_at((5000, 5000), screens, default=2.0) == 2.0
+
+
+def test_native_zoom_region_fits_cap_at_native_scale():
+    shot = {"width": 1248, "height": 811, "origin": [-1512, -200], "scale": 1248 / 1512}
+    pt = (600, 400)
+    x, y, w, h = g.native_zoom_region(pt, shot, native_scale=2.0, max_pixels=1_000_000, frac=0.4)
+    assert w * h * 4 <= 1_000_000 + 1e-6
+    gx, gy = g.to_global(pt, shot)
+    assert (x + w / 2, y + h / 2) == pytest.approx((gx, gy))
+    # near a corner it shifts inside the shot instead of shrinking
+    x, y, w2, h2 = g.native_zoom_region((0, 0), shot, native_scale=2.0, frac=0.4)
+    assert (x, y) == (-1512, -200) and (w2, h2) == pytest.approx((w, h))
+    # non-Retina display: frac-limited, not cap-limited
+    flat = {"width": 1000, "height": 500, "origin": [0, 0], "scale": 1.0}
+    assert g.native_zoom_region((500, 250), flat, native_scale=1.0, frac=0.4)[2:] == pytest.approx([400, 200])
+
+
+DISPLAY = (-1512.0, -200.0, 1512.0, 982.0)   # secondary Retina display left of main, global points
+BACKING = 2.0
+TARGET_G = (-1512 + 1000.25, -200 + 700.5)    # 4x4 pt red square centre, global points
+
+
+class FakeDesktop:
+    """Mimics HandsKit Screenshot.captureImage: region intersected with its display, captured at backing
+    scale, downscaled only if w*h > max_pixels; scale = px per point."""
+
+    def __init__(self, tmp_path):
+        self.tmp = tmp_path
+        ox, oy, w, h = DISPLAY
+        self.native = Image.new("RGB", (int(w * BACKING), int(h * BACKING)), "white")
+        cx, cy = (TARGET_G[0] - ox) * BACKING, (TARGET_G[1] - oy) * BACKING
+        ImageDraw.Draw(self.native).rectangle([cx - 4, cy - 4, cx + 3, cy + 3], fill=(255, 0, 0))
+        self.calls = []
+
+    def _shot(self, src, max_pixels, name):
+        ox, oy, _, _ = DISPLAY
+        sx, sy, sw, sh = src
+        pw, ph = sw * BACKING, sh * BACKING
+        k = min(1.0, math.sqrt(max_pixels / (pw * ph)))
+        w, h = max(1, round(pw * k)), max(1, round(ph * k))
+        crop = self.native.crop((round((sx - ox) * BACKING), round((sy - oy) * BACKING),
+                                 round((sx - ox + sw) * BACKING), round((sy - oy + sh) * BACKING)))
+        img = crop.resize((w, h), Image.Resampling.LANCZOS) if (w, h) != crop.size else crop
+        path = self.tmp / f"{name}.png"
+        img.save(path)
+        return {"path": str(path), "width": w, "height": h, "origin": [sx, sy], "scale": w / sw}
+
+    def full(self, max_pixels=1_000_000):
+        return self._shot(DISPLAY, max_pixels, "full")
+
+    def capture(self, region, max_pixels):
+        self.calls.append((list(region), max_pixels))
+        dx, dy, dw, dh = DISPLAY
+        x1, y1 = max(region[0], dx), max(region[1], dy)
+        x2, y2 = min(region[0] + region[2], dx + dw), min(region[1] + region[3], dy + dh)
+        return self._shot((x1, y1, x2 - x1, y2 - y1), max_pixels, f"region{len(self.calls)}")
+
+
+class RedBackend:
+    """'Model' that finds the red square in whatever image it is given; the first call is `bias` px off
+    (in the pixels it saw), like a coarse full-screen guess."""
+
+    def __init__(self, bias=(9, -6)):
+        self.bias, self.sizes = bias, []
+
+    def __call__(self, image, system, user, adapter):
+        self.sizes.append(image.size)
+        px = image.load()
+        pts = [(x, y) for y in range(image.height) for x in range(image.width)
+               if px[x, y][0] > 200 and px[x, y][1] < 120 and px[x, y][2] < 120]
+        cx = sum(p[0] for p in pts) / len(pts) + 0.5 + self.bias[0]
+        cy = sum(p[1] for p in pts) / len(pts) + 0.5 + self.bias[1]
+        self.bias = (0, 0)
+        x, y = g.pixels_to_model((cx, cy), adapter.coord, image.size, image.size)
+        return adapter.answer.format(x=round(x, 3), y=round(y, 3))
+
+
+@pytest.mark.parametrize("name", ["eyes-4b", "gta1-7b", "ui-venus-1.5-8b"])
+def test_runtime_zoom_captures_native_region_not_recrop(tmp_path, name):
+    desk = FakeDesktop(tmp_path)
+    shot = desk.full()
+    assert shot["width"] * shot["height"] <= 1_001_000 and shot["scale"] < BACKING   # downscaled ~1 MP shot
+    be = RedBackend()
+    gr = Grounder(name, backend=be, capture=desk.capture,
+                  screens=[{"id": 2, "frame": list(DISPLAY), "scale": BACKING}])
+    image = Image.open(shot["path"]).convert("RGB")
+    stages = gr.run(image, "the red square", shot=shot)
+    assert [s.name for s in stages] == ["full", "zoom"]
+
+    # exactly one region screenshot, sized to come back at native backing scale under the cap
+    assert len(desk.calls) == 1
+    region, mp = desk.calls[0]
+    assert mp == gr.max_pixels and region[2] * region[3] * BACKING ** 2 <= mp + 1e-6
+    rx, ry, rw, rh = region
+    gx, gy = g.to_global(stages[0].point, shot)
+    assert rx <= gx <= rx + rw and ry <= gy <= ry + rh
+    # stage 2 saw native pixels (2 px/pt), not an upsampled crop of the 1 MP shot (~0.83 px/pt)
+    region_px = (round(rw * BACKING), round(rh * BACKING))
+    h2, w2 = g.smart_resize(region_px[1], region_px[0], gr.adapter.factor, max_pixels=gr.max_pixels)
+    assert be.sizes[1] == (w2, h2)
+
+    truth = g.from_global(TARGET_G, shot)
+    assert math.dist(stages[1].point, truth) < 0.6
+    assert math.dist(stages[0].point, truth) > 3
+    bx = stages[1].box
+    assert bx[0] <= truth[0] <= bx[2] and bx[1] <= truth[1] <= bx[3]
+    assert g.to_global(stages[1].point, shot) == pytest.approx(TARGET_G, abs=0.5)
+
+
+def test_locate_with_shot_returns_screenshot_pixels(tmp_path):
+    desk = FakeDesktop(tmp_path)
+    shot = desk.full()
+    gr = Grounder("eyes-4b", backend=RedBackend(), capture=desk.capture)
+    out = gr.locate(shot["path"], "the red square", shot=shot)
+    truth = g.from_global(TARGET_G, shot)
+    assert math.dist((out["x"], out["y"]), truth) < 0.6
+    assert g.to_global(out, shot) == pytest.approx(TARGET_G, abs=0.5)
+    assert out["conf"] > 0.5
+
+
+def test_downscaled_shot_without_capture_does_not_recrop(tmp_path):
+    desk = FakeDesktop(tmp_path)
+    shot = desk.full()
+    be = RedBackend(bias=(0, 0))
+    gr = Grounder("eyes-4b", backend=be)
+    stages = gr.run(Image.open(shot["path"]).convert("RGB"), "x", shot=shot)
+    assert [s.name for s in stages] == ["full"] and len(be.sizes) == 1
+
+
+def test_native_shot_without_capture_crops_locally(tmp_path):
+    desk = FakeDesktop(tmp_path)
+    shot = desk.full(max_pixels=10_000_000)                       # already native (scale 2.0)
+    assert shot["scale"] == BACKING
+    gr = Grounder("eyes-4b", backend=RedBackend())
+    stages = gr.run(Image.open(shot["path"]).convert("RGB"), "x", shot=shot)
+    assert [s.name for s in stages] == ["full", "zoom"]
+    assert math.dist(stages[1].point, g.from_global(TARGET_G, shot)) < 0.6
+
+
+def test_alocate_with_async_handskit_capture(tmp_path):
+    import asyncio
+    desk = FakeDesktop(tmp_path)
+    shot = desk.full()
+    sent = []
+
+    async def rpc(method, params):
+        sent.append((method, params))
+        return desk.capture(params["region"], params["max_pixels"])
+
+    gr = Grounder("gta1-7b", backend=RedBackend(), capture=g.handskit_capture(rpc))
+    out = asyncio.run(gr.alocate(shot["path"], "the red square", shot=shot))
+    assert sent and sent[0][0] == "screenshot" and set(sent[0][1]) == {"region", "max_pixels"}
+    assert math.dist((out["x"], out["y"]), g.from_global(TARGET_G, shot)) < 0.6
+    with pytest.raises(TypeError):
+        gr.locate(shot["path"], "the red square", shot=shot)       # async capture needs alocate
