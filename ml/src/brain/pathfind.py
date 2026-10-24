@@ -135,6 +135,11 @@ def _normalize(name: str, is_file: bool) -> str:
     return re.sub(r"[\s\-_.]+", " ", name.lower()).strip()
 
 
+def is_exact_match(phrase: str, path: str) -> bool:
+    return _normalize(phrase, is_file=True) == _normalize(
+        os.path.basename(path), is_file=not os.path.isdir(path))
+
+
 def resolve(phrase: str, home: str | None = None,
             roots: tuple[str, ...] = ("Desktop", "Documents", "Downloads"),
             max_depth: int = 2, max_entries: int = 2000,
@@ -179,7 +184,8 @@ def resolve(phrase: str, home: str | None = None,
                 normalized = _normalize(entry.name, is_file=not is_dir)
                 if normalized == target:
                     candidates.append((1.0, entry.path))
-                elif normalized:
+                elif normalized and re.findall(r"\d+", target) == re.findall(
+                        r"\d+", normalized):
                     score = difflib.SequenceMatcher(
                         None, target, normalized).ratio()
                     if score >= 0.88:

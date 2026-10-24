@@ -154,7 +154,8 @@ final class YesNoTests: XCTestCase {
     func testRefusals() {
         for s in ["not right now", "okay cancel that", "that's not correct", "no", "nope",
                   "Don't do it", "not sure", "never mind", "hold on", "stop", "wait",
-                  "No.", "nah", "please don't send it", "that\u{2019}s not right"] {
+                  "No.", "nah", "please don't send it", "that\u{2019}s not right",
+                  "ok cancel", "no, don't send it"] {
             XCTAssertEqual(YesNo.parse(s), false, s)
         }
     }
