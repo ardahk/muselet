@@ -1,10 +1,10 @@
 {
-  "pass": 38,
-  "ts": "2026-10-24T20:30:00Z",
+  "pass": 39,
+  "ts": "2026-10-24T20:42:00Z",
   "last_reviewed": {
-    "main": "026aff0",
-    "wip/local": "98d1401",
-    "cloud/data-pipeline": "f8b721a",
+    "main": "dae4b26",
+    "wip/local": "972081d",
+    "cloud/data-pipeline": "f6354d6",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
@@ -36,7 +36,7 @@
     "cloud/data-planner": "ee8ae33",
     "cloud/data-route": "42835ce",
     "cloud/brain-8": "4546d09",
-    "cloud/planner-demos": "84798ec"
+    "cloud/planner-demos": "9008990"
   },
-  "notes": "pass 38: main adds Contacts permission + comms RPCs; wip fixes ux-23; brain-8 reviewed, no new findings."
+  "notes": "pass 39: main merged brain-8 + comms fixes; ux-23 resolved. 9 P2 open."
 }

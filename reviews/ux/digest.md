@@ -1,16 +1,13 @@
-# ux digest — pass 38
+# ux digest — pass 39
 
-Heads: main 026aff0 (adds the Contacts permission row and probe, and the contacts_search / messages_compose /
-messages_send RPCs), wip/local 98d1401, new cloud/brain-8 4546d09 and cloud/planner-demos 84798ec (no lane files).
+Heads: main dae4b26 (merged brain-8 d0c2394 with a small permission-phrase tightening 9a47376, comms fixes 68e76c6, and
+new briefs), wip/local 972081d (= main for lane files), cloud/data-pipeline f6354d6 and cloud/planner-demos 9008990
+(no lane files).
 
-Counts: 0 P0, 0 P1, 10 P2. None new.
+Counts: 0 P0, 0 P1, 9 P2 (all on main). None new; ux-23 resolved.
 
-- ux-23: fixed on wip/local (no_text_target -> "Couldn't find the Messages text box", plus copy for
-  recipient_unverified and bad_handle), but not yet on main.
-- wip also sends panel example requests only after Muselet deactivates (sendFromPanel, 0.5 s deadline), so ctx never
-  binds to Muselet itself. Good.
-- main: the Contacts row follows the existing permission pattern (notDetermined -> requestAccess, denied -> Settings).
-- brain-8: the permission-prompt gate ("A permission prompt is open. Please answer it, then say continue.", 11 words)
-  and the web-answer fallback (10 words) stay within 12 words, and the web answer ends success/idle. The permission
-  gate adds another ui("listening") while the mic is off (ux-12).
-- ux-14, ux-15, ux-16, ux-17, ux-18, ux-19, ux-20, ux-22: unchanged on main.
+- ux-23 resolved: main's comms copy now names the real compose failure (text box, unverified conversation, bad handle).
+- brain-8 on main: its permission-prompt gate and web-answer bubbles are 12 words or fewer. The permission gate adds
+  to ux-12 (ui("listening") while the mic is off).
+- Open: ux-12, ux-14, ux-15, ux-16, ux-17, ux-18, ux-19, ux-20, ux-22.
+- The mascot-animal (kitten) brief in dae4b26 replaces the mascot again; I'll review it when the branch lands.
