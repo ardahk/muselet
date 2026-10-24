@@ -1,4 +1,4 @@
-# Muselet: models, evaluation and results (2026-10-24)
+# Muselet: models, evaluation and results (2026-10-24, updated 2026-10-24 evening)
 
 What was trained, how it was measured, what the numbers are, and what is still missing. Every number has a
 source. Sources outside `main`: **PR #2** = branch `cloud/data-pipeline` (route training, `training/reports/`);
@@ -9,8 +9,8 @@ Mac (M5 Pro, 64 GB, macOS 27). "Lead" = numbers reported by the lead from the Ma
 
 | Role | Serving default | Alternatives (selectable) | Source |
 |---|---|---|---|
-| Router + ARGS (System 1) | it2: Qwen3.5-4B + Tinker LoRA, MLX 4-bit, `jonsnov/muselet-route-4b-main-mlx4` @ 54b2181, tau 0.65 | r2 @ 2e3e7bf (tau .45), r1 (tau .55), base `mlx-community/Qwen3.5-4B-4bit` (tau .20) | `AGENTS.md:37-42`, `tools/serve_brain.sh:3-8` |
-| Planner (System 2) | base Qwen3.5-4B-4bit, greedy, `prompts/planner_fewshot.md` (rules 16-18 + examples), DSL history, line-start op constraint, done-alone | Qwen3.6-35B-A3B (`--planner-model` / `ESCALATE=1`) | `AGENTS.md:43-45` |
+| Router + ARGS (System 1) | it2: Qwen3.5-4B + Tinker LoRA, MLX 4-bit, `jonsnov/muselet-route-4b-main-mlx4` @ 54b2181, tau 0.65 | it3 `jonsnov/muselet-route-4b-it3-mlx4` @ e057412 (export; repo head 6be63a1, eval TBD(router it3 on route_v1_clean)), r2 @ 2e3e7bf (tau .45), r1 (tau .55), base `mlx-community/Qwen3.5-4B-4bit` (tau .20) | `AGENTS.md:37-42`, `tools/serve_brain.sh:3-8` |
+| Planner (System 2) | base Qwen3.5-4B-4bit, greedy, `prompts/planner_fewshot.md` (rules 16-18 + examples), DSL history, line-start op constraint, done-alone, 1 BM25-retrieved example from the v2-tune bank (`RETRIEVAL_K`, default 1) | Qwen3.6-35B-A3B (`--planner-model` / `ESCALATE=1`) | `AGENTS.md:43-45`, `cloud/handoff/notes/retrieval_eval.md` |
 | Grounder | deskmind/eyes-4b, two-stage zoom, 1 MP, lazy-loaded (`click "<description>"`) | 2 MP, UI-Venus | `AGENTS.md:46`, `ml/src/brain/grounder.py` |
 | Decisions (System One) | none yet: base Qwen3.5-4B zero-shot | generalist decisions LoRA in progress (§2.4) | `cloud/builder_decisions.md` |
 | STT | FluidAudio Parakeet TDT v2 on the ANE | Apple SpeechTranscriber | `pitch/claims.md` §2 |
@@ -73,7 +73,9 @@ Mac (M5 Pro, 64 GB, macOS 27). "Lead" = numbers reported by the lead from the Ma
 - **Not yet in the repo:** LoRA settings, a training run, or any eval of the trained adapter.
 
 ### 2.5 Cost
-- **Tinker billed: $64.89 so far** (lead, 2026-10-24); hard cap $150 (`AGENTS.md`). Per-run estimates: pilots
+- **Tinker total: $136.22 of the $150 hard cap** (Tinker console, Sat 2026-10-24 14:30 PDT, as relayed in the
+  lead's lane brief; `tools/tinker_spend.py` lags by hours). Hard stop $148. Earlier snapshots ($34.60, $64.89, $77.51)
+  are superseded. The docs lane spent $0. Per-run estimates: pilots
   $1.93 each, `main` $29.45, it2 $30.44 (report config blocks; estimates, not bills).
 - **API generation for decisions** (OpenAI + Anthropic, separate from Tinker): $52.89 cumulative of the $57 cap in
   `full_gen.md`. The user has since raised the cap: up to $120 for decisions, $200 per provider overall (lead,
@@ -104,6 +106,9 @@ The DeskMind hits were a normalizer artifact: the old `norm()` kept only `[a-z0-
 HobbyLM sealed-r2 1, sealed-r3 1, r4 0. Never quote r1/r2 on any sealed set (`AGENTS.md:40-42`).
 
 ### 3.3 Offline planner bench (`evals/planner_offline.py`)
+Retrieval (`cloud/handoff/notes/planner-retrieval.md`): BM25 over the v2-tune bank, k examples appended to the
+dynamic state. Decision rule fixed before the sweep: ship the smallest k whose mean gain over k=0 on the three
+held-out sets is >= .03 and whose v2-holdout TTFT p50 rises <= 100 ms.
 One planner turn per scenario, no UI. Pass = every line parses as DSL, the first action matches `accept_first`, no
 line matches `reject_any`, and nothing in `confirm_before` appears before a `confirm`. Sets: **tune** (25, used for
 the knob sweep), **holdout** (14, written after the sweep), **holdout2** (12, written after holdout-1 was used to
@@ -148,17 +153,29 @@ asked, latency. Safety guards (`bench/live/README.md`, `bench/RUNBOOK.md`):
 |---|---|---|---|
 | Router, route_v1 clean (103): acc / macro-F1 / ARGS / route+ARGS | **it2 .913 / .892 / .947 / .857** | r2 .864 / .866 / 1.000 / .857; base .767 / .825 / .784 / .690 | lead; r2 + base: `runs/router/r2_self_clean.json`, `base_clean.json` |
 | Router val top-1 (it2 val split) | it2 .938 | main .912 | lead; `tools/serve_brain.sh:5` |
+| Router it3, route_v1 clean (103) | TBD(router it3 on route_v1_clean, Mac) | it2 above | HF `jonsnov/muselet-route-4b-it3-mlx4` @ e057412; trained on `jonsnov/muselet-route-datums-it3@4ded9ab`, catalog v3 (43 options); overlap with eval sets 0 (lane brief) |
 | Router latency p50 (r2) | route 52 ms, ARGS 97 ms | - | `pitch/claims.md` §1a |
-| Planner bench, shipped 4B: tune / holdout / holdout2 | **.88 / .643 / .667** (22/25, 9/14, 8/12) | base config .68 / .50; 35B-A3B .84 / .71 | lead; `runs/planner_offline/` |
+| Planner bench, shipped 4B + retrieval k=1: tune / holdout / holdout2 / v2-holdout | **.880 / .714 / .750 / .462** (22/25, 10/14, 9/12, 60/130) | same prompt k=0: .840 / .643 / .667 / .400 (21/25, 9/14, 8/12, 52/130); k=2 .714 / .750 / .462 on held-out, rejected (v2-holdout TTFT +156 ms); base config .68 / .50; 35B-A3B (k=0) .84 / .71 | `cloud/handoff/notes/retrieval_eval.md`; base/35B: lead, `runs/planner_offline/` |
+| Planner TTFT p50 on v2-holdout (k=0 / k=1) | 113.4 / 184.6 ms (prompt 3,284 / 3,477 tokens) | - | `cloud/handoff/notes/retrieval_eval.md` |
+| Planner LoRA / think mode | TBD(planner-lora eval), TBD(planner-think eval) | - | lanes `cloud/planner-lora`, `cloud/planner-think` |
 | Planner speed (4B, earlier config) | 139 ms per turn p50, TTFT 72 ms, 83 tok/s | 35B ~310 ms, 128 ms, 82 tok/s | `pitch/claims.md` §1a |
 | ScreenSpot-Pro subset (200), eyes-4b two-stage zoom | 63.5% at 1 MP, 67.5% at 2 MP | no zoom 36.0% / 50.5% | lead (run path not given) |
 | JevBench public | base Qwen3.5-4B .719 | DeskMind brain-4b .831, brain-0.8b .723 | `pitch/claims.md` §1a |
 | Typed-decisions test | base .569 | brain-4b .658, brain-0.8b .540 | `pitch/claims.md` §1a |
+| Decisions LoRA: JevBench / typed-decisions | TBD(decisions LoRA eval, Mac) | same as above | `cloud/decisions` |
+| Memory follow-ups (`evals/memory_followups*` holdout) | TBD(memory eval, PR #50) | - | `cloud/handoff/W11_memory.md` |
 | Receipt OCR (Apple Vision, warm) | ~150 ms per receipt | - | `pitch/claims.md` §1 |
 | Live suite (`evals/live_t1.jsonl`), serving config: it2 + tuned 4B planner, runner defaults, screen unlocked; 27 of 43 cases ran | T1 **19/22 (86.4%)**, T2 1/5; files category 2/7 | - | lead; `runs/bench/live/20261024T161427Z` |
 | Live suite: false_done / confirms asked | 4 / 3 | - | same |
 | Live suite latency: first action p50 / p95; verified completion p50 / p95 | 193 / 812 ms; 704 ms / 4.1 s | - | same |
-| HobbyLM sealed-r4, DeskMind Bench (live) | pending | pending | §5 |
+| HobbyLM sealed-r4 (125 tasks), it2 | TBD(HobbyLM r4 replay, it2, Mac) | HobbyLM-1B published 90/125 (their harness) | `bench/hobbylm/replay.py`; §3.7 |
+| DeskMind Bench diag-v27 (13 x 3), zh-Hans | TBD(DeskMind diag, Muselet) | TBD(DeskMind diag same-Mac rerun); published 39/39 (other harness version, not comparable) | `bench/deskmind/run_muselet.py`; §3.7 |
+
+Results not quoted anywhere (invalid): any live/HobbyLM run gathered with the screen locked; the morning HobbyLM
+replay that hit a harness bug; any router r1/r2 number on a sealed external set (training near-duplicates); the 37
+route_v1 cases with near-duplicates in training data. The live run above skipped 16 of 43 cases under runner
+defaults (manual / pending / online / `requires_user_ok` / precondition skips; per-case reasons are in that run
+dir's results file, TBD(skip breakdown from `runs/bench/live/20261024T161427Z`)).
 
 Planner speed was measured on the earlier tuned config (tune .84 / holdout .57) and has not been re-measured for
 the shipped prompt.
@@ -169,7 +186,7 @@ the shipped prompt.
   it only on typed-decisions (.569 vs .540). The decisions LoRA that targets this
   is not trained yet, and decontamination left only 301 code-gold states (no counting, multi-hop or long-policy).
 - **Live competitor runs are pending** (HobbyLM sealed-r4, DeskMind Bench): a harness bug blocked the morning
-  replay. No Muselet number exists on any competitor's own benchmark yet.
+  replay, and that run is not quoted. No Muselet number exists on any competitor's own benchmark yet.
 - **Live suite is weak on multi-step and files:** T2 1/5 and files 2/7, with 4 false_done (the agent said done but
   the final-state check failed). Only 27 of the 43 cases ran under runner defaults.
 - **Planner holdouts trail tune** (.643 / .667 vs .88); the holdout numbers are the honest ones. 35B-A3B is better on
