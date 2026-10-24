@@ -1,24 +1,25 @@
-# training review digest — pass 6
-_heads: main c2d2988, cloud/data-pipeline 153a01c, cloud/bench 911a384, cloud/grounding 42310cd, cloud/brain-2 9f41c11 (self-poll, lead offline)_
+# training review digest: pass 7
+_heads: main c2d2988, cloud/data-pipeline 8f0b9bc (Phase 1 trainer, pilot LR sweep, export/MLX parity), others unchanged. Self-poll; the lead is offline._
 
 ## Open P0/P1 (ranked)
-- **training-10** [P0] HobbyLM sealed-test items in training data; decontam can't read evals/external — `training/src/muselet_train/dedup.py`
-- **training-3** [P1] G3 context pairs mostly mislabeled: 21/37 sampled items wrong — `training/src/muselet_train/prompts.py`
-- **training-8** [P1] Adjudication narrowed below SPEC; verdicts, STOP gate, ASR unwired — `training/src/muselet_train/adjudicate.py`
-- **training-5** [P1] Teacher guard assumes unverified 20% cached chunks; reserve short — `training/src/muselet_train/teacher.py`
-- **training-13** [P1] v2 relabel regex misses catalog's own lock/trash phrasings — `training/src/muselet_train/relabel_v2.py`
-- **training-14** [P1] main has catalog v2 but v1 parity samples; parity gate off — `training/artifacts/route_render_samples.jsonl`
-- **training-15** [P1] Stratified teacher subset skews label prior and mixes hard/soft targets — `training/src/muselet_train/teacher.py`
-- **training-9** [P1] ARGS datums not split with route twins; val labels leak — `training/src/muselet_train/dedup.py`
-- **training-6** [P1] Contexts sampled independently of label contradict context-dependent supervision — `training/src/muselet_train/contexts.py`
-- **training-7** [P1] ARGS targets fabricate unspoken values, incl. destructive move_to_trash paths — `training/src/muselet_train/prompts.py`
-- **training-11** [P1] New ctx contract makes Finder selection=yes unreachable; training uses it — `AGENTS.md`
+- **training-10** [P0] HobbyLM sealed-test items are in the training data, and decontam can't read evals/external (`training/src/muselet_train/dedup.py`). The trainer is now ready, so the main run could launch on contaminated data.
+- **training-16** [P1] ASR noise rewrites the ARGS inputs but keeps the clean copy-exact targets; 34 of 214 noised items are affected (`training/src/muselet_train/datums.py`).
+- **training-3** [P1] G3 context pairs are mostly mislabeled: 21 of 37 sampled items are wrong (`training/src/muselet_train/prompts.py`).
+- **training-17** [P1] In the pilots, finance_review val accuracy is 0–25% (likely about 4 items), and it's a demo-critical skill (`training/reports/phase1_pilot-lr4e-4.md`).
+- **training-5** [P1] Phase 1 spend is unverified (no billed figure for any run), and training alone (about $38.4) exceeds TRAIN_RESERVE $35 (`training/src/muselet_train/train.py`).
+- **training-8** [P1] Adjudication is narrower than SPEC and has no 15% STOP gate. Verdicts and ASR noise are now wired (`training/src/muselet_train/adjudicate.py`).
+- **training-13** [P1] The v2 relabel regex misses the catalog's own lock-screen and trash phrasings (`training/src/muselet_train/relabel_v2.py`).
+- **training-14** [P1] main has catalog v2 but the v1 parity samples, so the parity gate is off (`training/artifacts/route_render_samples.jsonl`).
+- **training-15** [P1] The stratified teacher subset skews the label prior and mixes hard and soft targets (`training/src/muselet_train/teacher.py`).
+- **training-6** [P1] Contexts are sampled independently of the label, which contradicts context-dependent supervision (`training/src/muselet_train/contexts.py`).
+- **training-7** [P1] ARGS targets invent values the user never said, including destructive move_to_trash paths (`training/src/muselet_train/prompts.py`).
+- **training-11** [P1] The new context contract makes Finder selection=yes unreachable, but training uses it (`AGENTS.md`).
 
-Resolved: training-1, training-2, training-4. Open P2: training-12.
+Resolved: training-1, training-2, training-4. Open P2: training-9 (residual: ARGS rows default to train), training-12, training-18 (only the final checkpoint is exported, no best-val pick), training-19 (mixed batches drop 16–21% of the data).
 
 ## Highest-leverage next moves
-1. Decontam against evals/external (read `text`), assert HobbyLM counts > 0, replace the 3 catalog examples that are HobbyLM sealed items (training-10).
-2. Fix G3 pairing; apply A1 verdicts, adjudicate every flagged item, add the 15% STOP, wire asr.noise (training-3, -8).
-3. Calibrate the teacher guard on a 200-item billed pilot (cached factor, reserve >= $38) (training-5); uniform-per-label teacher subset (training-15).
-4. Land the 41-option render artifact on main and remove the parity xfails (training-14); v2 relabel by teacher score (training-13).
-5. Split args rows with their route twins (training-9).
+1. Gate the main run on decontam against evals/external (read `text`, assert HobbyLM count > 0) and replace the 3 catalog examples that are HobbyLM sealed items (training-10).
+2. Apply noise to route datums only; ARGS gets fillers and false starts outside arg spans, or no noise (training-16). Fix G3 pairing and add the 15% STOP gate (training-3, training-8).
+3. Record the `tinker billing` figure for the pilots and the teacher pilot. Set main-run --max-usd = 60 minus billed spend so far, and raise TRAIN_RESERVE to at least $40 (training-5).
+4. Before the full run, inspect finance_review vs MULTI_STEP on v2all, and evaluate on the full val split (training-17, training-13).
+5. Save sampler weights at each eval and export the best-val step. Cycle the shorter datum list in mixed batches (training-18, training-19).
