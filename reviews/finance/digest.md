@@ -1,4 +1,4 @@
-# finance digest (pass 4 + self-polls 07:20Z/07:40Z, 2026-10-24; no new lane commits)
+# finance digest (pass 5, 2026-10-24T08:00Z; no new lane commits since pass 4)
 Open P0/P1, ranked:
 1. finance-18 P0 finance_review reads the front Numbers doc as the statement; demo setup -> 'Couldn't read the statement'; ml/src/brain/tools/finance_review.py
 2. finance-19 P1 Budget 'Note' written to column E of a 4-column table (pending rows) -> write fails; ml/src/brain/finance/numbers_script.py

@@ -1,10 +1,10 @@
 {
  "lane": "finance",
- "pass": 4,
- "ts": "2026-10-24T07:40:00Z",
+ "pass": 5,
+ "ts": "2026-10-24T08:00:00Z",
  "last_reviewed": {
   "main": "c2d2988",
-  "wip/local": "d5d2d7d",
+  "wip/local": "8874962",
   "cloud/finance": "529e9ff",
   "cloud/fixtures-docs": "4bf2291",
   "cloud/data-pipeline": "8f0b9bc",
@@ -17,5 +17,5 @@
   "cloud/grounding": "42310cd"
  },
  "next_id": 23,
- "notes": "pass 4: finance-2 144 tests pass and its truth (incl. duplicate_status, weekend, fuzzy/delayed receipts) reconciles with tests/recompute_truth.py; advisor-2 65 tests pass. finance-4/6/7/8/10/11/12 resolved. main/wip: nothing new in lane besides the planner line already reviewed. | self-poll 07:20Z: main/wip/bench/brain-2/grounding have no finance/advisor lane changes (brain-2 only adds an advisor_prep 'Which client?' slot prompt); open list unchanged. | self-poll 07:40Z: only cloud/data-pipeline moved (training reports); finance_review route val acc 0.000/0.250 in Phase-1 pilots, noted in digest as a risk for the data lane."
+ "notes": "pass 4: finance-2 144 tests pass and its truth (incl. duplicate_status, weekend, fuzzy/delayed receipts) reconciles with tests/recompute_truth.py; advisor-2 65 tests pass. finance-4/6/7/8/10/11/12 resolved. main/wip: nothing new in lane besides the planner line already reviewed. | self-poll 07:20Z: main/wip/bench/brain-2/grounding have no finance/advisor lane changes (brain-2 only adds an advisor_prep 'Which client?' slot prompt); open list unchanged. | self-poll 07:40Z: only cloud/data-pipeline moved (training reports); finance_review route val acc 0.000/0.250 in Phase-1 pilots, noted in digest as a risk for the data lane. | pass 5 (PULSE 07:07Z): only wip/local moved (orchestrator _script now calls the self.script_needs_confirm method, which exists at :466; plus builder briefs). No lane changes; all open findings re-checked unchanged at their pass-4 SHAs."
 }
