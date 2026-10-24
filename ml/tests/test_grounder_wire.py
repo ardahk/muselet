@@ -263,6 +263,61 @@ def test_grounded_click_safe_element_skips_ocr_and_confirmation(tmp_path):
     assert orch.tracer.current["decisions"][-1]["hit"] == "Bold"
 
 
+def test_grounded_click_unlabeled_button_falls_through_to_ocr(tmp_path):
+    orch, server = _safety_gate_orch(
+        tmp_path,
+        elements=[
+            {"role": "group", "label": "Conversation",
+             "frame": [0, 0, 100, 100]},
+            {"role": "button", "label": "",
+             "frame": [10, 20, 10, 10]},
+        ],
+        ocr_text="Send",
+    )
+
+    result = _click(orch, "the paper plane icon")
+
+    assert result["status"] == "ok"
+    assert server.confirms == ['Click "Send"?']
+    assert any(method == "ocr" for method, _ in server.rpcs)
+    assert orch.tracer.current["decisions"][-1]["grounded_click_gate"] == "ocr"
+
+
+def test_grounded_click_container_only_falls_through_to_ocr(tmp_path):
+    orch, server = _safety_gate_orch(
+        tmp_path,
+        elements=[{"role": "group", "label": "Toolbar",
+                   "frame": [0, 0, 100, 100]}],
+        ocr_text="Cancel",
+    )
+
+    result = _click(orch, "the formatting area")
+
+    assert result["status"] == "ok"
+    assert server.confirms == []
+    assert any(method == "ocr" for method, _ in server.rpcs)
+    assert orch.tracer.current["decisions"][-1]["grounded_click_gate"] == "none"
+
+
+def test_grounded_click_uses_smallest_decisive_element(tmp_path):
+    orch, server = _safety_gate_orch(
+        tmp_path,
+        elements=[
+            {"role": "button", "label": "Send",
+             "frame": [0, 0, 100, 100]},
+            {"role": "button", "label": "Bold",
+             "frame": [10, 20, 10, 10]},
+        ],
+    )
+
+    result = _click(orch, "the formatting icon")
+
+    assert result["status"] == "ok"
+    assert server.confirms == []
+    assert not any(method == "ocr" for method, _ in server.rpcs)
+    assert orch.tracer.current["decisions"][-1]["hit"] == "Bold"
+
+
 def test_grounded_click_ocr_send_confirms_with_region_clamped_at_edge(tmp_path):
     orch, server = _safety_gate_orch(tmp_path, ocr_text="Send")
 

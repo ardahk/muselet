@@ -903,6 +903,11 @@ class Orchestrator:
     _DANGEROUS_LABEL = re.compile(
         r"send|delete|remove|buy|purchase|pay|place order|post|publish|"
         r"erase|empty trash|replace|submit order", re.IGNORECASE)
+    _CONTAINER_ROLES = frozenset({
+        "application", "cell", "group", "layoutarea", "list", "outline",
+        "row", "scrollarea", "splitgroup", "table", "toolbar", "webarea",
+        "window",
+    })
     _DANGEROUS_COMBOS = {"cmd+delete", "cmd+opt+delete", "cmd+shift+d"}
     _ENTER_COMBOS = {"return", "enter", "cmd+return", "keypad_enter"}
 
@@ -1426,10 +1431,14 @@ function run() {
         r["_log"] = f"{dsl_line}-> {res} at {act['x']:g},{act['y']:g}"
         return r
 
-    @staticmethod
-    def _smallest_element_at(elements, gx: float, gy: float):
+    @classmethod
+    def _smallest_decisive_element_at(cls, elements, gx: float, gy: float):
         containing = []
         for element in elements or []:
+            role = str(element.get("role") or "").strip().casefold()
+            label = str(element.get("label") or "").strip()
+            if not label or role in cls._CONTAINER_ROLES:
+                continue
             frame = element.get("frame")
             if not isinstance(frame, (list, tuple)) or len(frame) != 4:
                 continue
@@ -1494,9 +1503,10 @@ function run() {
             if sendgate.is_payment_context(value):
                 return result("context", target, value)
 
-        element = self._smallest_element_at(obs.get("elements"), gx, gy)
+        element = self._smallest_decisive_element_at(
+            obs.get("elements"), gx, gy)
         if element is not None:
-            label = str(element.get("label") or "")
+            label = str(element.get("label") or "").strip()
             if self._DANGEROUS_LABEL.search(label):
                 return result("label", label, label)
             return result("none", target, label)
