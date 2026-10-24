@@ -95,4 +95,7 @@ C = 7+8 (escalation + sites); D = 9 (+ the YesNo test) on a Mac.
 - The findings jsonl files are append-only; the digest.md of each lane holds the current open list. The review
   repros live only on origin/review/brain (`reviews/brain/tests/`) and import `ml/tests` helpers
   (`PYTHONPATH=ml/src:ml/tests`).
-- Whether mlx installs on Linux for the test venv was not yet confirmed.
+- Linux test venv: `uv sync --group dev` alone fails at `import mlx.core` (libmlx.so missing); then
+  `uv pip install 'mlx[cpu]==0.32.4'` fixes it. Baseline on 83c1f21: `uv run pytest -q tests` -> 1453 passed, 55 skipped.
+  Reviewer repros (`PYTHONPATH=$PWD/tests:/tmp/rt uv run pytest -q /tmp/rt`): 37 failed / 26 passed; brain-14/24/25/29/30
+  repros fail, brain-9 passes.
