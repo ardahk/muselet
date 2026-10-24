@@ -1,20 +1,21 @@
-# brain digest — pass 8 (2026-10-24T07:40Z, PULSE 07:23Z)
-Reviewed: cloud/brain-2 741465c (15 suites pass, including test_review_fixes 87; my review tests: 18 pass, the 2 brain-13 worker-level tests fail by design), cloud/grounding 3441ee8 (native-scale zoom capture, 123 pass), cloud/finance-2 dfaf785 (161 pass), cloud/advisor-2 0a65f75. main d8ad966 and wip/local 85ec0df have no ml/ changes; the confirm_cancel frame added to the contract on main is implemented on brain-2 (server sends it on confirm timeout or cancel).
+# brain digest — pass 9 (2026-10-24T07:55:00Z)
 
-cloud/brain-2 fixes brain-3, -4, -6, -9, -10, -11 and -13. **On main and wip/local they are all still open until brain-2 merges.**
+Heads: main 4a74659 (merged PR #10 cloud/brain-2, #9 grounding, #7 finance-2, #5 advisor-2, #6 pitch), wip/local 85c73ed (ml/ == main), cloud/bench c3ca0b3, cloud/data-pipeline 9c526b1.
+All 17 product suites pass on main (test_decision.py real-model test skipped: Linux CPU). Runtime route render vs data-pipeline v2 samples: 50/50 token-identical.
 
-## Open P0/P1 on main / wip/local (ranked)
-1. brain-9  P0 Unsafe scripts execute without confirmation (fixed on brain-2)
-2. brain-11 P1 5th expect dropped; DONE accepted unverified (fixed on brain-2)
-3. brain-14 P1 One confirm unlocks a later dangerous action (P2 residual on brain-2)
-4. brain-13 P1 Speculative routes queue ahead of the final route (fixed on brain-2)
-5. brain-10 P1 Mute polarity inverted (fixed on brain-2)
-6. brain-6  P1 engine.args runs on the event loop (fixed on brain-2)
-7. brain-3/brain-4 P1 duration / datetime parsing (fixed on brain-2)
-Open on every branch, P2: brain-14 residual, brain-8 last_action quoting, brain-12 pending ASK capture.
+Resolved this pass (on main via PR #10): brain-9 (P0), brain-3, -4, -6, -10, -11, -13.
+
+## Open P0/P1 (ranked)
+1. brain-15 (P1) Route parity gate disabled on main: stale v1 samples xfail — ml/tests/test_route_parity.py
+
+## Open P2
+- brain-14 Confirm token survives harmless actions until next dangerous one — ml/src/brain/orchestrator.py:630
+- brain-8 Runtime last_action quoting differs from training — ml/src/brain/orchestrator.py:310
+- brain-12 Pending ASK captures unrelated next utterances — ml/src/brain/orchestrator.py:172
 
 ## Highest-leverage next moves
-- Merge cloud/brain-2 into main/wip: it closes the only open P0 and 6 P1s.
-- brain-14: clear the confirm token after any executed action, not just a dangerous one.
-- Copy the v2 route_render_samples.jsonl to main/wip so test_route_parity stops xfailing.
-- brain-8: always quote string args in last_action, to match training.
+1. Copy v2 route_render_samples.jsonl from cloud/data-pipeline to main and make catalog mismatch a hard failure (brain-15).
+2. Bind planner `confirm` to the immediately following action; clear on any executed action (brain-14).
+3. Quote all string args in last_action like training (brain-8) — one-line change, removes a train/runtime context mismatch.
+4. Gate pending-ASK capture on System 1 routing the reply to ANSWER/none rather than a 90 s window (brain-12).
+5. Verify hybrid DeltaNet cache-snapshot exactness on the M5 (not verifiable on Linux CPU).
