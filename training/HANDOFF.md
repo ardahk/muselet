@@ -21,7 +21,7 @@ _Lane: router (System 1 route + ARGS LoRA on Qwen/Qwen3.5-4B via Tinker). Update
 
 **Artifacts**
 - Branch `cloud/data-pipeline`, [PR #2](https://github.com/ardahk/muselet/pull/2); latest commits f6354d6 (merge/teacher/v3 samples/eval), 34aff30 (tau).
-- HF: models `jonsnov/muselet-route-4b-main-mlx4` (r2 `2e3e7bf`, it2 `54b21817ba9a22753cb487ad1deea6d696bc2c73`); datums `jonsnov/muselet-route-datums-it2` @ `aa0e4095…`, `…-it2b` @ `8df540b`, `…-it3cand` @ `84595279452d9c43573012f78555e25376316cf8`.
+- HF: models `jonsnov/muselet-route-4b-main-mlx4` (r2 `2e3e7bf`, it2 `54b21817ba9a22753cb487ad1deea6d696bc2c73`); datums `jonsnov/muselet-route-datums-it3` @ `4ded9ab0d5541b9b3aed0340fd4263ecf245b2ab` (it3 merged pool rows, trained on), `jonsnov/muselet-route-datums-it2` @ `aa0e4095…`, `…-it2b` @ `8df540b`, `…-it3cand` @ `84595279452d9c43573012f78555e25376316cf8`.
 - Tinker: it2 `tinker://73495408-9d6d-56b5-9e1a-894744c13add:train:0/sampler_weights/it2-final`; it3 paths will be in `/data/train/it3/checkpoints.json` (it3-200, it3-400 state, it3-final sampler + state). Keep every checkpoint.
 - Run dirs: `/data/gen/v3m` (merged pool, teacher_in/teacher_v3, val_items.jsonl), `/data/train/{base_v3,it2_v3eval,it3}` (pred_*.jsonl, eval_*.json), `/data/export/it3`.
 
@@ -30,7 +30,7 @@ _Lane: router (System 1 route + ARGS LoRA on Qwen/Qwen3.5-4B via Tinker). Update
 - OpenAI/Anthropic (this lane): ~$15 (estimate; not re-checked against billing) (route_v2 + it3 gen + v3 relabel).
 
 **Open questions for the lead**
-- None blocking. Data rebuild: if `/data` is lost, the merged pool can be rebuilt with `uv run python -m muselet_train.it3gen merge-it3cand` + `apply-teacher` only if `/data/gen/v3it3` and teacher_v3.jsonl exist; otherwise upload of `v3m` datums to HF was NOT done (gap) — ask lead whether to re-generate. it2's Mac tau (.65) was fit on its own dev rows; here it2 is refit on the v3 val (1,396) with its v2 option list (tau .50).
+- None blocking. Data rebuild: if `/data` is lost, the merged pool can be rebuilt with `uv run python -m muselet_train.it3gen merge-it3cand` + `apply-teacher` only if `/data/gen/v3it3` and teacher_v3.jsonl exist; else download the uploaded pool: `jonsnov/muselet-route-datums-it3` @ `4ded9ab0d5541b9b3aed0340fd4263ecf245b2ab` (private; = `/data/gen/v3m`: route_train/val, args, val_items, teacher_v3) into `/data/gen/v3m`. it2's Mac tau (.65) was fit on its own dev rows; here it2 is refit on the v3 val (1,396) with its v2 option list (tau .50).
 
 **Gotchas**
 - Always set `MUSELET_CATALOG=training/artifacts/catalog_v3.json` for it3 (renderer, datums, evals); unset it (= `skills/catalog.json`, v2, 41 options) for it2. Option ids skip `a c g`: `b=advisor_prep d=draft_email e=compose_text f=MULTI_STEP h=ASK i=REFUSE j=ANSWER`.
