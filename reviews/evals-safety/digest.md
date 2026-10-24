@@ -1,6 +1,6 @@
-# evals-safety digest — pass 47 (main@3772f7c, wip/local@8fcf55f)
+# evals-safety digest — pass 48 (main@3772f7c, wip/local@8fcf55f)
 
-Open: P0 1, P1 10, P2 9.
+Open: P0 1, P1 10, P2 11.
 
 ## Open P0/P1 (ranked)
 1. **-37 (P0):** script policy lets System Events shut down / restart / log out and Finder empty / eject run with no confirm. A read verb anywhere, even in a comment, exempts the script. (`ml/src/brain/orchestrator.py`). Fix is on cloud/w9-safety 50a3b25; merge it.
@@ -20,3 +20,4 @@ Open: P0 1, P1 10, P2 9.
 3. Relabel route_v1 case 87 and re-quote it2 on clean (-42).
 4. Pick one finance contract (amend session_b.md or regenerate) (-40).
 5. Gate every Tinker launch on month-to-date + lag ledger + estimate <= $148 (-43).
+6. Tinker month-to-date is ~$142 after planner-lora-v1, about $6 under the $148 stop; gate every launch (-43). Score the LoRA on v2-holdout before claiming it (-45).

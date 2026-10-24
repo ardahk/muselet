@@ -1,9 +1,9 @@
 {
-  "pass": 47,
-  "ts": "2026-10-24T22:08:32Z",
+  "pass": 48,
+  "ts": "2026-10-24T22:24:39Z",
   "last_reviewed": {
-    "main": "2a2c2a9",
-    "wip/local": "4f963a7",
+    "main": "ebdd639",
+    "wip/local": "eb1d232",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -48,10 +48,15 @@
     "cloud/mascot-animal-handoff": "3aa6bd0",
     "cloud/planner-demos-handoff": "e5e9903",
     "cloud/planner-retrieval-handoff": "f728b79",
-    "cloud/w9-safety": "50a3b25",
+    "cloud/w9-safety": "2a7d0df",
     "cloud/memory-eval": "c05944e",
-    "cloud/memory": "4b519b1"
+    "cloud/memory": "5cd44e6",
+    "cloud/memory-lt": "5cd44e6",
+    "cloud/planner-lora": "ceafe3d",
+    "cloud/router-it3-serve": "b455d2c",
+    "cloud/docs-demo": "095d4ef",
+    "cloud/ui-polish": "e8bceef"
   },
-  "next_id": 44,
-  "note": "pass 47: main/wip have no lane changes; w9-safety fixes -37/-38 (unmerged); memory-eval adds memory_followups to all 3 decontam gates, labels valid."
+  "next_id": 46,
+  "note": "pass 48: main/wip have no lane changes; router-it3-serve (opt-in, route_v2) checked only lightly; docs-demo pitch numbers not re-verified."
 }
