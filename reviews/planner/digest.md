@@ -1,4 +1,8 @@
-# planner lane — pass 27 (main d7c192f, wip 367d450 = main in this lane, data-pipeline 0ce9ea6)
+# planner lane — pass 28 (main fbd5aa0, wip 2f26223 = main in this lane, pitch-4 6393857)
+
+Pass 28: no lane changes; main only touched AGENTS.md (competitor benchmark overlap rule), and pitch-4 and data-pipeline don't touch this lane. I re-checked the open findings on main: planner-24 (orchestrator.py L977), planner-26 (L289) and planner-25 (planner.py L334) are unchanged, and planner-6 is unchanged.
+
+## Pass 27 notes
 
 Pass 27: no lane changes; main only touched AGENTS.md and the serve_brain router default. I re-checked all open findings on main: planner-24 (orchestrator.py L977), planner-26 (L289) and planner-25 (planner.py L334) are unchanged, and planner-6 is unchanged.
 
