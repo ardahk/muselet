@@ -1,4 +1,8 @@
-# planner lane — pass 19 (main 758a017, wip 630d661, new cloud/brain-5 003d1bb, decisions c08a96d)
+# planner lane — pass 20 (wip 4350185; data-pipeline 8881d38 didn't touch this lane)
+
+Pass 20: no new findings. wip adds the timers/timers_cancel RPCs, set_brightness delta, truthful launches (not_frontmost), media keys in `keys`, and Calculator as a keystroke app for type_text. Brain dsl.py passes any `keys` combo through, so media keys work from the planner. For planner-24, the safest fix is to have _deliver_calc call skill type_text instead of global keys.
+
+## Pass 19 notes
 
 Pass 19: no new findings. brain-5 adds routed-skill arg fixes, compound->planner handoff, a path resolver and a full-path move_to_trash confirm, and its 77 tests pass. wip's HandsKit launches now verify the app is frontmost (open_app, open_url, open_folder), and the `open` op waits up to 2 s, which partly mitigates planner-24. cloud/decisions only touches its spec and data pipeline. Merge risk: brain-4 and brain-5 both rewrite orchestrator.py, so re-run the planner-20 repro after merging both.
 
