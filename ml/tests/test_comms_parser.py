@@ -141,3 +141,37 @@ def test_email_is_not_messaging(text):
 ])
 def test_lead_review_phrasings(text, want):
     assert parse_message(text) == want
+
+
+@pytest.mark.parametrize("channel,canonical", [
+    ("Slack", "slack"), ("Teams", "teams"), ("Microsoft Teams", "teams"),
+    ("WhatsApp", "whatsapp"), ("Discord", "discord"), ("Telegram", "telegram"),
+    ("Signal", "signal"), ("email", "email"), ("Google Chat", "chat"),
+    ("Messages", "messages"), ("iMessage", "messages"),
+])
+@pytest.mark.parametrize("text", [
+    "send a message to John on {channel} saying hi",
+    "send a {channel} message to John saying hi",
+    "text John saying hi via {channel}",
+])
+def test_brain38_parse_channel_separately_from_body(channel, canonical, text):
+    text = text.format(channel=channel)
+    assert parse_message(text) == {"to": "John", "body": "hi", "channel": canonical}
+    assert is_messaging(text) == (canonical == "messages")
+
+
+@pytest.mark.parametrize("text", [
+    "tell Finder to empty the trash", "tell Spotify to play jazz",
+    "tell TextEdit to save the file", "tell System Settings to open Bluetooth",
+    "tell Google Chrome to close the tab", "text size bigger please",
+    "text font smaller", "note buy milk", "",
+])
+def test_brain38_non_messaging_commands_are_not_contacts(text):
+    assert parse_message(text) is None
+
+
+def test_brain38_channel_without_body_and_body_mention():
+    assert parse_message("send a message to John on Slack") == {
+        "to": "John", "body": None, "channel": "slack"}
+    assert parse_message("text John saying Slack is down") == {
+        "to": "John", "body": "Slack is down"}
