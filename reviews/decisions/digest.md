@@ -1,19 +1,19 @@
-# decisions — digest (pass 20)
+# decisions — digest (pass 21)
 
-Heads: main 5292608 (AGENTS.md DeskMind wording only), data-pipeline 512cce0 (CJK-aware evalcheck, it2 v3 report), cloud/decisions 6d395df unchanged, wip/local 49f808f (no lane diff); brain-6 780f49d = send/click safety gates, no router/decision changes.
-Resolved this pass: decisions-21 (competitor-bench contamination disclosed and policed; it2 0 on HobbyLM r4 and DeskMind).
+Heads: cloud/decisions e125c13 (full generation done, $52.89/$57, 6,754 decisions uploaded to jonsnov/muselet-decisions-v1), main c949565 (briefs only), wip/local 4ec066f (no lane diff).
 
 ## Open P0/P1
-1. decisions-13 P1 route_acc quotes r2 .864 'top-1', not the serving it2, gating unstated — pitch/claims.md:13
-2. decisions-14 P1 live_t1 fixes fitted on live_t1 failures; live_t1_pass not held out — pitch/claims.md:17
-3. decisions-17 P1 Per-family noul/score gold priors still skewed — training/decisions/families/*
-4. decisions-12 P1 cloud/decisions not rebased — ml/src/brain/decision.py
-5. decisions-4 P1 noul option order flips with criteria presence — ml/src/brain/generic_decide.py
-6. decisions-3 P1 Route regression renderer/n=140 — cloud/builder_decisions.md
-7. decisions-5 P1 Before/after must use one backend/precision — cloud/builder_decisions.md
+1. decisions-22 P1 Pilot-as-reference decontam deletes 87% of code-gold data — training/decisions/full_run.py:287
+2. decisions-17 P1 Label priors skewed: noul 34% true, score level 5 only 3/1608 — training/decisions/families/*
+3. decisions-13 P1 route_acc quotes r2 .864 'top-1', not the serving it2, gating unstated — pitch/claims.md:13
+4. decisions-14 P1 live_t1 fixes fitted on live_t1 failures; live_t1_pass not held out — pitch/claims.md:17
+5. decisions-12 P1 cloud/decisions not rebased — ml/src/brain/decision.py
+6. decisions-4 P1 noul option order flips with criteria presence — ml/src/brain/generic_decide.py
+7. decisions-3 P1 Route regression renderer/n=140 — cloud/builder_decisions.md
+8. decisions-5 P1 Before/after must use one backend/precision — cloud/builder_decisions.md
 
 ## Highest-leverage next moves
-- claims.md:13: quote it2 on route_v1_clean, saying ungated (.961 Tinker argmax) or tau .65 (.913) (decisions-13).
-- Label live_t1 as a dev suite or freeze a held-out live set before the morning run (decisions-14).
-- Label-first sampling per family and 3-6 score levels before the full decisions run (decisions-17); rebase cloud/decisions (decisions-12).
-- Rerun DeskMind brain-4b typed-decisions with normalization before quoting .658 (decisions-11).
+- Before any Tinker run: drop include_pilot and re-run decontam/split/datums from records_labeled.jsonl ($0) (decisions-22).
+- Rebalance noul per family (reweight or subsample to ~50%) in the split stage (decisions-17).
+- Write the decisions Tinker hypothesis + estimate (report projects ~$12 per 20k datums; ~$4 for 6.8k) with 30% route replay.
+- claims.md:13 to it2 with gating stated (decisions-13); label live_t1 as dev or freeze a holdout (decisions-14).

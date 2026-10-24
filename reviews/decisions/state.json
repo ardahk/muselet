@@ -1,13 +1,13 @@
 {
- "pass": 20,
- "ts": "2026-10-24T14:32:00Z",
+ "pass": 21,
+ "ts": "2026-10-24T16:30:00Z",
  "branches": {
-  "main": "5292608",
-  "wip/local": "a02959b",
+  "main": "c949565",
+  "wip/local": "4ec066f",
   "cloud/data-pipeline": "512cce0",
   "cloud/bench": "f584cb2",
   "cloud/pitch": "ad1b058",
-  "cloud/decisions": "6d395df",
+  "cloud/decisions": "e125c13",
   "cloud/pitch-2": "3303678",
   "cloud/brain-4": "dfb66a3",
   "cloud/hobby-gaps": "156556e",
