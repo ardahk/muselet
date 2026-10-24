@@ -1,4 +1,4 @@
-# evals-safety digest — pass 34 (main@5292608)
+# evals-safety digest — pass 35 (main@c949565)
 
 Open: P0 0 · P1 2 · P2 9   (resolved this pass: -6 and -30, brain-6 merged)
 
@@ -16,3 +16,5 @@ P2: -8, -12, -20, -21, -22, -23, -24, -28, -31.
 5. Leave Tinker headroom for billing lag on any large late run (-23).
 
 Pass 34: main 5292608 only updates the AGENTS.md DeskMind overlap note (0 real, CJK-aware gate), which is consistent with -32 being resolved. wip/local matches main. No code changes, so -25 and -11 stand.
+
+Pass 35: main c949565 adds briefs only. The comms brief requires contacts-first resolution and confirm "Send '<body>' to <Full Name>?" before send, and points at sendgate.py; good. decisions e125c13: generation spend is $52.89 of the $57 cap (OpenAI/Anthropic, not Tinker). Decontam is fail-closed and removed 1,925/3,673 labeled states by 13-gram; surviving code-gold has 0 counting/multi-hop/long-policy states (the report discloses this; it's an accuracy skew for the decisions model, not leakage). -25 and -11 stand (no code changes on main).

@@ -1,9 +1,9 @@
 {
-  "pass": 34,
-  "ts": "2026-10-24T14:29:36Z",
+  "pass": 35,
+  "ts": "2026-10-24T16:15:59Z",
   "last_reviewed": {
-    "main": "5292608",
-    "wip/local": "a02959b",
+    "main": "c949565",
+    "wip/local": "4ec066f",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -17,7 +17,7 @@
     "cloud/advisor-3": "ca93147",
     "cloud/brain-3": "14a3f52",
     "cloud/finance-3": "31be399",
-    "cloud/decisions": "6d395df",
+    "cloud/decisions": "e125c13",
     "cloud/pitch-2": "3303678",
     "cloud/brain-4": "dfb66a3",
     "cloud/hobby-gaps": "156556e",
