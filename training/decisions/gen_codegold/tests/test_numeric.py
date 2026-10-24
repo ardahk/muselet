@@ -88,3 +88,25 @@ def test_numeric_generates_exact_threshold_boundaries_for_both_comparators():
     assert 0.12 <= sum(exact.values()) / 2_000 <= 0.18
     assert set(exact) == {"at least", "strictly greater than"}
     assert threshold_states > 800
+
+
+def test_numeric_change_questions_and_levels_name_the_signed_direction():
+    for seed in range(1_000):
+        record = _generate(seed + 260_000)
+        document = cg_numeric._read_state(record["state"])
+        _, _, _, _, effective_rate, _, _ = cg_numeric._calculate(document)
+        relative_phrase, point_phrase = cg_numeric._rate_change_phrases(
+            effective_rate, document["baseline"]
+        )
+        for qid, quantity in record["_meta"]["quantity_kinds"].items():
+            if quantity == "relative_fee_rate_change":
+                phrase = relative_phrase
+            elif quantity == "percentage_point_difference":
+                phrase = point_phrase
+            else:
+                continue
+            question = record["questions"][qid]
+            assert question["instructions"] == f"Which band contains the {phrase}?"
+            assert all(phrase in level for level in question["criteria"])
+            if effective_rate != document["baseline"]:
+                assert "increase" in phrase or "reduction" in phrase

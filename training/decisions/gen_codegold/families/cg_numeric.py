@@ -94,10 +94,30 @@ def _calculate(document):
     return fx, converted, fee, final_tier, effective_rate, points, relative
 
 
+def _rate_change_phrases(effective_rate: Decimal, baseline: Decimal) -> tuple[str, str]:
+    if effective_rate > baseline:
+        return (
+            "relative increase over the baseline rate",
+            "percentage-point increase over the baseline rate",
+        )
+    if effective_rate < baseline:
+        return (
+            "relative reduction from the baseline rate",
+            "percentage-point reduction from the baseline rate",
+        )
+    return (
+        "relative change from the baseline rate",
+        "percentage-point change from the baseline rate",
+    )
+
+
 def verify_rendered(record: dict) -> bool:
     try:
         document = _read_state(record["state"])
         fx, converted, fee, final_tier, effective_rate, points, relative = _calculate(document)
+        relative_phrase, point_phrase = _rate_change_phrases(
+            effective_rate, document["baseline"]
+        )
         for qid, question in record["questions"].items():
             instruction = question["instructions"]
             answer = record["gold"][qid]
@@ -112,9 +132,9 @@ def verify_rendered(record: dict) -> bool:
             elif instruction == "Does the marginal service fee satisfy the stated closeout test?":
                 passed = fee >= document["threshold"] if document["comparison"] == "at least" else fee > document["threshold"]
                 wanted = "true" if passed else "false"
-            elif instruction == "Which band contains the relative fee-rate change?":
+            elif instruction == f"Which band contains the {relative_phrase}?":
                 wanted = score_level_for(relative, question["criteria"])
-            elif instruction == "Which band contains the fee-rate difference in percentage points?":
+            elif instruction == f"Which band contains the {point_phrase}?":
                 wanted = score_level_for(points, question["criteria"])
             elif instruction == "What effective fee rate results from the tier schedule?":
                 wanted = _key("effective_rate", effective_rate, 2)
@@ -312,21 +332,22 @@ def generate(rng: random.Random, n_questions: int) -> dict:
             "origins": {},
         })
     else:
+        relative_phrase, point_phrase = _rate_change_phrases(effective_rate, baseline)
         relative_bands, relative_level = round_bands(
             relative, "%", [Decimal("0.5"), Decimal("1"), Decimal("2"), Decimal("5"),
                             Decimal("10"), Decimal("25")],
-            rng, metric="The relative fee-rate change",
+            rng, metric=f"The {relative_phrase}",
         )
         point_bands, point_level = round_bands(
             points, "%", [Decimal("0.05"), Decimal("0.1"), Decimal("0.25"),
                           Decimal("0.5"), Decimal("1")],
-            rng, metric="The fee-rate difference in percentage points",
+            rng, metric=f"The {point_phrase}",
         )
         question_pool.extend((
             {
                 "quantity": "relative_fee_rate_change",
                 "spec": (
-                    "score", "Which band contains the relative fee-rate change?",
+                    "score", f"Which band contains the {relative_phrase}?",
                     str(relative_level), relative_bands,
                 ),
                 "origins": {},
@@ -334,7 +355,7 @@ def generate(rng: random.Random, n_questions: int) -> dict:
             {
                 "quantity": "percentage_point_difference",
                 "spec": (
-                    "score", "Which band contains the fee-rate difference in percentage points?",
+                    "score", f"Which band contains the {point_phrase}?",
                     str(point_level), point_bands,
                 ),
                 "origins": {},
@@ -368,15 +389,18 @@ def generate(rng: random.Random, n_questions: int) -> dict:
             ).quantize(CENT, rounding=ROUND_HALF_UP)
             if note_correct:
                 note_change = relative
+                note_phrase = relative_phrase
             elif old_relative_change == relative:
                 note_change = points
+                note_phrase = point_phrase
                 note_mistake = "percentage_points"
             else:
                 note_change = old_relative_change
+                note_phrase = _rate_change_phrases(old_effective_rate, baseline)[0]
                 note_mistake = "superseded_fx"
             note_relation = "above" if note_change > review_point else "below"
             note_text = (
-                f"Mira (finance): I get a relative fee-rate change of {note_change:.2f}%, "
+                f"Mira (finance): I get a {note_phrase} of {note_change:.2f}%, "
                 f"which is {note_relation} the {review_point:.2f}% review point."
             )
             if note_correct:

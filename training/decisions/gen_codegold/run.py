@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import random
 import re
@@ -11,7 +12,7 @@ from pathlib import Path
 from bench.systemone.schema import parse_request
 from training.decisions.build import _chi_square_position, _leak_errors
 from training.decisions.label import ApiClient, BudgetExceeded, BudgetLedger
-from training.decisions.paraphrase import validate_paraphrase
+from training.decisions.paraphrase import preservation_signature, validate_paraphrase
 
 from . import FAMILIES
 from .common import ROOT
@@ -30,12 +31,76 @@ def _read(path: Path):
 
 def _write(path: Path, rows):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("".join(json.dumps(row, ensure_ascii=False, default=str) + "\n" for row in rows), encoding="utf-8")
+    temporary = path.with_name(f".{path.name}.tmp")
+    temporary.write_text(
+        "".join(json.dumps(row, ensure_ascii=False, default=str) + "\n" for row in rows),
+        encoding="utf-8",
+    )
+    temporary.replace(path)
+
+
+def _write_json(path: Path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.tmp")
+    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(path)
+
+
+def _append_jsonl(path: Path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(value, ensure_ascii=False, default=str) + "\n")
+        handle.flush()
+
+
+def _paraphrase_targets(records, seed):
+    state_rng = random.Random(seed + 101)
+    candidates = [
+        item["id"] for item in records
+        if item.get("_meta", {}).get("prose_sections")
+    ]
+    selected_states = state_rng.sample(
+        candidates, min(len(candidates), round(len(records) * 0.50))
+    )
+    questions = [
+        (item["id"], qid)
+        for item in records
+        for qid in item["questions"]
+    ]
+    question_rng = random.Random(seed + 202)
+    selected_questions = question_rng.sample(
+        questions, round(len(questions) * 0.40)
+    )
+    return selected_states, selected_questions
+
+
+def _stable_rng(seed, key):
+    digest = hashlib.blake2b(f"{seed}:{key}".encode(), digest_size=8).digest()
+    return random.Random(int.from_bytes(digest, "big"))
+
+
+def _preserved_marker_count(text):
+    return sum(preservation_signature(text).values())
+
+
+def _pending_label_questions(records, label_rows):
+    completed = {(row["id"], row["qid"]) for row in label_rows}
+    return [
+        (item, qid, question)
+        for item in records
+        for qid, question in item["questions"].items()
+        if (item["id"], qid) not in completed
+    ]
 
 
 def _ledger(args):
-    return BudgetLedger(budget=args.budget, path=COST_PATH, run="codegold", round_id="pilot",
-                        cumulative_budget=66.0)
+    return BudgetLedger(
+        budget=args.budget,
+        path=COST_PATH,
+        run="codegold",
+        round_id=args.run,
+        cumulative_budget=68.0,
+    )
 
 
 MODULES = {
@@ -74,160 +139,337 @@ async def _paraphrase(args, run_dir):
     if not records:
         raise FileNotFoundError(run_dir / "code_generated.jsonl")
     section_prompt, styles, question_prompt = _prompts()
-    rng = random.Random(args.seed + 101)
-    candidates = [index for index, item in enumerate(records)
-                  if item.get("_meta", {}).get("prose_sections")]
-    selected = set(rng.sample(candidates, min(len(candidates), round(len(records) * 0.70))))
-    api, ledger = ApiClient(concurrency=32), _ledger(args)
-    rejected, changed_sections, changed_questions = [], 0, 0
-    for item in records:
-        item["_meta"]["paraphrased_sections"] = 0
-        item["_meta"]["paraphrased_questions"] = 0
-    async def request(prompt, decision_id, max_tokens):
-        return await api.generate("gpt-5.4-mini", prompt, ledger, max_output_tokens=max_tokens,
-                                  role="paraphrase", decision_id=decision_id, reasoning_effort="low")
+    records_by_id = {item["id"]: item for item in records}
+    if len(records_by_id) != len(records):
+        raise ValueError("generated records contain duplicate IDs")
+    manifest_path = run_dir / "paraphrase_manifest.json"
+    events_path = run_dir / "paraphrase_progress.jsonl"
+    if manifest_path.is_file():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest.get("seed") != args.seed:
+            raise ValueError("paraphrase checkpoint seed does not match this run")
+    else:
+        selected_states, selected_questions = _paraphrase_targets(records, args.seed)
+        manifest = {
+            "version": 1,
+            "seed": args.seed,
+            "selected_states": selected_states,
+            "selected_questions": selected_questions,
+        }
+        _write_json(manifest_path, manifest)
+    selected_states = set(manifest["selected_states"])
+    selected_questions = {
+        (state_id, qid) for state_id, qid in manifest["selected_questions"]
+    }
+    if not selected_states <= records_by_id.keys():
+        raise ValueError("paraphrase checkpoint refers to missing state IDs")
+    events = _read(events_path)
+    progress = {event["key"]: event for event in events}
+    for event in progress.values():
+        if event["status"] != "accepted":
+            continue
+        item = records_by_id[event["id"]]
+        if event["kind"] == "section":
+            index = event["section_index"]
+            current = item["_meta"]["prose_sections"][index]
+            if current == event["original"]:
+                if event["original"] not in item["state"]:
+                    raise ValueError(f"paraphrase checkpoint lost section {event['key']}")
+                item["state"] = item["state"].replace(event["original"], event["rewritten"], 1)
+            elif current != event["rewritten"]:
+                raise ValueError(f"paraphrase checkpoint conflicts with section {event['key']}")
+            item["_meta"]["prose_sections"][index] = event["rewritten"]
+        else:
+            question = item["questions"][event["qid"]]
+            if question["instructions"] == event["original"]:
+                question["instructions"] = event["rewritten"]
+            elif question["instructions"] != event["rewritten"]:
+                raise ValueError(f"paraphrase checkpoint conflicts with question {event['key']}")
 
-    async def request_batches(jobs, result_index, batch_size=32):
-        results = []
-        for start in range(0, len(jobs), batch_size):
-            batch = jobs[start:start + batch_size]
-            results.extend(await asyncio.gather(
-                *(job[result_index] for job in batch), return_exceptions=True
-            ))
-        return results
+    api, ledger = ApiClient(concurrency=32), _ledger(args)
+
+    def persist():
+        accepted = Counter(
+            (event["id"], event["kind"])
+            for event in progress.values()
+            if event["status"] == "accepted"
+        )
+        for item in records:
+            item["_meta"]["paraphrased_sections"] = accepted[(item["id"], "section")]
+            item["_meta"]["paraphrased_questions"] = accepted[(item["id"], "question")]
+        _write(run_dir / "code_generated.jsonl", records)
+        _write(
+            run_dir / "paraphrase_rejections.jsonl",
+            [
+                event for event in progress.values()
+                if event["status"] == "rejected"
+            ],
+        )
+        rejection_reasons = Counter(
+            event["reason"]
+            for event in progress.values()
+            if event["status"] == "rejected"
+        )
+        _write_json(run_dir / "paraphrase_stats.json", {
+            "selected_states": len(selected_states),
+            "selected_questions": len(selected_questions),
+            "paraphrased_sections": sum(
+                event["status"] == "accepted" and event["kind"] == "section"
+                for event in progress.values()
+            ),
+            "paraphrased_questions": sum(
+                event["status"] == "accepted" and event["kind"] == "question"
+                for event in progress.values()
+            ),
+            "rejected": sum(event["status"] == "rejected" for event in progress.values()),
+            "skipped_sections": sum(event["status"] == "skipped" for event in progress.values()),
+            "rejection_reasons": dict(rejection_reasons),
+        })
+
+    persist()
+
+    def record_event(event):
+        _append_jsonl(events_path, event)
+        progress[event["key"]] = event
+
+    def check_and_apply(job, rewritten):
+        item = job["item"]
+        if not isinstance(rewritten, str):
+            return None, "paraphrase response is not text"
+        if not validate_paraphrase(job["original"], rewritten):
+            return None, "preservation signature mismatch"
+        trial = dict(item)
+        if job["kind"] == "section":
+            trial["state"] = item["state"].replace(job["original"], rewritten, 1)
+        else:
+            trial["questions"] = dict(item["questions"])
+            trial["questions"][job["qid"]] = dict(job["question"])
+            trial["questions"][job["qid"]]["instructions"] = rewritten
+        if not MODULES[item["family"]].verify_rendered(trial):
+            return None, "family verifier failed"
+        if job["kind"] == "section":
+            item["state"] = trial["state"]
+            item["_meta"]["prose_sections"][job["section_index"]] = rewritten
+        else:
+            item["questions"][job["qid"]]["instructions"] = rewritten
+        return rewritten, None
+
+    async def run_jobs(jobs):
+        for start in range(0, len(jobs), 32):
+            batch = jobs[start:start + 32]
+            tasks = {}
+            for job in batch:
+                tasks[asyncio.create_task(api.generate(
+                    "gpt-5.4-mini", job["prompt"], ledger,
+                    max_output_tokens=job["max_tokens"], role="paraphrase",
+                    decision_id=job["decision_id"], reasoning_effort="low",
+                ))] = job
+            pending = set(tasks)
+            budget_error = None
+            while pending:
+                done, pending = await asyncio.wait(
+                    pending, return_when=asyncio.FIRST_COMPLETED
+                )
+                for task in done:
+                    job = tasks[task]
+                    base_event = {
+                        "key": job["key"], "id": job["item"]["id"],
+                        "kind": job["kind"], "marker_count": job.get("marker_count", 0),
+                    }
+                    if "qid" in job:
+                        base_event["qid"] = job["qid"]
+                    if "section_index" in job:
+                        base_event["section_index"] = job["section_index"]
+                    try:
+                        result = task.result()
+                    except BudgetExceeded as exc:
+                        budget_error = exc
+                        continue
+                    except Exception as exc:
+                        record_event({
+                            **base_event, "status": "rejected",
+                            "reason": f"api error: {type(exc).__name__}: {exc}",
+                        })
+                        continue
+
+                    try:
+                        raw = result[0]
+                        if job["kind"] == "question":
+                            payload = json.loads(
+                                raw.strip().removeprefix("```json").removesuffix("```").strip()
+                            )
+                            variants = payload["variants"]
+                            if not isinstance(variants, list) or not variants:
+                                raise ValueError("response has no paraphrase variants")
+                            rewritten = _stable_rng(args.seed, job["key"]).choice(variants)
+                        else:
+                            rewritten = raw.strip()
+                    except Exception as exc:
+                        record_event({
+                            **base_event, "status": "rejected",
+                            "reason": f"invalid response: {type(exc).__name__}: {exc}",
+                        })
+                        continue
+
+                    accepted_text, reason = check_and_apply(job, rewritten)
+                    if reason:
+                        record_event({
+                            **base_event, "status": "rejected", "reason": reason,
+                        })
+                    else:
+                        record_event({
+                            **base_event, "status": "accepted",
+                            "original": job["original"], "rewritten": accepted_text,
+                        })
+            persist()
+            if budget_error:
+                raise budget_error
 
     section_jobs = []
-    for index in sorted(selected):
-        item = records[index]
-        for section_index, original in enumerate(list(item["_meta"]["prose_sections"])):
-            prompt = (section_prompt.replace("{doc_kind}", item["family"])
-                      .replace("{style}", rng.choice(styles)).replace("{section}", original))
-            section_jobs.append((item, section_index, original,
-                request(prompt, f"paraphrase:{item['family']}:{item['id']}:section:{section_index}",
-                        min(1024, max(128, len(original.split()) * 2 + 64)))))
-    section_results = await request_batches(section_jobs, 3)
-    for (item, section_index, original, _), result in zip(section_jobs, section_results):
-        if isinstance(result, BaseException):
-            if isinstance(result, BudgetExceeded):
-                raise result
-            rejected.append({"id": item["id"], "kind": "section",
-                             "reason": f"{type(result).__name__}: {result}"})
-            continue
-        rewritten = result[0].strip()
-        trial = dict(item)
-        trial["state"] = item["state"].replace(original, rewritten, 1)
-        if validate_paraphrase(original, rewritten) and MODULES[item["family"]].verify_rendered(trial):
-            item["state"] = trial["state"]
-            item["_meta"]["prose_sections"][section_index] = rewritten
-            item["_meta"]["paraphrased_sections"] += 1
-            changed_sections += 1
-        else:
-            rejected.append({"id": item["id"], "kind": "section", "reason": "validation or verifier failed"})
-    questions = [(item, qid, question) for item in records for qid, question in item["questions"].items()]
+    for state_id in sorted(selected_states):
+        item = records_by_id[state_id]
+        for section_index, original in enumerate(item["_meta"]["prose_sections"]):
+            key = f"section:{state_id}:{section_index}"
+            if key in progress:
+                continue
+            marker_count = _preserved_marker_count(original)
+            if marker_count > 15:
+                record_event({
+                    "key": key, "id": state_id, "kind": "section",
+                    "section_index": section_index, "marker_count": marker_count,
+                    "status": "skipped", "reason": "more than 15 preserved markers",
+                })
+                continue
+            style = _stable_rng(args.seed, key).choice(styles)
+            prompt = (
+                section_prompt.replace("{doc_kind}", item["family"])
+                .replace("{style}", style).replace("{section}", original)
+            )
+            section_jobs.append({
+                "key": key, "kind": "section", "item": item,
+                "section_index": section_index, "original": original,
+                "marker_count": marker_count, "prompt": prompt,
+                "decision_id": f"paraphrase:{item['family']}:{state_id}:section:{section_index}",
+                "max_tokens": min(1024, max(128, len(original.split()) * 2 + 64)),
+            })
+    persist()
+    await run_jobs(section_jobs)
+
     question_jobs = []
-    for item, qid, question in rng.sample(questions, round(len(questions) * 0.50)):
-        original = question["instructions"]
-        prompt = question_prompt.replace("{doc_kind}", item["family"]).replace("{question}", original)
-        question_jobs.append((item, qid, question, original,
-            request(prompt, f"paraphrase:{item['family']}:{item['id']}:question:{qid}", 512)))
-    question_results = await request_batches(question_jobs, 4)
-    for (item, qid, question, original, _), result in zip(question_jobs, question_results):
-        try:
-            if isinstance(result, BaseException):
-                raise result
-            raw = result[0]
-            payload = json.loads(raw.strip().removeprefix("```json").removesuffix("```").strip())
-            rewritten = rng.choice(payload["variants"])
-        except BudgetExceeded:
-            raise
-        except Exception as exc:
-            rejected.append({"id": item["id"], "qid": qid, "kind": "question",
-                             "reason": f"{type(exc).__name__}: {exc}"})
+    for state_id, qid in sorted(selected_questions):
+        key = f"question:{state_id}:{qid}"
+        if key in progress:
             continue
-        trial = dict(item)
-        trial["questions"] = dict(item["questions"])
-        trial["questions"][qid] = dict(question)
-        trial["questions"][qid]["instructions"] = rewritten
-        if validate_paraphrase(original, rewritten) and MODULES[item["family"]].verify_rendered(trial):
-            question["instructions"] = rewritten
-            item["_meta"]["paraphrased_questions"] += 1
-            changed_questions += 1
-        else:
-            rejected.append({"id": item["id"], "qid": qid, "kind": "question", "reason": "validation or verifier failed"})
-    _write(run_dir / "code_generated.jsonl", records)
-    _write(run_dir / "paraphrase_rejections.jsonl", rejected)
-    (run_dir / "paraphrase_stats.json").write_text(json.dumps({
-        "selected_states": len(selected), "paraphrased_sections": changed_sections,
-        "paraphrased_questions": changed_questions, "rejected": len(rejected),
-    }, indent=2) + "\n", encoding="utf-8")
+        item = records_by_id[state_id]
+        question = item["questions"][qid]
+        original = question["instructions"]
+        prompt = (
+            question_prompt.replace("{doc_kind}", item["family"])
+            .replace("{question}", original)
+        )
+        question_jobs.append({
+            "key": key, "kind": "question", "item": item,
+            "qid": qid, "question": question, "original": original,
+            "prompt": prompt,
+            "decision_id": f"paraphrase:{item['family']}:{state_id}:question:{qid}",
+            "max_tokens": 512,
+        })
+    await run_jobs(question_jobs)
+    persist()
 
 
 async def _label(args, run_dir):
     records = _read(run_dir / "code_generated.jsonl")
-    completed = _read(run_dir / "labeled.jsonl")
-    done = {item["id"] for item in completed}
-    pending = [item for item in records if item["id"] not in done]
     api, ledger = ApiClient(concurrency=32, retry_log=run_dir / "api_retries.jsonl"), _ledger(args)
-    label_rows, disagreements, failures = _read(run_dir / "label_results.jsonl"), \
-        _read(run_dir / "teacher_disagreements.jsonl"), _read(run_dir / "failed_calls.jsonl")
+    label_rows = _read(run_dir / "label_results.jsonl")
 
     async def label_one(item, qid, question):
         decision_id = f"label:{item['family']}:{item['id']}:{qid}"
         return await api.sampled_label(TEACHER, item["state"], question, ledger, decision_id=decision_id)
 
-    for item in pending:
-        jobs = [(qid, question, asyncio.create_task(label_one(item, qid, question)))
-                for qid, question in item["questions"].items()]
-        kept = {}
-        targets = {}
-        teachers, samples = {}, {}
-        for qid, question, task in jobs:
-            try:
-                result = await task
-            except BudgetExceeded:
-                raise
-            except Exception as exc:
-                result = {"distribution": None, "majority": None, "samples": [],
-                          "failures": [{"reason": f"{type(exc).__name__}: {exc}"}]}
-            gold = item["gold"][qid]
-            agree = result["majority"] == gold
-            row = {"id": item["id"], "family": item["family"], "qid": qid,
-                   "type": question["type"],
-                   "question_kind": item.get("_meta", {}).get("quantity_kinds", {}).get(
-                       qid, question["instructions"]),
-                   "gold": gold, "majority": result["majority"],
-                   "samples": result["samples"], "failures": result["failures"], "agree": agree}
-            label_rows.append(row)
-            if result["failures"]:
-                failures.extend({"id": item["id"], "qid": qid, **failure} for failure in result["failures"])
-            if agree and result["distribution"]:
-                kept[qid] = question
-                targets[qid] = result["distribution"]
-                teachers[qid] = {TEACHER: result["distribution"]}
-                samples[qid] = {TEACHER: result["samples"]}
-            else:
-                disagreements.append({
-                    "id": item["id"], "qid": qid, "family": item["family"], "gold": gold,
-                    "samples": result["samples"], "majority": result["majority"],
-                    "failures": result["failures"], "state": item["state"],
-                    "question": question,
-                })
-        if kept:
+    def persist():
+        rows_by_key = {(row["id"], row["qid"]): row for row in label_rows}
+        labeled_records, disagreements, failures = [], [], []
+        for item in records:
+            kept, targets, teachers, samples = {}, {}, {}, {}
+            for qid, question in item["questions"].items():
+                row = rows_by_key.get((item["id"], qid))
+                if row is None:
+                    continue
+                if row.get("failures"):
+                    failures.extend(
+                        {"id": item["id"], "qid": qid, **failure}
+                        for failure in row["failures"]
+                    )
+                if row.get("agree") and row.get("distribution"):
+                    kept[qid] = question
+                    targets[qid] = row["distribution"]
+                    teachers[qid] = {TEACHER: row["distribution"]}
+                    samples[qid] = {TEACHER: row["samples"]}
+                else:
+                    disagreements.append({
+                        "id": item["id"], "qid": qid, "family": item["family"],
+                        "gold": item["gold"][qid], "samples": row.get("samples", []),
+                        "majority": row.get("majority"), "failures": row.get("failures", []),
+                        "state": item["state"], "question": question,
+                    })
+            if not kept:
+                continue
             labeled = dict(item)
             labeled["questions"] = kept
             for key in ("gold", "gold_basis", "_meta"):
                 if key == "_meta":
                     meta = dict(labeled[key])
-                    meta["surface"] = {qid: value for qid, value in meta.get("surface", {}).items() if qid in kept}
+                    meta["surface"] = {
+                        qid: value for qid, value in meta.get("surface", {}).items()
+                        if qid in kept
+                    }
                     labeled[key] = meta
                 elif isinstance(labeled.get(key), dict):
-                    labeled[key] = {qid: value for qid, value in labeled[key].items() if qid in kept}
-            labeled["teacher"], labeled["teacher_samples"], labeled["target"] = teachers, samples, targets
-            completed.append(labeled)
-        _write(run_dir / "labeled.jsonl", completed)
+                    labeled[key] = {
+                        qid: value for qid, value in labeled[key].items() if qid in kept
+                    }
+            labeled["teacher"] = teachers
+            labeled["teacher_samples"] = samples
+            labeled["target"] = targets
+            labeled_records.append(labeled)
+        _write(run_dir / "labeled.jsonl", labeled_records)
         _write(run_dir / "label_results.jsonl", label_rows)
         _write(run_dir / "teacher_disagreements.jsonl", disagreements)
         _write(run_dir / "failed_calls.jsonl", failures)
+
+    persist()
+    pending = _pending_label_questions(records, label_rows)
+    for start in range(0, len(pending), 8):
+        batch = pending[start:start + 8]
+        results = await asyncio.gather(
+            *(label_one(item, qid, question) for item, qid, question in batch),
+            return_exceptions=True,
+        )
+        budget_error = None
+        for (item, qid, question), result in zip(batch, results):
+            if isinstance(result, BudgetExceeded):
+                budget_error = result
+                continue
+            if isinstance(result, Exception):
+                result = {
+                    "distribution": None, "majority": None, "samples": [],
+                    "failures": [{"reason": f"{type(result).__name__}: {result}"}],
+                }
+            gold = item["gold"][qid]
+            label_rows.append({
+                "id": item["id"], "family": item["family"], "qid": qid,
+                "type": question["type"],
+                "question_kind": item.get("_meta", {}).get("quantity_kinds", {}).get(
+                    qid, question["instructions"]
+                ),
+                "gold": gold, "majority": result["majority"],
+                "distribution": result["distribution"], "samples": result["samples"],
+                "failures": result["failures"], "agree": result["majority"] == gold,
+            })
+        persist()
+        if budget_error:
+            raise budget_error
 
 
 def _split(args, run_dir):
@@ -284,7 +526,10 @@ def _report(args, run_dir):
     labels = _read(run_dir / "label_results.jsonl")
     costs = [json.loads(line) for line in COST_PATH.read_text(encoding="utf-8").splitlines() if line.strip()] \
         if COST_PATH.is_file() else []
-    costs = [row for row in costs if row.get("run") == "codegold" and row.get("round_id") == "pilot"]
+    costs = [
+        row for row in costs
+        if row.get("run") == "codegold" and row.get("round_id") == args.run
+    ]
     summary = {}
     kind_stats = defaultdict(list)
     questions_by_key = {
@@ -346,6 +591,14 @@ def _report(args, run_dir):
         if (run_dir / "decontam_report.json").is_file() else None,
         "distribution_checks": _distribution_checks(args.seed),
         "spend_usd": sum(float(row.get("cost_usd", 0)) for row in costs),
+        "project_cumulative_spend_usd": sum(
+            float(row.get("cost_usd", 0))
+            for row in (
+                [json.loads(line) for line in COST_PATH.read_text(encoding="utf-8").splitlines()
+                 if line.strip()]
+                if COST_PATH.is_file() else []
+            )
+        ),
         "label_settings": {"api": "ApiClient.sampled_label", "model": TEACHER, "k": 4,
                            "reasoning": "low", "retention": "strict majority equals code gold"},
     }

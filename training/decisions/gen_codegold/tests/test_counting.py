@@ -255,3 +255,25 @@ def test_counting_allows_one_question_per_quantity_kind():
         quantities = list(record["_meta"]["quantity_kinds"].values())
         assert len(quantities) == len(set(quantities))
         assert quantities.count("eligible_total") <= 1
+
+
+def test_counting_questions_name_exact_below_minimum_and_reversal_totals():
+    for seed in range(500):
+        record = _generate(seed + 80_000)
+        for qid, quantity in record["_meta"]["quantity_kinds"].items():
+            question = record["questions"][qid]
+            if quantity == "reversed_amount":
+                phrase = "The total of otherwise-eligible entries cancelled by reversal notices"
+                assert question["instructions"] == (
+                    "What is the total of otherwise-eligible entries cancelled by reversal notices?"
+                )
+            elif quantity == "below_minimum_charges":
+                phrase = (
+                    "The total of entries that pass every other rule but fall below the minimum amount"
+                )
+                assert question["instructions"] == (
+                    "What is the total of entries that pass every other rule but fall below the minimum amount?"
+                )
+            else:
+                continue
+            assert all(phrase in level for level in question["criteria"])

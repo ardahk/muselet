@@ -248,6 +248,9 @@ def test_temporal_intake_clock_is_coherent_and_dst_aware():
         )
         assert cutoff_local.date() == data["deadline"]
         assert abs((receipt_local.date() - data["deadline"]).days) <= 1
+        assert data["arrival_date"] == receipt_local.date()
+        assert record["state"].count("Receipt timestamp:") == 1
+        assert "Notice received on:" not in record["state"]
         if not record["_meta"]["clock_offset_visible"]:
             hidden_offsets += 1
             assert re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}", cutoff_line.group(1))
@@ -258,6 +261,20 @@ def test_temporal_intake_clock_is_coherent_and_dst_aware():
         assert "window ending on" not in record["state"].lower()
     assert hidden_offsets / 2_000 >= 0.50
     assert near_dst / 2_000 >= 0.30
+
+
+def test_temporal_states_have_exactly_one_receipt_date_source():
+    for seed in range(500):
+        record = _record("cg_temporal", seed + 145_000)
+        receipt_lines = re.findall(
+            r"^Receipt timestamp: (\d{4}-\d{2}-\d{2})[T ]\d{2}:\d{2}(?:[+-]\d{2}:\d{2})? "
+            r"\[[A-Za-z_]+/[A-Za-z_]+\]$",
+            record["state"],
+            re.MULTILINE,
+        )
+        assert len(receipt_lines) == 1
+        assert "Notice received on:" not in record["state"]
+        assert cg_temporal._read_state(record["state"])["arrival_date"].isoformat() == receipt_lines[0]
 
 
 def test_probability_independent_pool_omits_event_rate_read_off():

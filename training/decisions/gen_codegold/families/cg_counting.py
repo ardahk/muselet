@@ -307,10 +307,10 @@ def verify_rendered(record: dict) -> bool:
             elif instructions == "Which group has the highest filtered ledger total?":
                 if answer != key_for_value("group", largest):
                     return False
-            elif instructions == "Which band contains the amount removed by linked reversals?":
+            elif instructions == "What is the total of otherwise-eligible entries cancelled by reversal notices?":
                 if answer != score_level_for(reversed_total, question["criteria"]):
                     return False
-            elif instructions == "Which band contains charges below the minimum amount?":
+            elif instructions == "What is the total of entries that pass every other rule but fall below the minimum amount?":
                 if answer != score_level_for(below_minimum_total, question["criteria"]):
                     return False
             else:
@@ -592,12 +592,12 @@ def generate(rng: random.Random, n_questions: int) -> dict:
     reversal_bands, reversal_level = round_bands(
         reversed_amount, "$", [Decimal("5"), Decimal("10"), Decimal("25"),
                                Decimal("50"), Decimal("100"), Decimal("250")],
-        rng, metric="The reversed amount",
+        rng, metric="The total of otherwise-eligible entries cancelled by reversal notices",
     )
     question_pool.append({
         "quantity": "reversed_amount",
         "spec": (
-            "score", "Which band contains the amount removed by linked reversals?",
+            "score", "What is the total of otherwise-eligible entries cancelled by reversal notices?",
             str(reversal_level), reversal_bands,
         ),
         "provenance": {},
@@ -606,12 +606,12 @@ def generate(rng: random.Random, n_questions: int) -> dict:
     below_bands, below_level = round_bands(
         below_minimum_amount, "$", [Decimal("5"), Decimal("10"), Decimal("25"),
                                     Decimal("50"), Decimal("100"), Decimal("250")],
-        rng, metric="The amount of charges below the minimum",
+        rng, metric="The total of entries that pass every other rule but fall below the minimum amount",
     )
     question_pool.append({
         "quantity": "below_minimum_charges",
         "spec": (
-            "score", "Which band contains charges below the minimum amount?",
+            "score", "What is the total of entries that pass every other rule but fall below the minimum amount?",
             str(below_level), below_bands,
         ),
         "provenance": {},

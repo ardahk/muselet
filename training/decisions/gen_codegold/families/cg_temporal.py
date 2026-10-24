@@ -156,7 +156,6 @@ def _render_state(
     business_days: int,
     holidays: set[date],
     deadline: date,
-    arrival_date: date,
     inclusive: bool,
     receipt: datetime,
     receipt_zone: str,
@@ -181,7 +180,6 @@ def _render_state(
         "Calendar instruction: a business day is Monday through Friday; do not count the anniversary "
         "date itself. Exclude every date printed in the published holiday schedule.\n"
         f"Published holiday schedule: {holiday_text}\n"
-        f"Notice received on: {arrival_date.isoformat()}\n"
         f"Date boundary: receipt must be {boundary_text} the computed response deadline.\n\n"
         "INTAKE CLOCK RECORD\n"
         f"Receipt timestamp: {receipt_text} [{receipt_zone}]\n"
@@ -213,7 +211,6 @@ def _read_state(state: str):
         date.fromisoformat(item)
         for item in re.findall(r"\d{4}-\d{2}-\d{2}", holiday_text)
     }
-    arrival_date = date.fromisoformat(capture(r"^Notice received on: (\d{4}-\d{2}-\d{2})$"))
     inclusive = (
         capture(r"^Date boundary: receipt must be (.+) the computed response deadline\.$")
         == "on or before"
@@ -240,6 +237,7 @@ def _read_state(state: str):
                 raise ValueError("rendered offset does not match its named zone")
         localized.append(stamp)
     receipt, cutoff = localized
+    arrival_date = receipt.astimezone(ZoneInfo(receipt_zone)).date()
     anniversary = _add_months(start, months)
     deadline = _business_deadline(anniversary, business_days, holidays)
     return {
@@ -307,18 +305,11 @@ def generate(rng: random.Random, n_questions: int) -> dict:
         rng, transition.date()
     )
     inclusive = bool(rng.randrange(2))
-    holiday_arrival = bool(rng.randrange(2))
-    if inclusive:
-        arrival_date = deadline - timedelta(days=1)
-        if holiday_arrival:
-            holidays.add(arrival_date)
-            deadline = _business_deadline(anniversary, business_days, holidays)
-    else:
-        arrival_date = deadline + timedelta(days=1)
-        if holiday_arrival:
-            holidays.add(arrival_date)
     receipt, receipt_zone, cutoff, cutoff_zone, gap, show_offset = _make_timestamps(rng, deadline)
-    date_timely = inclusive
+    arrival_date = receipt.astimezone(ZoneInfo(receipt_zone)).date()
+    date_timely = (
+        arrival_date <= deadline if inclusive else arrival_date < deadline
+    )
     clock_timely = receipt.astimezone(timezone.utc) <= cutoff.astimezone(timezone.utc)
     specs = []
 
@@ -354,14 +345,6 @@ def generate(rng: random.Random, n_questions: int) -> dict:
             "true": "The notice was received within the business-day boundary: Yes.",
         },
     ))
-    specs.append((
-        "noul", "Was the notice received on a listed holiday?",
-        "true" if arrival_date in holidays else "false",
-        {
-            "false": "The notice was received on a listed holiday: No.",
-            "true": "The notice was received on a listed holiday: Yes.",
-        },
-    ))
     bands, level = round_bands(
         Decimal(gap), "minutes",
         [Decimal("5"), Decimal("10"), Decimal("25"), Decimal("50")],
@@ -385,7 +368,7 @@ def generate(rng: random.Random, n_questions: int) -> dict:
 
     state = _render_state(
         start, months, anniversary, business_days, holidays, deadline,
-        arrival_date, inclusive, receipt, receipt_zone, cutoff, cutoff_zone, show_offset,
+        inclusive, receipt, receipt_zone, cutoff, cutoff_zone, show_offset,
     )
     record_rng = random.Random(rng.getrandbits(64))
     record = finish_record(
