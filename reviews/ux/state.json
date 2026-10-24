@@ -1,10 +1,10 @@
 {
-  "pass": 9,
-  "ts": "2026-10-24T08:10:00Z",
+  "pass": 10,
+  "ts": "2026-10-24T08:20:00Z",
   "last_reviewed": {
-    "main": "0fd5698",
-    "wip/local": "64dd1cb",
-    "cloud/data-pipeline": "0f3df7f",
+    "main": "280715d",
+    "wip/local": "38768f3",
+    "cloud/data-pipeline": "1d65818",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
@@ -18,5 +18,5 @@
     "cloud/advisor-3": "ca93147",
     "cloud/finance-3": "31be399"
   },
-  "notes": "pass 9: main only added tools/tcc_warm.py and decision docs (no lane files). wip adds the Automation onboarding row (ux-15)."
+  "notes": "pass 10: main landed the Automation row (894df52). The wip and data-pipeline deltas have no lane edits."
 }

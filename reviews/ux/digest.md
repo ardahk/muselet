@@ -1,6 +1,6 @@
-# ux digest — pass 9 (main 0fd5698, wip/local 64dd1cb, cloud/brain-3 14a3f52)
+# ux digest — pass 10 (main 280715d, wip/local 38768f3, cloud/brain-3 14a3f52)
 
-Pass 9: wip adds a native Automation onboarding row (per-app chips, Settings… when denied). It's good, but already-granted apps that aren't running show 'Grant' (ux-15).
+Pass 10: main landed it via 894df52 (no other lane changes). Pass 9: wip adds a native Automation onboarding row (per-app chips, Settings… when denied). It's good, but already-granted apps that aren't running show 'Grant' (ux-15).
 
 All P1s are resolved on main: copy and errors via brain-2, plus confirm_cancel, the latency chip, ghost-for-skills and listening-first via 68fa473.
 wip 34ddf5f prefetches ghost targets at key-down and skips the Dock read when the Dock auto-hides. Both are good.
