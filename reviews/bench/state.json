@@ -1,12 +1,12 @@
 {
-  "pass": 34,
-  "ts": "2026-10-24T16:45:00Z",
+  "pass": 35,
+  "ts": "2026-10-24T17:00:00Z",
   "branches": {
-    "main": "c949565",
+    "main": "e56582b",
     "wip/local": "4ec066f",
     "cloud/bench": "f584cb2",
-    "cloud/data-pipeline": "6c1e565",
-    "cloud/decisions": "184c80f",
+    "cloud/data-pipeline": "f8b721a",
+    "cloud/decisions": "43abfa3",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
     "cloud/finance-3": "31be399",
@@ -29,7 +29,9 @@
     "cloud/app-ui": "afb2688",
     "cloud/brain-7": "13432fe",
     "cloud/native-research": "fa88c22",
-    "cloud/report": "dffa733"
+    "cloud/report": "dffa733",
+    "cloud/comms": "956d4ac",
+    "cloud/report-2": "3c25e78"
   },
-  "notes": "pass34: data-pipeline 6c1e565 route_v2 (955 items, cross-family gold, 0 overlap vs all pools) + it3 top-ups + v3 relabel -> bench-23 (gold judge = relabel judge; judge-disagreement items dropped), bench-24 (evalcheck skips missing eval files). decisions 184c80f: multi-task trainer + main merge; dev split is the generated dev.jsonl; no lane-blocking issue seen. report dffa733 docs/REPORT.md: repeats '200-sample stratified' ScreenSpot claim (bench-15) and planner tune/holdout/holdout2 .88/.643/.667 without CIs (bench-19); router it2 .913 on route_v1 clean with source 'lead' (no run path). app-ui/brain-7/native-research: no lane files (app-ui AGENTS.md +3 lines on planner config). main/wip unchanged."
+  "notes": "pass35: main e56582b merged report (#22, docs/REPORT.md repeats bench-15 '200-sample stratified' and bench-19 holdout numbers without CI), native-research (#23, docs only), brain-7 (#25, orchestrator/sites/compose_text, no lane files). data-pipeline f8b721a gate_filter drops pool rows overlapping frozen evals incl. ASR-rendered text (noisy() key matches datums.route_datums) - good; still relies on eval_items which skips missing files (bench-24). decisions 43abfa3 lazy MLX import only. comms 956d4ac: no lane files. report-2 3c25e78: live suite T1 19/22 -> bench-25; planner holdout2 .667 (8/12) quoted without CI (bench-19)."
 }
