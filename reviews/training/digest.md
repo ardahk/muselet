@@ -1,23 +1,23 @@
-# training lane digest — pass 18 (main 2920225, cloud/data-pipeline 5371185, wip/local 3e03686 = main tree)
+# training lane digest — pass 19 (main 28dc259, cloud/data-pipeline 80cb13f, wip/local e1701a3, cloud/brain-4 3aca368, cloud/hobby-gaps 14ff59b)
 
-Open: 1 P0, 9 P1, 8 P2. Pass 18: no change (wip/local 3e03686 tree is identical to main 2920225). Resolved in pass 17: training-11 (UtteranceCtx.swift:68-118@2920225 reports Finder item selection).
-"branch-only" = code lives only on cloud/data-pipeline (PR #2, still unmerged into main).
+Open: 1 P0, 11 P1, 9 P2. New this pass: training-29, -30, -31. training-27 downgraded P1->P2 (it2 plan now selects on route_val only).
 
 ## Open P0/P1 (ranked)
-1. training-23 P0 — Main router trained/evaluated on stale pre-fix route data — main checkpoint (`evals/router_check.py:10`); new `datums_export.py --route-source dedup` can republish the stale rows for multi-task replay (branch-only code)
-2. training-5 P1 — Shared Tinker cap ($81 headroom), lagging billing, per-run-only guard — `tools/tinker_spend.py`, `cloud/builder_decisions.md:57-58`; cloud/decisions@3a865a0 now has a Tinker backend
-3. training-27 P1 — route_v1 tuned against but quoted as accuracy — `pitch/claims.md:13@2920225`, `training/reports/phase1_it2_plan.md`
-4. training-14 P1 — Main parity reference still 36 options; parity test xfails while pitch claims byte-identical — `training/artifacts/route_render_samples.jsonl`
-5. training-26 P1 — ASK rule treats pronoun values as concrete (fresh repro @5371185) — `training/src/muselet_train/ask_rule.py` (branch-only)
-6. training-28 P1 — media_control sampled in Premiere Pro 7.9% — `training/src/muselet_train/contexts.py` (branch-only)
-7. training-24 P1 — Router almost never ASKs (val 0/3) — `training/src/muselet_train/datums.py` (branch-only fix, not run)
-8. training-25 P1 — Weak per-label val (media_control 32%, dark_mode 68%) — `training/reports/phase1_main.md`
-9. training-8 P1 — No per-label 15% adjudication stop gate — `training/src/muselet_train/adjudicate.py` (branch-only)
-10. training-15 P1 — Teacher subset skew / hard-soft mixing — `training/src/muselet_train/teacher.py` (branch-only)
+1. **training-23 (P0, main)** — shipped router `route-4b-main` trained on stale pre-fix route data; `evals/router_check.py` still runs it. it2 plan pins main's split, but no retrain yet.
+2. **training-30 (P1, main)** — main's ARGS datums weighted the runtime-prefilled empty think block; per 80cb13f this makes the runtime ARGS line empty. Reported ARGS EM 0.869 is not runtime-equivalent; `router_check.py --args-model` can now measure it.
+3. **training-31 (P1, cloud/hobby-gaps)** — set_brightness description/args change (level|delta, require_one_of) without a version bump: 50/50 route render samples mismatch, `test_samples_reproduce` fails; no ARGS data has `delta`.
+4. **training-29 (P1, data-pipeline)** — short_edit1 decontam drops 62/423 short committed items, mostly spurious (`play`~`archive`, `open chrome`~`open finder`); open_app loses 17/34 short items, open_folder 13/32.
+5. **training-5 (P1)** — two Tinker spenders, per-run guards only, billing lags hours; ~$81 left.
+6. **training-14 (P1, main)** — parity reference is 36-option vs 41-option catalog; parity test xfails while pitch claims byte-identical rendering.
+7. **training-26 (P1, data-pipeline)** — it2 ASK generator now explicitly asks for pronoun args, but ask_rule still calls `to="him"` concrete -> relabeled to the skill.
+8. **training-28 (P1, data-pipeline)** — gen note excludes Premiere, but contexts.py still puts 7.9% of media_control in Premiere Pro.
+9. **training-24 (P1)** — ASK undercoverage (val 0/3).
+10. **training-25 (P1)** — weak labels media_control 0.32, dark_mode 0.68, find_file 0.71.
+11. **training-8 / training-15 (P1, data-pipeline)** — no per-label 15% adjudication STOP; teacher subset skew / hard-soft mixing.
 
-## Highest-leverage next moves
-- Merge PR #2's 41-option `route_render_samples.jsonl` (+ trainer) so main's parity test stops xfailing before the pitch claim ships.
-- Before v2it2: fix pronoun ASK verdicts and block media_control in Premiere, then retrain from route_train/route_val (~$29) with `--pin-split-from`.
-- Never export `--route-source dedup` for training; any decisions multi-task replay must use the split-based datums.
-- One shared spend ledger for both Tinker workers: per-run cap = 150 − billed − unbilled estimates of both.
-- Make a fresh held-out route set (or relabel route_v1 as dev) before quoting `{{route_acc}}`.
+## Next moves (max 5)
+1. Before the it2 launch: fix short_edit1 (skip 1-token items, only allow near-variant/stopword substitutions, per-label drop report), the pronoun ASK rule and media_control context sampling.
+2. Run `evals/router_check.py --args-model` on route-4b-main to get real runtime ARGS/e2e numbers; don't quote 0.869 until then.
+3. Hold cloud/hobby-gaps until the catalog version is bumped and render samples + parity_300 + delta ARGS data are regenerated in the same retrain.
+4. Merge the 41-option parity reference before the byte-identical claim ships.
+5. One shared spend ledger for both Tinker workers; cap each run at 150 - billed - unbilled estimates.
