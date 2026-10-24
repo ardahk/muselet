@@ -1,15 +1,16 @@
 {
- "pass": 6,
- "ts": "2026-10-24T09:55:00Z",
+ "pass": 7,
+ "ts": "2026-10-24T10:20:00Z",
  "branches": {
   "main": "758a017",
-  "wip/local": "a3f82f1",
+  "wip/local": "630d661",
   "cloud/data-pipeline": "80cb13f",
   "cloud/bench": "f584cb2",
   "cloud/pitch": "ad1b058",
-  "cloud/decisions": "3a865a0",
+  "cloud/decisions": "c08a96d",
   "cloud/pitch-2": "3303678",
   "cloud/brain-4": "dfb66a3",
-  "cloud/hobby-gaps": "929b931"
+  "cloud/hobby-gaps": "929b931",
+  "cloud/brain-5": "003d1bb"
  }
 }

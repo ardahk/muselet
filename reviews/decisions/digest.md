@@ -1,24 +1,23 @@
-# decisions — digest (pass 6)
+# decisions — digest (pass 7)
 
-Pass 6: main 758a017 (pitch-2 merged, brain-5 brief), brain-4 dfb66a3 (planner escalate; no route/ARGS change), wip/local + hobby-gaps no lane diff.
-Heads (pass 5): main 28dc259, cloud/data-pipeline 80cb13f, cloud/decisions 3a865a0, cloud/brain-4 3aca368, wip/local e1701a3 (no lane diff vs main).
-Resolved this pass: decisions-9 (abstract it2 prompts + short_edit1 decontam + val-only selection; re-ran the matcher).
-Checked OK: data-pipeline 80cb13f ARGS datums weight only answer+<|im_end|>, matching DecisionEngine.args prefilled think block (test_route_render.py); brain-4 split ARGS model uses its own tokenizer/body/lm_head end to end; router_check ARGS e2e matches cli.eval_route rules.
+Heads: main 758a017, cloud/decisions c08a96d (new: generic decisions data pipeline + lead SPEC), cloud/data-pipeline 80cb13f, brain-5 003d1bb (parse_duration move only in lane), wip/local 630d661 (no lane diff).
+Resolved: decisions-1, -2 (decisions decontam re-run on pinned JevBench + TD: 0/0 on 300 generated records), -6 (render parity test).
+Checked OK: datum = tokens[:choice_pos], target at last row; dev 5% by family for temperature fit only; pilot spend $2.32/$5, no Tinker run.
 
 ## Open P0/P1
-0. decisions-14 P1 brain-5 fixes fitted on live_t1 failures; live_t1_pass then not held out — cloud/builder_brain5.md / pitch/claims.md:17
-1. decisions-1 P1 Decontam index lacks JevBench/typed-decisions; no 13-gram or option-set test — training/src/muselet_train/decontam.py (data-pipeline)
-2. decisions-12 P1 cloud/decisions forked pre-f584cb2; merge drops scorer, venv and split_model fixes — ml/src/brain/decision.py
-3. decisions-13 P1 route_acc claimed as top-1 but eval-route accuracy is tau-gated — ml/src/brain/cli.py / pitch/claims.md:13
-4. decisions-10 P1 it2 retrain plan has no token/$ estimate — training/reports/phase1_it2_plan.md (data-pipeline)
-5. decisions-3 P1 Route regression would be measured with the wrong renderer and n=140 — cloud/builder_decisions.md
-6. decisions-5 P1 Before/after numbers would mix MLX-4bit and Tinker-bf16 — cloud/builder_decisions.md
-7. decisions-4 P1 noul option order flips with criteria presence — ml/src/brain/generic_decide.py
-8. decisions-2 P1 Identical-option-set rule undefined/degenerate — cloud/builder_decisions.md
+1. decisions-15 P1 render_records feeds raw wire questions; every choice/score datum KeyErrors — training/decisions/render.py
+2. decisions-16 P1 Code-gold options leak the answer via descriptions, padding and verbatim values — training/decisions/families/numeric.py, core.py
+3. decisions-17 P1 Per-family noul/score gold priors violate SPEC balance — training/decisions/families/*
+4. decisions-12 P1 cloud/decisions not rebased; merge drops scorer, venv and split_model fixes — ml/src/brain/decision.py
+5. decisions-14 P1 brain-5 fixes fitted on live_t1 failures; live_t1_pass not held out — pitch/claims.md:17
+6. decisions-13 P1 route_acc claimed as top-1 but eval-route accuracy is tau-gated — ml/src/brain/cli.py
+7. decisions-10 P1 it2 retrain plan has no token/$ estimate — training/reports/phase1_it2_plan.md
+8. decisions-4 P1 noul option order flips with criteria presence (TD: 200 noul without criteria) — ml/src/brain/generic_decide.py
+9. decisions-3 P1 Route regression renderer/n=140 — cloud/builder_decisions.md
+10. decisions-5 P1 Before/after must use one backend/precision — cloud/builder_decisions.md
 
 ## Highest-leverage next moves
-- Freeze a held-out live set before brain-5 lands; quote that, not live_t1 (decisions-14).
-- Rebase cloud/decisions on main before merging (decisions-12).
-- Add JevBench@609a664 + typed-decisions@80cb93a text, 13-gram and a defined option-set rule to decontam before decisions data is generated.
-- Quote accuracy_top1_ungated as router top-1 in the pitch (decisions-13).
-- Put est_usd/tokens + lead OK in phase1_it2_plan.md before launching it2 (decisions-10).
+- Fix render_records (server_questions) before any datums/upload (decisions-15).
+- Rewrite generators: neutral option text, computed distractors, label-first sampling; add description-only/verbatim/prior baselines to the report (decisions-16/17).
+- Train some noul without criteria (true-first Yes/No) or normalise runtime order (decisions-4).
+- Rebase cloud/decisions on main (decisions-12); write the Tinker $ estimate incl. route replay before training (decisions-7).
