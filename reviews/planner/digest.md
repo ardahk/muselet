@@ -1,4 +1,8 @@
-# planner lane — pass 30 (main b625ceb unchanged, new cloud/brain-6 780f49d)
+# planner lane — pass 31 (main 82d94d9, wip 5b3d695 = main in this lane)
+
+Pass 31: no new findings. brain-6 (#21) is merged, so planner-27 is now on main (L1516). 82d94d9 adds Zen, Vivaldi, Opera and Orion to the browsers whose chat and mail tabs get send confirmations, with tests; no issues. Open findings on main are otherwise unchanged (planner-24 L984, planner-26 L289, planner-25 planner.py L334, planner-6).
+
+## Pass 30 notes
 
 Pass 30: 1 new P2 (planner-27). brain-6 adds sendgate.py: Enter and send confirms now cover chat and mail apps and browser tabs for them, not just Mail, Messages and Slack. It also adds a safety gate on grounded clicks (target label, composer or payment context, the AX label under the point, otherwise OCR, failing closed). It looks correct; 126 focused tests pass. Open findings on main are unchanged (planner-24 L977, planner-26 L289, planner-25 planner.py L334, planner-6).
 
