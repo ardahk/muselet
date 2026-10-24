@@ -55,9 +55,9 @@ async def serve(port: int = 8765, model: str | None = None):
         print(f"[engine] {model}", flush=True)
     orch = Orchestrator(server, Catalog.load(), Tracer(), engine=engine)
 
-    async def on_utt(text: str, final: bool):
-        print(f"[utterance] {text}", flush=True)
-        await orch.handle_utterance(text)
+    async def on_utt(text: str, final: bool, ctx: dict | None = None):
+        print(f"[utterance] {text} ctx={ctx}", flush=True)
+        await orch.handle_utterance(text, ctx)
 
     server.on_utterance = on_utt
     print(f"brain listening on ws://127.0.0.1:{server.port}", flush=True)
@@ -81,12 +81,37 @@ async def serve(port: int = 8765, model: str | None = None):
 
 def eval_route(model: str, cases_path: str, out_dir: str = "runs/evals"):
     from .decision import DecisionEngine
+    import subprocess
+    try:
+        cases_sha = subprocess.run(
+            ["git", "hash-object", cases_path],
+            capture_output=True, text=True).stdout.strip()
+    except Exception:
+        cases_sha = ""
     cases = [json.loads(l) for l in Path(cases_path).read_text().splitlines()
              if l.strip()]
     engine = DecisionEngine(_resolve_model(model), Catalog.load())
+    from .orchestrator import Orchestrator
+    dummy_orch = Orchestrator.__new__(Orchestrator)
+    dummy_orch.catalog = Catalog.load()
     pairs: list[tuple[str, str]] = []   # (true, predicted)
     route_ms, args_ms, probs_ece = [], [], []
-    correct = exact_args = n_args = 0
+    correct = n_args_scored = e2e_n = 0
+    args_hits = e2e_hits = 0
+    confusions: dict = {}
+
+    def args_match(got: dict, gold: dict) -> bool:
+        if set(got) != set(gold):
+            return False
+        for k, gv in gold.items():
+            v = got[k]
+            if isinstance(gv, (int, float)) and isinstance(v, (int, float)):
+                if v != gv:
+                    return False
+            elif str(v).strip().lower() != str(gv).strip().lower():
+                return False
+        return True
+
     for c in cases:
         r = engine.route(c["utterance"], c.get("ctx", {}))
         route_ms.append(r.ms["route_ms"])
@@ -94,14 +119,22 @@ def eval_route(model: str, cases_path: str, out_dir: str = "runs/evals"):
         pairs.append((lbl, lab))
         if lab == lbl:
             correct += 1
+        else:
+            confusions[(lbl, lab)] = confusions.get((lbl, lab), 0) + 1
         probs_ece.append((r.p_top, lab == lbl))
-        if c.get("args") and lab not in ("MULTI_STEP", "ASK", "REFUSE", "ANSWER"):
-            ext = engine.args(lab, c["utterance"], c.get("ctx", {}))
-            args_ms.append(ext["ms"]["args_ms"])
-            n_args += 1
-            got = {k: v for k, v in ext.items() if k not in ("ms", "_raw")}
-            if got == c["args"]:
-                exact_args += 1
+        if c.get("args"):
+            e2e_n += 1
+            if lab == lbl:
+                ext = engine.args(lab, c["utterance"], c.get("ctx", {}))
+                args_ms.append(ext["ms"]["args_ms"])
+                got = {k: v for k, v in ext.items()
+                       if k not in ("ms", "_raw", "missing")}
+                got = Orchestrator._coerce_args(dummy_orch, lab, got)
+                got = {k: got[k] for k in c["args"] if k in got}
+                n_args_scored += 1
+                if args_match(got, c["args"]):
+                    args_hits += 1
+                    e2e_hits += 1
 
     def pct(ts, p):
         ts = sorted(ts)
@@ -117,7 +150,7 @@ def eval_route(model: str, cases_path: str, out_dir: str = "runs/evals"):
             conf = sum(x[0] for x in bin_items) / len(bin_items)
             ece += len(bin_items) / len(probs_ece) * abs(acc - conf)
 
-    labels = sorted({t for t, _ in pairs} | {p for _, p in pairs})
+    labels = sorted({t for t, _ in pairs})   # gold labels only
     per_label: dict = {}
     f1s = []
     for l in labels:
@@ -131,14 +164,19 @@ def eval_route(model: str, cases_path: str, out_dir: str = "runs/evals"):
         f1s.append(f1)
         per_label[l] = {"acc": rec, "n": support, "f1": f1}
     report = {
-        "model": model, "n": len(cases),
+        "model": model, "n": len(cases), "cases_sha": cases_sha,
         "accuracy": correct / len(cases) if cases else 0,
         "macro_f1": sum(f1s) / len(f1s) if f1s else 0,
         "per_label": per_label,
+        "top_confusions": [
+            {"gold": g, "pred": p, "n": n}
+            for (g, p), n in sorted(confusions.items(), key=lambda kv: -kv[1])[:10]],
+        "args_exact": args_hits / n_args_scored if n_args_scored else None,
+        "n_args_scored": n_args_scored,
+        "e2e_exact": e2e_hits / e2e_n if e2e_n else None,
         "ece_15": round(ece, 4),
         "route_ms": {"p50": pct(route_ms, .5), "p95": pct(route_ms, .95)},
         "args_ms": {"p50": pct(args_ms, .5), "p95": pct(args_ms, .95)},
-        "args_exact": exact_args / n_args if n_args else None,
         "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }
     Path(out_dir).mkdir(parents=True, exist_ok=True)

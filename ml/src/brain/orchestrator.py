@@ -102,9 +102,14 @@ class Orchestrator:
 
     # ---------- utterance ----------
 
-    async def handle_utterance(self, text: str) -> dict:
+    async def handle_utterance(self, text: str, ctx: dict | None = None) -> dict:
         t0 = time.perf_counter()
         trace = self.tracer.begin(text)
+        # utterance-frame ctx wins (app/focused/selection/online)
+        if ctx:
+            for k in ("app", "focused", "selection", "online"):
+                if k in ctx:
+                    self._ctx[k] = ctx[k]
         outcome = "ok"
         try:
             await self.server.ui("thinking")
@@ -143,7 +148,8 @@ class Orchestrator:
         label = res.top
         if res.p_top < self.tau:
             a, b = top5[0][0], top5[1][0]
-            await self.server.say(f"Did you mean {a} or {b}?")
+            await self.server.say(
+                f"Did you mean {self._human(a)} or {self._human(b)}?")
             await self.server.ui("confused")
             return "awaiting_user"
         if label == "MULTI_STEP":
@@ -169,11 +175,27 @@ class Orchestrator:
             await self.server.say(f"What {ext['missing']} should I use?")
             await self.server.ui("confused")
             return "awaiting_user"
-        args = {k: v for k, v in ext.items()
-                if k not in ("ms", "_raw", "missing")}
-        args = self._coerce_args(label, args)
-        return await self.execute_actions(
+        raw_args = {k: v for k, v in ext.items()
+                    if k not in ("ms", "_raw", "missing")}
+        # last_action in the training format, from raw ARGS strings
+        # (e.g. 'open_app app=Safari', 'start_timer duration="10 minutes"')
+        parts = " ".join(
+            f'{k}="{v}"' if isinstance(v, str) and " " in v else f"{k}={v}"
+            for k, v in raw_args.items())
+        args = self._coerce_args(label, raw_args)
+        out = await self.execute_actions(
             [{"op": "skill", "name": label, "args": args}])
+        if out == "ok":
+            self._ctx["last_action"] = f"{label} {parts}".strip()
+            self.engine.last_action = self._ctx["last_action"]
+        return out
+
+    @staticmethod
+    def _human(name: str) -> str:
+        """'change_volume' -> 'change volume'; specials -> plain words."""
+        return {"MULTI_STEP": "a multi-step task", "ASK": "a clarifying question",
+                "REFUSE": "a refusal", "ANSWER": "a spoken answer"}.get(
+                    name, name.replace("_", " "))
 
     async def _engine_ask(self, text: str, trace: dict, top5) -> str:
         # nearest skill below the special options
@@ -188,8 +210,42 @@ class Orchestrator:
         await self.server.ui("confused")
         return "awaiting_user"
 
+    @staticmethod
+    def _coerce_typed(typ: str, v, a: dict):
+        """Coerce an extracted arg to its catalog type. None = uncoercible."""
+        from . import decision as _d
+        if typ == "datetime" and isinstance(v, str):
+            return _d.parse_datetime(v) or v
+        if typ == "duration" and isinstance(v, str):
+            sec = _d.parse_duration(v)
+            return sec if sec is not None else v
+        if typ == "int":
+            n = _d.normalize_level(v)
+            return n if n is not None else (int(v) if str(v).lstrip("+-").isdigit() else None)
+        if typ == "float":
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                return None
+        if typ == "bool":
+            if isinstance(v, bool):
+                return v
+            s = str(v).strip().lower()
+            if s in ("true", "yes", "on", "1"):
+                return True
+            if s in ("false", "no", "off", "0"):
+                return False
+            return None
+        if typ == "enum" and a.get("values"):
+            s = str(v).strip().lower()
+            for opt in a["values"]:
+                if str(opt).lower() == s:
+                    return opt
+            return str(v)   # leave; catalog.validate_args catches bad enum
+        return v
+
     def _coerce_args(self, name: str, args: dict) -> dict:
-        """datetime/duration by code; level/delta normalizations (SPEC 1.4)."""
+        """datetime/duration by code; catalog-typed coercion (SPEC 1.4)."""
         from . import decision as _d
         spec = self.catalog.get(name) or {}
         out = {}
@@ -198,19 +254,15 @@ class Orchestrator:
             if key not in args:
                 continue
             v = args[key]
-            if typ == "datetime" and isinstance(v, str):
-                out[key] = _d.parse_datetime(v) or v
-            elif typ == "duration" and isinstance(v, str):
-                sec = _d.parse_duration(v)
-                out[key] = sec if sec is not None else v
-            elif key == "level":
+            if key == "level":
                 n = _d.normalize_level(v)
                 out[key] = n if n is not None else v
             elif key == "delta":
                 n = _d.normalize_delta(v)
                 out[key] = n if n is not None else v
             else:
-                out[key] = v
+                c = self._coerce_typed(typ, v, a)
+                out[key] = c if c is not None else v
         # zero-shot fallback: model echoed e.g. 'set_volume=30' — if no known
         # arg was emitted and the skill has exactly one required arg, use it.
         if not out and args:

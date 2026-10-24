@@ -23,7 +23,7 @@ class BrainServer:
         self._late: set[str] = set()          # rpc ids that timed out
         self._connected = asyncio.Event()
         self._utterance_task: asyncio.Task | None = None
-        self.on_utterance = None      # async cb(text, final)
+        self.on_utterance = None      # async cb(text, final, ctx)
         self.on_hello = None          # async cb(screens)
         self.on_cancel = None         # async cb()
 
@@ -50,7 +50,7 @@ class BrainServer:
         if self._utterance_task and not self._utterance_task.done():
             self._utterance_task.cancel()
 
-    def _start_utterance(self, text: str):
+    def _start_utterance(self, text: str, ctx: dict | None = None):
         """One utterance at a time: cancel any in-flight task, then start."""
         self.cancel_utterance()
         if self.on_utterance is None:
@@ -58,7 +58,7 @@ class BrainServer:
 
         async def runner():
             try:
-                await self.on_utterance(text, True)
+                await self.on_utterance(text, True, ctx)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -102,7 +102,8 @@ class BrainServer:
                     # Run handling as a task so the receive loop keeps
                     # reading rpc_result frames (avoids deadlock).
                     if msg.get("final"):
-                        self._start_utterance(msg.get("text", ""))
+                        self._start_utterance(msg.get("text", ""),
+                                              msg.get("ctx"))
                 elif t == "cancel":
                     self.cancel_utterance()
                     if self.on_cancel:

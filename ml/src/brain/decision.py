@@ -386,7 +386,21 @@ class DecisionEngine:
             "args render diverged from cached prefix"
         cache = copy.deepcopy(self._args_cache)
         stop_ids = {self.tokenizer.eos_token_id}
-        for _s in ("
+        for stop_str in ["<" + "|im_end|>", chr(10)]:
+            toks_ = self.tokenizer.encode(stop_str, add_special_tokens=False)
+            if len(toks_) == 1:
+                stop_ids.add(toks_[0])
+        out_tokens = []
+        cur = mx.array([toks[self._args_cut:acut]])
+        for _ in range(24):
+            logits = self._logits_last(cache, cur)
+            nxt = int(np.argmax(np.array(logits)))
+            if nxt in stop_ids:
+                break
+            out_tokens.append(nxt)
+            cur = mx.array([[nxt]])
+        text = self.tokenizer.decode(out_tokens).strip()
+        parsed = self._parse_args_line(text)
         parsed["ms"] = {"args_ms": round((time.perf_counter() - t0) * 1000, 2)}
         parsed["_raw"] = text
         return parsed

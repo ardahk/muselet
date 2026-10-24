@@ -59,8 +59,12 @@ final class BrainConnection: NSObject, URLSessionWebSocketDelegate {
 
     // MARK: outbound
 
-    func sendUtterance(id: String, text: String, final: Bool) {
-        send(["t": "utterance", "id": id, "text": text, "final": final])
+    func sendUtterance(id: String, text: String, final: Bool,
+                       ctx: [String: Any]? = nil) {
+        var m: [String: Any] = ["t": "utterance", "id": id, "text": text,
+                                "final": final]
+        if let ctx { m["ctx"] = ctx }
+        send(m)
     }
 
     func sendCancel() { send(["t": "cancel"]) }

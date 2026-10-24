@@ -1,6 +1,7 @@
 import AppKit
 import AVFoundation
 import QuartzCore
+import HandsKit
 
 /// Push-to-talk pipeline: Right ⌥ down -> capture (+ live partials) ->
 /// release -> final transcript -> utterance (or confirm answer).
@@ -20,6 +21,7 @@ final class VoiceController {
     private var counter = 0
     private var currentID: String?
     private var lastPartial = ""
+    private var pressCtx: [String: Any]?
     private var moodBeforeListening: MascotMood = .idle
     /// Keep capturing briefly after release so the last syllable isn't clipped.
     private let releaseTail: TimeInterval = 0.06
@@ -147,6 +149,9 @@ final class VoiceController {
         counter += 1
         currentID = "u\(counter)-\(Int(Date().timeIntervalSince1970) % 100_000)"
         lastPartial = ""
+        // Capture ctx at push-to-talk key-down; sent on every utterance
+        // frame for this press (AGENTS.md contract).
+        pressCtx = UtteranceCtx.capture()
         model.isRecording = true
         model.micLevel = 0
         if model.mood != .listening { moodBeforeListening = model.mood }
@@ -178,7 +183,8 @@ final class VoiceController {
                 self.lastPartial = text
                 self.mascot?.showBubble(text, style: .transcript, autoHide: false)
                 if self.model.pendingConfirm == nil, let id {
-                    self.brain?.sendUtterance(id: id, text: text, final: false)
+                    self.brain?.sendUtterance(id: id, text: text, final: false,
+                                              ctx: self.pressCtx)
                 }
             }
         }
@@ -247,10 +253,10 @@ final class VoiceController {
         guard let brain, brain.connected else {
             model.mood = .confused
             mascot?.showBubble("My brain is offline. Start it with: uv run --project ml brain serve", style: .hint)
-            brain?.sendUtterance(id: id, text: text, final: true)   // queued for reconnect
+            brain?.sendUtterance(id: id, text: text, final: true, ctx: pressCtx)   // queued for reconnect
             return
         }
-        brain.sendUtterance(id: id, text: text, final: true)
+        brain.sendUtterance(id: id, text: text, final: true, ctx: pressCtx)
         mascot?.showBubble(text, style: .transcript)
     }
 
