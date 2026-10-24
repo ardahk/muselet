@@ -859,6 +859,9 @@ class Orchestrator:
                 return "cancelled"
             args["confirmed"] = True
         await self.server.ui("acting")
+        if self._first_action_ms is None:
+            self._first_action_ms = \
+                (time.perf_counter() - self._t_final) * 1000
         t = time.perf_counter()
         try:
             res = await self.server.rpc(
