@@ -180,7 +180,11 @@ public final class RPCHandler {
                 return (true, ["ok": ok, "observed": observed], nil)
 
             case "timers":
-                return (true, ["timers": skills.timerList()], nil)
+                return (true, skills.timersReport(askClock: params["clock_status"] as? Bool ?? false), nil)
+
+            case "timer_backend":
+                // {clock_ready, shortcuts, enabled, backend, cancel_ready, status_ready}
+                return (true, skills.clock.info(refresh: params["refresh"] as? Bool ?? false), nil)
 
             case "timers_cancel":
                 // No id: every Muselet timer. An id must name a pending timer.
@@ -191,9 +195,17 @@ public final class RPCHandler {
                     }
                     id = s
                 }
-                let cancelled = skills.cancelTimers(id: id)
-                let r: [String: Any] = ["cancelled": cancelled, "timers": skills.timerList()]
-                if let id, cancelled.isEmpty { return (false, r, "unknown_timer: \(id)") }
+                let c = skills.cancelTimersDetailed(id: id)
+                var r: [String: Any] = ["cancelled": c.cancelled, "timers": skills.timerList()]
+                if let id, c.unknown { return (false, r, "unknown_timer: \(id)") }
+                if !c.unsupported.isEmpty {
+                    r["unsupported"] = c.unsupported
+                    return (false, r, "unsupported: Clock timers need the \(ClockShortcut.cancel) shortcut")
+                }
+                if !c.failed.isEmpty {
+                    r["failed"] = c.failed
+                    return (false, r, "clock_cancel_failed: \(c.failed.first?["reason"] as? String ?? "?")")
+                }
                 return (true, r, nil)
 
             case "contacts_search":

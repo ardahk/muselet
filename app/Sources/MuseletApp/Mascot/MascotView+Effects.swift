@@ -33,6 +33,7 @@ extension MascotView {
             g.animations = [y, sx, sy]
             g.duration = 0.75
             bounce.add(g, forKey: "celebrate")
+            wagTail()
         }
 
         let now = CACurrentMediaTime()
@@ -57,6 +58,43 @@ extension MascotView {
             g.fillMode = .backwards
             sp.add(g, forKey: "sparkle")
         }
+    }
+
+    // MARK: tail
+
+    /// Looping sway about the tail base: ±8° over 4 s at rest, a quicker swish while acting.
+    func tailSway(fast: Bool) -> CAAnimation {
+        let amp = fast ? MascotPaths.Tail.swish : MascotPaths.Tail.sway
+        let a = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+        a.values = [0, amp, 0, -amp, 0]
+        a.keyTimes = [0, 0.25, 0.5, 0.75, 1]
+        a.calculationMode = .cubic
+        a.duration = fast ? MascotPaths.Tail.swishPeriod : MascotPaths.Tail.swayPeriod
+        a.repeatCount = .infinity
+        a.isAdditive = true
+        return a
+    }
+
+    /// Hover: a quick upward flick (on top of the sway).
+    func flickTail() {
+        guard !reduceMotion else { return }
+        let a = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+        a.values = [0, 0.28, -0.08, 0]
+        a.keyTimes = [0, 0.35, 0.7, 1]
+        a.duration = 0.4
+        a.isAdditive = true
+        tail.add(a, forKey: "flick")
+    }
+
+    /// Success: a brief wag.
+    func wagTail() {
+        guard !reduceMotion else { return }
+        let a = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+        a.values = [0, 0.3, -0.26, 0.24, -0.14, 0]
+        a.keyTimes = [0, 0.18, 0.4, 0.6, 0.8, 1]
+        a.duration = 0.75
+        a.isAdditive = true
+        tail.add(a, forKey: "wag")
     }
 
     func popQuestion() {

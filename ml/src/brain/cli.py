@@ -53,6 +53,9 @@ def planner_opts(args) -> dict:
             "done_alone": args.planner_done_alone,
             "few_shot": None if fs is None or fs.lower() == "none" else fs,
             "history": args.planner_history}
+    if args.planner_retrieval_k > 0:
+        opts["retrieval_k"] = args.planner_retrieval_k
+        opts["retrieval_bank"] = args.planner_retrieval_bank
     if opts["constrain"] is None:      # Planner's PLANNER_CONSTRAIN_DEFAULT
         del opts["constrain"]
     return opts
@@ -296,6 +299,10 @@ def build_parser(argv=None):
                    help="opt-in planner that takes over when the loop guard trips")
     s.add_argument("--planner-history", default="dsl",
                    choices=["marked", "dsl", "repr"], help="Last batch line format")
+    s.add_argument("--planner-retrieval-k", type=int, choices=(0, 1, 2), default=0)
+    s.add_argument("--planner-retrieval-bank", default="v2-tune",
+                   metavar="v2-tune|hf[:REPO[:FILE]][@REV]|PATH",
+                   help="HF bank defaults to bank.jsonl.gz; append @REV to pin a dataset revision")
     s.add_argument("--grounder-model", default="eyes-4b", metavar="NAME[=PATH]|none",
                    help="grounder adapter for `click \"<target>\"` (brain.grounder.ADAPTERS, e.g. "
                         "eyes-4b, ui-venus-1.5-8b; name=path for local weights); loaded on first use")

@@ -3,6 +3,9 @@
 Written Sat Oct 24 2026, ~14:00 PDT, by the lead agent. **Deadline: Cal Hacks submission Sun Oct 25 2026, 09:00 PDT.**
 Repo: `github.com/ardahk/muselet` (branch `main`). Local Mac checkout: `/Users/arda/cal13.0`.
 Read this file, then `AGENTS.md` (the project contract), then the workstream you are assigned in §7.
+**Switching orgs?** The user follows `docs/NEW_ORG_SETUP.md`; the new lead starts from `docs/MASTER_PROMPT.md`
+(one long prompt with the latest state, rules, first-hour checklist and priorities, including the memory
+workstream W11).
 
 ---
 
@@ -210,6 +213,7 @@ Each brief states the goal, current state, exact next steps, acceptance criteria
 | W8 | `cloud/handoff/W8_benchmarks.md`: live suite, HobbyLM r4, DeskMind zh-Hans, report numbers | P0 | Mac only |
 | W9 | `cloud/handoff/W9_safety_backlog.md`: open review findings to fix | P1 | partly |
 | W10 | `cloud/handoff/W10_report_pitch_demo.md`: REPORT.md, claims.md, demo script, video | P0 (Sun AM) | rehearsal on Mac |
+| W11 | `cloud/handoff/W11_memory.md`: memory (follow-up resolution, working + long-term + episodic/procedural memory) | P0 (user's new priority) | eval + live cases on Mac |
 
 ## 8. Safety rules and incident history (read before touching the Mac)
 

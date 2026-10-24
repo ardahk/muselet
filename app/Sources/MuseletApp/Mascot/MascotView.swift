@@ -1,10 +1,11 @@
 import AppKit
 import QuartzCore
 
-/// The cork creature ("Muselet"), drawn procedurally with Core Animation.
-/// Looping motion (breathing, dot bob, z's, listening pulse) runs in the
-/// render server; only the randomized blink / look-around use a cheap
-/// one-shot timer every few seconds.
+/// The kitten mascot ("Muse"), drawn procedurally with Core Animation.
+/// Looping motion (breathing, tail sway, dot bob, z's, listening pulse) runs
+/// in the render server; only the randomized blink / ear twitch / look-around
+/// use a cheap one-shot timer every few seconds. Shape constants live in
+/// `MascotPaths`, colours in `MascotPalette`.
 ///
 /// Split across files: +Build (layers), +Moods (mood mapping, gaze, mic
 /// level), +Life (blinks, look-around, hover perk), +Effects (one-shots).
@@ -27,22 +28,29 @@ final class MascotView: NSView {
     let perk = CALayer()                 // hover perk-up scale
     let bounce = CALayer()               // hop / squash
     let breath = CALayer()               // idle breathing
+    let tail = CALayer()                 // pivot at the tail base: sway / swish / flick / wag
+    var tailStrokes: [CAShapeLayer] = [] // outline, fur, ginger tip on one path
+    let earL = CAShapeLayer()            // pivot at the base: tilt per mood, idle twitch
+    let earR = CAShapeLayer()
     let bodyFill = CAGradientLayer()
     let bodyMask = CAShapeLayer()
     let outline = CAShapeLayer()
-    let wires = CAShapeLayer()
-    let earL = CAShapeLayer()            // wire loops: droop at rest, up when listening
-    let earR = CAShapeLayer()
-    let capGroup = CALayer()             // cap + knob (lifts when listening)
-    let cap = CAGradientLayer()
-    let capKnob = CAGradientLayer()
     let face = CALayer()
     let eyes = CALayer()
     let eyeL = CAShapeLayer()
     let eyeR = CAShapeLayer()
+    let lidL = CAShapeLayer()            // closed eyes: "^" (success) / bowed (asleep)
+    let lidR = CAShapeLayer()
     let cheekL = CAShapeLayer()
     let cheekR = CAShapeLayer()
-    let mouth = CAShapeLayer()
+    let whiskers = CAShapeLayer()
+    let nose = CAShapeLayer()
+    let mouth = CAShapeLayer()           // stroked "w"
+    let mouthOpen = CAShapeLayer()       // small "o" (mic level, success)
+    let pawL = CAShapeLayer()
+    let pawR = CAShapeLayer()            // rises to the chin while thinking
+    let tailWrap = CALayer()             // sleeping: tail wrapped over the paws
+    var wrapStrokes: [CAShapeLayer] = []
     let dots = CALayer()                 // thinking: three bobbing dots
     var dotLayers: [CAShapeLayer] = []
     let question = CATextLayer()
@@ -51,12 +59,14 @@ final class MascotView: NSView {
 
     var mood: MascotMood = .idle
     var breathKind = -1
+    var tailKind = -1
     var lookVector = CGVector(dx: 0, dy: 0)
     var hovered = false
     var blinkWork: DispatchWorkItem?
     var lookAroundWork: DispatchWorkItem?
+    var earTwitchWork: DispatchWorkItem?
     var lookingAround = false
-    var mouthCenter: CGPoint { CGPoint(x: Self.bodySize.width / 2, y: 18.5) }
+    var mouthCenter: CGPoint { MascotPaths.Face.mouth }
 
     var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
     private var motionObserver: NSObjectProtocol?
@@ -70,11 +80,13 @@ final class MascotView: NSView {
         apply(mood: .idle, animated: false)
         scheduleBlink()
         scheduleLookAround()
+        scheduleEarTwitch()
         motionObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
             object: nil, queue: .main) { [weak self] _ in
             guard let self else { return }
             self.breathKind = -1                 // rebuild loops for the new setting
+            self.tailKind = -1
             self.apply(mood: self.mood, animated: false)
         }
     }
@@ -85,6 +97,7 @@ final class MascotView: NSView {
         if let o = motionObserver { NSWorkspace.shared.notificationCenter.removeObserver(o) }
         blinkWork?.cancel()
         lookAroundWork?.cancel()
+        earTwitchWork?.cancel()
     }
 
     override var isFlipped: Bool { false }
