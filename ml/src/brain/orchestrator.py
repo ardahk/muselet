@@ -2046,7 +2046,9 @@ function run() {
                 return {"status": "failed",
                         "error": f"expect failed: {vres.get('observed', '?')}",
                         "res": res}
-        return {"status": "ok", "res": res, "expect_ok": bool(exp)}
+        return {"status": "ok", "res": res, "expect_ok": bool(exp),
+                "self_verified": method == "skill" and res.get("ok") is True
+                and not res.get("error")}
 
     # script confirmation policy (evals-safety-2)
     _SCRIPT_BLOCK = re.compile(
@@ -2310,7 +2312,8 @@ function run() {
                             cancel.set()      # done ends the batch's execution
                         else:
                             n_executed += 1
-                            last_exp_ok = bool(r.get("expect_ok"))
+                            last_exp_ok = bool(r.get("expect_ok") or
+                                               r.get("self_verified"))
                             if r["status"] != "ok":
                                 failed = True
                                 cancel.set()
@@ -2357,7 +2360,8 @@ function run() {
                     done_expect_ok = bool(r.get("expect_ok"))
                 else:
                     n_executed += 1
-                    last_exp_ok = bool(r.get("expect_ok"))
+                    last_exp_ok = bool(r.get("expect_ok") or
+                                       r.get("self_verified"))
                     if r["status"] != "ok":
                         failed = True
                         res_status = ("terminal_failure"

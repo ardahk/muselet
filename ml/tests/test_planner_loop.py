@@ -486,8 +486,8 @@ def test_full_truncated_or_missing_diff_observes(tmp_path, res):
 def test_skill_in_batch_breaks_diff_chain(tmp_path):
     o = _diff_orch(tmp_path, [["press #1", "skill mute on=true"], ['done "ok"'], ['done "ok"']],
                    lambda p: {"ok": True, "diff_text": ""})
-    assert run(o._planner_loop("go", trace_for(o))) == "unverified"
-    assert o.server.methods() == ["observe", "act", "skill", "observe", "observe"]
+    assert run(o._planner_loop("go", trace_for(o))) == "ok"
+    assert o.server.methods() == ["observe", "act", "skill", "observe"]
 
 
 def test_failed_turn_with_diff_reuses_it(tmp_path):

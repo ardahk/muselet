@@ -78,7 +78,7 @@ def test_planner_skips_prose_and_prefixes_skill(tmp_path):
              ['done "Opened TextEdit"']]
     o = _diff_orch(tmp_path, turns, lambda p: {"ok": True})
     tr = trace_for(o)
-    assert run(o._planner_loop("open textedit", tr)) == "unverified"
+    assert run(o._planner_loop("open textedit", tr)) == "ok"
     assert _skill_rpcs(o.server) == [("open_app", {"app": "TextEdit"})]
     assert "ignored 4 non-action lines" in o.planner.user_msgs[1]["last_batch"]
     assert {"skipped_lines": turns[0][:3] + ["```"]} in tr["decisions"]
