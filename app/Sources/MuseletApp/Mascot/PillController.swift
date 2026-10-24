@@ -72,6 +72,8 @@ final class PillController {
     private var hoverPill = false
     private var hideWork: DispatchWorkItem?
     private var typingCtx: PendingCtx?
+    private var closing = 0
+    private var holdFrame = false
 
     var onMic: (() -> Void)?
     var onTyped: ((String, PendingCtx) -> Void)?
@@ -153,10 +155,16 @@ final class PillController {
 
     // MARK: typing
 
-    private func beginTyping() {
+    func beginTyping(prefill: String = "") {
+        closing += 1
+        holdFrame = false
         typingCtx = RequestCtx.capture()       // before the pill takes key focus
-        state.text = ""
-        state.typing = true
+        state.text = prefill
+        withAnimation(PillView.typingAnimation(
+            reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        )) {
+            state.typing = true
+        }
         panel.acceptsKey = true
         show()
         panel.makeKey()
@@ -172,18 +180,42 @@ final class PillController {
 
     func endTyping() {
         guard state.typing else { return }
-        state.typing = false
-        state.text = ""
+        closing += 1
+        let gen = closing
         typingCtx = nil
+        holdFrame = true
+        let staying = PillPolicy.wantsShow(mascotSettled: dwell.settled, mascotHovering: dwell.hovering,
+                                           pillShown: true, pillHover: hoverPill,
+                                           recording: model.isRecording, typing: false)
+        withAnimation(PillView.typingAnimation(
+            reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        )) {
+            state.typing = false
+            if !staying { state.shown = false }
+        } completion: { [weak self] in
+            self?.finishClose(gen, staying: staying)
+        }
+    }
+
+    private func finishClose(_ gen: Int, staying: Bool) {
+        guard gen == closing, !state.typing else { return }
+        state.text = ""
+        holdFrame = false
         panel.acceptsKey = false
+        if !staying { hideWork?.cancel() }
         if panel.isKeyWindow {
-            // Ordering out gives keyboard focus back to the frontmost app.
-            panel.orderOut(nil)
-            if wantsShow {
+            if !staying || !wantsShow {
+                panel.orderOut(nil)
+            } else {
+                panel.disableScreenUpdatesUntilFlush()
+                panel.orderOut(nil)
                 panel.orderFrontRegardless()
                 parent?.addChildWindow(panel, ordered: .above)
             }
+        } else if !state.shown {
+            panel.orderOut(nil)
         }
+        layout()
         update()
     }
 
@@ -199,6 +231,7 @@ final class PillController {
         guard let m = parent?.frame else { return }
         let size = host.fittingSize
         guard size.width > 1, size.height > 1 else { return }
+        if holdFrame && size.width < panel.frame.width { return }
         let vf = (parent?.screen ?? NSScreen.main)?.visibleFrame ?? m
         let cx = m.minX + MascotView.bodyBase.x
         var x = cx - size.width / 2

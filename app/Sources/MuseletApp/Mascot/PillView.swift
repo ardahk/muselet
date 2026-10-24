@@ -20,9 +20,11 @@ struct PillView: View {
     @FocusState private var fieldFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var spring: Animation {
+    static func typingAnimation(reduceMotion: Bool) -> Animation {
         reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.3, dampingFraction: 0.78)
     }
+
+    private var spring: Animation { Self.typingAnimation(reduceMotion: reduceMotion) }
 
     var body: some View {
         HStack(spacing: 2) {
@@ -57,6 +59,7 @@ struct PillView: View {
                        tint: model.isRecording ? Brand.tintColor : nil,
                        action: onMic)
         }
+        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96)))
     }
 
     private var field: some View {
@@ -78,7 +81,7 @@ struct PillView: View {
                 .disabled(state.text.trimmingCharacters(in: .whitespaces).isEmpty)
             PillButton(symbol: "xmark", help: "Cancel (esc)", action: onCancel)
         }
-        .transition(.opacity)
+        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96)))
     }
 }
 
