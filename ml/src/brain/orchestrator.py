@@ -214,8 +214,8 @@ _CONTINUE = re.compile(
 def permission_prompt(obs: dict | None) -> dict | None:
     """{app, matched} when the frontmost observation is a system permission
     / authorization prompt (brain-8): a TCC/auth agent process, or a TCC
-    phrase. In a browser the phrase also needs a decision button, so page
-    text alone ('... is trying to ...') doesn't block web tasks."""
+    phrase. The phrase also needs a decision button, so page or message
+    text alone ('... is trying to ...') doesn't block web or mail tasks."""
     if not obs:
         return None
     app = str(obs.get("app") or "")
@@ -227,7 +227,7 @@ def permission_prompt(obs: dict | None) -> dict | None:
     m = _PERMISSION_TEXT.search(text.replace("\u2019", "'"))
     if not m:
         return None
-    if sendgate.is_browser(app) and not any(
+    if not any(
             str(e.get("role") or "").lower() == "button" and
             _PERMISSION_BUTTON.match(
                 str(e.get("label") or "").replace("\u2019", "'").strip())

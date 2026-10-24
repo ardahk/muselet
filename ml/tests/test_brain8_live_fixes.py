@@ -220,8 +220,12 @@ def test_permission_agent_apps(app):
     "would like to control", "wants to use your", "is trying to",
     "enter your password to allow"])
 def test_permission_text_patterns(phrase):
-    obs = {"app": "Finder", "text": f'#1 text "Devin {phrase} Contacts"'}
+    obs = {"app": "Finder", "text": f'#1 text "Devin {phrase} Contacts"',
+           "elements": [{"role": "button", "label": "Allow"}]}
     assert permission_prompt(obs)["matched"] == phrase
+    mail = {"app": "Mail", "text": f'#1 text "Devin {phrase} Contacts"',
+            "elements": [{"role": "button", "label": "Reply"}]}
+    assert permission_prompt(mail) is None
     # inside a browser page the phrase alone isn't a system prompt
     page = {"app": "Safari", "text": f'#1 text "Devin {phrase} Contacts"',
             "elements": [{"role": "link", "label": "Allow"}]}
@@ -283,7 +287,7 @@ def test_absolute_and_tilde_paths_pass_through(tmp_path):
 
 def test_relative_resolves_under_home_only_when_it_exists(tmp_path):
     (tmp_path / "Projects" / "muselet").mkdir(parents=True)
-    assert pathfind.absolute("projects/muselet", home=str(tmp_path)) == \
+    assert pathfind.absolute("Projects/missing", home=str(tmp_path)) == \
         (None, "unresolved")             # case differs: doesn't exist
     assert pathfind.absolute("Projects/muselet", home=str(tmp_path)) == \
         (str(tmp_path / "Projects" / "muselet"), "home")
