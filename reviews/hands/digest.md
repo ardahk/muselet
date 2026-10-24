@@ -1,4 +1,4 @@
-# hands — digest (pass 32)
+# hands — digest (pass 33)
 
 Open findings were re-verified on main 2920225 in pass 15: hands-1 to 9 and 11 to 14 are resolved, and hands-15 is superseded.
 Pass 21 checks:
@@ -6,6 +6,11 @@ Pass 21 checks:
 - wip/local b63699f is identical to main.
 - cloud/brain-5 b752261 handles `not_frontmost` by reading the failure `result`. That works: RPC.swift returns r with r["error"], BrainConnection always sends `result`, and server.rpc returns it with ok=false.
 No new defects.
+Pass 33: main c949565 adds two builder briefs only (cloud/builder_appui.md, cloud/builder_comms.md); there is no code yet. wip/local 4ec066f is identical to main. cloud/decisions e125c13 only touches training data. `app/` and the protocol are unchanged, and hands-10 and hands-16 are still open at the same lines.
+Things to check when these briefs land (not findings, because nothing is built yet):
+(a) The app-UI brief adds a new `config`/`config_ack` frame that is not yet in AGENTS.md, protocol.py or server.py. Check that both sides agree.
+(b) The typed-request path (the pill's keyboard button) must capture utterance ctx before the Muselet text field takes focus, or ctx.app becomes Muselet (this would undo hands-9/11). The pill and panel must not activate Muselet over the target app (hands-8 focus).
+(c) The comms brief adds a `contacts_search` RPC that HandsKit doesn't implement yet. Check that the Swift side returns `result` on errors.
 Pass 32: main 5292608 changes only one AGENTS.md line (benchmark overlap note). wip/local a02959b is identical to main. `app/` and the protocol are unchanged, and hands-10 and hands-16 are still open at the same lines.
 Pass 31: main 82d94d9 merged cloud/brain-6 (#21); orchestrator.py is identical to 780f49d, which I reviewed in pass 30. The new sendgate.py only adds browser names (Zen etc.) and makes no RPC/app changes; `app/` is unchanged. wip/local 5b3d695 is identical to main. hands-16 is now at orchestrator.py:988, and hands-10 is still at Act.swift:348.
 Pass 30: cloud/brain-6 780f49d adds send and grounded-click confirmation gates and an OCR probe. The probe sends `ocr {region:[x,y,w,h]}`, which matches RPC.swift:152-160. No defects. hands-10 and hands-16 are still open on main b625ceb.
