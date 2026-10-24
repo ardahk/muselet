@@ -1,17 +1,21 @@
-# decisions — digest (pass 30)
+# decisions — digest (pass 31)
 
-Heads: main 3876f3a (no lane changes since 27ebd13), cloud/decisions b78d778 (FULL run dec-full-lr2e4 trained, 347 steps; no report), data-pipeline 34aff30, planner-retrieval 9786fa4 (v2-tune gold is the default bank, decisions-29 P2).
+Heads: cloud/decisions f6fb133 (full run dec-full-lr2e4 done; uncalibrated JevBench .801 / TD .6645; calibration fitted; cal + route evals not run), cloud/data-decisions 91de461 (code-gold v2 partial), main 3772f7c / wip/local 8fcf55f (no lane changes beyond planner_demos).
+Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
-## Open P0/P1
-1. decisions-26 P1 LR pilot + FULL run (dec-full-lr2e4) with no hypothesis, data revision, cost or metrics committed — reports/checkpoints.jsonl
-2. decisions-14 P1 live_t1 T1 19/22 quoted while live_t1 was the brain-5 tuning set — pitch/claims.md:17,67
-3. decisions-25 P1 data-decisions brief targets a code-gold gap already closed — cloud/builder_data_decisions.md:8-9
-4. decisions-17 P1 noul 37.6% true; score levels 4-5 = 1.9% of score gold
-5. decisions-13 P1 route_acc still r2 .864 'top-1' — pitch/claims.md:13
-6. decisions-4 / -3 / -5 P1 noul order flip; route regression runner; backend parity
+## Open P0/P1 (ranked)
+1. decisions-32 P1 Full run fails its gate; TD +.0065 vs DeskMind is within noise, test-selected — training/decisions/HANDOFF.md:7-8,82-89
+2. decisions-30 P1 MLX backend ignores calibration temperatures — bench/systemone/cli.py:34-36, generic_decide.py:226
+3. decisions-31 P1 Calibration fit on template-inflated dev sharpens (T .905/.741) — training/decisions/calibrate.py:43-67
+4. decisions-33 P1 near_miss_values makes gold the medoid (~2x chance) — training/decisions/families/core.py:29-49
+5. decisions-17 P1 per-family noul priors (counting 7.5% true, numeric 73%) — families/*
+6. decisions-14 P1 live_t1 T1 quoted while live_t1 was the tuning set — pitch/claims.md
+7. decisions-13 P1 route_acc 'top-1' is tau-gated — pitch/claims.md:13
+8. decisions-25 / -5 / -4 / -3 P1 data brief stale; bf16 vs Mac mixing; noul order flip; route regression unmeasured
 
 ## Highest-leverage next moves
-- Commit lr_pilot.md (data rev, USD, dev/route_val per checkpoint) before the main decisions run (decisions-26).
-- Label live_t1 a dev suite or freeze a held-out live set (decisions-14).
-- Re-scope builder_data_decisions.md from full_gen.md@184c80f (decisions-25).
-- Rebalance noul/score labels before the main decisions run (decisions-17); claims.md:13 to it2 (decisions-13).
+- Before any 'calibrated' number: wire temperatures into GenericMLXDecider (decisions-30) and refit on non-template dev or ship T=1 (decisions-31).
+- results.md: full run is below DeskMind on JevBench and tied on TD on a different backend; label rows test-selected (decisions-32). Keep claims.md:85-86.
+- Any data-decisions v2 merge: gate gold-rank uniformity and noul balance per family in build.py (decisions-33, -17).
+- No more Tinker training (lane ~$35 est., org ~$136/150); the calibrated cross-check is ~0.8M tokens ≈ $0.27 by my estimate, within the $0.50 cap.
+- Route stays it2; this adapter is System One only (decisions-3).
