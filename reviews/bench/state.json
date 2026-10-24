@@ -1,0 +1,12 @@
+{
+ "pass": 1,
+ "ts": "2026-10-24T05:32:56Z",
+ "branches": {
+  "main": "410c9a1",
+  "wip/local": "bcd3b75",
+  "cloud/data-pipeline": "56ef91b",
+  "cloud/fixtures-docs": "4bf2291",
+  "cloud/bench": null
+ },
+ "notes": "cloud/bench not yet pushed; lane files (bench/systemone, deskmind, hobbylm, generic_decide.py, evals/external) absent on all branches; findings are against spec + upstream contracts."
+}
