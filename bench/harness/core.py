@@ -35,6 +35,7 @@ from bench.harness.documents import (
 _TEMPLATE = re.compile(r"\{\{([a-z_]+)\}\}")
 _SCRIPT_LANGS = ("applescript", "shell", "jxa")
 HARNESS_POLL_INTERVAL_S = 0.5
+FINAL_SETTLE_S = 3.0    # final checks retry this long for state the agent already caused (page loads, UI settle)
 VERIFIED_LATENCY_KINDS = ("stateful", "answer", "none")
 
 
@@ -674,6 +675,15 @@ async def run_case(
                 "started_wall": started_wall,
             }
             checks = await evaluate_predicates(case.get("check", []), runtime, check_context)
+            settle_deadline = time.monotonic() + float(case.get("settle_s", FINAL_SETTLE_S))
+            while not all(item["passed"] for item in checks) and time.monotonic() < settle_deadline:
+                result["check_observations"].append({
+                    "at_s": max(0.0, time.monotonic() - t0) if t0 is not None else None,
+                    "phase": "settle",
+                    "observations": checks,
+                })
+                await asyncio.sleep(poll_interval)
+                checks = await evaluate_predicates(case.get("check", []), runtime, check_context)
             result["check_observations"].append({
                 "at_s": max(0.0, time.monotonic() - t0) if t0 is not None else None,
                 "phase": "final",

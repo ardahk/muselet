@@ -1,6 +1,6 @@
 # Muselet: hold a key, say it, it's done. On your Mac, offline.
 
-Every `{{...}}` is defined in `claims.md`; fill from the named run or delete the sentence before publishing.
+Every number is sourced in `claims.md`. `TBD(<run>)`: fill from that run or delete the sentence before publishing.
 
 ## Inspiration
 Voice assistants on the Mac either talk instead of doing (they explain where the menu is) or ship your screen to
@@ -13,18 +13,23 @@ wanted an agent that **actually does the work**, **as fast as a keyboard shortcu
 ## What it does
 Hold Right Option and talk. A small mascot answers in a speech bubble, a ghost cursor flies to each target before
 it acts, and the Mac does the thing.
-- **Instant commands** ("volume 30", "dark mode", "turn off Wi-Fi"): one on-device forward pass picks the skill in
-  `{{route_ms_p50}}` ms; release to action in `{{instant_e2e_ms_p50}}` ms.
+- **Instant commands** ("volume 30", "dark mode", "turn off Wi-Fi"): one on-device forward pass picks the skill (52 ms p50
+  on our earlier r2 router); first action p50 193 ms in our live suite.
 - **Anything else** ("open Safari, search flights to Tokyo"): a local planner reads the macOS accessibility tree,
-  streams small action batches, and starts acting before it finishes thinking. Steps carry `expect` checks against
+  streams small action batches, and starts acting before it finishes thinking. For chained tasks we choose
+  intelligence over latency: a step may take a few seconds (ship gate: per-step p50 <= 3 s) if that raises the pass rate. Steps carry `expect` checks against
   the live accessibility tree.
+- **Messages and Gmail**: "text Sam I'll be there in ten" fills the message and waits for a spoken yes; "draft a
+  reply in Gmail" reads the open email and leaves a draft.
+- **Follow-ups**: after "navigate to Wikipedia", "search for history" searches Wikipedia, not Google. TBD(PR #50 merge)
+- **Timers in Clock**: "set a timer for ten minutes" starts it in the Clock app.
 - **Finance, offline.** "Prep me for my meeting with the Hendersons" reads Calendar, the client folder, the
   portfolio in Numbers and last meeting's notes, then writes a brief to Notes and highlights the sheet: $118,151.60
   to rebalance, $30,825.00 harvestable losses (VXUS blocked by a wash sale until 2026-11-11), $61,400.00 Roth
   room. "Reconcile my receipts" OCRs 8 receipts on-device (Apple Vision, in
   parallel), matches 6, flags a transposed-digit total and one receipt with no
   transaction. Every number comes from deterministic code with evidence; the model never does arithmetic.
-- **Premiere Pro**: "cut here", "add a marker", "export".
+- **Premiere Pro** shortcuts: "cut here", "add a marker", "export".
 - It **asks** when a request is ambiguous, hands low-confidence picks to the planner instead of acting, and
   **confirms** before sending, deleting, buying or running shell scripts.
 
@@ -33,9 +38,11 @@ it acts, and the Mac does the thing.
   mascot + ghost-cursor overlay. **HandsKit** executes: native skill > AX action > keys > pixel click, with a fused
   act-and-observe RPC and `expect` predicates.
 - **Brain (Python, MLX)**: loopback WebSocket to the app. **Router**: Qwen3.5-4B with a LoRA we trained on Tinker
-  (`{{train_examples}}` examples, soft labels from a larger teacher, `{{tinker_usd}}` spent). The option list lives
+  (about 38k route + 25k argument examples for iteration 2, soft labels from Qwen3.6-35B-A3B; about $136 of Tinker
+  compute in total across all training). The option list lives
   in a cached static prefix, so each request costs only its own tokens; we read the answer distribution after a
-  `choice#` prefill from one forward pass. **Planner** (`{{planner_model}}`): AX text in, a 5-action DSL out.
+  `choice#` prefill from one forward pass. **Planner** (local Qwen3.5-4B, greedy): AX text in, a 5-action DSL out, plus one BM25-retrieved solved example,
+  which lifted held-out pass rates from .643 / .667 / .400 to .714 / .750 / .462 for about 70 ms more TTFT.
 - **Brain tools**: whole workflows (`finance_review`, `advisor_prep`) are catalog skills the router picks in one
   pass; stdlib `Decimal` engines compute, AppleScript writes to Numbers and Notes in one call each. Tests match
   fixture truth files to the cent.
@@ -46,17 +53,23 @@ it acts, and the Mac does the thing.
 - More options than single-token ids: a custom id alphabet (`A-Z 0-9 b d e ...`), each id one token.
 - The Premiere timeline is not in the accessibility tree; we drive it with shortcuts and a UXP bridge.
 - Making a 4B model safe with money: it may only phrase; any digit, `$` or `%` in its text is rejected.
+- Honest evals: 37 of our 140 router test cases turned out to have near-duplicates in the training data; we
+  quote only the 103 clean ones, and run competitor benchmarks only with a router that has 0 overlap with them.
+- Live testing safely on a real machine: the runner checks each case's precondition mechanically and skips if the
+  screen is locked or a user document is open.
 
 ## Accomplishments that we're proud of
-- `{{hobby_muselet_pass}}`/125 on HobbyLM's sealed live set vs HobbyLM's `{{hobby_rerun_pass}}`/125, same Mac.
-- `{{dm_muselet_strict}}`/39 on DeskMind Bench, `{{dm_muselet_false_done}}` false "done", step p50
-  `{{dm_muselet_step_p50_s}}` s.
-- A full advisor meeting prep in `{{advisor_prep_s}}` s with Wi-Fi off.
-- `{{live_t1_pass}}`/43 live on-Mac tasks graded by final state, `{{live_false_done}}` false "done".
+- Our trained router picks the right action for .913 of 103 clean held-out requests, vs .767 for the same base
+  model untrained.
+- Live on the Mac, graded by final state: 19/22 single-command tasks and 1/5 multi-step tasks (27 of 43 cases
+  ran), first action p50 193 ms. TBD(live suite re-run)
+- TBD(HobbyLM r4 replay)/125 on HobbyLM's sealed live set vs their published 90/125.
+- TBD(DeskMind diag)/39 on DeskMind Bench, same Mac.
+- A full advisor meeting prep with Wi-Fi off in TBD(rehearsal) s.
 
 ## What we learned
 Speed comes from not generating: one forward pass for routing, deterministic code for anything with a right
-answer, and a planner only for the long tail. Trust comes from checks you can read:
+answer, and a planner, allowed to think, only for chained tasks where getting it right matters more than milliseconds. Trust comes from checks you can read:
 `expect` predicates against the live UI while it runs, and final-state grading in our evals.
 
 ## What's next

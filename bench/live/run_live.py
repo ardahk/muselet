@@ -107,6 +107,15 @@ def _step_order(case: dict[str, Any], *, report_only: bool = False) -> list[str]
     return steps
 
 
+def _local_ymd_hour(start: str) -> tuple[str, int] | None:
+    """Bench snapshots give UTC ISO starts; the case expects the local `YYYY-M-D` date and hour."""
+    try:
+        d = datetime.fromisoformat(start.replace("Z", "+00:00")).astimezone()
+    except (AttributeError, ValueError):
+        return None
+    return f"{d.year}-{d.month}-{d.day}", d.hour
+
+
 def _is_event_case(case: dict[str, Any]) -> bool:
     return case.get("id") == "time-event" or case.get("category") == "event"
 
@@ -406,8 +415,7 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
                                 matches = [
                                     row for row in created
                                     if row["title"].strip().casefold() == "dentist appointment"
-                                    and row["start"].startswith(expected_date)
-                                    and "T15:" in row["start"]
+                                    and _local_ymd_hour(row["start"]) == (expected_date, 15)
                                 ]
                                 return {
                                     "passed": bool(matches),

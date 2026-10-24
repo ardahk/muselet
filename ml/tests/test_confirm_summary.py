@@ -59,8 +59,6 @@ def test_summary_names_object(orch, a, want):
     {"op": "type", "text": "one two three four five six seven eight nine",
      "enter": True},
     {"op": "confirm", "summary": " ".join(["word"] * 30)},
-    {"op": "skill", "name": "move_to_trash", "args": {
-        "path": "/a/" + " ".join(["long"] * 20) + ".txt"}},
     {"op": "skill", "name": "open_url", "args": {"url": "https://x.com"}},
 ])
 def test_summary_at_most_12_words(orch, a):
@@ -86,6 +84,12 @@ def test_trash_confirm_names_file(orch):
     asyncio.run(orch.execute_actions([{"op": "skill", "name": "move_to_trash",
                                        "args": {"path": "~/Desktop/old.key"}}]))
     assert orch.server.confirms == ["Move ~/Desktop/old.key to Trash?"]
+
+
+def test_trash_confirm_does_not_truncate_path(orch):
+    path = "/project/a very long directory name with many words/another long folder/old.key"
+    assert summ(orch, {"op": "skill", "name": "move_to_trash",
+                       "args": {"path": path}}) == f"Move {path} to Trash?"
 
 
 def test_script_confirm_names_app(orch):
