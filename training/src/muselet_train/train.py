@@ -146,6 +146,7 @@ async def main_async(a) -> None:
     hits = {k: v["pairs"] for k, v in gate.items() if k.startswith(("route_", "args_")) and v["pairs"]}
     if hits:  # hard gate: no training or val item may be near any route_v1 / live_t1 utterance
         raise SystemExit(f"evalcheck gate failed: {hits}; affected {gate['affected_counts']}")
+    print(json.dumps({"evalcheck_gate": {k: v for k, v in gate.items() if k not in ("pairs", "affected")}}), flush=True)
     rd, ad = D.route_datums(tr_r, a.model), D.args_datums(tr_a, a.model)
     toks = sum(d.model_input.length for d in rd + ad) * a.epochs
     n_steps = (len(rd) + len(ad)) * a.epochs // a.batch

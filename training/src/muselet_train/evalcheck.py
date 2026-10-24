@@ -1,4 +1,4 @@
-"""Hard contamination gate: training utterances vs every route_v1 / live_t1 utterance.
+"""Hard contamination gate: training utterances vs every route_v1 / live_t1 / evals/external utterance.
 
 Rules (any one is an overlap): normalized exact match; a shared word 13-gram; token edit distance <= 1 when
 either side has 5 tokens or fewer. Normalization = decontam.norm (lowercase, strip punctuation, collapse spaces).
@@ -18,6 +18,7 @@ from muselet_train.decontam import SHORT, norm, tok_edit_le1
 
 REPO = Path(__file__).resolve().parents[3]
 EVALS = {"route_v1": REPO / "evals/route_v1.jsonl", "live_t1": REPO / "evals/live_t1.jsonl"}
+EXTERNAL = REPO / "evals/external/utterances.jsonl"
 N = 13
 
 
@@ -27,6 +28,10 @@ def eval_items() -> list[tuple[str, int, str]]:
         for i, line in enumerate(p.read_text().splitlines()):
             if line.strip():
                 out.append((name, i, json.loads(line)["utterance"]))
+    for i, line in enumerate(EXTERNAL.read_text().splitlines()):
+        if line.strip():
+            r = json.loads(line)
+            out.append((f"external/{r.get('source', 'external')}", i, r["text"]))
     return out
 
 
@@ -66,7 +71,7 @@ def overlaps(texts: list[str], evals: list[tuple[str, int, str]]) -> list[dict]:
 def check_rows(route: list[dict], args: list[dict]) -> dict:
     """route rows: utterance (+ rendered_utterance, the ASR-noised text actually trained); args rows: utterance."""
     evals = eval_items()
-    rep, pairs = {"evals": {k: sum(1 for e in evals if e[0] == k) for k in EVALS}}, []
+    rep, pairs = {"evals": dict(collections.Counter(e[0] for e in evals))}, []
     for kind, rows in (("route", route), ("args", args)):
         for split in ("train", "val"):
             sub = [r for r in rows if r.get("split", "train") == split]
@@ -79,7 +84,7 @@ def check_rows(route: list[dict], args: list[dict]) -> dict:
                                       "by_rule": dict(collections.Counter(x["rule"] for x in h)),
                                       "by_eval": dict(collections.Counter(x["eval"] for x in h))}
     aff = sorted({(x["eval"], x["eval_idx"], x["eval_utterance"]) for x in pairs})
-    rep["affected"] = {k: [{"idx": i, "utterance": u} for e, i, u in aff if e == k] for k in EVALS}
+    rep["affected"] = {k: [{"idx": i, "utterance": u} for e, i, u in aff if e == k] for k in rep["evals"]}
     rep["affected_counts"] = {k: len(v) for k, v in rep["affected"].items()}
     return rep | {"pairs": pairs}
 

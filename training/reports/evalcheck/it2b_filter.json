@@ -1,0 +1,27 @@
+{
+ "route_train.jsonl": {
+  "rows": 39877,
+  "dropped": 9,
+  "dropped_utts": [
+   "Calculate 15 percent of 80.",
+   "Hide Calendar please",
+   "Please close Slack now.",
+   "Set volume to 0",
+   "Toggle playback please",
+   "disable bluetooth please",
+   "hide Word please",
+   "please mute the sound",
+   "please unmute"
+  ]
+ },
+ "route_val.jsonl": {
+  "rows": 1238,
+  "dropped": 0,
+  "dropped_utts": []
+ },
+ "args.jsonl": {
+  "rows": 30587,
+  "dropped": 0,
+  "dropped_utts": []
+ }
+}
