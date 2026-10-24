@@ -1,24 +1,22 @@
-# training lane digest — pass 22 (main 758a017, cloud/data-pipeline 8881d38, wip/local 4350185, cloud/decisions c08a96d, cloud/brain-5 003d1bb, cloud/brain-4 dfb66a3, cloud/hobby-gaps 929b931)
+# training lane digest — pass 23 (main d514300, cloud/data-pipeline f13aa6d, wip/local b63699f, cloud/decisions c08a96d, cloud/brain-5 b752261, cloud/hobby-gaps 929b931)
 
-Open: 1 P0, 12 P1, 11 P2. Pass 22: no new findings, none resolved. data-pipeline 8881d38 is docs-only (ARGS answer-only weighting in datums_export); wip/local 4350185 changes HandsKit Swift only.
+Open: 1 P0, 12 P1, 12 P2. Pass 23: new training-35 (P1); training-30 P1->P2 (main now serves base ARGS); training-23 re-confirmed (now the serve default).
 
 ## Open P0/P1 (ranked)
-1. **training-23 (P0, main)** — shipped router `route-4b-main` trained on stale pre-fix route data; `evals/router_check.py` still runs it. it2 plan pins main's split, but no retrain yet.
-2. **training-30 (P1, main)** — main's ARGS datums weighted the runtime-prefilled empty think block; per 80cb13f this makes the runtime ARGS line empty. Reported ARGS EM 0.869 is not runtime-equivalent; `router_check.py --args-model` can now measure it.
-3. **training-31 (P1, cloud/hobby-gaps)** — set_brightness description/args change (level|delta, require_one_of) without a version bump: 50/50 route render samples mismatch, `test_samples_reproduce` fails; no ARGS data has `delta`.
-4. **training-29 (P1, data-pipeline)** — short_edit1 decontam drops 62/423 short committed items, mostly spurious (`play`~`archive`, `open chrome`~`open finder`); open_app loses 17/34 short items, open_folder 13/32.
-5. **training-5 (P1)** — two Tinker spenders, per-run guards only, billing lags hours; ~$81 left.
-6. **training-14 (P1, main)** — parity reference is 36-option vs 41-option catalog; parity test xfails while pitch claims byte-identical rendering.
-7. **training-26 (P1, data-pipeline)** — it2 ASK generator now explicitly asks for pronoun args, but ask_rule still calls `to="him"` concrete -> relabeled to the skill.
-8. **training-28 (P1, data-pipeline)** — gen note excludes Premiere, but contexts.py still puts 7.9% of media_control in Premiere Pro.
-9. **training-24 (P1)** — ASK undercoverage (val 0/3).
-10. **training-25 (P1)** — weak labels media_control 0.32, dark_mode 0.68, find_file 0.71.
-11. **training-32 (P1, cloud/decisions)** — spec'd >=30% route replay unimplemented; H6 judged on route_v1; replay must not come from stale dedup data.
-12. **training-8 / training-15 (P1, data-pipeline)** — no per-label 15% adjudication STOP; teacher subset skew / hard-soft mixing.
+1. **training-23 (P0, main)** — default router `route-4b-main-mlx4` (serve_brain.sh:12-15) trained on stale pre-fix route data; tau .55 fitted on its stale val rows.
+2. **training-35 (P1, main)** — that same mlx4 export folded the head LoRA into tied embeddings (f39efe4), shifting all input embeddings; the served router is not the validated model. Untie fix is branch-only.
+3. **training-32 (P1, cloud/decisions)** — spec'd >=30% route replay unimplemented; H6 judged on route_v1; replay must not use stale dedup data.
+4. **training-31 (P1, cloud/hobby-gaps)** — set_brightness catalog change breaks route render parity 50/50 without a version bump.
+5. **training-29 (P1, data-pipeline)** — short_edit1 decontam drops 62/423 short items, mostly spurious.
+6. **training-5 (P1)** — two Tinker spenders, per-run guards only, billing lags.
+7. **training-14 (P1, main)** — 36-option parity reference vs 41-option catalog; pitch claims byte-identical.
+8. **training-26 / training-28 (P1, data-pipeline)** — pronoun ASK relabeled concrete; media_control in Premiere 7.9%.
+9. **training-24 / training-25 (P1)** — ASK undercoverage; weak labels media_control/dark_mode/find_file.
+10. **training-8 / training-15 (P1, data-pipeline)** — no 15% adjudication STOP; teacher subset skew.
 
 ## Next moves (max 5)
-1. Before the it2 launch: fix short_edit1 (skip 1-token items, only allow near-variant/stopword substitutions, per-label drop report), the pronoun ASK rule and media_control context sampling.
-2. Run `evals/router_check.py --args-model` on route-4b-main to get real runtime ARGS/e2e numbers; don't quote 0.869 until then.
-3. Hold cloud/hobby-gaps until the catalog version is bumped and render samples + parity_300 + delta ARGS data are regenerated in the same retrain.
-4. Merge the 41-option parity reference before the byte-identical claim ships.
-5. One shared spend ledger (incl. the decisions joint run) for both Tinker workers; cap each run at 150 - billed - unbilled estimates.
+1. Re-export main-final with `export untie` (free), re-run router_check + mlx_parity, refit tau; switch serve default only if it wins.
+2. Fix short_edit1, pronoun ASK and media_control contexts, then launch it2 from route_train with the pinned split (~$29), answer-only ARGS, untied export.
+3. Decisions joint run: replay from post-fix route_train only, judge H6 on route_val.
+4. Hold hobby-gaps until the catalog version bump + regenerated render samples/parity_300; merge the 41-option parity file before the byte-identical claim ships.
+5. One shared Tinker ledger for all workers; cap each run at 150 - billed - unbilled estimates.
