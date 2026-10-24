@@ -1,14 +1,15 @@
 {
-  "lane": "finance",
-  "pass": 1,
-  "ts": "2026-10-24T06:05:00Z",
-  "last_reviewed": {
-    "main": "c09dcbd",
-    "wip/local": "bcd3b75",
-    "cloud/finance": "6f28fa3",
-    "cloud/fixtures-docs": "4bf2291",
-    "cloud/advisor": null
-  },
-  "next_id": 9,
-  "notes": "cloud/advisor not pushed yet at pass 1; spec cloud/builder_advisor.md read. ml/src/brain/finance not yet on any branch. IRS 2026 reference extracted to tests/irs_2026_reference.json for advisor checks."
+ "lane": "finance",
+ "pass": 2,
+ "ts": "2026-10-24T06:40:00Z",
+ "last_reviewed": {
+  "main": "10793e0",
+  "wip/local": "1d7cc07",
+  "cloud/finance": "f098120",
+  "cloud/fixtures-docs": "4bf2291",
+  "cloud/data-pipeline": "4cbb74a",
+  "cloud/advisor": null
+ },
+ "next_id": 13,
+ "notes": "pass 2: reviewed finance engine (cloud/finance f098120; 90 tests pass). main/wip only gained builder_advisor.md and wip fixtures equal to main's. Planner Numbers recipe is unchanged, so finance-2/3 are still open there. cloud/advisor is still not pushed. data-pipeline is outside this lane."
 }
