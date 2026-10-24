@@ -3,6 +3,17 @@ set -euo pipefail
 
 PIN=609a664e81f46e03731600bd7bd9f1b7a61257c5
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PY="${PY:-ml/.venv/bin/python}"
+if [[ "$PY" == */* && "$PY" != /* ]]; then
+  PY="$ROOT/$PY"
+elif [[ "$PY" != */* ]]; then
+  resolved_py="$(command -v "$PY" || true)"
+  if [[ -n "$resolved_py" ]]; then PY="$resolved_py"; fi
+fi
+if [[ ! -x "$PY" ]]; then
+  echo "$PY not found; run: uv sync --project ml (or set PY=...)" >&2
+  exit 2
+fi
 URL=""
 MODEL=muselet
 LIMIT=""
@@ -56,11 +67,11 @@ trap cleanup EXIT INT TERM
 if ((START_SHIM)); then
   shim_args=(--host 127.0.0.1 --port 8793 --backend "$BACKEND" --model-name "$MODEL")
   if [[ -n "$MODEL_PATH" ]]; then shim_args+=(--model-path "$MODEL_PATH"); fi
-  PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}" python3 -m bench.systemone.cli "${shim_args[@]}" >"$RUN/shim.log" 2>&1 &
+  PYTHONPATH="$ROOT:$ROOT/ml/src${PYTHONPATH:+:$PYTHONPATH}" "$PY" -m bench.systemone.cli "${shim_args[@]}" >"$RUN/shim.log" 2>&1 &
   SHIM_PID=$!
   URL=http://127.0.0.1:8793
   for _ in $(seq 1 100); do
-    if python3 - "$URL/v1/models" <<'PY'
+    if "$PY" - "$URL/v1/models" <<'PY'
 import sys, urllib.request
 try:
     urllib.request.urlopen(sys.argv[1], timeout=1).read()
@@ -73,7 +84,7 @@ PY
   done
 fi
 printf '%q ' "$0" "$@" >"$RUN/command.txt"
-printf '\nJevBench commit: %s\nURL: %s\nModel: %s\n' "$PIN" "$URL" "$MODEL" >>"$RUN/command.txt"
+printf '\nPython: %s\nJevBench commit: %s\nURL: %s\nModel: %s\n' "$PY" "$PIN" "$URL" "$MODEL" >>"$RUN/command.txt"
 for split in original easy hard; do
   dir="$RUN/$split"
   mkdir -p "$dir/raw"

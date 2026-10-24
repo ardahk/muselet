@@ -91,6 +91,7 @@ public enum SkillScripts {
         Skills.volumeStateScript,
         "tell application \"System Events\" to tell appearance preferences to get dark mode",
         "tell application \"Finder\" to empty trash",
+        FinderView.readScript,      // open_folder view read-back
     ]
 }
 

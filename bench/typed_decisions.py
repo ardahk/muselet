@@ -56,6 +56,40 @@ def ece(confidences, n_bins=10):
     return error
 
 
+def normalize_answer(pred: dict, gold: dict) -> tuple[dict, str | None]:
+    probabilities = pred.get("probabilities")
+    if probabilities:
+        return pred, None
+
+    if gold.get("type") == "noul":
+        value = pred.get("noul")
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            p = min(1.0, max(0.0, float(value)))
+            return {
+                **pred,
+                "probabilities": {"false": 1.0 - p, "true": p},
+            }, "noul_from_value"
+
+    if gold.get("type") == "score":
+        value = pred.get("score")
+        levels = list(gold.get("probabilities", {}).keys())
+        if (
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and levels
+        ):
+            index = min(max(int(math.floor(float(value) + 0.5)), 0), len(levels) - 1)
+            return {
+                **pred,
+                "probabilities": {
+                    level: 1.0 if level_index == index else 0.0
+                    for level_index, level in enumerate(levels)
+                },
+            }, "score_onehot_from_value"
+
+    return pred, None
+
+
 def percentile(values, q):
     if not values:
         return None
@@ -133,6 +167,10 @@ def main(argv=None) -> int:
     per_kind = defaultdict(list)
     latencies = []
     predictions = []
+    normalized_answers = {
+        "noul_from_value": 0,
+        "score_onehot_from_value": 0,
+    }
     for raw in source_rows:
         payload = {
             "model": args.model,
@@ -147,13 +185,20 @@ def main(argv=None) -> int:
         row_record = {"id": raw["id"], "latency_s": latency, "answers": answer.get("answers", {})}
         for qid, target in gold.items():
             predicted = answer["answers"].get(qid, {"probabilities": {}})
+            predicted, normalized = normalize_answer(predicted, target)
+            if normalized is not None:
+                normalized_answers[normalized] += 1
             result = score_one(predicted, target)
             kind = json.loads(raw["questions"])[qid]["type"]
             metric_row = {
                 "correct": result[0], "kl": result[1], "brier": result[2], "confidence": result[3],
             }
             per_kind[kind].append(metric_row)
-            row_record.setdefault("scores", {})[qid] = {"type": kind, **metric_row}
+            row_record.setdefault("scores", {})[qid] = {
+                "type": kind,
+                **metric_row,
+                "normalized": normalized,
+            }
         predictions.append(row_record)
     (run_dir / "predictions.jsonl").write_text(
         "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in predictions),
@@ -166,6 +211,7 @@ def main(argv=None) -> int:
         "revision": REVISION,
         "n_cases": len(source_rows),
         "n_decisions": len(all_rows),
+        "normalized_answers": normalized_answers,
         "overall": _metric(all_rows),
         "by_question_type": {kind: _metric(rows) for kind, rows in sorted(per_kind.items())},
         "request_latency_s": {

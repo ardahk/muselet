@@ -20,8 +20,9 @@ class FakePlanner:
     """plan() matches Planner.plan's signature; runs on the MLX worker
     thread, emits each canned line ~20 ms apart, then the None sentinel."""
 
-    def __init__(self, turns):
+    def __init__(self, turns, history="repr"):
         self.turns = turns          # list of turn -> list of lines
+        self.history = history      # older tests pin the legacy repr lines
         self.calls = 0
         self.user_msgs = []
         self.cancelled = None
@@ -472,7 +473,7 @@ def test_answer_by_code_skips_model(tmp_path):
     tr = trace_for(o)
     assert run(o._answer("what's 15 percent of 80", tr)) == "ok"
     assert o.server.said == ["15% of 80 is 12"] and not called
-    assert {"calc": "15% of 80 is 12"} in tr["decisions"]
+    assert {"calc": "15% of 80 is 12", "calc_target": "bubble"} in tr["decisions"]
     run(o._answer("who wrote Hamlet", tr))
     assert len(called) == 1 and o.server.said[-1] == "model"
 

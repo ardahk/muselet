@@ -11,6 +11,13 @@ a complete score. Terminal apps are deliberately excluded from the registry,
 so terminal-driven changes remain a residual risk.
 The case's own close steps are never sent; only tracked created items are closed.
 
+Before each case's other preconditions or actions, the runner invokes
+`<hands-bin> probe session` with a five-second timeout. Locked or asleep
+sessions are recorded as `screen_locked`; failed or invalid probes are
+`session_unverifiable`. These skips run no setup, utterance, teardown, or
+restore. `AGENTS.md` states that results gathered while the screen is locked
+are invalid. Dry runs show this planned check but never invoke it.
+
 The live runner executes `evals/live_t1.jsonl` against a macOS desktop. It
 starts a local WebSocket proxy and launches `hands serve` clients as needed;
 start the Brain server separately. Do not run the suite while another person

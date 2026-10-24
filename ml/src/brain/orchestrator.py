@@ -6,12 +6,13 @@ Everything is traced and the app gets ui/say messages.
 
 import asyncio
 import logging
+import math
 import os
 import re
 import threading
 import time
 
-from . import calc, dsl, obsdiff, replies, slots
+from . import argfix, calc, dsl, obsdiff, pathfind, replies, sendgate, slots
 from .catalog import Catalog, CatalogError
 from .traces import Tracer
 
@@ -38,6 +39,205 @@ def _num(tok: str) -> int | None:
 def _norm(text: str) -> str:
     # case/punctuation-insensitive: Parakeet finals add both
     return " ".join(re.sub(r"[^\w\s']", " ", text.lower()).split())
+
+
+def _repr_line(a: dict) -> str:
+    """legacy Last-batch action text: `{op} k=v ...` from the parsed dict"""
+    return f"{a['op']} " + " ".join(
+        f"{k}={v}" for k, v in a.items() if k != "op")
+
+
+def _log_act(a: dict) -> str:
+    """the action as one DSL line for Last batch (expect dropped; a long
+    script body is cut to 200 chars)"""
+    a = {k: v for k, v in a.items() if k != "expect"}
+    if a.get("op") == "script" and len(a.get("code", "")) > 200:
+        a["code"] = a["code"][:200] + "…"
+    try:
+        return dsl.serialize([a])
+    except (dsl.DSLError, KeyError):
+        return _repr_line(a)
+
+
+def _script_failure(error: str, res: dict | None) -> tuple[str, str]:
+    """(bubble, planner reason) for a failed script act: HandsKit sends
+    timed_out / exit_code / stderr and `script_failed: exit N: <stderr>`."""
+    res = res or {}
+    err = " ".join(str(res.get("stderr") or "").split())[:200]
+    if res.get("timed_out") or re.search(r"timed? ?out", error or ""):
+        return "That script timed out", "timed out" + (f"; stderr: {err}" if err else "")
+    code = res.get("exit_code")
+    if code is None and (m := re.search(r"exit (-?\d+)", error or "")):
+        code = int(m.group(1))
+    if code is None:
+        return "Script failed", error or "?"
+    if not err:
+        err = re.sub(r"^script_failed: exit -?\d+:? ?", "", error or "")[:200]
+    return "Script failed", f"exit {code}" + (f"; stderr: {err}" if err else "")
+
+
+_ABS_SKILL = {"change_volume": "set_volume", "change_brightness": "set_brightness"}
+_ABS_WORDS = {"max": 100, "maximum": 100, "full": 100, "half": 50,
+              "min": 0, "minimum": 0}
+_CODE_ARGS = {"set_brightness": {"delta"}, "open_folder": {"view"}}
+_FOLLOW = re.compile(
+    r"^(?:(?:and then|and|then)\s+)?(?:open|show|reveal)\s+"
+    r"(?:it|that|them|the folder|the file)$", re.IGNORECASE)
+_IMPERATIVE = re.compile(
+    r"^(?:open|show|close|play|turn|set|make|create|send|search|find|take|"
+    r"start|put|add|move|delete|go|switch|mute|unmute|lock|empty|quit|hide|"
+    r"copy|paste|type|write|email|text|call|schedule|remind)\b",
+    re.IGNORECASE)
+
+
+_ABS_ANYWHERE = {"max", "maximum", "full", "half"}
+_REL_UNITS = {"notch": 10, "notches": 10, "step": 10, "steps": 10,
+              "click": 10, "clicks": 10, "tick": 10, "ticks": 10,
+              "bar": 10, "bars": 10, "level": 10, "levels": 10,
+              "point": 1, "points": 1, "percent": 1}
+_UP = {"up", "louder", "raise", "increase", "higher", "brighter", "boost"}
+_DOWN = {"down", "quieter", "lower", "decrease", "softer", "dimmer",
+         "reduce", "dim"}
+_BIT = re.compile(r"\b(a (little )?bit|a little|a touch|a tad|slightly)\b")
+
+
+def _level_toks(text: str) -> list[str]:
+    return re.findall(r"[a-z]+|\d+", text.lower().replace("%", " percent "))
+
+
+def _num_runs(toks: list[str]) -> list[tuple[int, int, float]]:
+    """(start, end, value) of every spoken/digit number run"""
+    runs, i = [], 0
+    while i < len(toks):
+        v, j = calc._parse_run(toks, i)
+        if v is None or j <= i:
+            i += 1
+            continue
+        runs.append((i, j, v))
+        i = j
+    return runs
+
+
+def abs_level(text: str) -> int | None:
+    """Absolute 0-100 target, only after an absolute marker: 'to N', 'at N',
+    'N percent' / 'N%', 'half', 'max', 'full', 'all the way up/down'. Relative
+    phrasing ('up two to three notches', 'by 20', 'a bit') -> None (brain-16)."""
+    if re.search(r"\ball\s+the\s+way\s+up\b", text, re.IGNORECASE):
+        return 100
+    if re.search(r"\ball\s+the\s+way\s+down\b", text, re.IGNORECASE):
+        return 0
+    if re.search(r"\b(?:min|minimum)\b", text, re.IGNORECASE) and \
+            not re.search(r"\bby\b", text, re.IGNORECASE):
+        return 0
+    toks = _level_toks(text)
+    n = len(toks)
+    for i, w in enumerate(toks):
+        prev, nxt = toks[i - 1] if i else "", toks[i + 1: i + 3]
+        if w in _ABS_WORDS and prev != "by" and \
+                not any(t in _REL_UNITS for t in nxt) and \
+                (w in _ABS_ANYWHERE or prev in ("to", "at", "the")):
+            return _ABS_WORDS[w]
+    runs = _num_runs(toks)
+    ends = {e for _, e, _ in runs}
+    for i, j, v in runs:
+        nxt = toks[j] if j < n else ""
+        if nxt in _REL_UNITS and nxt != "percent":
+            continue                          # 'three notches'
+        k = i - 1 - (i >= 2 and toks[i - 1] == "the")
+        marker = toks[k] if k >= 0 else ""
+        if marker in ("to", "at"):
+            if marker == "to" and k in ends:  # 'two to three': a range
+                continue
+            if (nxt == "percent" or nxt not in _REL_UNITS) and \
+                    0 <= v <= 100 and v == int(v):
+                return int(v)
+            continue
+        prev = toks[i - 1] if i else ""
+        if nxt == "percent" and prev not in ("by",) and prev not in _UP \
+                and prev not in _DOWN and 0 <= v <= 100 and v == int(v):
+            return int(v)
+    return None
+
+
+def rel_delta(text: str) -> int | None:
+    """Signed relative step by code (notch/step = 10): 'up two to three
+    notches' -> 25, 'down by 20' -> -20, 'a bit quieter' -> -10; None when
+    the direction or the amount isn't stated."""
+    toks = _level_toks(text)
+    sign = next((1 if t in _UP else -1 for t in toks
+                 if t in _UP or t in _DOWN), None)
+    if sign is None:
+        return None
+    runs, n, amt = _num_runs(toks), len(toks), None
+    for x, (i, j, v) in enumerate(runs):
+        nxt = toks[j] if j < n else ""
+        lo = v
+        if x and runs[x - 1][1] == i - 1 and toks[i - 1] == "to":
+            lo = runs[x - 1][2]               # 'two to three'
+        unit = _REL_UNITS.get(nxt)
+        if unit is None and lo != v:
+            unit = 10 if v <= 10 else 1       # bare small range = notches
+        if unit is None and i and toks[i - 1] == "by":
+            unit = 1
+        if unit is not None:
+            amt = (lo + v) / 2 * unit
+    if amt is None and _BIT.search(" ".join(toks)):
+        amt = 10
+    if amt is None:
+        return None
+    return sign * round(min(amt, 100))
+
+
+_JOIN = re.compile(r",?\s+(and\s+then|then|and)\s+", re.IGNORECASE)
+MAX_CLAUSES = 4
+
+
+def split_clauses(text: str) -> tuple[list[str], list[str]]:
+    """'a and then b' -> (['a', 'b'], ['and then']); never splits inside
+    "quoted text". One clause -> ([text], [])."""
+    parts, joins, start = [], [], 0
+    for m in _JOIN.finditer(text):
+        if text[:m.start()].count('"') % 2:
+            continue
+        parts.append(text[start:m.start()])
+        joins.append(" ".join(m.group(1).lower().split()))
+        start = m.end()
+    parts.append(text[start:])
+    parts = [p.strip(" ,.") for p in parts]
+    if len(parts) < 2 or not all(parts):
+        return [text], []
+    return parts, joins
+
+
+# common spoken names -> app (the `apps` RPC list wins when it matches)
+_APP_ALIASES = {"finder": "Finder", "chrome": "Google Chrome",
+                "google chrome": "Google Chrome", "safari": "Safari",
+                "notes": "Notes", "numbers": "Numbers",
+                "premiere": "Adobe Premiere Pro",
+                "premiere pro": "Adobe Premiere Pro"}
+APPS_TTL_S = 60
+
+
+def app_in(text: str, names: list[str]) -> str | None:
+    """Longest installed/running app name (or alias) in the utterance."""
+    u = f" {_norm(text)} "
+    hits = [n for n in names if _norm(n) and f" {_norm(n)} " in u]
+    if hits:
+        return max(hits, key=lambda n: len(_norm(n)))
+    for alias in sorted(_APP_ALIASES, key=len, reverse=True):
+        if f" {alias} " in u:
+            full = _APP_ALIASES[alias]
+            return next((n for n in names if _norm(full) in _norm(n)), full)
+    return None
+
+
+def _action_key(a: dict) -> str:
+    """normalized DSL line of an action (loop-guard identity)."""
+    try:
+        line = dsl.serialize([dict(a, expect=None)])
+    except Exception:       # noqa: BLE001
+        line = str(a)
+    return " ".join(line.lower().split())
 
 
 def _headtail(s: str, n: int = 1500) -> str:
@@ -71,7 +271,30 @@ def script_needs_confirm(lang: str, code: str) -> bool:
     return True
 
 
+# Apps whose UI is a canvas the AX tree can't see into (matched case-insensitively
+# as a prefix of the observed app name, so "Adobe Premiere Pro 2025" matches).
+CANVAS_APPS = ("Adobe Premiere Pro", "Final Cut Pro", "Figma", "Blender",
+               "Chess", "Minecraft", "Steam", "Roblox", "League of Legends",
+               "Hearthstone", "World of Warcraft", "Factorio", "Stardew Valley")
+BLIND_HINT = 'Accessibility tree is empty here: use click "<description>"'
+DEFAULT_GROUNDER = {"model": "eyes-4b", "repo": None, "max_pixels": 1_000_000,
+                    "zoom_frac": 0.4}
+
+
+def observation_blind(obs: dict | None) -> bool:
+    """AX can't help: no elements, or a canvas app (Premiere, Figma, games ...)."""
+    if not obs:
+        return False
+    app = (obs.get("app") or "").strip().lower()
+    if any(app.startswith(c.lower()) for c in CANVAS_APPS):
+        return True
+    return not obs.get("elements")
+
+
 class Orchestrator:
+    WEB_AX_WINDOW_S = 2.2     # Chrome's web AX tree lands ~2 s after a switch
+    COMPOUND_P = 0.75         # every clause must route this confidently
+
     def __init__(self, server, catalog: Catalog | None = None,
                  tracer: Tracer | None = None, engine=None, tau: float = 0.55):
         self.server = server
@@ -80,12 +303,16 @@ class Orchestrator:
         self.engine = engine
         self.tau = tau
         self.planner = None
+        self.planner_escalate = None    # opt-in bigger planner (loop guard)
+        self._active_planner = None
         self._ms_kind = None
         self._last_epoch = None
         self._last_obs = None
+        self._last_url = None
         self._ctx = {"app": "none", "focused": "none", "selection": False,
                      "last_action": "none"}
         self._t_final = 0.0
+        self._web_ax_t0 = None      # first web_ax_pending observe arrival
         self._first_action_ms: float | None = None
         self._batch_confirmed = False
         self._pending_task: dict | None = None
@@ -98,6 +325,14 @@ class Orchestrator:
         self._slot: dict | None = None     # {skill, args, missing, t, ...}
         self._utterance = ""
         self._diff_chain: list[str] | None = None
+        self._apps: tuple[float, list[str]] | None = None   # (t, names)
+        self._collect: list[str] | None = None   # compound: replies to join
+        self._last_skill: tuple[str, dict, dict] | None = None
+        self._compound_to_planner = False
+        self._compound_parts: list[str] = []
+        self.grounder_cfg: dict | None = dict(DEFAULT_GROUNDER)   # None = off
+        self.grounder = None        # brain.grounder.Grounder, built on first use
+        self.screens: list | None = None    # app `hello` screens (backing scale)
 
     # ---------- v0 router ----------
 
@@ -150,6 +385,7 @@ class Orchestrator:
         t0 = time.perf_counter()
         self._t_final = t0
         self._first_action_ms = None
+        self._web_ax_t0 = None
         self._ms_kind = None
         trace = self.tracer.begin(text)
         # utterance-frame ctx wins (app/focused/selection/online)
@@ -173,6 +409,13 @@ class Orchestrator:
                 self._pending_task = None
                 outcome = await self._planner_loop(
                     goal, trace, answer=text)
+            elif (calc_result := calc.result(text)) is not None and \
+                    calc_result.value is not None and (
+                    str(self._ctx.get("app", "")).casefold() == "calculator"
+                    or re.search(r"\bcalculator\b", text, re.IGNORECASE) is not None
+                    ):
+                outcome = await self._deliver_calc(
+                    calc_result, trace, calculator=True)
             elif self.engine is not None:
                 outcome = await self._engine_route(text, trace)
             else:
@@ -184,10 +427,9 @@ class Orchestrator:
                           "args": plan["args"]}])
                 elif plan["kind"] == "batch":
                     outcome = await self.execute_actions(plan["actions"])
-                elif (ans := calc.answer(text)) is not None:
-                    trace["decisions"].append({"calc": ans})
-                    await self.server.say(ans)
-                    await self._end_ui("success")
+                elif (parsed := calc.result(text)) is not None:
+                    outcome = await self._deliver_calc(
+                        parsed, trace, calculator=False)
                 else:
                     await self._observe()
                     await self.server.say("I can't do that yet")
@@ -233,6 +475,12 @@ class Orchestrator:
         from .planner import worker
         # reuse a speculative route (+ARGS) when the final text matches the
         # last partial (architect-5a)
+        if pre is None and self._collect is None:
+            self._compound_to_planner = False
+            self._compound_parts = []
+            out = await self._compound(text, trace)
+            if out is not None:
+                return out
         norm = _norm(text)
         spec_hit = False
         spec_ext = None
@@ -258,6 +506,19 @@ class Orchestrator:
                                    "route_ms": res.ms.get("route_ms"),
                                    "spec_hit": spec_hit})
         label = res.top
+        if self._compound_to_planner:
+            self._compound_to_planner = False
+            if label == "REFUSE":
+                await self.server.say("Sorry, I can't do that")
+                await self._end_ui("confused")
+                return "failed"
+            if label == "MULTI_STEP":
+                trace["compound_to_planner"] = {
+                    "hint": label, "clauses": self._compound_parts}
+                return await self._planner_loop(text, trace)
+            trace["compound_to_planner"] = {
+                "hint": label, "clauses": self._compound_parts}
+            return await self._planner_loop(text, trace, hint=label)
         if res.p_top < self.tau:
             # unsure -> System 2 with a hint (AGENTS.md contract)
             hint = f"{top5[0][0]} or {top5[1][0]}"
@@ -293,13 +554,108 @@ class Orchestrator:
 
     def _missing(self, name: str, args: dict) -> list[str]:
         return [a["name"] for a in (self.catalog.get(name) or {}).get("args", [])
-                if a.get("required") and args.get(a["name"]) in (None, "")]
+                if a.get("required") and args.get(a["name"]) in (None, "")
+                and not (name == "set_brightness" and a["name"] == "level"
+                         and args.get("delta") not in (None, ""))]
 
     async def _run_skill(self, label: str, raw_args: dict, text: str,
-                         trace: dict) -> str:
+                         trace: dict, filled: str | None = None) -> str:
         """fallback table -> slot fill for still-missing args -> execute."""
+        raw_args = dict(raw_args)
+        to = _ABS_SKILL.get(label)
+        if to and self.catalog.get(to) and filled != "level" and \
+                (lvl := abs_level(text)) is not None:
+            trace["decisions"].append({"abs_switch": [label, to, lvl]})
+            label, raw_args = to, {"level": lvl}
+        elif label in _ABS_SKILL and (d := rel_delta(text)) is not None:
+            trace["decisions"].append({"rel_delta": d})
+            raw_args = dict(raw_args, delta=d)
         spec = self.catalog.get(label) or {}
+        if label in ("set_volume", "set_brightness") and \
+                raw_args.get("level") in (None, "") and filled != "level":
+            if (lvl := abs_level(text)) is not None:
+                raw_args["level"] = lvl
+                trace["decisions"].append({"abs_level": [label, lvl]})
+            elif label == "set_brightness" and \
+                    (delta := argfix.vague_delta(text)) is not None:
+                raw_args["delta"] = delta
+                trace["decisions"].append({"vague_delta": delta})
+        if label == "change_volume" and filled != "delta":
+            from . import decision
+            if decision.normalize_delta(raw_args.get("delta")) is None and \
+                    (delta := argfix.vague_delta(text)) is not None:
+                raw_args["delta"] = delta
+                trace["decisions"].append({"vague_delta": delta})
+        if label == "open_folder" and filled != "view":
+            if view := argfix.finder_view(text):
+                raw_args["view"] = view
+        if filled != "on" and any(
+                a.get("name") == "on" and a.get("type") == "bool"
+                for a in spec.get("args", [])):
+            polarity = argfix.polarity(label, text)
+            if polarity in (True, False):
+                raw_args["on"] = polarity
+                trace["decisions"].append({"polarity": polarity})
+            elif polarity == "negated":
+                raw_args.pop("on", None)
+                trace["decisions"].append({"polarity": "negated"})
+        for a in spec.get("args", []):
+            key = a.get("name")
+            if a.get("type") != "duration" or key not in raw_args:
+                continue
+            recovered = argfix.recover_duration(raw_args[key], text)
+            if isinstance(recovered, int):
+                raw_args[key] = recovered
+            elif recovered == "ask":
+                number = argfix.duration_prompt_number(raw_args[key], text)
+                return await self._start_slot(
+                    label, raw_args, [key], text, trace,
+                    question=slots.duration_question(number),
+                    extra={"duration_number": raw_args[key]})
+        for a in spec.get("args", []):
+            key = a.get("name")
+            if label not in ("move_to_trash", "open_file", "open_folder") or \
+                    a.get("type") != "path":
+                continue
+            value = str(raw_args.get(key) or "")
+            phrase = value if filled == "path" else \
+                pathfind.object_phrase(label, text) or value
+            if label == "open_folder" and \
+                    (pathfind.is_alias(value) or pathfind.is_alias(phrase)):
+                continue
+            if value and os.path.exists(os.path.expanduser(value)):
+                continue
+            if not phrase:
+                continue
+            matches = pathfind.resolve(phrase)
+            if len(matches) == 1:
+                raw_args[key] = matches[0]
+                trace["decisions"].append({"path_resolved": matches[0]})
+            elif matches:
+                names = [os.path.basename(p) for p in matches[:3]]
+                if len(names) == 1:
+                    custom = f"Which one: {names[0]}?"
+                elif len(names) == 2:
+                    custom = f"Which one: {names[0]} or {names[1]}?"
+                else:
+                    custom = (f"Which one: {names[0]}, {names[1]}, or "
+                              f"{names[2]}?")
+                return await self._start_slot(
+                    label, raw_args, [key], text, trace,
+                    question=_cap12(custom))
+            else:
+                return await self._start_slot(
+                    label, raw_args, [key], text, trace,
+                    question=_cap12(
+                        f"I couldn't find {phrase}. Which file?"))
         raw_args = slots.fill_defaults(label, raw_args, text)
+        for a in spec.get("args", []):
+            if a.get("type") == "app" and a.get("required") and \
+                    raw_args.get(a["name"]) in (None, ""):
+                app = app_in(text, await self._app_names())
+                if app:
+                    raw_args[a["name"]] = app
+                    trace["decisions"].append({"app_fill": app})
         missing = self._missing(label, raw_args)
         if missing:
             return await self._start_slot(label, raw_args, missing, text,
@@ -309,7 +665,8 @@ class Orchestrator:
         parts = " ".join(
             f'{k}="{v}"' if isinstance(v, str) and " " in v else f"{k}={v}"
             for k, v in raw_args.items())
-        args = self._coerce_args(label, raw_args, utterance=text)
+        args = self._coerce_args(label, raw_args, utterance=text,
+                                 filled=filled)
         if spec.get("executor") == "brain":
             out = await self._brain_tool(label, args, text)
         else:
@@ -321,21 +678,157 @@ class Orchestrator:
                 self.engine.last_action = self._ctx["last_action"]
         return out
 
+    async def _app_names(self) -> list[str]:
+        """running + installed app names from the `apps` RPC, cached 60 s
+        (a failed RPC is cached too: aliases still work)."""
+        now = time.time()
+        if self._apps and now - self._apps[0] < APPS_TTL_S:
+            return self._apps[1]
+        names = []
+        try:
+            res = await self.server.rpc("apps", {}, timeout=3)
+            names = [a.get("name") if isinstance(a, dict) else a
+                     for a in res.get("running") or []] + \
+                list(res.get("installed") or [])
+        except RuntimeError:
+            pass
+        names = [n for n in dict.fromkeys(names) if isinstance(n, str) and n]
+        self._apps = (now, names)
+        return names
+
+    async def _compound(self, text: str, trace: dict) -> str | None:
+        """'X and then Y': route each clause on the worker; when every clause
+        is a confident native skill, run them in order (ARGS per clause) with
+        one combined reply. None -> route the whole utterance instead."""
+        parts, joins = split_clauses(text)
+        if len(parts) < 2:
+            return None
+        from .planner import worker
+        if len(parts) > MAX_CLAUSES:
+            self._reject_compound(parts, [], trace)
+            return None
+        routed: list[tuple[int, str, str, float]] = []
+        followups: dict[int, str] = {}
+        routed_for_trace = []
+        previous = None
+        for i, c in enumerate(parts):
+            if i and previous in ("new_folder", "take_screenshot", "new_note") \
+                    and _FOLLOW.fullmatch(" ".join(c.lower().split())):
+                followups[i] = previous
+                routed_for_trace.append([c, "FOLLOW", None])
+                previous = None
+                continue
+            r = await worker().submit_async(self.engine.route, c,
+                                            dict(self._ctx))
+            spec = self.catalog.get(r.top)
+            routed.append((i, c, r.top, r.p_top))
+            routed_for_trace.append([c, r.top, round(r.p_top, 3)])
+            if not spec or spec.get("executor") == "brain" or \
+                    r.p_top < self.COMPOUND_P:
+                self._reject_compound(parts, routed_for_trace, trace)
+                return None
+            previous = r.top
+        # a plain 'and' between two same-skill clauses is one phrase
+        # ("search for salt and pepper"); 'then' always sequences
+        if any(join == "and" and any(row[0] == i for row in routed)
+               and any(row[0] == i + 1 for row in routed)
+               and next(row[2] for row in routed if row[0] == i)
+               == next(row[2] for row in routed if row[0] == i + 1)
+               for i, join in enumerate(joins)):
+            self._reject_compound(parts, routed_for_trace, trace)
+            return None
+        trace["compound"] = len(routed)
+        trace["decisions"].append({"compound_routes": routed_for_trace})
+        self._spec_fut, self._spec_norm = None, ""
+        self._spec_gen += 1
+        self._collect = []
+        try:
+            for i, c in enumerate(parts):
+                if i in followups:
+                    after = followups[i]
+                    last = self._last_skill
+                    result = (last[2] if last and last[0] == after else {})
+                    path = None
+                    name = None
+                    args = {}
+                    if after == "new_folder":
+                        name = "open_folder"
+                        last_args = last[1] if last and last[0] == after else {}
+                        args = {"path": result.get("path") or os.path.join(
+                            pathfind.alias(last_args.get("parent", "")),
+                            str(last_args.get("name") or ""))}
+                        path = args["path"]
+                    elif after == "take_screenshot":
+                        name = "open_file"
+                        path = result.get("path")
+                        if not path:
+                            return await self._fail(
+                                "screenshot path missing",
+                                "I couldn't find the screenshot file")
+                        args = {"path": path}
+                    trace["decisions"].append({
+                        "compound_followup": {"after": after,
+                                              "skill": name or after,
+                                              "path": path}})
+                    if name:
+                        out = await self.execute_actions(
+                            [{"op": "skill", "name": name, "args": args}])
+                        if out != "ok":
+                            return out
+                    continue
+                row = next(row for row in routed if row[0] == i)
+                _, _, label, _ = row
+                if (self.catalog.get(label) or {}).get("args"):
+                    ext = await worker().submit_async(
+                        self.engine.args, label, c, dict(self._ctx))
+                    trace["decisions"].append(
+                        {"args_ms": ext.get("ms", {}).get("args_ms"),
+                         "raw": ext.get("_raw")})
+                    out = await self._run_skill(label, {
+                        k: v for k, v in ext.items()
+                        if k not in ("ms", "_raw", "missing")}, c, trace)
+                else:
+                    out = await self.execute_actions(
+                        [{"op": "skill", "name": label, "args": {}}])
+                if out != "ok":
+                    return out
+            said = self._collect
+        finally:
+            self._collect = None
+        reply = ", ".join(s if i == 0 else s[:1].lower() + s[1:]
+                          for i, s in enumerate(said))
+        await self.server.say(_cap12(reply or "Done"))
+        await self._end_ui("success")
+        return "ok"
+
+    def _reject_compound(self, parts: list[str], routed: list,
+                         trace: dict) -> None:
+        trace["decisions"].append({"compound_reject": routed})
+        if any(_IMPERATIVE.match(part.strip()) for part in parts[1:]):
+            self._compound_to_planner = True
+            self._compound_parts = parts
+            trace["decisions"].append(
+                {"compound_rejected_for_planner": parts})
+
     def _arg_spec(self, skill: str, arg: str) -> dict:
         return next((a for a in (self.catalog.get(skill) or {}).get("args", [])
                      if a.get("name") == arg), {})
 
     async def _start_slot(self, skill: str, args: dict, missing: list[str],
-                          text: str, trace: dict) -> str:
+                          text: str, trace: dict, question: str | None = None,
+                          extra: dict | None = None) -> str:
         """ask for the first missing arg; the next final utterance fills it."""
         self._slot = {"skill": skill, "args": dict(args),
                       "missing": list(missing), "t": time.time(),
                       "utterance": text, "tries": 0}
+        if extra:
+            self._slot.update(extra)
         trace["slot_fill"] = True
         trace["decisions"].append({"slot_fill": {"skill": skill,
                                                  "missing": list(missing)}})
         a = self._arg_spec(skill, missing[0])
-        await self.server.say(slots.question(skill, missing[0], a.get("type")))
+        await self.server.say(question or
+                              slots.question(skill, missing[0], a.get("type")))
         await self.server.ui("listening")
         return "awaiting_user"
 
@@ -372,6 +865,13 @@ class Orchestrator:
         arg = slot["missing"][0]
         a = self._arg_spec(slot["skill"], arg)
         val = slots.clean_answer(text, a.get("type"))
+        if a.get("type") == "duration" and \
+                slot.get("duration_number") is not None:
+            from . import decision
+            if decision.parse_duration(val) is None:
+                combined = f'{slot["duration_number"]} {val}'
+                if decision.parse_duration(combined) is not None:
+                    val = combined
         trace["decisions"].append({"slot_fill": {
             "skill": slot["skill"], "arg": arg, "value": val}})
         if not slots.valid(a.get("type"), val, a):
@@ -389,7 +889,7 @@ class Orchestrator:
         self._slot = None
         args = dict(slot["args"], **{arg: val})
         return await self._run_skill(slot["skill"], args, slot["utterance"],
-                                     trace)
+                                     trace, filled=arg)
 
     @staticmethod
     def _human(name: str) -> str:
@@ -403,7 +903,13 @@ class Orchestrator:
     _DANGEROUS_LABEL = re.compile(
         r"send|delete|remove|buy|purchase|pay|place order|post|publish|"
         r"erase|empty trash|replace|submit order", re.IGNORECASE)
+    _CONTAINER_ROLES = frozenset({
+        "application", "cell", "group", "layoutarea", "list", "outline",
+        "row", "scrollarea", "splitgroup", "table", "toolbar", "webarea",
+        "window",
+    })
     _DANGEROUS_COMBOS = {"cmd+delete", "cmd+opt+delete", "cmd+shift+d"}
+    _ENTER_COMBOS = {"return", "enter", "cmd+return", "keypad_enter"}
 
     def _speculative_route(self, text: str, ctx: dict | None = None):
         """Called for partial utterances — routes (and, for a confident
@@ -436,12 +942,14 @@ class Orchestrator:
         return res, (ext if gen == self._spec_gen else None)
 
     async def _answer(self, text: str, trace: dict) -> str:
-        ans = calc.answer(text)      # exact by code: never ask the model
-        if ans is not None:
-            trace["decisions"].append({"calc": ans})
-            await self.server.say(ans)
-            await self._end_ui("success")
-            return "ok"
+        parsed = calc.result(text)      # exact by code: never ask the model
+        if parsed is not None:
+            calculator = parsed.value is not None and (
+                str(self._ctx.get("app", "")).casefold() == "calculator"
+                or re.search(r"\bcalculator\b", text, re.IGNORECASE) is not None
+            )
+            return await self._deliver_calc(
+                parsed, trace, calculator=calculator)
         if self.planner is not None:
             from .planner import worker
             ans = await worker().submit_async(
@@ -454,6 +962,140 @@ class Orchestrator:
         await self._end_ui("success")
         return "ok"
 
+    async def _deliver_calc(self, parsed, trace: dict, *,
+                            calculator: bool) -> str:
+        target = "calculator" if calculator else "bubble"
+        trace["decisions"].append({
+            "calc": parsed.answer,
+            "calc_target": target,
+        })
+        if not calculator or parsed.value is None:
+            await self.server.say(parsed.answer)
+            await self._end_ui("success")
+            return "ok"
+
+        readback = None
+        matched = False
+        try:
+            source = parsed.expr or self._calculator_number(parsed.value)
+            if parsed.expr is None and parsed.value < 0:
+                source = f"0-{self._calculator_number(abs(parsed.value))}"
+            actions = [
+                {"op": "open", "app": "Calculator"},
+                {"op": "keys", "combo": "esc"},
+                *(
+                    {"op": "keys", "combo": key}
+                    for key in self._calculator_keys(source + "=")
+                ),
+            ]
+            for action in actions:
+                await self._calculator_act(action)
+            # This constant is code-authored read-back, not a model script.
+            code = self._calculator_readback_script()
+            result = await self._calculator_act(
+                {"op": "script", "lang": "jxa", "code": code},
+                return_result=True)
+            readback = self._readback_text(result)
+            normalized = re.sub(r"[\s,]", "", str(readback)).replace("\u2212", "-")
+            match = re.search(r"[-+]?\d+(?:\.\d+)?", normalized)
+            if match:
+                matched = math.isclose(
+                    float(match.group(0)), parsed.value, rel_tol=1e-9)
+        except Exception:
+            matched = False
+        trace["calc_readback"] = readback
+        await self.server.say(parsed.answer)
+        await self._end_ui("success" if matched else "confused")
+        return "ok" if matched else "failed"
+
+    @staticmethod
+    def _calculator_keys(text: str) -> list[str]:
+        return [
+            "shift+=" if char == "+" else "shift+8" if char == "*" else char
+            for char in text
+        ]
+
+    @staticmethod
+    def _calculator_number(value: float) -> str:
+        if value == 0:
+            return "0"
+        places = max(0, 11 - math.floor(math.log10(abs(value))))
+        return (f"{value:.{places}f}".rstrip("0").rstrip(".")
+                if places else f"{value:.0f}")
+
+    @staticmethod
+    def _calculator_readback_script() -> str:
+        return '''
+function run() {
+  try {
+    var process = Application("System Events").processes.byName("Calculator");
+    var windows = process.windows();
+    if (!windows.length) return "";
+    function find(node, depth) {
+      if (!node || depth > 10) return null;
+      try {
+        if (node.role() === "AXScrollArea" &&
+            node.description() === "Input") return node;
+      } catch (e) {}
+      try {
+        var children = node.uiElements();
+        for (var i = 0; i < children.length; i++) {
+          var found = find(children[i], depth + 1);
+          if (found) return found;
+        }
+      } catch (e) {}
+      return null;
+    }
+    var input = find(windows[0], 0);
+    if (!input) return "";
+    var children = input.uiElements();
+    for (var i = 0; i < children.length; i++) {
+      try {
+        if (children[i].role() === "AXStaticText") return children[i].value() || "";
+      } catch (e) {}
+    }
+    return "";
+  } catch (e) {
+    return "";
+  }
+}
+'''
+
+    @staticmethod
+    def _readback_text(result) -> str:
+        if isinstance(result, dict):
+            for key in ("output", "value", "stdout", "result"):
+                if key in result:
+                    value = result[key]
+                    if isinstance(value, dict):
+                        return Orchestrator._readback_text(value)
+                    if value is not None:
+                        return str(value)
+        return str(result) if result is not None else ""
+
+    async def _calculator_act(self, params: dict, *, return_result=False):
+        await self.server.ui("acting")
+        if self._ms_kind is None:
+            self._ms_kind = "skill"
+        if self._first_action_ms is None:
+            self._first_action_ms = (time.perf_counter() - self._t_final) * 1000
+        if self._last_epoch is not None:
+            params["epoch"] = self._last_epoch
+        started = time.perf_counter()
+        try:
+            result = await self.server.rpc("act", params, timeout=15)
+        except RuntimeError as exc:
+            self.tracer.rpc("act", params, {"error": str(exc)},
+                            (time.perf_counter() - started) * 1000)
+            raise
+        self.tracer.rpc("act", params, self._trace_res(result),
+                        (time.perf_counter() - started) * 1000)
+        if result.get("epoch"):
+            self._last_epoch = result["epoch"]
+        if not result.get("ok", False):
+            raise RuntimeError(str(result.get("error", "calculator act failed")))
+        return result if return_result else True
+
     def _label_of(self, ref: int | None) -> str:
         if ref is None or not self._last_obs:
             return ""
@@ -461,6 +1103,27 @@ class Orchestrator:
             if e.get("ref") == ref:
                 return e.get("label", "")
         return ""
+
+    def _element_for_ref(self, ref):
+        if ref is None or not self._last_obs:
+            return None
+        return next((e for e in self._last_obs.get("elements", [])
+                     if e.get("ref") == ref), None)
+
+    def _enter_sends(self, ref=None, *, observed_focus=False) -> bool:
+        obs = self._last_obs or {}
+        element = self._element_for_ref(
+            obs.get("focused_ref") if observed_focus else ref)
+        role = element.get("role") if element else None
+        label = element.get("label") if element else None
+        if observed_focus and element is None:
+            focused = str(self._ctx.get("focused") or "")
+            match = re.fullmatch(r'\s*([^\s]+)\s+"(.*)"\s*', focused)
+            if match:
+                role, label = match.groups()
+        return sendgate.enter_sends(
+            obs.get("app") or self._ctx.get("app"), obs.get("window"),
+            role, label)
 
     def _app_name(self) -> str:
         return (self._last_obs or {}).get("app") or self._ctx.get("app") \
@@ -483,8 +1146,12 @@ class Orchestrator:
                     return _cap12(f"{verb} {to}?")
                 return f'{verb} {to}: "{_excerpt(body, left)}"?'
             if n == "move_to_trash":
-                p = str(ar.get("path") or "this file").rstrip("/")
-                return _cap12(f"Move {os.path.basename(p) or p} to Trash?")
+                p = str(ar.get("path") or "this file")
+                home = os.path.expanduser("~")
+                if os.path.isabs(p) and (p == home or
+                                         p.startswith(home + os.sep)):
+                    p = "~" + p[len(home):]
+                return _cap12(f"Move {p} to Trash?")
             if n == "empty_trash":
                 return "Empty the Trash permanently?"
             if n == "quit_app":
@@ -514,12 +1181,32 @@ class Orchestrator:
             return _cap12(f'Run {lang} command "{_excerpt(first, 6)}"?')
         return _cap12(f"Continue in {app}?")
 
+    def _batch_line(self, act: str, res: str, legacy: str) -> str:
+        """One Last-batch line in the planner's history format: marked
+        `[ok] <dsl>`, dsl `<dsl> -> ok`, repr = the legacy dict-repr line."""
+        fmt = getattr(self._active_planner or self.planner, "history", "dsl")
+        if fmt == "repr":
+            return legacy
+        if fmt == "dsl":
+            return f"{act} -> {res}"
+        return f"[{res}] {act}"
+
     async def _exec_one(self, a: dict) -> dict:
+        """Execute one DSL action; `_log` is its Last-batch line."""
+        legacy = "script -> " if a["op"] == "script" else _repr_line(a) + "-> "
+        act = _log_act(a)
+        r = await self._exec_action(a)
+        log = r.get("_log") or legacy + str(r.get("status", "?"))
+        res = log[len(legacy):] if log.startswith(legacy) \
+            else str(r.get("status", "?"))
+        r["_log"] = self._batch_line(act, res, log)
+        return r
+
+    async def _exec_action(self, a: dict) -> dict:
         """Execute one DSL action. Returns
         {status: ok|failed|awaiting_user|cancelled|done, ...details}."""
         op = a["op"]
-        dsl_line = f"{op} " + " ".join(
-            f"{k}={v}" for k, v in a.items() if k != "op")
+        dsl_line = _repr_line(a)
         if op == "ask":
             await self.server.say(a["question"])
             await self.server.ui("listening")
@@ -570,6 +1257,13 @@ class Orchestrator:
             r = await self._rpc_action("skill",
                                        {"name": a["name"],
                                         "args": a.get("args", {})}, a)
+            if r["status"] == "failed" and \
+                    r.get("error") == "not_frontmost":
+                await self._fail(
+                    "not_frontmost",
+                    replies.fail_text(a["name"], a.get("args", {}),
+                                      "not_frontmost"))
+                r["_terminal_failure"] = True
             r["_log"] = f"{dsl_line}-> {'ok' if r['status']=='ok' else 'failed: ' + r.get('error','?')}"
             return r
         if op == "script":
@@ -582,13 +1276,21 @@ class Orchestrator:
                     return {"status": "cancelled"}
             r = await self._rpc_action(
                 "act", {"op": "script", "lang": lang, "code": code}, a)
-            r["_log"] = f"script -> {'ok' if r['status']=='ok' else 'failed: ' + r.get('error','?')}"
+            if r.get("status") == "failed":
+                bubble, why = _script_failure(r.get("error", "?"),
+                                              r.get("res"))
+                r["_log"] = f"script -> failed: {why}"
+                await self.server.say(bubble)
+            else:
+                r["_log"] = f"script -> {r['status']}"
             if r.get("status") == "ok":
                 out = r.get("res", {})
                 text_out = out.get("output") or out.get("stdout") or ""
                 if text_out:
                     self._script_output = _headtail(str(text_out))
             return r
+        if op == "click" and a.get("target") is not None:
+            return await self._click_target(a)
         if op == "click":
             return {"status": "failed", "error": "no screenshot attached",
                     "_log": f"{dsl_line}-> failed: no screenshot attached"}
@@ -600,16 +1302,14 @@ class Orchestrator:
                     self._label_of(a.get("ref"))))
             elif op == "keys":
                 combo = str(a.get("combo", "")).lower()
-                needs = combo in self._DANGEROUS_COMBOS or (
-                    combo == "cmd+return"
-                    and (self._ctx.get("app") or "") in ("Mail", "Messages"))
+                needs = combo in self._DANGEROUS_COMBOS
+                if combo in self._ENTER_COMBOS:
+                    needs = needs or self._enter_sends(observed_focus=True)
             elif op == "type" and a.get("enter"):
                 needs = bool(self._DANGEROUS_LABEL.search(
                     self._label_of(a.get("ref"))))
                 if not needs:
-                    app = ((self._last_obs or {}).get("app")
-                           or self._ctx.get("app") or "")
-                    needs = app in ("Messages", "Mail", "Slack")
+                    needs = self._enter_sends(a.get("ref"))
             if needs and not self._take_confirm():
                 yes = await self.server.ask_confirm(
                     await self._confirm_summary(a))
@@ -621,11 +1321,211 @@ class Orchestrator:
             r["_log"] = f"{dsl_line}-> {'ok' if r['status']=='ok' else 'failed: ' + r.get('error','?')}"
             return r
         # everything else: open, url, scroll -> act
+        if op == "url":
+            self._last_url = str(a.get("url") or "")
         params = {k: v for k, v in a.items() if k != "op"}
         params["op"] = op
         r = await self._rpc_action("act", params, a)
         r["_log"] = f"{dsl_line}-> {'ok' if r['status']=='ok' else 'failed: ' + r.get('error','?')}"
         return r
+
+    def _get_grounder(self):
+        """Grounder built on first use; its weights load lazily on the MLX
+        worker at the first locate (no RAM until a `click "<target>"`)."""
+        if self.grounder is None:
+            from .grounder import Grounder, handskit_capture
+            from .planner import worker
+            cfg = self.grounder_cfg
+            self.grounder = Grounder(cfg["model"], repo=cfg.get("repo"),
+                                     max_pixels=cfg["max_pixels"],
+                                     zoom=True, zoom_frac=cfg["zoom_frac"],
+                                     capture=handskit_capture(self.server.rpc))
+            self.grounder.offload = worker().submit_async
+        self.grounder.screens = self.screens
+        return self.grounder
+
+    async def _click_target(self, a: dict) -> dict:
+        """click "<target>": fresh window screenshot -> Grounder (zoom = a
+        fresh native-scale region screenshot) -> global points -> act click."""
+        from .grounder import handskit_capture, to_global
+        dsl_line = _repr_line(a)
+        target = a["target"]
+
+        def failed(why: str) -> dict:
+            return {"status": "failed", "error": why,
+                    "_log": f"{dsl_line}-> failed: {why}"}
+
+        if not self.grounder_cfg:
+            return failed("no grounder configured")
+        if self._DANGEROUS_LABEL.search(target) and not self._take_confirm():
+            yes = await self.server.ask_confirm(_cap12(f'Click "{target}"?'))
+            if not yes:
+                return {"status": "cancelled", "_log": f"{dsl_line}-> cancelled"}
+        g = self._get_grounder()
+        mp = self.grounder_cfg["max_pixels"]
+        t = time.perf_counter()
+        try:
+            shot = await self.server.rpc(
+                "screenshot", {"window": True, "max_pixels": mp}, timeout=10)
+        except RuntimeError as e:
+            self.tracer.rpc("screenshot", {"window": True}, {"error": str(e)},
+                            (time.perf_counter() - t) * 1000)
+            return failed(f"screenshot: {e}")
+        self.tracer.rpc("screenshot", {"window": True, "max_pixels": mp}, shot,
+                        (time.perf_counter() - t) * 1000)
+        if not shot or not shot.get("path") or shot.get("ok") is False:
+            return failed(f"screenshot: {(shot or {}).get('error', 'no image')}")
+        paths = [shot["path"]]
+        rpc_capture = handskit_capture(self.server.rpc)
+
+        async def capture(region, max_pixels):
+            rs = await rpc_capture(region, max_pixels)
+            if rs and rs.get("path"):
+                paths.append(rs["path"])
+            return rs
+
+        g.capture = capture
+        try:
+            pt = await g.alocate(shot["path"], target, shot=shot)
+        except Exception as e:  # noqa: BLE001 - model/IO failure is an action failure
+            log.warning("grounder failed: %r", e)
+            return failed(f"grounder: {e}")
+        finally:
+            for pth in paths:       # never keep old screenshots
+                try:
+                    os.remove(pth)
+                except OSError:
+                    pass
+        if self.tracer.current is not None:
+            self.tracer.current.setdefault("grounder", []).append(
+                {"target": target, **pt, "shot": {k: shot.get(k) for k in
+                                                  ("width", "height", "origin", "scale")},
+                 "n_shots": len(paths)})
+        if pt.get("x") is None:
+            return failed(f'target not found: "{target}"')
+        gx, gy = to_global(pt, shot)
+        gate_info = await self._grounded_click_gate(gx, gy, shot, target)
+        if self.tracer.current is not None:
+            decision = {
+                "grounded_click_gate": gate_info["gate"],
+                "ms": gate_info["ms"],
+                "hit": gate_info["hit"],
+            }
+            if gate_info.get("error"):
+                decision["error"] = gate_info["error"]
+            self.tracer.current.setdefault("decisions", []).append(decision)
+        if gate_info["gate"] in {"context", "label", "ocr"} \
+                and not self._take_confirm():
+            yes = await self.server.ask_confirm(
+                _cap12(f'Click "{gate_info["what"]}"?'))
+            if not yes:
+                return {"status": "cancelled",
+                        "_log": f"{dsl_line}-> cancelled"}
+        act = {"op": "click", "x": round(gx, 1), "y": round(gy, 1),
+               "right": bool(a.get("right")), "double": bool(a.get("double"))}
+        if a.get("expect"):
+            act["expect"] = a["expect"]
+        r = await self._rpc_action("act", {k: v for k, v in act.items() if k != "expect"}, act)
+        r["grounded"] = {"x": act["x"], "y": act["y"], "conf": pt.get("conf"), "ms": pt.get("ms")}
+        res = "ok" if r["status"] == "ok" else "failed: " + r.get("error", "?")
+        r["_log"] = f"{dsl_line}-> {res} at {act['x']:g},{act['y']:g}"
+        return r
+
+    @classmethod
+    def _smallest_decisive_element_at(cls, elements, gx: float, gy: float):
+        containing = []
+        for element in elements or []:
+            role = str(element.get("role") or "").strip().casefold()
+            label = str(element.get("label") or "").strip()
+            if not label or role in cls._CONTAINER_ROLES:
+                continue
+            frame = element.get("frame")
+            if not isinstance(frame, (list, tuple)) or len(frame) != 4:
+                continue
+            try:
+                x, y, width, height = (float(value) for value in frame)
+            except (TypeError, ValueError):
+                continue
+            if width < 0 or height < 0:
+                continue
+            if x <= gx <= x + width and y <= gy <= y + height:
+                containing.append((width * height, element))
+        return min(containing, key=lambda pair: pair[0])[1] if containing else None
+
+    @staticmethod
+    def _click_ocr_region(gx: float, gy: float, shot: dict) -> list[float]:
+        origin = shot.get("origin")
+        scale = float(shot.get("scale") or 1.0)
+        width, height = float(shot["width"]) / scale, float(shot["height"]) / scale
+        if not isinstance(origin, (list, tuple)) or len(origin) != 2 \
+                or scale <= 0 or width <= 0 or height <= 0:
+            raise ValueError("invalid screenshot window bounds")
+        ox, oy = float(origin[0]), float(origin[1])
+        cx = min(max(gx, ox), ox + width)
+        cy = min(max(gy, oy), oy + height)
+        x1, y1 = max(ox, cx - 80), max(oy, cy - 30)
+        x2, y2 = min(ox + width, cx + 80), min(oy + height, cy + 30)
+        return [x1, y1, x2 - x1, y2 - y1]
+
+    @staticmethod
+    def _ocr_text(result: dict) -> str:
+        payload = result.get("result")
+        if isinstance(payload, dict):
+            result = payload
+        text = result.get("text")
+        if isinstance(text, str):
+            return text
+        lines = result.get("lines") or []
+        return " ".join(
+            line.get("text", "") if isinstance(line, dict) else str(line)
+            for line in lines)
+
+    async def _grounded_click_gate(self, gx: float, gy: float, shot: dict,
+                                   target: str) -> dict:
+        started = time.perf_counter()
+
+        def result(gate, what, hit=None, error=None):
+            out = {"gate": gate, "what": what, "hit": hit,
+                   "ms": round((time.perf_counter() - started) * 1000, 2)}
+            if error is not None:
+                out["error"] = error
+            return out
+
+        if self._DANGEROUS_LABEL.search(target):
+            return result("target", target, target)
+
+        obs = self._last_obs or {}
+        app = obs.get("app") or self._ctx.get("app")
+        window_title = obs.get("window")
+        if sendgate.is_composer_app(app, window_title):
+            return result("context", target, app)
+        for value in (window_title, obs.get("url"), self._last_url):
+            if sendgate.is_payment_context(value):
+                return result("context", target, value)
+
+        element = self._smallest_decisive_element_at(
+            obs.get("elements"), gx, gy)
+        if element is not None:
+            label = str(element.get("label") or "").strip()
+            if self._DANGEROUS_LABEL.search(label):
+                return result("label", label, label)
+            return result("none", target, label)
+
+        try:
+            region = self._click_ocr_region(gx, gy, shot)
+            ocr_result = await self.server.rpc("ocr", {"region": region})
+            if not isinstance(ocr_result, dict):
+                raise RuntimeError("invalid OCR response")
+            if ocr_result.get("ok") is False or ocr_result.get("error"):
+                raise RuntimeError(str(ocr_result.get("error") or "OCR failed"))
+            text = self._ocr_text(ocr_result)
+            hit = sendgate.click_ocr_hit(text)
+            if hit:
+                return result("ocr", hit, hit)
+            snippet = " ".join(text.split()[:4]) or None
+            return result("none", target, snippet)
+        except Exception as e:  # noqa: BLE001 - fail closed on OCR failures
+            return result("ocr", target, error=str(e)[:200])
 
     def _take_confirm(self) -> bool:
         """Consume a pending model `confirm`: it covers one dangerous action."""
@@ -742,6 +1642,9 @@ class Orchestrator:
         prev_expect_ok = False
         obs_text = ""
         diffs: list[str] | None = None
+        fail_streak, prev_fail_key = 0, None
+        planner, escalated = self.planner, False
+        self._active_planner = planner
         for turn in range(12):
             if time.perf_counter() - t_start > 60:
                 break
@@ -768,8 +1671,12 @@ class Orchestrator:
             q: asyncio.Queue = asyncio.Queue()
             cancel = threading.Event()
             loop = asyncio.get_running_loop()
+            plan_obs = obs_text
+            if observation_blind(self._last_obs):
+                plan_obs = f"{obs_text}\n{BLIND_HINT}"
+                trace["decisions"].append({"blind_observation": turn})
             fut = worker().submit(
-                self.planner.plan, goal, obs_text, last_batch, q, loop,
+                planner.plan, goal, plan_obs, last_batch, q, loop,
                 cancel, hint, self._script_output)
             self._script_output = None   # consumed by this turn
             self._current_goal = goal
@@ -777,12 +1684,16 @@ class Orchestrator:
             lines: list[str] = []
             pending: list[dict] = []       # parsed, not yet flushed
             batch_log: list[str] = []
+            harness_reject = False
             failed = False
             self._batch_confirmed = False
             res_status = "ok"
             done_seen = False
             n_executed = 0
             last_exp_ok = False
+            skipped: list[str] = []      # prose / tags / fences, not actions
+            n_actions = 0
+            fail_key = None              # normalized action line that failed
             script_buf: list[str] | None = None   # multi-line """ block
             try:
                 while True:
@@ -805,9 +1716,16 @@ class Orchestrator:
                         if pending and line.startswith("expect"):
                             pending[-1]["expect"] = line[7:].strip()
                         continue
+                    dl = dsl.action_line(line, self.catalog.skills)
+                    if dl is None:
+                        skipped.append(line)
+                        continue
+                    line = dl
+                    n_actions += 1
                     # a new action line: flush the previous pending action
                     if pending and not failed and not done_seen:
-                        r = await self._exec_one(pending.pop(0))
+                        a = pending.pop(0)
+                        r = await self._exec_one(a)
                         batch_log.append(r["_log"])
                         if r["status"] == "done":
                             done_seen = True
@@ -818,21 +1736,27 @@ class Orchestrator:
                             if r["status"] != "ok":
                                 failed = True
                                 cancel.set()
-                                res_status = r["status"]
+                                res_status = ("terminal_failure"
+                                              if r.get("_terminal_failure")
+                                              else r["status"])
+                                fail_key = _action_key(a)
                     try:
                         acts = dsl.parse(line)
                         pending.extend(acts)
                     except Exception as e:
                         failed = True
                         res_status = "failed"
-                        batch_log.append(f"{line} -> failed: {e}")
+                        fail_key = " ".join(line.lower().split())
+                        batch_log.append(self._batch_line(
+                            line, f"failed: {e}", f"{line} -> failed: {e}"))
                         cancel.set()
             except asyncio.CancelledError:
                 cancel.set()   # stop the decode
                 raise
             # flush tail action(s)
             while pending and not failed and not done_seen:
-                r = await self._exec_one(pending.pop(0))
+                a = pending.pop(0)
+                r = await self._exec_one(a)
                 batch_log.append(r["_log"])
                 if r["status"] == "done":
                     done_seen = True
@@ -841,7 +1765,10 @@ class Orchestrator:
                     last_exp_ok = bool(r.get("expect_ok"))
                     if r["status"] != "ok":
                         failed = True
-                        res_status = r["status"]
+                        res_status = ("terminal_failure"
+                                      if r.get("_terminal_failure")
+                                      else r["status"])
+                        fail_key = _action_key(a)
                         cancel.set()
             info = await asyncio.wrap_future(fut)
             trace["decisions"].append({
@@ -849,6 +1776,9 @@ class Orchestrator:
                 "ttft_ms": round(info["ttft_ms"], 1),
                 "decode_tok_s": round(info["decode_tok_s"], 1),
                 "tokens": info["tokens"]})
+            if skipped:
+                trace["decisions"].append({"skipped_lines": skipped})
+                batch_log.append(f"ignored {len(skipped)} non-action lines")
             last_batch = batch_log or None
             lo = self._last_obs or {}
             # capped/truncated observations can't be rebuilt from diffs: an
@@ -861,6 +1791,8 @@ class Orchestrator:
                 return "awaiting_user"
             if res_status == "cancelled":
                 return "cancelled"
+            if res_status == "terminal_failure":
+                return "failed"
             if res_status == "fallback":
                 return "fallback"     # brain tool not ready: one bubble (planner-18)
             # done is verified, never trusted (planner-13): alone in its batch
@@ -875,17 +1807,47 @@ class Orchestrator:
                     await self._end_ui("success")
                     return "ok"
                 done_rejected = True
-                batch_log.append("done -> failed: not verified; check the "
-                                 "fresh observation")
+                harness_reject = True
+                why = "failed: not verified; check the fresh observation"
+                batch_log.append(self._batch_line("done", why,
+                                                  f"done -> {why}"))
                 failed = True
                 diffs = None          # force a fresh observe next turn
             prev_expect_ok = n_executed > 0 and not failed and last_exp_ok
-            if res_status == "failed" or failed:
-                prev_had_failure = True
-                continue          # replan with fresh observation
-            if not lines:
+            if harness_reject and res_status != "failed":
+                # the harness's own done rejection isn't a planner failure
+                # for the loop guard (planner-20)
                 prev_had_failure = True
                 continue
+            if res_status == "failed" or failed or not n_actions:
+                # loop guard: same action failing twice in a row, or three
+                # failed turns -> ask the user instead of burning turns
+                fail_streak += 1
+                same = fail_key is not None and fail_key == prev_fail_key
+                if self.planner_escalate is not None and fail_streak >= 2:
+                    if not escalated:
+                        # opt-in: the escalation planner takes the remaining
+                        # turns instead of stopping
+                        planner, escalated = self.planner_escalate, True
+                        self._active_planner = planner
+                        trace["planner_escalated"] = True
+                        trace["decisions"].append({"planner_escalated": turn})
+                        fail_streak, prev_fail_key = 0, None
+                        prev_had_failure = True
+                        continue
+                    same = True         # escalation failed twice: stop
+                if same or fail_streak >= 3:
+                    trace["decisions"].append({"loop_guard": "same_action"
+                                               if same else "3_failed_turns",
+                                               "line": fail_key})
+                    self._pending_task = {"goal": text, "t": time.time()}
+                    await self.server.say("I'm stuck on that, can you help?")
+                    await self._end_ui("confused")
+                    return "awaiting_user"
+                prev_fail_key = fail_key
+                prev_had_failure = True
+                continue          # replan with fresh observation
+            fail_streak, prev_fail_key = 0, None
             # batch fully executed without a terminal op -> keep going
             prev_had_failure = False
         await self.server.say("That didn't work")
@@ -947,44 +1909,32 @@ class Orchestrator:
         r"\b(on|enable|activate|start|turn on|back on)\b", re.IGNORECASE)
 
     def _bool_on(self, name: str, utterance: str) -> bool | None:
-        """`on` from the utterance, or None (keep the model's value). For mute,
-        on/off words describe the sound: 'sound off' = mute on."""
-        u = utterance.lower()
-        snd = r"\b(sound|audio|volume|speakers?)\b"
-        if name == "mute":
-            if re.search(r"\bunmute\b|" + snd + r"[^,.;]*\bon\b|"
-                         r"\bturn (the )?(sound|audio) (back )?on\b", u):
-                return False
-            if re.search(r"\bmute\b|\bsilence\b|" + snd + r"[^,.;]*\boff\b|"
-                         r"\b(kill|cut|shut off|turn off)\b[^,.;]*" + snd, u):
-                return True
-            return None
-        if name not in ("wifi", "bluetooth", "dark_mode"):
-            return None
-        if name == "dark_mode" and re.search(r"\blight mode\b", u):
-            return False
-        if re.search(r"\bback on\b|\boff and (then )?on\b", u):
-            return True
-        m = re.search(r"\b(?:turn|switch|put|set)\b[^,.;]*?\b(on|off)\b", u)
-        if m:
-            return m.group(1) == "on"
-        off, on = self._BOOL_OFF.search(u), self._BOOL_ON.search(u)
-        return bool(on) if bool(off) != bool(on) else None
+        """Compatibility wrapper for the shared on/off phrase resolver."""
+        value = argfix.polarity(name, utterance)
+        return value if isinstance(value, bool) else None
 
     def _coerce_args(self, name: str, args: dict,
-                     utterance: str | None = None) -> dict:
+                     utterance: str | None = None,
+                     filled: str | None = None) -> dict:
         """datetime/duration by code; catalog-typed coercion (SPEC 1.4).
         For bool args named `on`, the utterance decides by regex and
         overrides the model output when it matches."""
         from . import decision as _d
         spec = self.catalog.get(name) or {}
+        args = dict(args)
+        if utterance and filled != "on" and \
+                argfix.polarity(name, utterance) == "negated":
+            args.pop("on", None)
         out = {}
         for a in spec.get("args", []):
             key, typ = a.get("name"), a.get("type")
-            if key == "on" and typ == "bool" and utterance:
-                b = self._bool_on(name, utterance)
-                if b is not None:
-                    out[key] = b
+            if key == "on" and typ == "bool" and utterance and \
+                    filled != "on":
+                polarity = argfix.polarity(name, utterance)
+                if polarity == "negated":
+                    continue
+                if isinstance(polarity, bool):
+                    out[key] = polarity
                     continue
             if key not in args:
                 continue
@@ -1000,7 +1950,8 @@ class Orchestrator:
                 out[key] = c if c is not None else v
         # zero-shot fallback: model echoed e.g. 'set_volume=30' — if no known
         # arg was emitted and the skill has exactly one required arg, use it.
-        if not out and args:
+        if not out and args and any(
+                a.get("name") in args for a in spec.get("args", [])):
             req = [a for a in spec.get("args", []) if a.get("required")]
             if len(req) == 1:
                 v = next(iter(args.values()))
@@ -1012,11 +1963,40 @@ class Orchestrator:
                     out[req[0]["name"]] = _d.parse_duration(str(v)) or v
                 else:
                     out[req[0]["name"]] = v
+        for key in _CODE_ARGS.get(name, set()):
+            if key not in args:
+                continue
+            if key == "delta":
+                n = _d.normalize_delta(args[key])
+                out[key] = n if n is not None else args[key]
+            else:
+                out[key] = str(args[key])
         return out
 
     # ---------- execution ----------
 
     async def _observe(self):
+        """observe; while Chrome fills its web AX tree (`web_ax_pending`,
+        ~2 s after the switch) wait out the window once and re-observe;
+        never a screenshot because of it."""
+        res = await self._observe_once()
+        if not res or not res.get("web_ax_pending"):
+            if res:
+                self._web_ax_t0 = None
+            return res
+        now = time.perf_counter()
+        if self._web_ax_t0 is None:
+            self._web_ax_t0 = now
+        await asyncio.sleep(max(0.0, self.WEB_AX_WINDOW_S
+                                - (now - self._web_ax_t0)))
+        res = await self._observe_once() or res
+        if self.tracer.current is not None:
+            tr = self.tracer.current
+            tr["web_ax_wait_ms"] = round(tr.get("web_ax_wait_ms", 0) + (
+                time.perf_counter() - now) * 1000, 1)
+        return res
+
+    async def _observe_once(self):
         t = time.perf_counter()
         try:
             res = await self.server.rpc(
@@ -1130,6 +2110,8 @@ class Orchestrator:
                 ("ok", "error", "observed", "diff_text", "expect_ok",
                  "act_ms", "settle_ms", "epoch")
                 if k in res}
+        if res.get("error") == "not_frontmost" and "result" in res:
+            keep["result"] = res["result"]
         return keep
 
     async def _script(self, a: dict) -> str:
@@ -1151,8 +2133,8 @@ class Orchestrator:
         self.tracer.rpc("act", params, self._trace_res(res),
                         (time.perf_counter() - t) * 1000)
         if not res.get("ok", False):
-            return await self._fail(res.get("error", "script failed"),
-                                  "Script failed")
+            err = res.get("error", "script failed")
+            return await self._fail(err, _script_failure(err, res)[0])
         return "ok"
 
     async def _skill(self, a: dict) -> str:
@@ -1163,11 +2145,24 @@ class Orchestrator:
             trace = self.tracer.current or {"decisions": []}
             return await self._start_slot(name, args, missing,
                                           self._utterance, trace)
+        code_args = {key: args[key] for key in _CODE_ARGS.get(name, set())
+                     if key in args}
+        catalog_args = {key: value for key, value in args.items()
+                        if key not in code_args}
+        synthetic_level = name == "set_brightness" and \
+            "delta" in code_args and "level" not in catalog_args
+        validation_args = dict(catalog_args)
+        if synthetic_level:
+            validation_args["level"] = 0
         try:
-            args = self.catalog.validate_args(name, args)
+            args = self.catalog.validate_args(name, validation_args)
         except CatalogError as e:
             return await self._fail(
                 str(e), f"I didn't catch the details to {replies.human(name)}.")
+        if synthetic_level:
+            args.pop("level", None)
+        args.update(code_args)
+        validated_args = dict(args)
         spec = self.catalog.get(name) or {}
         if spec.get("risk") == "confirm" and not args.get("confirmed"):
             summary = await self._confirm_summary(
@@ -1192,15 +2187,57 @@ class Orchestrator:
             res = await self.server.rpc(
                 "skill", {"name": name, "args": args}, timeout=45)
         except RuntimeError as e:
-            self.tracer.rpc("skill", {"name": name, "args": args},
-                            {"error": str(e)}, (time.perf_counter() - t) * 1000)
-            return await self._fail(str(e), replies.fail_text(name, args, str(e)))
+            res = {"ok": False, "error": str(e)}
         self.tracer.rpc("skill", {"name": name, "args": args},
                         self._trace_res(res), (time.perf_counter() - t) * 1000)
+        if res.get("error") == "not_frontmost":
+            if self.tracer.current is not None:
+                self.tracer.current["decisions"].append(
+                    {"not_frontmost": {"skill": name,
+                                       "result": res.get("result")}})
+            return await self._fail(
+                "not_frontmost",
+                replies.fail_text(name, args, "not_frontmost"))
+        if not res.get("ok", False) and name == "open_folder" and \
+                args.get("view"):
+            error = str(res.get("error", "")).lower()
+            arg_rejection = "view" in error and (
+                "invalid params" in error or "unknown arg" in error)
+            if arg_rejection:
+                view = args["view"]
+                args = {key: value for key, value in args.items()
+                        if key != "view"}
+                combo = {"icons": "cmd+1", "list": "cmd+2",
+                         "columns": "cmd+3", "gallery": "cmd+4"}.get(view)
+                if combo:
+                    if self.tracer.current is not None:
+                        self.tracer.current["decisions"].append(
+                            {"view_fallback": view})
+                    t = time.perf_counter()
+                    try:
+                        res = await self.server.rpc(
+                            "skill", {"name": name, "args": args},
+                            timeout=45)
+                    except RuntimeError as e:
+                        res = {"ok": False, "error": str(e)}
+                    self.tracer.rpc(
+                        "skill", {"name": name, "args": args},
+                        self._trace_res(res),
+                        (time.perf_counter() - t) * 1000)
+                    if res.get("ok", False):
+                        out = await self.execute_actions(
+                            [{"op": "keys", "combo": combo}])
+                        if out != "ok":
+                            return out
         if not res.get("ok", False):
             return await self._fail(res.get("error", "?"), replies.fail_text(
                 name, args, str(res.get("error", ""))))
-        await self.server.say(replies.success_text(name, args,
-                                                   res.get("result")))
+        self._last_skill = (name, validated_args,
+                            res.get("result") or {})
+        reply = replies.success_text(name, args, res.get("result"))
+        if self._collect is not None:
+            self._collect.append(reply)
+            return "ok"
+        await self.server.say(reply)
         await self._end_ui("success")
         return "ok"

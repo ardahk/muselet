@@ -26,7 +26,7 @@ flowchart LR
 Everything above runs on the Mac. The only sockets are loopback (brain `:8765`, Premiere bridge `:8766`).
 Models load with `local_files_only=True`.
 Gates are scoped, not universal: `verify` runs only for actions with an `expect`; planner `done` is accepted
-only alone in a clean batch, without a final-state check; confirm covers the cases in `claims.md` §2.
+only after a passing `expect` or a fresh observation (no harness-side goal check); confirm covers the cases in `claims.md` §2.
 
 ## Latency budget (instant command, release -> first action)
 

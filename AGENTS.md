@@ -23,7 +23,8 @@ Hackathon deadline: Cal Hacks submission Sun Oct 25 2026, 09:00 PDT. Tinker budg
   and autosave wrote it to disk): live UI cases run only through a runner that enforces each case's `precondition`
   mechanically, never by hand; a failed precondition means SKIP. Agents never type into, edit, save or close
   documents/windows they did not create in the same case, and never interact with apps that have user documents
-  open unless the case created them.
+  open unless the case created them. Live UI runs require an unlocked screen (`hands probe session` ->
+  `screen_locked:false`); results gathered while locked are invalid (the lock screen is frontmost, AX is blind).
 - Reviewed PRs that pass tests may be merged by the lead without asking.
 - Tinker: iterate beyond the $60 phase budget when results fall short (diagnose why, research, retry), but stay
   within the $150 hard cap.
@@ -31,6 +32,18 @@ Hackathon deadline: Cal Hacks submission Sun Oct 25 2026, 09:00 PDT. Tinker budg
   alternative selectable by flag/config; never delete an option until the user has reviewed it.
 - Demo setup scripts (finance + advisor) are approved to run; HUD style = glass; Dock auto-hide is off for the demo.
 - Nothing destructive, nothing outside this project; commit to GitHub often so any step can be reverted.
+
+## Current serving configuration (`tools/serve_brain.sh`; every alternative selectable by env)
+- Router + ARGS: Tinker-trained 4B iteration 2 (`models/route-4b-it2-mlx4`, HF `jonsnov/muselet-route-4b-main-mlx4`
+  @ 54b2181), tau 0.65 (val-fitted). Alternatives: r2 @ 2e3e7bf, base `mlx-community/Qwen3.5-4B-4bit`.
+  Quote router numbers on `evals/route_v1_clean.jsonl` (103 cases without near-duplicates in training data).
+  Competitor benchmarks (HobbyLM sealed, DeskMind Bench) run ONLY with it2 or a later router whose overlap check is 0
+  for that set (it2: HobbyLM r4 and DeskMind Bench 0 real overlaps after the CJK-aware gate). Never run r1/r2
+  (main-final data: 12-15 near-duplicates per HobbyLM sealed round) on sealed sets.
+- Planner: base 4B-4bit, greedy, `prompts/planner_fewshot.md` (rules 16-18 + examples), DSL history, line-start op
+  constraint, done-alone. 35B-A3B via `--planner-model` or `ESCALATE=1`. Offline planner bench: `evals/planner_offline.py`
+  (tune / holdout / holdout2 sets; never tune on holdouts).
+- Grounder: eyes-4b, two-stage zoom, 1 MP (`click "<description>"` in the DSL), lazy-loaded; 2 MP / UI-Venus selectable.
 
 ## Repo layout
 - `app/`    Swift package: menu-bar app (voice, mascot, ghost cursor overlay) + `HandsKit` (AX observe/act, native skills, screenshots)
@@ -104,8 +117,17 @@ RPC methods (HandsKit):
   while the element persists; `rpc_result` always carries `result` when the handler produced one, even if `ok` is false.
   (fused act-and-observe; the app animates the ghost cursor to the target frame first, `cursor_lead_ms` default 120)
 - `skill {name, args}` -> `{ok, result?, error?, ms}`. `type_text`/`type` fail with `error: "no_text_target"` and an
-  `observed` hint when nothing focused accepts text (never "type into nothing"); shell scripts fail on non-zero exit
-  (`exit_code`, `stdout`, `stderr`, `timed_out`).
+  `observed` hint when nothing focused accepts text (never "type into nothing"); Calculator accepts typed keystrokes
+  (`target: "keystroke_app"`); shell scripts fail on non-zero exit (`exit_code`, `stdout`, `stderr`, `timed_out`).
+  Launch skills verify the result: `open_app` -> `{app, frontmost, launched}`; `open_url`/`web_search` ->
+  `{browser, frontmost, window_title, title_changed}`; `open_folder`/`open_file` -> `{app, frontmost, window_title,
+  title_matches}`; failure `not_frontmost` (failures may carry `result`). `open_folder {view: list|icons|columns|gallery}`;
+  `set_brightness {delta}` (alternative to `level`, returns `{level, previous, delta}`).
+  `type`/`keys`/`click`/`type_text` fail with `screen_locked` while the lock screen is up.
+- `act {op:"keys", combo: brightness_up|brightness_down|volume_up|volume_down|mute|play_pause|next_track|previous_track}`
+  posts media keys and reads the level back (`media_key, level_before, level, changed`, `muted`).
+- `timers {}` -> `{timers:[{id, label, total_s, left_s, minutes, fires_at}]}`; `timers_cancel {id?}` -> `{cancelled, timers}`
+  (`unknown_timer: <id>`). CLI: `hands probe timers`, `hands probe session` (screen_locked, display asleep, frontmost).
 - `screenshot {window:true, max_pixels:1000000, region?}` -> `{path, width, height, origin:[x,y], scale}` (own windows excluded)
 - `verify {expect}` -> `{ok, observed}`
 - `ocr {path? | region?:[x,y,w,h]}` -> `{text, lines:[{text, frame}], ms}` (Apple Vision, accurate, en-US; region = screen points)

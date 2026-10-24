@@ -108,6 +108,13 @@ with the task's declared app frontmost. The task definitions have no `vars`;
 the pinned grader's `${NAME}` substitutions apply only to grader predicates,
 not to the goal sent to the planner. This live workflow is not run on Linux.
 
+Before each task's document guard, staging, or utterance, the runner invokes
+`<hands-command> probe session` with a five-second timeout. Locked or asleep
+sessions are recorded as `screen_locked`; failed or invalid probes as
+`session_unverifiable` in `skipped.jsonl`. Skips do not stage or run the task.
+`AGENTS.md` states that results gathered while the screen is locked are
+invalid. Dry runs show the planned probe but never invoke it.
+
 ## Task definitions
 
 [`tasks.md`](tasks.md) is generated from all 13 pinned diagnostic YAML files

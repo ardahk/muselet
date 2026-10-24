@@ -46,23 +46,77 @@ async def _stdin_lines():
             yield line
 
 
+def planner_opts(args) -> dict:
+    """Planner decoding/prompt knobs from `brain serve` flags."""
+    fs = args.planner_fewshot
+    opts = {"constrain": args.planner_constrain,
+            "done_alone": args.planner_done_alone,
+            "few_shot": None if fs is None or fs.lower() == "none" else fs,
+            "history": args.planner_history}
+    if opts["constrain"] is None:      # Planner's PLANNER_CONSTRAIN_DEFAULT
+        del opts["constrain"]
+    return opts
+
+
+def make_planner(pmodel: str, engine=None, opts: dict | None = None,
+                 tag: str = "planner"):
+    from .planner import Planner
+    planner = Planner(pmodel, Catalog.load(), engine=engine, **(opts or {}))
+    print(f"[{tag}] {pmodel} {planner.settings()}", flush=True)
+    return planner
+
+
+def grounder_cfg(args) -> dict:
+    """`brain serve --grounder-*` -> Orchestrator.grounder_cfg ({} = disabled). Validates the adapter
+    name without importing MLX."""
+    spec = (args.grounder_model or "none").strip()
+    if spec.lower() == "none":
+        return {}
+    from .grounder import get_adapter
+    name, _, repo = spec.partition("=")
+    get_adapter(name)
+    return {"model": name, "repo": repo or None, "max_pixels": args.grounder_max_pixels,
+            "zoom_frac": args.grounder_zoom_frac}
+
+
+# escalation planner: few-shot on, unconstrained, dsl history
+ESCALATE_OPTS = {"constrain": False, "few_shot": "prompts/planner_fewshot.md",
+                 "history": "dsl"}
+
+
 async def serve(port: int = 8765, model: str | None = None,
-                planner_model: str | None = None):
+                planner_model: str | None = None,
+                planner_kw: dict | None = None,
+                args_model: str | None = None,
+                escalate_model: str | None = None,
+                grounder: dict | None = None):
     server = BrainServer(port=port)
     await server.start()
     engine = None
     if model:
         from .decision import DecisionEngine
-        engine = DecisionEngine(model, Catalog.load())
+        engine = DecisionEngine(model, Catalog.load(), args_model_path=args_model)
         print(f"[engine] {model}", flush=True)
+        print(f"[args] {engine.args_model_path}", flush=True)
     planner = None
     pmodel = _resolve_model(planner_model)
     if pmodel:
-        from .planner import Planner
-        planner = Planner(pmodel, Catalog.load(), engine=engine)
-        print(f"[planner] {pmodel}", flush=True)
+        planner = make_planner(pmodel, engine, planner_kw)
     orch = Orchestrator(server, Catalog.load(), Tracer(), engine=engine)
     orch.planner = planner
+    if grounder is not None:
+        orch.grounder_cfg = grounder or None      # {} = disabled
+    if orch.grounder_cfg:                         # lazy: weights load on the first `click "<target>"`
+        print(f"[grounder] {orch.grounder_cfg['model']} max_pixels={orch.grounder_cfg['max_pixels']} "
+              f"zoom_frac={orch.grounder_cfg['zoom_frac']} (lazy)", flush=True)
+
+    async def on_hello(screens):
+        orch.screens = screens
+
+    server.on_hello = on_hello
+    if planner and escalate_model:    # loaded now, kept resident
+        orch.planner_escalate = make_planner(
+            escalate_model, engine, ESCALATE_OPTS, tag="planner-escalate")
 
     async def on_utt(text: str, final: bool, ctx: dict | None = None):
         print(f"[utterance] {text} ctx={ctx}", flush=True)
@@ -90,7 +144,7 @@ async def serve(port: int = 8765, model: str | None = None,
 
 
 def eval_route(model: str, cases_path: str, out_dir: str = "runs/evals",
-               tau: float = 0.55):
+               tau: float = 0.55, args_model: str | None = None):
     import subprocess
 
     from .decision import DecisionEngine
@@ -102,7 +156,10 @@ def eval_route(model: str, cases_path: str, out_dir: str = "runs/evals",
         cases_sha = ""
     cases = [json.loads(l) for l in Path(cases_path).read_text().splitlines()
              if l.strip()]
-    engine = DecisionEngine(_resolve_model(model), Catalog.load())
+    engine = DecisionEngine(_resolve_model(model), Catalog.load(),
+                            args_model_path=_resolve_model(args_model)
+                            if args_model else None)
+    print(f"[args] {engine.args_model_path}", flush=True)
     from .orchestrator import Orchestrator
     dummy_orch = Orchestrator.__new__(Orchestrator)
     dummy_orch.catalog = Catalog.load()
@@ -204,6 +261,11 @@ def eval_route(model: str, cases_path: str, out_dir: str = "runs/evals",
 
 
 def main():
+    args, ap = build_parser()
+    run_cmd(args, ap)
+
+
+def build_parser(argv=None):
     ap = argparse.ArgumentParser(prog="brain")
     sub = ap.add_subparsers(dest="cmd")
     s = sub.add_parser("serve", help="run the WS server + stdin REPL")
@@ -212,10 +274,32 @@ def main():
                    help="model path/repo; 'none' = regex fallback; "
                         "default: 4B-4bit if cached else 0.8B-4bit")
     s.add_argument("--tau", type=float, default=0.55)
+    s.add_argument("--args-model", default=None,
+                   help="model for ARGS; default: same as --model")
     s.add_argument("--planner-model", default=None,
                    help="planner model; default: cached Qwen3.5-4B-4bit")
+    s.add_argument("--planner-constrain", action=argparse.BooleanOptionalAction,
+                   default=None, help="line-start DSL op constraint "
+                   "(default: planner.PLANNER_CONSTRAIN_DEFAULT)")
+    s.add_argument("--planner-done-alone", action=argparse.BooleanOptionalAction,
+                   default=True, help="block `done` after an action line")
+    s.add_argument("--planner-fewshot", default="prompts/planner_fewshot.md",
+                   metavar="PATH|none", help="few-shot examples in the cached prefix")
+    s.add_argument("--planner-escalate-model", default=None, metavar="PATH",
+                   help="opt-in planner that takes over when the loop guard trips")
+    s.add_argument("--planner-history", default="dsl",
+                   choices=["marked", "dsl", "repr"], help="Last batch line format")
+    s.add_argument("--grounder-model", default="eyes-4b", metavar="NAME[=PATH]|none",
+                   help="grounder adapter for `click \"<target>\"` (brain.grounder.ADAPTERS, e.g. "
+                        "eyes-4b, ui-venus-1.5-8b; name=path for local weights); loaded on first use")
+    s.add_argument("--grounder-max-pixels", type=int, default=1_000_000,
+                   help="pixel cap per grounder screenshot/model call (2000000 = slower, more accurate)")
+    s.add_argument("--grounder-zoom-frac", type=float, default=0.4,
+                   help="stage-2 zoom region as a fraction of the window side")
     e = sub.add_parser("eval-route", help="eval the router on a JSONL cases file")
     e.add_argument("--model", default=None)
+    e.add_argument("--args-model", default=None,
+                   help="model for ARGS; default: same as --model")
     e.add_argument("--cases", required=True)
     e.add_argument("--out", default="runs/evals")
     e.add_argument("--tau", type=float, default=0.55,
@@ -225,7 +309,10 @@ def main():
     t.add_argument("--path", default="runs/traces",
                    help="trace dir or .jsonl file")
     t.add_argument("--json", action="store_true", help="print JSON")
-    args = ap.parse_args()
+    return ap.parse_args(argv), ap
+
+
+def run_cmd(args, ap):
     if args.cmd == "trace-stats":
         from . import tracestats
         rep = tracestats.stats(tracestats.load(args.path, args.since))
@@ -233,10 +320,15 @@ def main():
               else tracestats.format_report(rep))
     elif args.cmd == "serve":
         m = _resolve_model(args.model)
-        asyncio.run(serve(args.port, m, args.planner_model))
+        am = _resolve_model(args.args_model) if args.args_model else None
+        em = args.planner_escalate_model
+        em = _resolve_model(em) if em and em.lower() != "none" else None
+        asyncio.run(serve(args.port, m, args.planner_model, planner_opts(args),
+                          args_model=am, escalate_model=em,
+                          grounder=grounder_cfg(args)))
     elif args.cmd == "eval-route":
         eval_route(args.model, args.cases, args.out,
-                   tau=getattr(args, "tau", 0.55))
+                   tau=getattr(args, "tau", 0.55), args_model=args.args_model)
     else:
         ap.print_help()
 

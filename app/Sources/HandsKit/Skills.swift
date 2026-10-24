@@ -73,13 +73,16 @@ public struct SystemHooks {
     public var brightnessSet: (Float) -> Bool
     public var playSound: (String) -> Void
     public var notify: (_ title: String, _ body: String) -> Void
+    /// The pending timers changed (live: the `hands probe timers` snapshot file).
+    public var timersChanged: ([TimerRegistry.Info]) -> Void
 
     public init(bluetoothGet: @escaping () -> Bool?, bluetoothSet: @escaping (Bool) -> Bool,
                 bluetoothControlCenter: @escaping (Bool) throws -> Bool,
                 lockScreenPrivate: @escaping () -> Bool,
                 brightnessGet: @escaping () -> Float?, brightnessSet: @escaping (Float) -> Bool,
                 playSound: @escaping (String) -> Void,
-                notify: @escaping (String, String) -> Void) {
+                notify: @escaping (String, String) -> Void,
+                timersChanged: @escaping ([TimerRegistry.Info]) -> Void = { _ in }) {
         self.bluetoothGet = bluetoothGet
         self.bluetoothSet = bluetoothSet
         self.bluetoothControlCenter = bluetoothControlCenter
@@ -88,6 +91,7 @@ public struct SystemHooks {
         self.brightnessSet = brightnessSet
         self.playSound = playSound
         self.notify = notify
+        self.timersChanged = timersChanged
     }
 
     /// No side effects at all (unit tests start from this).
@@ -97,7 +101,7 @@ public struct SystemHooks {
             bluetoothControlCenter: { _ in throw HandsError.skillFailed("inert") },
             lockScreenPrivate: { false },
             brightnessGet: { nil }, brightnessSet: { _ in false },
-            playSound: { _ in }, notify: { _, _ in })
+            playSound: { _ in }, notify: { _, _ in }, timersChanged: { _ in })
     }
 
     public static var live: SystemHooks {
@@ -115,7 +119,8 @@ public struct SystemHooks {
                     s?.play()
                 }
             },
-            notify: { title, body in Notifier.post(title: title, body: body) })
+            notify: { title, body in Notifier.post(title: title, body: body) },
+            timersChanged: { TimerSnapshot.write($0) })
     }
 }
 
@@ -233,11 +238,36 @@ public enum PathAlias {
 
 // MARK: - Skills engine
 
+/// Native skill executor (catalog skills; `skill {name, args}` RPC).
+///
+/// Beyond the catalog arg lists:
+///  - `set_brightness` takes `delta` (int, +/-) instead of `level`: current
+///    brightness + delta, clamped to 0...100, set, read back
+///    (`{level, previous, delta}`). The brain sends `delta` only for
+///    directional phrasing ("a bit dimmer").
+///  - `open_folder` takes an optional `view` (`list|icons|columns|gallery`):
+///    cmd+2 / cmd+1 / cmd+3 / cmd+4 on the Finder window it opened, read back
+///    from `current view of front Finder window` (`{view, view_applied}`).
+///  - `type_text` into a keystroke app (Calculator) posts key presses
+///    (`target: "keystroke_app"`); `screen_locked` while the lock screen is up.
+///
+/// Launches report truthfully: `open_app` waits <= 1.5 s for the app to be
+/// frontmost (`{app, frontmost, launched}`); `open_url` / `web_search` wait
+/// <= 3 s for the default browser frontmost with a changed window title
+/// (`{browser, frontmost, window_title, title_changed}`); `open_folder` /
+/// `open_file` wait <= 3 s for Finder / the file's app frontmost with the
+/// window title read back (`{app, frontmost, window_title, title_matches}`).
+/// Never frontmost -> ok=false, error `not_frontmost`, `observed`, and the
+/// result payload anyway.
+///
+/// Timers started by `start_timer` are listed / cancelled with the
+/// `timers` / `timers_cancel` RPCs (`timerList()`, `cancelTimers(id:)`).
 public final class Skills {
     private let catalog: [String: SkillDef]
-    private let scripts: ScriptRunning
-    private let events: EventPosting
-    private let apps: AppControlling
+    let scripts: ScriptRunning
+    let events: EventPosting
+    let apps: AppControlling
+    let launcher: Launching
     private let hooks: SystemHooks
     private var wifiDevice: String?
     /// Receives `handsTimerFired` (set by RPCHandler.delegate).
@@ -249,9 +279,18 @@ public final class Skills {
         return n
     }
 
-    private let timerQueue = DispatchQueue(label: "hands.timers")
-    private let timerLock = NSLock()
-    private var timers: [String: DispatchSourceTimer] = [:]
+    /// Launch verification bounds (tests shorten them).
+    var openAppTimeout: TimeInterval = 1.5
+    var openTimeout: TimeInterval = 3.0
+    var launchPollInterval: TimeInterval = 0.03
+    /// Re-activate an opened app that isn't frontmost yet this often.
+    var launchReactivateInterval: TimeInterval = 0.4
+    var viewPollInterval: TimeInterval = 0.1
+    /// Folder display name (Finder window title); tests stub it.
+    var displayNameOverride: ((String) -> String)?
+
+    /// Muselet-started timers (`start_timer`; `timers` / `timers_cancel` RPCs).
+    public let timers = TimerRegistry()
 
     /// Premiere Pro default keyboard shortcuts per `premiere_command`.
     public static let premiereKeys: [String: String] = [
@@ -274,24 +313,41 @@ public final class Skills {
 
     public init(catalog: [String: SkillDef], scripts: ScriptRunning = AppleScriptRunner(),
                 events: EventPosting = CGEventPoster(), apps: AppControlling = WorkspaceApps(),
-                hooks: SystemHooks = .live) {
+                hooks: SystemHooks = .live, launcher: Launching = WorkspaceLauncher()) {
         self.catalog = catalog
         self.scripts = scripts
         self.events = events
         self.apps = apps
         self.hooks = hooks
+        self.launcher = launcher
+        timers.onChange = { [hooks] in hooks.timersChanged($0) }
     }
     public convenience init() {
         self.init(catalog: (try? Catalog.load()) ?? [:])
     }
 
     /// Number of timers scheduled and not yet fired.
-    public var pendingTimers: Int {
-        timerLock.lock(); defer { timerLock.unlock() }
-        return timers.count
+    public var pendingTimers: Int { timers.count }
+
+    /// `timers {}` RPC: pending Muselet timers, soonest first
+    /// (`{id, label (null if none), total_s, left_s, minutes, fires_at}`).
+    public func timerList(now: Date = Date()) -> [[String: Any]] {
+        timers.list().map { TimerRegistry.dict($0, now: now) }
+    }
+
+    /// `timers_cancel {id?}` RPC: cancel one timer, or all when `id` is nil.
+    /// Returns the cancelled timers (wire form; empty for an unknown id).
+    public func cancelTimers(id: String?, now: Date = Date()) -> [[String: Any]] {
+        timers.cancel(id: id).map { TimerRegistry.dict($0, now: now) }
     }
 
     public func def(_ name: String) -> SkillDef? { catalog[name] }
+
+    /// Required catalog args that another arg may stand in for
+    /// (`set_brightness delta=-10` instead of `level`).
+    static let argAlternatives: [String: [String: [String]]] = [
+        "set_brightness": ["level": ["delta"]],
+    ]
 
     /// Execute a skill by name. Returns {ok, result?, error?, ms}.
     public func execute(name: String, args inArgs: [String: Any]) -> [String: Any] {
@@ -305,9 +361,10 @@ public final class Skills {
             if def.risk == "confirm", inArgs["confirmed"] as? Bool != true {
                 throw HandsError.needsConfirmation
             }
-            // Required-arg check.
+            // Required-arg check (an alternative arg satisfies it).
             for a in def.args where a.required {
-                if inArgs[a.name] == nil {
+                let alts = Self.argAlternatives[name]?[a.name] ?? []
+                if inArgs[a.name] == nil && !alts.contains(where: { inArgs[$0] != nil }) {
                     throw HandsError.invalidParams("\(name): missing arg \(a.name)")
                 }
             }
@@ -319,6 +376,7 @@ public final class Skills {
             out["ok"] = false
             out["error"] = e.description
             if let o = e.observed { out["observed"] = o }
+            if let r = e.result { out["result"] = r }
         } catch {
             out["ok"] = false
             out["error"] = "\(error)"
@@ -358,13 +416,27 @@ public final class Skills {
             let now = read ?? on
             return ["on": now, "dark": now]
         case "set_brightness":
-            let lvl = max(0, min(100, try intArg(a, "level")))
+            // `level` (absolute) wins; else `delta` relative to the current level.
+            var r: [String: Any] = [:]
+            let lvl: Int
+            if a["level"] != nil {
+                lvl = max(0, min(100, try intArg(a, "level")))
+            } else {
+                let d = try intArg(a, "delta")
+                guard let cur = hooks.brightnessGet().map({ Int(($0 * 100).rounded()) }) else {
+                    throw HandsError.notImplemented("set_brightness delta (brightness unreadable)")
+                }
+                lvl = Self.brightnessTarget(current: cur, delta: d)
+                r["previous"] = cur
+                r["delta"] = d
+            }
             guard hooks.brightnessSet(Float(lvl) / 100.0) else {
                 throw HandsError.notImplemented("set_brightness (DisplayServices unavailable)")
             }
             usleep(30_000)
             let read = hooks.brightnessGet().map { Int(($0 * 100).rounded()) }
-            return ["level": read ?? lvl]
+            r["level"] = read ?? lvl
+            return r
         case "wifi":
             let on = try boolArg(a, "on")
             try setWifi(on)
@@ -402,8 +474,7 @@ public final class Skills {
 
         // ---- apps ----
         case "open_app":
-            try openAppNamed(try strArg(a, "app"))
-            return ["app": a["app"]!]
+            return try openApp(named: try strArg(a, "app"))
         case "quit_app":
             let app = try strArg(a, "app")
             guard let r = runningApp(app) else {
@@ -426,32 +497,36 @@ public final class Skills {
             guard let u = URL(string: s) else {
                 throw HandsError.invalidParams("bad url")
             }
-            NSWorkspace.shared.open(u)
-            return ["url": s]
+            return try openInBrowser(u, extra: ["url": s])
         case "web_search":
             let q = try strArg(a, "query")
-            let enc = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q
-            guard let u = URL(string: "https://www.google.com/search?q=\(enc)") else {
+            // Strict: "AT&T", "c++", "a=b" stay part of the query value.
+            guard let u = URL(string: "https://www.google.com/search?q=\(pctStrict(q))") else {
                 throw HandsError.invalidParams("bad query")
             }
-            NSWorkspace.shared.open(u)
-            return ["query": q]
+            return try openInBrowser(u, extra: ["query": q])
 
         // ---- files ----
         case "open_folder":
             let p = PathAlias.resolve(try strArg(a, "path"))
+            // Validate the view before anything opens.
+            var view: FinderView?
+            if let v = a["view"] as? String, !v.isEmpty {
+                guard let fv = FinderView.parse(v) else {
+                    throw HandsError.invalidParams("open_folder: view must be list|icons|columns|gallery")
+                }
+                view = fv
+            }
             guard FileManager.default.fileExists(atPath: p) else {
                 throw HandsError.skillFailed("no such folder: \(p)")
             }
-            NSWorkspace.shared.open(URL(fileURLWithPath: p))
-            return ["path": p]
+            return try openFolder(path: p, view: view)
         case "open_file":
             let p = PathAlias.resolve(try strArg(a, "path"))
             guard FileManager.default.fileExists(atPath: p) else {
                 throw HandsError.skillFailed("no such file: \(p)")
             }
-            NSWorkspace.shared.open(URL(fileURLWithPath: p))
-            return ["path": p]
+            return try openFile(path: p)
         case "new_folder":
             let parent = PathAlias.resolve(try strArg(a, "parent"))
             let name = try strArg(a, "name")
@@ -502,14 +577,10 @@ public final class Skills {
         // ---- media ----
         case "media_control":
             let action = try strArg(a, "action")
-            let key: Int32
-            switch action {
-            case "play", "pause", "toggle": key = 16
-            case "next": key = 17
-            case "previous": key = 18
-            default: throw HandsError.invalidParams("media action \(action)")
+            guard let key = MediaKey.forMediaAction(action) else {
+                throw HandsError.invalidParams("media action \(action)")
             }
-            postMediaKey(key)
+            events.postMediaKey(key)
             return ["action": action]
         case "play_music":
             let q = try strArg(a, "query")
@@ -519,18 +590,25 @@ public final class Skills {
         // ---- input ----
         case "type_text":
             // Types to the keyboard focus of the frontmost app; refuse when
-            // nothing there takes text (never "ok" while typing into nothing).
+            // nothing there takes text (never "ok" while typing into nothing),
+            // and never into the lock screen. A keystroke app (Calculator)
+            // gets key presses.
             let text = try strArg(a, "text")
+            if apps.screenLocked() { throw HandsError.screenLocked }
             let pid = apps.frontmostPid()
             let info = apps.app(pid: pid)
             let chk = TextTarget.check(app: axApp(pid), appName: info?.name ?? apps.name(pid: pid),
                                        bundleId: info?.bundleId)
             guard chk.ok else { throw HandsError.noTextTarget(observed: chk.observed) }
-            if let t = chk.focusTarget {
-                _ = t.setAttr(kAXFocusedAttribute, true)
-                usleep(30_000)
+            if chk.via == TextTarget.keystrokeVia {
+                events.typeKeystrokes(TextTarget.keystrokeText(text))
+            } else {
+                if let t = chk.focusTarget {
+                    _ = t.setAttr(kAXFocusedAttribute, true)
+                    usleep(30_000)
+                }
+                events.typeText(text)
             }
-            events.typeText(text)
             return ["typed": text.count, "target": chk.via ?? "focused", "observed": chk.observed]
         case "copy_selection":
             Combo.post(try Combo.parse("cmd+c"))
@@ -714,33 +792,21 @@ public final class Skills {
     }
 
     private func startTimer(seconds: Double, label: String?) -> [String: Any] {
-        let id = "timer-\(UUID().uuidString.prefix(8))"
-        let firesAt = Date().addingTimeInterval(seconds)
         let hooks = self.hooks
-        let t = DispatchSource.makeTimerSource(queue: timerQueue)
-        // Wall clock: keeps counting across system sleep, like a kitchen timer.
-        t.schedule(wallDeadline: .now() + seconds, leeway: .milliseconds(20))
-        t.setEventHandler { [weak self, weak t, weak delegate = self.delegate] in
+        let info = timers.start(seconds: seconds, label: label) { [weak self, weak delegate = self.delegate] _ in
             hooks.playSound("Glass")
             hooks.notify("Timer done", label ?? "Your \(Self.humanDuration(seconds)) timer is up.")
             (self?.delegate ?? delegate)?.handsTimerFired(label: label)
-            t?.cancel()
-            if let self {
-                self.timerLock.lock()
-                self.timers.removeValue(forKey: id)
-                self.timerLock.unlock()
-            }
         }
-        timerLock.lock()
-        timers[id] = t
-        timerLock.unlock()
-        t.resume()
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime]
-        var r: [String: Any] = ["fires_at": iso.string(from: firesAt), "seconds": seconds,
-                                "timer_id": id]
+        var r: [String: Any] = ["fires_at": TimerRegistry.isoString(info.firesAt), "seconds": seconds,
+                                "timer_id": info.id]
         if let label { r["label"] = label }
         return r
+    }
+
+    /// `set_brightness delta`: current + delta, clamped to 0...100.
+    static func brightnessTarget(current: Int, delta: Int) -> Int {
+        max(0, min(100, current + delta))
     }
 
     static func humanDuration(_ s: Double) -> String {
@@ -961,23 +1027,6 @@ public final class Skills {
              "end": fmt.string(from: $0.endDate), "location": $0.location ?? ""]
         }
         return ["events": events, "count": events.count]
-    }
-
-    // MARK: media keys
-
-    private func postMediaKey(_ key: Int32) {
-        // data1 = key<<16 | state<<8 where 0xA=down, 0xB=up
-        func ev(_ down: Bool) -> NSEvent? {
-            let flags = down ? 0xA00 : 0xB00
-            let state = down ? 0xA : 0xB
-            return NSEvent.otherEvent(
-                with: .systemDefined, location: .zero,
-                modifierFlags: NSEvent.ModifierFlags(rawValue: UInt(flags)),
-                timestamp: 0, windowNumber: 0, context: nil,
-                subtype: 8, data1: (Int(key) << 16) | (state << 8), data2: -1)
-        }
-        if let d = ev(true)?.cgEvent { SyntheticEvent.post(d) }
-        if let u = ev(false)?.cgEvent { SyntheticEvent.post(u) }
     }
 }
 

@@ -161,7 +161,9 @@ final class ActTruncatedTests: XCTestCase {
 // MARK: - training-11: selection includes selected rows/children/cells
 
 final class SelectionCtxTests: XCTestCase {
-    private let deadline = Date().addingTimeInterval(5)
+    /// Per use: XCTest builds every test instance when the run starts, so a
+    /// stored deadline had expired by the time a > 5 s suite reached these.
+    private var deadline: Date { Date().addingTimeInterval(5) }
 
     func testFocusedOutlineWithSelectedRows() {
         let row = el("AXRow", "report.pdf")

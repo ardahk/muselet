@@ -20,6 +20,7 @@ import numpy as np
 from tinker_cookbook.renderers import Message
 
 from .decision import DecisionEngine, _OnlineProbe, split_model  # noqa: F401
+from .dsl import action_line
 
 PROMPT_PATH = Path(__file__).resolve().parents[3] / "prompts" / "planner_system.md"
 TERMINAL_OPS = {"ask", "confirm", "done", "refuse"}
@@ -30,6 +31,102 @@ SENTINEL = "SENTINELMARKER9Z"
 
 _WORKER = None
 _WORKER_LOCK = threading.Lock()
+
+
+OP_STRS = ["skill ", "press #", "type #", "keys ", "scroll #", "click ", 'open "', 'url "', "script ", "wait ",
+           'ask "', 'confirm "', "done", 'refuse "', "expect ", "# "]
+ACTION_OPS = [o for o in OP_STRS if o not in ("done", "expect ", "# ")]
+HISTORY_FORMATS = ("marked", "dsl", "repr")
+PLANNER_CONSTRAIN_DEFAULT = True   # line-start op constraint; the lead sets the final default
+ROOT = Path(__file__).resolve().parents[3]
+FEWSHOT_PATH = "prompts/planner_fewshot.md"
+
+
+def _compatible(x: str, ops) -> bool:
+    return any(o.startswith(x) or x.startswith(o) for o in ops)
+
+
+class OpConstraint:
+    """Line-start grammar: the first characters of every line must spell a DSL op keyword. Allowed token ids are
+    precomputed per partial-line prefix, so decoding pays a dict lookup. `done_alone`: once the batch has an
+    action line, `done` can't start a line (it must be alone in its batch, prompt rule 13)."""
+
+    def __init__(self, tok, done_alone: bool):
+        import bisect
+        by_str: dict[str, list[int]] = {}
+        for i in range(len(tok.get_vocab())):
+            s = tok.decode([i])
+            if s and "\n" not in s and "\ufffd" not in s:
+                by_str.setdefault(s, []).append(i)
+        keys = sorted(by_str)
+
+        def starting_with(rem: str) -> list[int]:     # tokens whose text starts with rem
+            out, j = [], bisect.bisect_left(keys, rem)
+            while j < len(keys) and keys[j].startswith(rem):
+                out.extend(by_str[keys[j]])
+                j += 1
+            return out
+
+        self.done_alone = done_alone
+        self.table = {}
+        for ops_key, ops in (("all", OP_STRS), ("no_done", [o for o in OP_STRS if o != "done"])):
+            prefixes = {""} | {o[:k] for o in ops for k in range(1, len(o))}
+            for b in prefixes:
+                ids: set[int] = set()
+                for o in ops:
+                    if not o.startswith(b):
+                        continue
+                    rem = o[len(b):]
+                    for k in range(1, len(rem) + 1):        # token is a prefix of the remainder
+                        ids.update(by_str.get(rem[:k], ()))
+                    ids.update(starting_with(rem))          # token completes the keyword and goes on
+                self.table[(ops_key, b)] = sorted(ids)
+
+    def allowed(self, line_buf: str, has_action: bool):
+        """Token ids allowed next, or None once the op keyword is complete (free decoding)."""
+        ops_key = "no_done" if self.done_alone and has_action else "all"
+        ops = OP_STRS if ops_key == "all" else [o for o in OP_STRS if o != "done"]
+        if any(line_buf.startswith(o) for o in ops):
+            return None
+        return self.table.get((ops_key, line_buf))
+
+
+def history(lines, fmt: str):
+    """Last-batch lines in a given presentation. Scenarios store 'action -> result'."""
+    if not lines or fmt == "dsl":
+        return lines
+    if fmt == "repr":
+        return [runtime_repr(x) for x in lines]
+    out = []                                   # "marked": result first, so a line can't be copied as an action
+    for x in lines:
+        act, res = x.rsplit(" -> ", 1) if " -> " in x else (x, "ok")
+        out.append(f"[{res}] {act}")
+    return out
+
+
+def runtime_repr(line: str) -> str:
+    """'press #4 -> ok' as the runtime currently logs it: '{op} k=v ...-> ok' from the parsed dict."""
+    from . import dsl
+    if " -> " not in line:
+        return line
+    act, res = line.rsplit(" -> ", 1)
+    try:
+        a = dsl.parse(act)[0]
+    except Exception:
+        return line
+    return f"{a['op']} " + " ".join(f"{k}={v}" for k, v in a.items() if k != "op") + f"-> {res}"
+
+
+def has_action(lines) -> bool:
+    return any(not re.match(r"^(#|expect\b|done\b)", ln) for ln in lines)
+
+
+def few_shot_text(path: str | None) -> str | None:
+    """Few-shot examples file (repo-relative or absolute); None/'none' = off."""
+    if not path or str(path).lower() == "none":
+        return None
+    f = Path(path)
+    return (f if f.is_absolute() else ROOT / f).read_text()
 
 
 class BatchCutter:
@@ -46,7 +143,7 @@ class BatchCutter:
                 return None
             self.done = True
             return line if line.startswith("expect") else None
-        if not re.match(r"^(expect|#)", line):
+        if not re.match(r"^(expect|#)", line) and action_line(line):
             self.n += 1
             self.done = line.split()[0] in TERMINAL_OPS
             self.full = self.n >= self.max
@@ -122,8 +219,15 @@ def catalog_desc(catalog, arg_signature) -> str:
 class Planner:
     """Streams DSL batches. plan() runs ON the MLX worker thread."""
 
-    def __init__(self, model_path: str, catalog, engine: DecisionEngine | None = None):
+    def __init__(self, model_path: str, catalog, engine: DecisionEngine | None = None,
+                 constrain: bool = PLANNER_CONSTRAIN_DEFAULT, done_alone: bool = True,
+                 few_shot: str | None = FEWSHOT_PATH, history: str = "dsl"):
+        if history not in HISTORY_FORMATS:
+            raise ValueError(f"history must be one of {HISTORY_FORMATS}")
         self.model_path = model_path
+        self.constrain, self.done_alone = constrain, done_alone
+        self.few_shot, self.history = few_shot, history
+        self._constraint = None
         if engine is not None and engine.model_path == model_path:
             self.model, self.tokenizer = engine.model, engine.tokenizer
             self.body, self.lm_head = engine.body, engine.lm_head
@@ -141,6 +245,18 @@ class Planner:
         self._cache = None
         self.system = planner_prompt(
             catalog_desc(catalog, self._arg_sig_for))
+        if (fs := few_shot_text(few_shot)):
+            self.system += "\n\n" + fs      # part of the cached prefix
+
+    def _op_constraint(self):
+        """Line-start op constraint, built once per Planner (vocab scan)."""
+        if self.constrain and self._constraint is None:
+            self._constraint = OpConstraint(self.tokenizer, done_alone=self.done_alone)
+        return self._constraint if self.constrain else None
+
+    def settings(self) -> str:
+        return (f"constrain={self.constrain} done_alone={self.done_alone} "
+                f"few_shot={self.few_shot or 'none'} history={self.history}")
 
     def _arg_sig_for(self, name):
         eng = self.engine or DecisionEngine.__new__(DecisionEngine)
@@ -215,6 +331,7 @@ class Planner:
             t_ = self.tokenizer.encode(s, add_special_tokens=False)
             if len(t_) == 1:
                 stop_ids.add(t_[0])
+        constraint = self._op_constraint()
         cur = mx.array([toks[self._cut:acut]])
         buf = ""
         lines: list[str] = []
@@ -227,8 +344,16 @@ class Planner:
             if cancel.is_set():
                 break
             out = self.body(cur, cache=cache)
-            logits = self.lm_head(out[:, -1:, :]).astype(mx.float32)
-            nxt = int(np.argmax(np.array(logits[0, 0])))
+            logits = np.array(self.lm_head(out[:, -1:, :]).astype(mx.float32)[0, 0])
+            if constraint is not None and not in_script:
+                allow = constraint.allowed(buf.lstrip(" "), has_action(lines))
+                if allow is not None:
+                    if lines and buf == "":
+                        allow = allow + sorted(stop_ids)
+                    mask = np.full_like(logits, -np.inf)
+                    mask[allow] = 0
+                    logits = logits + mask
+            nxt = int(np.argmax(logits))
             if ttft is None:
                 ttft = (time.perf_counter() - t0) * 1000
             if nxt in stop_ids:

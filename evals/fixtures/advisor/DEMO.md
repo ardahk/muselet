@@ -25,7 +25,7 @@ that contains digits, `$` or `%`.
 
 | t | App | Step | Verification (`expect` / check) |
 |---|---|---|---|
-| 0:02 | Calendar | Find next event matching "Henderson": `Henderson annual review`, 2026-10-26 10:00-11:00 | event found; start date parsed by code |
+| 0:02 | Calendar | `skill open_app app=Calendar` (visual only, no Calendar scripting, so no Automation prompt); the meeting comes from the folder's `annual_review.ics`: bubble "Review Mon Oct 26, 10:00, per the client file." | start date parsed by code from the `.ics` |
 | 0:05 | Finder | `open "~/Documents/Clients/Henderson"`; list files | `title~"Henderson"` |
 | 0:08 | (brain) | Read `last_meeting_notes.txt`, `profile.json`, `targets.json`, `activity_last_60d.csv` | files parsed, no load warnings |
 | 0:10 | Numbers | `open` `portfolio.xlsx` (Holdings sheet is what the advisor sees) | `numbers_wait_script(path)`: the open document whose file is that path |
@@ -35,6 +35,11 @@ that contains digits, `$` or `%`.
 | 0:24 | Notes | `script applescript` = `notes_brief_script(prep, phrasing)` (one call) | note "Henderson — annual review prep (Muselet)" in folder Clients, updated in place if it exists; nothing deleted |
 | 0:28 | Notes | `open "Notes"`, show the note | `appears "Henderson — annual review prep (Muselet)"` |
 | 0:30 | (mascot) | `done` + bubble | harness checks below |
+
+Every app step has a 5 s timeout. Calendar, Finder and the Numbers steps are optional: on a timeout or error the
+mascot says e.g. "Finder didn't open in time; continuing." and the final bubble ends "skipped Finder." The Notes
+brief is required; if it fails the run ends with "Couldn't write the brief in Notes."
+The client argument is normalized by code first ("meeting with the hendersons" -> "henderson").
 
 Generate the three scripts offline for inspection:
 `PYTHONPATH=ml/src python3 -m brain.advisor script numbers-highlight|numbers-review|notes-brief --household ~/Documents/Clients/Henderson`.

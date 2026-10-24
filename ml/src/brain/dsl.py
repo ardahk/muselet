@@ -7,6 +7,7 @@ Grammar (one action per line, max 5 per batch):
     keys <combo>
     scroll #<ref> up|down|left|right [n]
     click <x>,<y> [right|double]
+    click "<target description>" [right|double]   (grounded on a fresh screenshot)
     open "<App Name>"
     url "<https://...>"
     script applescript|jxa|shell \"\"\"<code>\"\"\"
@@ -20,6 +21,25 @@ predicates: title~"<t>" | focused #<r> | value #<r>="<t>" | app "<n>" | appears 
 import re
 
 MAX_BATCH = 5
+OPS = {"skill", "press", "type", "keys", "scroll", "click", "open", "url",
+       "script", "wait", "ask", "confirm", "done", "refuse", "expect"}
+_SKILLISH = re.compile(r"^[a-z][a-z0-9]*_[a-z0-9_]*(?:\s+\w+=|$)")
+
+
+def action_line(line: str, skills=None) -> str | None:
+    """A planner line as DSL, or None when it isn't an action (prose,
+    `</think>`-style tags, ``` fences, `#` notes). A line that starts with a
+    catalog skill name gets the `skill` prefix (`open_app app=X`). Without
+    `skills`, any `snake_case key=` line counts as a skill call."""
+    s = line.strip()
+    if not s or s.startswith(("#", "```", "<")):
+        return None
+    tok = s.split(None, 1)[0]
+    if tok in OPS:
+        return s
+    if skills is not None:
+        return f"skill {s}" if tok in skills else None
+    return s if _SKILLISH.match(s) else None
 
 
 class DSLError(ValueError):
@@ -166,6 +186,8 @@ def parse(text: str) -> list[dict]:
                 if "=" not in kv:
                     raise _err(f"skill arg must be key=value, got {kv!r}", lineno)
                 k, v = kv.split("=", 1)
+                if not v.startswith('"'):
+                    v = v.rstrip(",;.") or v   # `parent=~/Desktop,`
                 args[k] = _coerce(v)
             actions.append({"op": "skill", "name": toks[1], "args": args})
             continue
@@ -202,14 +224,26 @@ def parse(text: str) -> list[dict]:
             continue
         if op == "click":
             if len(toks) < 2:
-                raise _err("click <x>,<y> [right|double]", lineno)
+                raise _err('click <x>,<y> | "<target>" [right|double]', lineno)
+            mods = toks[2:]
+            bad = [m for m in mods if m not in ("right", "double")]
+            if bad:
+                raise _err(f"bad click modifier {bad[0]!r}", lineno)
+            if toks[1].startswith('"'):
+                target = _unquote(toks[1], lineno).strip()
+                if not target:
+                    raise _err("click target is empty", lineno)
+                actions.append({"op": "click", "target": target,
+                                "right": "right" in mods,
+                                "double": "double" in mods})
+                continue
             try:
                 x, y = (float(v) for v in toks[1].split(","))
             except ValueError:
                 raise _err(f"bad coords {toks[1]!r}", lineno)
             actions.append({"op": "click", "x": x, "y": y,
-                            "right": "right" in toks[2:],
-                            "double": "double" in toks[2:]})
+                            "right": "right" in mods,
+                            "double": "double" in mods})
             continue
         if op == "open":
             actions.append({"op": "open", "name": _unquote(toks[1], lineno)})
@@ -267,9 +301,12 @@ def serialize(actions: list[dict]) -> str:
             if a.get("n", 3) != 3:
                 line += f" {a['n']}"
         elif op == "click":
-            x, y = a["x"], a["y"]
-            fmt = lambda v: int(v) if float(v) == int(v) else v
-            line = f"click {fmt(x)},{fmt(y)}"
+            if a.get("target") is not None:
+                line = f"click {_q(a['target'])}"
+            else:
+                x, y = a["x"], a["y"]
+                fmt = lambda v: int(v) if float(v) == int(v) else v
+                line = f"click {fmt(x)},{fmt(y)}"
             if a.get("right"):
                 line += " right"
             if a.get("double"):
