@@ -168,6 +168,16 @@ def args_messages(
     return msgs
 
 
+_SENTINEL = "SENTINELMARKER9Z"
+
+
+def args_runtime_prompt(rend: Renderer, opt: Option, ctx: RouteContext, utterance: str) -> list[int]:
+    """ARGS prompt ids exactly as brain.decision.DecisionEngine.args builds them: the empty think block is prefilled."""
+    toks = rend.build_supervised_example(args_messages(opt, ctx, utterance, _SENTINEL))[0].to_ints()
+    s = rend.tokenizer.encode(_SENTINEL, add_special_tokens=False)
+    return toks[:next(i for i in range(len(toks)) if toks[i:i + len(s)] == s)]
+
+
 @lru_cache(maxsize=4)
 def base_renderer(model: str = STUDENT_MODEL) -> Renderer:
     return renderers.get_renderer(model_info.get_recommended_renderer_name(model), get_tokenizer(model))

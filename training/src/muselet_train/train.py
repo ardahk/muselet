@@ -17,7 +17,8 @@ import tinker
 
 from muselet_train import datums as D
 from muselet_train.catalog import option_names, skill_by_name
-from muselet_train.route_render import STUDENT_MODEL, RouteContext, args_messages, base_renderer, render_route
+from muselet_train.route_render import (
+    STUDENT_MODEL, RouteContext, args_messages, args_runtime_prompt, base_renderer, render_route)
 from muselet_train.teacher import chunked_decision
 
 PRICE_TRAIN, PRICE_PREFILL = 0.73, 0.33  # Qwen3.5-4B, SPEC prices per 1M tokens
@@ -59,6 +60,7 @@ def _text(msg) -> str:
 async def evaluate(client, val_route: list[D.RouteItem], val_args: list[dict], model: str, conc: int = 32) -> dict:
     sem = asyncio.Semaphore(conc)
     rend = base_renderer(model)
+    im_end = rend.tokenizer.convert_tokens_to_ids("<|im_end|>")
 
     async def one_route(it):
         async with sem:
@@ -71,24 +73,42 @@ async def evaluate(client, val_route: list[D.RouteItem], val_args: list[dict], m
                 prompt=rend.build_generation_prompt(msgs), num_samples=1,
                 sampling_params=tinker.SamplingParams(max_tokens=64, temperature=0.0, stop=rend.get_stop_sequences()))
         got = _text(rend.parse_response(res.sequences[0].tokens)[0]).strip()
-        return " ".join(got.split()) == " ".join(r["target"].split())
+        prompt = args_runtime_prompt(rend, skill_by_name(r["skill"]), RouteContext(**r["context"]), r["utterance"])
+        async with sem:
+            rt = await client.sample_async(
+                prompt=tinker.ModelInput.from_ints(prompt), num_samples=1,
+                sampling_params=tinker.SamplingParams(max_tokens=24, temperature=0.0, stop=[im_end]))
+        out = []
+        for t in rt.sequences[0].tokens:  # DecisionEngine.args: greedy, stop at <|im_end|> or a newline token
+            if t == im_end or "\n" in rend.tokenizer.decode([t]):
+                break
+            out.append(t)
+        got_rt = rend.tokenizer.decode(out).strip()
+        want = " ".join(r["target"].split())
+        return " ".join(got.split()) == want, " ".join(got_rt.split()) == want, got_rt == ""
 
     routes = await asyncio.gather(*(one_route(it) for it in val_route))
     em = await asyncio.gather(*(one_args(r) for r in val_args))
-    return {**route_metrics(routes), "args_em": sum(em) / max(len(em), 1), "args_n": len(em)}
+    n = max(len(em), 1)
+    return {**route_metrics(routes), "args_em": sum(e[0] for e in em) / n, "args_em_runtime": sum(e[1] for e in em) / n,
+            "args_empty_runtime": sum(e[2] for e in em) / n, "args_n": len(em)}
 
 
 def write_report(name: str, cfg: dict, history: list[dict], ckpts: list[dict], final: dict | None = None,
                  data: dict | None = None) -> Path:
     last = history[-1] if history else {}
     lines = [f"# Phase 1 run `{name}`", "", "```json", json.dumps(cfg, indent=1), "```", "",
-             "| step | train loss | val top1 | macro-F1 | ECE | Brier | ARGS EM |", "|---|---|---|---|---|---|---|"]
+             "| step | train loss | val top1 | macro-F1 | ECE | Brier | ARGS EM | ARGS EM runtime | ARGS empty runtime |",
+             "|---|---|---|---|---|---|---|---|---|"]
     lines += [f"| {h['step']} | {h.get('train_loss', float('nan')):.4f} | {h['top1']:.3f} | {h['macro_f1']:.3f} | "
-              f"{h['ece']:.3f} | {h['brier']:.3f} | {h['args_em']:.3f} |" for h in history if "top1" in h]
+              f"{h['ece']:.3f} | {h['brier']:.3f} | {h['args_em']:.3f} | {h.get('args_em_runtime', float('nan')):.3f} | "
+              f"{h.get('args_empty_runtime', float('nan')):.3f} |" for h in history if "top1" in h]
     if final:
         lines += ["", f"Final eval on the full val split ({final['n']} route, {final['args_n']} ARGS): top1 "
                   f"{final['top1']:.3f}, macro-F1 {final['macro_f1']:.3f}, ECE {final['ece']:.3f}, "
-                  f"Brier {final['brier']:.3f}, ARGS EM {final['args_em']:.3f}"]
+                  f"Brier {final['brier']:.3f}, ARGS EM {final['args_em']:.3f}, ARGS EM with the runtime rendering "
+                  f"(gate) {final.get('args_em_runtime', float('nan')):.3f}, "
+                  f"empty {final.get('args_empty_runtime', float('nan')):.3f}"]
     src = final or last
     if src.get("per_label"):
         n = src.get("per_label_n", {})

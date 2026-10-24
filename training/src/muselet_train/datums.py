@@ -125,10 +125,27 @@ def args_rows(run: str, split_of: dict[str, str]) -> list[dict]:
 
 def args_datums(rows: list[dict], model: str):
     rend = base_renderer(model)
-    return [conversation_to_datum(
+    close = rend.tokenizer.convert_tokens_to_ids("</think>")
+    return [_answer_only(conversation_to_datum(
         args_messages(skill_by_name(r["skill"]), RouteContext(**r["context"]),
                       r["utterance"], r["target"]),
-        rend, max_length=None, train_on_what=TrainOnWhat.LAST_ASSISTANT_MESSAGE) for r in rows]
+        rend, max_length=None, train_on_what=TrainOnWhat.LAST_ASSISTANT_MESSAGE), close, rend.tokenizer) for r in rows]
+
+
+def _answer_only(d: tinker.Datum, close: int, tok) -> tinker.Datum:
+    """The runtime prefills the empty think block, so it is prompt, not target: weight only the answer and
+    <|im_end|>. Training on it taught the model to emit a newline first, which the runtime reads as empty."""
+    tg = d.loss_fn_inputs["target_tokens"].to_torch()
+    w = d.loss_fn_inputs["weights"].to_torch().clone()
+    nz = (w > 0).nonzero().flatten().tolist()
+    k = next((i for i in nz if int(tg[i]) == close), None)
+    if k is not None:
+        k += 1
+        while k < len(tg) and tok.decode([int(tg[k])]).strip() == "":
+            k += 1
+        w[:k] = 0
+    return tinker.Datum(model_input=d.model_input,
+                        loss_fn_inputs={**d.loss_fn_inputs, "weights": tinker.TensorData.from_torch(w)})
 
 
 def batches(route: list, args: list, batch: int, route_frac: float, seed: int, mode: str):
