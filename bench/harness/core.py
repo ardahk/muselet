@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 from bench.harness.documents import (
+    DOCUMENT_APPS,
     DocumentApp,
     DocumentInventoryError,
     close_created_script,
@@ -572,6 +573,74 @@ async def _cancel_timers(runtime: Any, step: dict[str, Any], result: dict[str, A
         result["teardown_incomplete"] = True
 
 
+_FINDER_WINDOW_IDS = 'tell application "Finder" to get id of every Finder window'
+
+
+def _running_names(listing: Any) -> set[str]:
+    names: set[str] = set()
+    for app in listing.get("running", []) if isinstance(listing, dict) else []:
+        values = [app.get(k) for k in ("name", "bundle_id", "bundleId")] if isinstance(app, dict) else [app]
+        names.update(str(v).casefold() for v in values if v)
+    return names
+
+
+def _is_running(app: DocumentApp, names: set[str]) -> bool:
+    return any(key.casefold() in names for key in (app.name, *app.bundle_ids))
+
+
+async def _launch_snapshot(runtime: Any) -> dict[str, Any] | None:
+    """Running apps + Finder window ids before setup (None for runtimes without RPCs, e.g. fakes)."""
+    if not hasattr(runtime, "run_rpc") or not hasattr(runtime, "run_skill"):
+        return None
+    try:
+        listing = await runtime.run_rpc("apps", {})
+        finder = await runtime.run_script("applescript", _FINDER_WINDOW_IDS)
+    except HarnessTimeout:
+        raise
+    except Exception as exc:
+        return {"error": str(exc)}
+    return {"running": sorted(_running_names(listing)),
+            "finder_windows": re.findall(r"\d+", str((finder or {}).get("output") or ""))}
+
+
+async def _close_case_launched(runtime: Any, baseline: dict[str, Any] | None, result: dict[str, Any]) -> None:
+    """Quit the document apps this case launched and close the Finder windows it opened, so later cases
+    don't skip on our own leftovers. Apps running and windows open before the case are never touched."""
+    if not baseline or baseline.get("error"):
+        return
+    after = await _launch_snapshot(runtime)
+    if not after or after.get("error"):
+        result["teardown_observations"].append(
+            {"step": "close_case_launched", "error": (after or {}).get("error", "no snapshot")})
+        return
+    before, now = set(baseline["running"]), set(after["running"])
+    for app in DOCUMENT_APPS:
+        if not _is_running(app, now) or _is_running(app, before):
+            continue
+        try:
+            outcome = await runtime.run_skill("quit_app", {"app": app.name})
+        except HarnessTimeout:
+            raise
+        except Exception as exc:
+            outcome = {"ok": False, "error": str(exc)}
+        result["teardown_observations"].append({"step": "quit_case_launched_app", "app": app.name, "result": outcome})
+        if isinstance(outcome, dict) and outcome.get("ok") is False:
+            result["teardown_incomplete"] = True
+    old_ids = set(baseline["finder_windows"])
+    new_ids = [i for i in after["finder_windows"] if i not in old_ids]
+    if new_ids:
+        script = ('tell application "Finder"\nrepeat with i in {' + ", ".join(new_ids) + "}\n"
+                  "close (every Finder window whose id is i)\nend repeat\nend tell")
+        try:
+            outcome = await runtime.run_script("applescript", script)
+        except HarnessTimeout:
+            raise
+        except Exception as exc:
+            outcome = {"ok": False, "error": str(exc)}
+            result["teardown_incomplete"] = True
+        result["teardown_observations"].append({"step": "close_case_finder_windows", "ids": new_ids, "result": outcome})
+
+
 def _precondition_steps(case: dict[str, Any]) -> list[Any]:
     predicates = case.get("precondition", [])
     if predicates is None:
@@ -711,6 +780,9 @@ async def run_case(
             result["user_documents"] = user_documents
             await runtime.stop()
             return result
+
+    launch_baseline = await _launch_snapshot(runtime)
+    result["launch_baseline"] = launch_baseline
 
     guard = case.get("pre_setup_guard")
     if callable(guard):
@@ -1126,6 +1198,13 @@ async def run_case(
                 result["teardown_observations"].append({"step": step, "error": str(exc)})
                 result["strict_pass"] = False
                 result["status"] = "failed"
+        if not timeout_slot_held:
+            try:
+                await _close_case_launched(runtime, launch_baseline, result)
+            except HarnessTimeout as exc:
+                note_timeout(exc)
+                if timeout_slot_held:
+                    return await abort_held_slot(teardown_steps=[])
         for item, value in reversed(restore_values):
             script = str(item["set"]).replace("{value}", value)
             try:
