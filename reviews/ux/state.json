@@ -1,19 +1,19 @@
 {
-  "pass": 6,
-  "ts": "2026-10-24T07:35:00Z",
+  "pass": 7,
+  "ts": "2026-10-24T07:50:00Z",
   "last_reviewed": {
-    "main": "d8ad966",
-    "wip/local": "85ec0df",
-    "cloud/data-pipeline": "b8c0604",
+    "main": "4a74659",
+    "wip/local": "85c73ed",
+    "cloud/data-pipeline": "9c526b1",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
-    "cloud/bench": "911a384",
+    "cloud/bench": "c3ca0b3",
     "cloud/pitch": "ad1b058",
     "cloud/grounding": "3441ee8",
     "cloud/brain-2": "741465c"
   },
-  "notes": "pass 6. brain-2 741465c fixes ux-2/3/8/10/11 and the brain half of ux-1. Other cloud branches have no lane edits beyond merges of main."
+  "notes": "pass 7: brain-2, pitch, grounding, advisor-2 and finance-2 merged to main. wip 85c73ed fixes the app side of ux-1/4/7/13."
 }
