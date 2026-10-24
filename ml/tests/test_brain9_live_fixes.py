@@ -3,6 +3,7 @@
 import asyncio
 import json
 import time
+from concurrent.futures import Future
 
 import pytest
 
@@ -18,6 +19,14 @@ from test_brain8_live_fixes import FakePlanner
 class InlineWorker:
     async def submit_async(self, fn, *args, **kwargs):
         return await asyncio.to_thread(fn, *args, **kwargs)
+
+    def submit(self, fn, *args, **kwargs):
+        future = Future()
+        try:
+            future.set_result(fn(*args, **kwargs))
+        except BaseException as exc:
+            future.set_exception(exc)
+        return future
 
 
 def _orch(tmp_path, text, routes=None, args=None, planner=None,
@@ -95,15 +104,23 @@ def test_planner_open_then_web_search_preserves_requested_browser(
         ['open "Safari"', 'skill web_search query="flights to Tokyo"'],
         ['done "ok"'],
     ])
-    orch, server = _orch(tmp_path, text, planner=planner)
+    orch, server = _orch(
+        tmp_path, text, routes={text: ("MULTI_STEP", 0.95)},
+        planner=planner)
     asyncio.run(orch.handle_utterance(text))
 
     assert [p for m, p in server.rpcs if m == "skill"] == [{
         "name": "web_search",
         "args": {"query": "flights to Tokyo", "browser": "Safari"},
-    }]
-    assert any(m == "act" and p.get("op") == "open" and
-               p.get("name") == "Safari" for m, p in server.rpcs)
+    }], server.rpcs
+    open_rpc = next((i for i, (m, p) in enumerate(server.rpcs)
+                     if m == "act" and p.get("op") == "open" and
+                     p.get("name") == "Safari"), None)
+    skill_rpc = next((i for i, (m, p) in enumerate(server.rpcs)
+                      if m == "skill" and p.get("name") == "web_search"),
+                     None)
+    assert open_rpc is not None and skill_rpc is not None and \
+        open_rpc < skill_rpc, server.rpcs
 
 
 def test_planner_url_act_receives_named_browser(tmp_path):
