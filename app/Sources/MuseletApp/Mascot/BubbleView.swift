@@ -12,7 +12,10 @@ struct BubbleView: View {
     var onConfirm: (Bool) -> Void
 
     var body: some View {
-        Group {
+        // The latency chip sits beside the bubble's lower edge, on the side
+        // away from the mascot (the panel grows away from the mascot).
+        HStack(alignment: .bottom, spacing: 6) {
+            if layout.tailOnRight { latency }
             if let b = model.bubble {
                 content(b)
                     .padding(.horizontal, 14)
@@ -28,9 +31,29 @@ struct BubbleView: View {
                     .animation(.spring(response: 0.34, dampingFraction: 0.7), value: model.bubbleVisible)
                     .animation(.spring(response: 0.3, dampingFraction: 0.85), value: b)
             }
+            if !layout.tailOnRight { latency }
         }
         .padding(14)
         .fixedSize()
+    }
+
+    /// "0.21 s" in SF Mono, secondary color; fades in/out (MascotController
+    /// drops it ~2 s after the final ui message).
+    @ViewBuilder
+    private var latency: some View {
+        if let chip = model.latencyChip {
+            Text(chip.text)
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .glassEffect(.regular, in: Capsule())
+                .padding(.bottom, model.bubble != nil && model.bubbleVisible ? BubbleShape.tail + 3 : 0)
+                .opacity(model.latencyVisible ? 1 : 0)
+                .animation(.easeOut(duration: 0.3), value: model.latencyVisible)
+                .accessibilityLabel("took \(chip.text)")
+        }
     }
 
     @ViewBuilder

@@ -22,6 +22,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Screenshots exclude windows owned by this bundle id.
         rpc.ownBundleId = Bundle.main.bundleIdentifier ?? "ai.muselet.app"
+        // Web pages through AX: turn on browsers' / Electron apps' web trees
+        // when they become frontmost (Chrome needs ~2 s after the switch).
+        WebAX.watchActivations()
 
         overlays = OverlayController()
         ghost = GhostCursor(overlays: overlays)
@@ -51,6 +54,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         voice.brain = brain
         voice.mascot = mascot
         voice.onConfirmAnswer = { [weak self] yes in self?.replyConfirm(yes: yes) }
+        // Ghost targets (Dock icons, menu extras) are read while the user
+        // talks, so the skill RPC doesn't pay the AX read.
+        voice.onPressBegan = { [weak self] in self?.rpc.skillTargets.prefetch() }
         mascot.onConfirmReply = { [weak self] yes in self?.replyConfirm(yes: yes) }
 
         permissionWatcher.onChange = { [weak self] _ in self?.voice.startHotkey() }
@@ -75,6 +81,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                    : "Hi! Open my menu to grant permissions.",
                                    style: .say)
         }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        // Don't leave browsers in enhanced-UI / full-accessibility mode.
+        WebAX.Registry.shared.restoreAll()
     }
 
     private func terminateIfAlreadyRunning() -> Bool {
@@ -103,12 +114,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.model.log(.error, "brain disconnected")
                 if self.model.pendingConfirm != nil {
                     self.model.pendingConfirm = nil
-                    self.mascot.hideBubble()
+                    self.mascot.clearConfirmBubble()
                 }
             default: break
             }
         }
-        brain.onUI = { [weak self] mascotState, bubble in
+        brain.onUI = { [weak self] mascotState, bubble, ms in
             guard let self else { return }
             if let m = mascotState.flatMap(MascotMood.init(rawValue:)) {
                 if !(self.model.isRecording && m != .listening) { self.model.mood = m }
@@ -116,7 +127,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let b = bubble, !b.isEmpty, self.model.pendingConfirm == nil, !self.model.isRecording {
                 self.mascot.showBubble(b, style: .say)
             }
-            self.model.log(.ui, (mascotState ?? "ui") + (bubble.map { " · \($0)" } ?? ""))
+            // Final message of a request: latency chip beside the bubble.
+            if let ms, !self.model.isRecording, self.model.pendingConfirm == nil {
+                self.mascot.showLatency(ms: ms)
+            }
+            self.model.log(.ui, (mascotState ?? "ui") + (bubble.map { " · \($0)" } ?? ""), ms: ms)
         }
         brain.onSay = { [weak self] text in
             guard let self, !text.isEmpty else { return }
@@ -133,6 +148,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if !self.model.isRecording {
                 self.mascot.showBubble(summary, style: .confirm, autoHide: false)
             }
+        }
+        brain.onConfirmCancel = { [weak self] id in
+            guard let self else { return }
+            guard ConfirmCancel.clears(pendingId: self.model.pendingConfirm?.id, cancelId: id) else { return }
+            self.model.pendingConfirm = nil
+            self.model.log(.confirm, "confirm cancelled by brain" + (id.map { " (\($0))" } ?? ""))
+            // While the user is talking the bubble shows the transcript; it is
+            // restored without the confirm afterwards (pendingConfirm is nil).
+            if !self.model.isRecording { self.mascot.clearConfirmBubble() }
         }
         brain.onRPC = { [weak self] method, summary, ms, ok in
             self?.model.log(.rpc, summary, ms: ms, ok: ok)

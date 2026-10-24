@@ -83,6 +83,12 @@ struct BubbleContent: Equatable {
     var style: BubbleStyle
 }
 
+/// Latency chip next to the bubble ("0.21 s"), from `ui.ms`.
+struct LatencyChip: Equatable {
+    let id = UUID()
+    let text: String
+}
+
 /// Single source of truth for UI state. Main-thread only.
 final class AppModel: ObservableObject {
     static let shared = AppModel()
@@ -91,6 +97,8 @@ final class AppModel: ObservableObject {
     @Published var mood: MascotMood = .idle
     @Published var bubble: BubbleContent?
     @Published var bubbleVisible = false
+    @Published var latencyChip: LatencyChip?
+    @Published var latencyVisible = false
     @Published var pendingConfirm: PendingConfirm?
     @Published var activity: [ActivityEntry] = []
     @Published var sttState: STTState = .idle
