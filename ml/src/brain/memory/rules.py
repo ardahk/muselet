@@ -272,9 +272,13 @@ def _candidate_names(turn) -> list[str]:
     args = turn.args or {}
     found = []
     recipient = args.get("to")
-    if isinstance(recipient, str) and recipient.strip() and \
-            recipient.casefold() not in _NOT_NAMES:
-        found.append(recipient.strip())
+    if turn.skill in _COMMS:
+        if isinstance(recipient, str) and recipient.strip() and \
+                recipient.casefold() not in _NOT_NAMES:
+            return [recipient.strip()]
+        return []
+    if turn.skill in {"open_file", "open_folder", "find_file"}:
+        return []
     explicit_re = re.compile(
         r"\b(?:with|to|call|ask|message|text|email|tell)\s+"
         r"(?:dr\.?\s+)?([A-ZÀ-ÖØ-Þ][\wÀ-ÖØ-öø-ÿ'’-]*"
@@ -394,6 +398,22 @@ def _item(text: str, wm, ctx: dict, now: float):
         return _resolution(
             text, re.sub(r"\b(?:it|that|this)\b", app, text, count=1,
                          flags=re.IGNORECASE), "item")
+    if re.search(r"\bthere\b", text, re.IGNORECASE):
+        for turn in reversed(wm.turns):
+            if not 0 <= now - turn.t <= wm.ttl_s or not turn.ok or \
+                    turn.skill not in {"create_event", "create_reminder"}:
+                continue
+            args = turn.args or {}
+            destination = str(args.get("location") or "").strip()
+            if not destination:
+                title = str(args.get("title") or "")
+                destination = re.split(
+                    r"\s+(?:with|at|on)\s+", title, maxsplit=1,
+                    flags=re.IGNORECASE)[0].strip()
+            if destination:
+                rewritten = re.sub(r"\bthere\b", destination, text,
+                                   count=1, flags=re.IGNORECASE)
+                return _resolution(text, rewritten, "item")
     folder_only = bool(re.search(r"\bfolder\b", text, re.IGNORECASE))
     refs = _file_referents(wm, now, folder_only=folder_only)
     if not refs:
@@ -613,6 +633,10 @@ def apply(text: str, reason: str, wm, ctx: dict, now: float,
         return _resolution(text, rewritten, "undo")
     if reason == "person":
         return _person(text, wm, now)
+    if reason == "pronoun":
+        if re.search(r"\b(?:him|her|them)\b", text, re.IGNORECASE):
+            return _person(text, wm, now)
+        return _item(text, wm, ctx, now)
     if reason == "item":
         return _item(text, wm, ctx, now)
     if reason == "refinement":
