@@ -1,4 +1,8 @@
-# planner lane — pass 29 (main b625ceb, wip 49f808f = main in this lane, data-pipeline 512cce0)
+# planner lane — pass 30 (main b625ceb unchanged, new cloud/brain-6 780f49d)
+
+Pass 30: 1 new P2 (planner-27). brain-6 adds sendgate.py: Enter and send confirms now cover chat and mail apps and browser tabs for them, not just Mail, Messages and Slack. It also adds a safety gate on grounded clicks (target label, composer or payment context, the AX label under the point, otherwise OCR, failing closed). It looks correct; 126 focused tests pass. Open findings on main are unchanged (planner-24 L977, planner-26 L289, planner-25 planner.py L334, planner-6).
+
+## Pass 29 notes
 
 Pass 29: no lane changes; main only merged pitch-4 (docs) and the spend-guard fix. I re-checked the open findings on main: planner-24 (orchestrator.py L977), planner-26 (L289) and planner-25 (planner.py L334) are unchanged, and planner-6 is unchanged.
 
