@@ -2,7 +2,7 @@ import Contacts
 import Foundation
 
 /// `contacts_search` RPC: people search over CNContactStore for the comms
-/// skill. Authorization: authorized/limited search; notDetermined asks and
+/// skill. Authorization: authorized search; notDetermined asks and
 /// awaits (<= 60 s); denied/restricted/refused -> `contacts_denied`.
 /// Pure helpers (query kind, label mapping, match packing) take plain
 /// values so tests never touch the store.
@@ -27,8 +27,20 @@ public enum ContactsSearch {
 
     /// `CNLabeledValue.localizedString(forLabel:)` lowercased
     /// ("mobile", "iphone", "home", "work", custom labels unwrapped).
+    private static let appleLabel = try! NSRegularExpression(
+        pattern: #"^_\$!<(.*?)>!\$_$"#)
+
     public static func localizedLabel(_ raw: String?) -> String {
-        CNLabeledValue<NSString>.localizedString(forLabel: raw).lowercased()
+        guard let raw else { return "" }
+        // Custom labels ("_$!<Cabin>!$_") unwrap to their inner text; the
+        // framework only maps the known constants.
+        if let m = appleLabel.firstMatch(
+            in: raw, range: NSRange(raw.startIndex..., in: raw)),
+           let r = Range(m.range(at: 1), in: raw) {
+            return String(raw[r]).lowercased()
+        }
+        return CNLabeledValue<NSString>.localizedString(forLabel: raw)
+            .lowercased()
     }
 
     static let fetchKeys: [CNKeyDescriptor] = [
@@ -65,7 +77,7 @@ public enum ContactsSearch {
     public static func search(store: CNContactStore, query: String,
                               limit: Int) -> ([[String: Any]]?, String?) {
         switch CNContactStore.authorizationStatus(for: .contacts) {
-        case .authorized, .limited:
+        case .authorized:
             break
         case .notDetermined:
             var granted = false

@@ -206,7 +206,7 @@ async def _email_recipient(orch, to: str | None) -> str | None:
         return direct["value"]
     result, error = await _rpc(
         orch, "contacts_search",
-        {"query": comms.clean_query(to), "limit": 5}, 5)
+        {"query": comms.clean_query(to), "limit": 5}, comms.CONTACTS_TIMEOUT_S)
     if error or not result:
         return None
     matches = comms.rank(comms.clean_query(to), result.get("matches") or [])

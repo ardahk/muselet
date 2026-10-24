@@ -20,9 +20,20 @@ import Foundation
 ///    one timer, or every Muselet timer without `id`; an unknown id is
 ///    ok=false `unknown_timer` (with the pending list).
 ///    (Timers are RPCs, not skills, so the catalog is unchanged.)
+///  - Comms (`brain.comms` contract):
+///    `contacts_search {query, limit=5}` -> `{matches, ms}` (`contacts_denied`);
+///    `messages_compose {handle, body}` -> `{frontmost, window_title,
+///    body_visible, recipient_ok}`, never sends (`bad_handle`,
+///    `screen_locked`, `not_frontmost`, `no_text_target`,
+///    `recipient_unverified`);
+///    `messages_send {}` -> `{sent}` after one Return in the stored
+///    compose only (`no_compose`, `screen_locked`, `not_frontmost`,
+///    `draft_changed`).
 public final class RPCHandler {
     public let hands = Hands()
     public let skills: Skills
+    /// Messages compose/send state (the draft a `messages_send` may release).
+    public let composer = MessagesComposer()
     /// Dock / menu-extra frames for the ghost cursor before skills.
     public let skillTargets: SkillTargets
     public var ownBundleId: String? = Bundle.main.bundleIdentifier
@@ -184,6 +195,22 @@ public final class RPCHandler {
                 let r: [String: Any] = ["cancelled": cancelled, "timers": skills.timerList()]
                 if let id, cancelled.isEmpty { return (false, r, "unknown_timer: \(id)") }
                 return (true, r, nil)
+
+            case "contacts_search":
+                return ContactsSearch.rpc(
+                    query: params["query"] as? String ?? "",
+                    limit: intParam(params, "limit") ?? 5)
+
+            case "messages_compose":
+                guard let handle = params["handle"] as? String,
+                      let body = params["body"] as? String else {
+                    return (false, nil,
+                            "messages_compose needs handle + body")
+                }
+                return composer.compose(handle: handle, body: body)
+
+            case "messages_send":
+                return composer.send()
 
             case "apps":
                 let running = NSWorkspace.shared.runningApplications.compactMap { a -> [String: Any]? in

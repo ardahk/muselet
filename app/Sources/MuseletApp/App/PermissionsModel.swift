@@ -1,11 +1,12 @@
 import AppKit
 import ApplicationServices
 import AVFoundation
+import Contacts
 import CoreGraphics
 import HandsKit
 
 enum PermissionKind: String, CaseIterable, Identifiable {
-    case accessibility, screenRecording, microphone, inputMonitoring
+    case accessibility, screenRecording, microphone, inputMonitoring, contacts
     var id: String { rawValue }
 
     var title: String {
@@ -14,6 +15,7 @@ enum PermissionKind: String, CaseIterable, Identifiable {
         case .screenRecording: return "Screen Recording"
         case .microphone: return "Microphone"
         case .inputMonitoring: return "Input Monitoring"
+        case .contacts: return "Contacts"
         }
     }
 
@@ -23,6 +25,7 @@ enum PermissionKind: String, CaseIterable, Identifiable {
         case .screenRecording: return "rectangle.dashed.badge.record"
         case .microphone: return "mic.fill"
         case .inputMonitoring: return "keyboard"
+        case .contacts: return "person.crop.circle"
         }
     }
 
@@ -32,6 +35,7 @@ enum PermissionKind: String, CaseIterable, Identifiable {
         case .screenRecording: return "screenshots when the AX tree is blind"
         case .microphone: return "push-to-talk voice input"
         case .inputMonitoring: return "right ⌥ hold-to-talk hotkey"
+        case .contacts: return "find the person you ask it to message"
         }
     }
 
@@ -42,6 +46,7 @@ enum PermissionKind: String, CaseIterable, Identifiable {
         case .screenRecording: anchor = "Privacy_ScreenCapture"
         case .microphone: anchor = "Privacy_Microphone"
         case .inputMonitoring: anchor = "Privacy_ListenEvent"
+        case .contacts: anchor = "Privacy_Contacts"
         }
         return URL(string: "x-apple.systempreferences:com.apple.preference.security?\(anchor)")!
     }
@@ -56,6 +61,7 @@ struct PermissionSnapshot: Equatable {
     var screenRecording: PermissionState = .notDetermined
     var microphone: PermissionState = .notDetermined
     var inputMonitoring: PermissionState = .notDetermined
+    var contacts: PermissionState = .notDetermined
 
     subscript(_ k: PermissionKind) -> PermissionState {
         switch k {
@@ -63,6 +69,7 @@ struct PermissionSnapshot: Equatable {
         case .screenRecording: return screenRecording
         case .microphone: return microphone
         case .inputMonitoring: return inputMonitoring
+        case .contacts: return contacts
         }
     }
 
@@ -80,6 +87,11 @@ enum Permissions {
         default: s.microphone = .denied
         }
         s.inputMonitoring = CGPreflightListenEventAccess() ? .granted : .denied
+        switch CNContactStore.authorizationStatus(for: .contacts) {
+        case .authorized: s.contacts = .granted
+        case .notDetermined: s.contacts = .notDetermined
+        default: s.contacts = .denied
+        }
         return s
     }
 
@@ -108,6 +120,18 @@ enum Permissions {
         case .inputMonitoring:
             if !CGRequestListenEventAccess() { NSWorkspace.shared.open(k.settingsURL) }
             completion()
+        case .contacts:
+            switch CNContactStore.authorizationStatus(for: .contacts) {
+            case .notDetermined:
+                CNContactStore().requestAccess(for: .contacts) { _, _ in
+                    DispatchQueue.main.async { completion() }
+                }
+            case .authorized:
+                completion()
+            default:
+                NSWorkspace.shared.open(k.settingsURL)
+                completion()
+            }
         }
     }
 }

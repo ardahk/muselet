@@ -26,6 +26,8 @@ import unicodedata
 from . import slots
 from .orchestrator import _excerpt
 
+CONTACTS_TIMEOUT_S = 65
+
 _EMAIL = re.compile(r"^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9-]+"
                     r"(?:\.[A-Z0-9-]+)+$", re.IGNORECASE)
 _PHONE = re.compile(r"^\+?[\d\s()./-]+$")
@@ -304,6 +306,12 @@ async def _preview(orch, name: str, handle: dict, body: str) -> str:
     if error:
         if error == "screen_locked":
             message = "Unlock your screen first"
+        elif error == "recipient_unverified":
+            message = "Couldn't confirm that conversation, so I stopped"
+        elif error == "no_text_target":
+            message = "Couldn't find the Messages text box"
+        elif error == "bad_handle":
+            message = "That number or email doesn't look right"
         else:
             message = "Messages didn't come to the front"
         return await _fail(orch, message)
@@ -366,7 +374,8 @@ async def send_message(orch, to, body, *, from_planner=False) -> str:
     old = getattr(orch, "_comms", None)
     tries = old.get("tries", 0) if old and old.get("kind") == "handle" else 0
     result, error = await _rpc(
-        orch, "resolve", "contacts_search", {"query": query, "limit": 5}, 5)
+        orch, "resolve", "contacts_search", {"query": query, "limit": 5},
+        CONTACTS_TIMEOUT_S)
     if error == "contacts_denied":
         _trace(orch, "resolve", {
             "query": query, "n_matches": 0,

@@ -234,6 +234,15 @@ public enum PathAlias {
         if let a = aliases[l] { return (a as NSString).expandingTildeInPath }
         return (p as NSString).expandingTildeInPath
     }
+
+    /// A user-supplied path for a skill: alias/`~` resolved, and only an
+    /// absolute result passes. Anything else would silently land in the
+    /// hands process's CWD — `relative_path` instead, touching nothing.
+    public static func checked(_ p: String) throws -> String {
+        let r = resolve(p)
+        guard r.hasPrefix("/") else { throw HandsError.relativePath(p) }
+        return r
+    }
 }
 
 // MARK: - Skills engine
@@ -508,7 +517,7 @@ public final class Skills {
 
         // ---- files ----
         case "open_folder":
-            let p = PathAlias.resolve(try strArg(a, "path"))
+            let p = try PathAlias.checked(try strArg(a, "path"))
             // Validate the view before anything opens.
             var view: FinderView?
             if let v = a["view"] as? String, !v.isEmpty {
@@ -522,13 +531,13 @@ public final class Skills {
             }
             return try openFolder(path: p, view: view)
         case "open_file":
-            let p = PathAlias.resolve(try strArg(a, "path"))
+            let p = try PathAlias.checked(try strArg(a, "path"))
             guard FileManager.default.fileExists(atPath: p) else {
                 throw HandsError.skillFailed("no such file: \(p)")
             }
             return try openFile(path: p)
         case "new_folder":
-            let parent = PathAlias.resolve(try strArg(a, "parent"))
+            let parent = try PathAlias.checked(try strArg(a, "parent"))
             let name = try strArg(a, "name")
             let p = parent + "/" + name
             try FileManager.default.createDirectory(
@@ -538,7 +547,7 @@ public final class Skills {
             return try findFile(query: try strArg(a, "query"),
                                 kind: a["kind"] as? String ?? "any")
         case "move_to_trash":
-            let p = PathAlias.resolve(try strArg(a, "path"))
+            let p = try PathAlias.checked(try strArg(a, "path"))
             var resulting: NSURL?
             try FileManager.default.trashItem(
                 at: URL(fileURLWithPath: p), resultingItemURL: &resulting)
@@ -616,8 +625,15 @@ public final class Skills {
 
         // ---- comms ----
         case "send_message":
+            // Defense in depth: never AppleScript-send to a bare name —
+            // only a verbatim phone (>= 7 digits) or email. The comms
+            // route (contacts_search -> messages_compose -> messages_send)
+            // resolves names first.
             let to = try strArg(a, "to")
             let body = try strArg(a, "body")
+            guard MessageHandles.parse(to) != nil else {
+                throw HandsError.skillFailed("unresolved_recipient")
+            }
             _ = try scripts.call(SkillScripts.messages, "send_text", [to, body])
             return ["to": to]
         case "compose_email":
