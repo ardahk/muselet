@@ -1,17 +1,15 @@
-# planner lane — pass 16 (main 2920225 = wip 3e03686; cloud/decisions, pitch-2, data-pipeline: nothing changed in this lane)
+# planner lane — pass 17 (main 28dc259, wip e1701a3, new cloud/brain-4 3aca368, cloud/hobby-gaps 14ff59b)
 
-Pass 16: no new findings. wip/local's tree matches main. cloud/decisions only touches router/decision code and bench, cloud/pitch-2 only docs, and cloud/data-pipeline only data. planner-20 (the repro still fails) and planner-6 are still open.
-
-## Pass 15 notes
-
-I re-checked every finding against main. Planner-2, -3, -4, -5, -7, -8, -9, -10, -11, -12, -13, -14, -15, -16, -17, -18 and -21 are fixed on main and confirmed by code or a passing test. planner-22 was fixed in 2920225. planner-1 and -19 were superseded. No finding is resolved only on a branch.
-Tests: test_planner_loop now runs on Linux with an import stub (see tests/test_planner20_done_reject_streak.py). Results: 77 passed and the 1 planner-20 repro failed.
-New merges reviewed: the planner bench grading now matches runtime (good); planner_fewshot.md moved to prompts/ and is only used via --system-extra; decision_chunking/generic_decide belong to the router lane.
+main 28dc259 adds 14 holdout scenarios to the planner bench (--set holdout). They don't overlap the tuning set and the few-shot examples aren't scenarios, so there's no leakage. cloud/brain-4 fixes planner-20: my repro passes there.
 
 ## Open P1 (ranked)
-1. planner-20 P1 — The harness's own `done` rejection counts toward the 3-failed-turns guard ("I'm stuck") — ml/src/brain/orchestrator.py L1087-1096 (repro: tests/test_planner20_done_reject_streak.py)
-2. planner-6 P1 — Premiere runs via keyboard shortcuts only; the 8766 UXP bridge isn't connected, so results can't be verified — app/Sources/HandsKit/Skills.swift L256-261, 756
+1. planner-23 P1 (hobby-gaps) — route() maps any "up"/"down" utterance ("scroll down", "look up flights") to change_volume — ml/src/brain/orchestrator.py L207-225
+2. planner-24 P1 (hobby-gaps) — calculator digits are sent as global keys before Calculator is confirmed frontmost, so they can land in the user's document — ml/src/brain/orchestrator.py L692-745
+3. planner-20 P1 (main) — the harness's own `done` rejection counts toward the "I'm stuck" guard. Fixed on cloud/brain-4 dbc699d, not yet on main
+4. planner-6 P1 (main) — Premiere is still keyboard shortcuts only, with the 8766 bridge not connected — app/Sources/HandsKit/Skills.swift L256-261, 756
 
 ## Highest-leverage next moves
-- orchestrator.py: skip fail_streak += 1 on the done-rejection turn. Copy the repro test into ml/tests as a regression test.
-- Premiere: add an expect to each premiere_command (`appears "Export"`, marker count), or connect the bridge for add_marker and export_sequence.
+- Merge cloud/brain-4 (closes planner-20), and copy reviews/planner/tests/test_planner20_done_reject_streak.py into ml/tests.
+- hobby-gaps, before merge: add a volume-context check to the route() fast path, and add `expect app "Calculator"` before sending calculator keys.
+- brain-4: build OpConstraint at warmup, not inside the first plan() (planner-25, P2).
+- Premiere: add an expect to each premiere_command, or connect the bridge.
