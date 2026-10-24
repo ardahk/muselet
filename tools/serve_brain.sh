@@ -12,6 +12,10 @@
 #             (pre-registered rule; cloud/handoff/notes/retrieval_eval.md)
 #   think   = planner thinking budget THINK=N tokens (default 0 = off until the Mac matrix passes the ship rule;
 #             evals/planner_think_report.py); THINK_ON=all|retry, THINK_SAMPLER=greedy|qwen; ESCALATE inherits it
+#   it3     = ROUTER=it3 (models/route-4b-it3-mlx4 = jonsnov/muselet-route-4b-it3-mlx4 @ e057412), opt-in only: routes over
+#             catalog v3 (training/artifacts/catalog_v3.json, 43 options) via MUSELET_ROUTE_CATALOG
+#             (router + ARGS only; orchestrator/planner keep skills/catalog.json); tau .65 is a placeholder
+#             until the Mac val fit (evals/router_check.py --router it3 --set val). ROUTER also takes it2|r2|r1|base.
 #   ESCALATE=1 adds Qwen3.6-35B-A3B as the escalation planner (~19 GB resident; off by default)
 # Usage: PORT=... ROUTER=... ARGS_MODEL=... PLANNER=... TAU=... RETRIEVAL_K=... THINK=... THINK_ON=... THINK_SAMPLER=... ESCALATE=... tools/serve_brain.sh [extra brain serve flags]
 set -euo pipefail
@@ -20,11 +24,14 @@ BASE=mlx-community/Qwen3.5-4B-4bit
 R1=models/route-4b-main-mlx4
 R2=models/route-4b-main-mlx4-r2
 IT2=models/route-4b-it2-mlx4
+IT3=models/route-4b-it3-mlx4
+case "${ROUTER:-}" in it2) ROUTER=$IT2 ;; it3) ROUTER=$IT3 ;; r2) ROUTER=$R2 ;; r1) ROUTER=$R1 ;; base) ROUTER=$BASE ;; esac
 if [ -z "${ROUTER:-}" ]; then
   if [ -f "$IT2/config.json" ]; then ROUTER=$IT2; elif [ -f "$R2/config.json" ]; then ROUTER=$R2; elif [ -f "$R1/config.json" ]; then ROUTER=$R1; else ROUTER=$BASE; fi
 fi
 case "$ROUTER" in
   "$IT2") TAU=${TAU:-0.65}; ARGS_MODEL=${ARGS_MODEL:-$IT2} ;;
+  "$IT3") TAU=${TAU:-0.65}; ARGS_MODEL=${ARGS_MODEL:-$IT3}; export MUSELET_ROUTE_CATALOG=${MUSELET_ROUTE_CATALOG:-$PWD/training/artifacts/catalog_v3.json} ;;
   "$R2") TAU=${TAU:-0.45}; ARGS_MODEL=${ARGS_MODEL:-$R2} ;;
   "$R1") TAU=${TAU:-0.55}; ARGS_MODEL=${ARGS_MODEL:-$BASE} ;;
   *)     TAU=${TAU:-0.20}; ARGS_MODEL=${ARGS_MODEL:-$BASE} ;;

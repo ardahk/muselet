@@ -321,6 +321,42 @@ def test_resolve_normalizes_case_dash_underscore_and_extension(tmp_path):
         str(expected)]
 
 
+@pytest.mark.parametrize("requested, existing", [
+    ("invoice 2024", "invoice 2023.pdf"),
+    ("invoice 024", "invoice 24.pdf"),
+    ("invoice 12 34", "invoice 1234.pdf"),
+    ("invoice", "invoice 1.pdf"),
+])
+def test_brain24_missing_file_not_resolved_to_sibling(tmp_path, requested, existing):
+    documents = tmp_path / "Documents"
+    documents.mkdir()
+    (documents / existing).touch()
+    assert pathfind.resolve(requested, home=str(tmp_path)) == []
+
+
+@pytest.mark.parametrize("skill", ["move_to_trash", "open_file"])
+def test_fuzzy_trash_match_requires_selection(tmp_path, monkeypatch, skill):
+    home = tmp_path / "home"
+    documents = home / "Documents"
+    documents.mkdir(parents=True)
+    expected = documents / "invoice summary.pdf"
+    expected.touch()
+    monkeypatch.setenv("HOME", str(home))
+    text = "trash invoice sumary" if skill == "move_to_trash" else "open invoice sumary"
+    assert pathfind.resolve("invoice sumary") == [str(expected)]
+    o, _ = _orch(tmp_path, {text: (skill, 0.95)},
+                 {(skill, text): {"path": "invoice sumary"}})
+    outcome = run(o.handle_utterance(text))["outcome"]
+    if skill == "move_to_trash":
+        assert outcome == "awaiting_user"
+        assert not _skill_rpcs(o.server)
+        assert not o.server.confirms
+        assert o.server.said[-1] == "Which one: invoice summary.pdf?"
+    else:
+        assert outcome == "ok"
+        assert _skill_rpcs(o.server) == [(skill, {"path": str(expected)})]
+
+
 def test_move_to_trash_resolves_utterance_phrase_and_confirms_full_path(
         tmp_path, monkeypatch):
     home = tmp_path / "home"

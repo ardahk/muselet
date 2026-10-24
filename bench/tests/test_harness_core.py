@@ -4,6 +4,8 @@ import os
 import time
 from datetime import date, datetime, timezone
 
+import pytest
+
 from bench.harness.core import (
     HarnessTimeout,
     evaluate_predicate,
@@ -336,5 +338,42 @@ def test_replay_strict_pass_uses_state_not_reported_outcome(tmp_path):
             )
             assert result["strict_pass"] is expected_pass
             assert result["false_done"] is expected_false_done
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.final_settle
+def test_final_checks_settle_on_state_the_agent_already_caused(tmp_path):
+    class LoadingRuntime(FakeRuntime):
+        def __init__(self, trace_path):
+            super().__init__()
+            self.trace_path, self.utterance_wall = trace_path, None
+
+        async def start_utterance(self, utterance):
+            self.utterance_monotonic = asyncio.get_running_loop().time()
+            self.utterance_wall = datetime.now(timezone.utc).isoformat()
+            self.trace_path.write_text(json.dumps(
+                {"ts": self.utterance_wall, "utterance": utterance, "outcome": "ok"}) + "\n", encoding="utf-8")
+
+        def snapshot(self):
+            return {"frames": [], "confirm_count": 0, "utterance_wall": self.utterance_wall}
+
+        def mark_utterance_finished(self):
+            self.terminal_monotonic = asyncio.get_running_loop().time()
+
+    calls = []
+
+    def page_loaded(_runtime, _context):   # e.g. a browser title that updates after open_url returned
+        calls.append(1)
+        return {"passed": len(calls) >= 3}
+
+    async def scenario():
+        runtime = LoadingRuntime(tmp_path / "traces.jsonl")
+        result = await run_case(
+            {"id": "web", "kind": "stateful", "utterance": "open a page", "check": [page_loaded],
+             "expect_outcome": "ok", "settle_s": 2.0},
+            runtime, values={}, trace_path=runtime.trace_path, poll_interval=0.01)
+        assert result["strict_pass"] is True and result["false_done"] is False
+        assert [o["phase"] for o in result["check_observations"]] == ["settle", "settle", "final"]
 
     asyncio.run(scenario())

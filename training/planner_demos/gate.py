@@ -59,6 +59,10 @@ def eval_items() -> tuple[list[tuple[str, str]], set[tuple[str, str]]]:
     for ln in (REPO / "evals/live_t1.jsonl").read_text().splitlines():
         if ln.strip():
             items.append(("live_t1", json.loads(ln)["utterance"]))
+    for ln in (REPO / "evals/memory_followups.jsonl").read_text().splitlines():
+        if ln.strip():
+            row = json.loads(ln)
+            items.extend(("memory_followups", turn["utterance"]) for turn in row["turns"])
     for ln in (REPO / "evals/external/utterances.jsonl").read_text().splitlines():
         if ln.strip():
             r = json.loads(ln)

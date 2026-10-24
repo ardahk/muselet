@@ -199,6 +199,11 @@ def gate(route, args):
     from muselet_train import datums as D
     from muselet_train.evalcheck import eval_items, overlaps
     ev = eval_items()
+    memory_path = Path(__file__).resolve().parents[2] / "evals" / "memory_followups.jsonl"
+    for line in memory_path.read_text().splitlines():
+        if line.strip():
+            row = json.loads(line)
+            ev.extend(("memory_followups", turn["utterance"]) for turn in row["turns"])
     texts = [r["utterance"] for r in route] + [D.noisy(r["utterance"], "r:" + r["utterance"], r["split"]) for r in route] \
         + [a["utterance"] for a in args]
     hits = overlaps(texts, ev)

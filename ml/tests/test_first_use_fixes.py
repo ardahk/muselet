@@ -222,6 +222,15 @@ def test_compose_text_focused_path(monkeypatch, error, expected):
         assert orch.server.said[-1] == "Wrote it"
 
 
+@pytest.mark.parametrize("target,skill", [("document", "type_text"), ("notes", "new_note")])
+def test_compose_text_v3_targets(monkeypatch, target, skill):
+    from brain.tools.compose_text import run
+
+    orch = _compose_orch("Draft text", monkeypatch)
+    asyncio.run(run(orch, {"topic": "my day", "target": target}, "draft my day"))
+    assert orch.skills_called[0][0] == skill
+
+
 def test_compose_text_dispatches_through_tools_run(monkeypatch):
     from brain import tools
 

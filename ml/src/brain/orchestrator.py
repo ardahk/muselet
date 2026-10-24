@@ -14,6 +14,7 @@ import re
 import subprocess
 import threading
 import time
+import unicodedata
 
 from . import argfix, calc, dsl, obsdiff, pathfind, replies, sendgate, slots
 from .catalog import Catalog, CatalogError
@@ -26,12 +27,6 @@ _WORD_NUM = {"zero": 0, "five": 5, "ten": 10, "fifteen": 15, "twenty": 20,
              "twenty-five": 25, "thirty": 30, "forty": 40, "fifty": 50,
              "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
              "hundred": 100, "max": 100, "full": 100, "half": 50}
-
-# script-lang batches that must be confirmed before running
-_DANGEROUS_SCRIPT = re.compile(
-    r"\b(delete|remove|rm\s|empty trash|send|quit|shut ?down|restart|"
-    r"log ?out|do shell script|erase|format)\b", re.IGNORECASE)
-
 
 def _num(tok: str) -> int | None:
     tok = tok.strip().lower()
@@ -366,16 +361,6 @@ def _cap12(s: str) -> str:
     return " ".join(w[:12]).rstrip(",.:;?\"") + "?"
 
 
-def script_needs_confirm(lang: str, code: str) -> bool:
-    """Brain-side script policy: shell always confirms; applescript/jxa
-    confirm when the code matches a destructive pattern."""
-    if lang == "shell":
-        return True
-    if lang in ("applescript", "jxa"):
-        return bool(_DANGEROUS_SCRIPT.search(code))
-    return True
-
-
 # Apps whose UI is a canvas the AX tree can't see into (matched case-insensitively
 # as a prefix of the observed app name, so "Adobe Premiere Pro 2025" matches).
 CANVAS_APPS = ("Adobe Premiere Pro", "Final Cut Pro", "Figma", "Blender",
@@ -410,6 +395,8 @@ class Orchestrator:
         self.planner = None
         self.planner_escalate = None    # opt-in bigger planner (loop guard)
         self.escalate_opts = None
+        self._escalate_lock = asyncio.Lock()
+        self._escalate_desired = False
         self.escalate_model = "mlx-community/Qwen3.6-35B-A3B-4bit"
         self._sysctl_reader = None
         self._escalate_loader = None
@@ -417,6 +404,7 @@ class Orchestrator:
         self._ms_kind = None
         self._last_epoch = None
         self._last_obs = None
+        self._permission_action_state = None
         self._obs_seen: tuple[float, dict] | None = None
         self._last_url = None
         self._ctx = {"app": "none", "focused": "none", "selection": False,
@@ -859,7 +847,8 @@ class Orchestrator:
             if not phrase:
                 continue
             matches = pathfind.resolve(phrase)
-            if len(matches) == 1:
+            if len(matches) == 1 and (label != "move_to_trash" or
+                                      pathfind.is_exact_match(phrase, matches[0])):
                 raw_args[key] = matches[0]
                 trace["decisions"].append({"path_resolved": matches[0]})
             elif matches:
@@ -916,8 +905,7 @@ class Orchestrator:
         return out
 
     async def _app_names(self) -> list[str]:
-        """running + installed app names from the `apps` RPC, cached 60 s
-        (a failed RPC is cached too: aliases still work)."""
+        """Running + installed app names from the `apps` RPC, cached 60 s."""
         now = time.time()
         if self._apps and now - self._apps[0] < APPS_TTL_S:
             return self._apps[1]
@@ -929,9 +917,10 @@ class Orchestrator:
                 [a.get("name") if isinstance(a, dict) else a
                  for a in res.get("installed") or []]
         except Exception:
-            pass
+            self._apps = None
+            return []
         names = [n for n in dict.fromkeys(names) if isinstance(n, str) and n]
-        self._apps = (now, names)
+        self._apps = (now, names) if isinstance(res.get("installed"), list) else None
         return names
 
     @staticmethod
@@ -943,6 +932,36 @@ class Orchestrator:
             if key:
                 out.add(key)
         return out
+
+    _NATIVE_APP_ALIASES = {
+        "zoom": {"zoom.us"},
+        "teams": {"microsoftteams", "microsoftteamsclassic"},
+        "microsoftteams": {"teams", "microsoftteamsclassic"},
+        "outlook": {"microsoftoutlook"},
+        "telegram": {"telegramlite"},
+        "discord": {"discordptb", "discordcanary"},
+        "wechat": {"weixin"},
+    }
+
+    async def _site_for_app(self, app: str, text: str, *,
+                            match_goal: bool = False) -> tuple[str, str] | None:
+        key = normalize_name(app)
+        site = (key, SITES[key]) if key in SITES else None
+        if not self._browser_name(app):
+            site = site or match_name(app)
+        if match_goal:
+            site = site or match_name(text)
+        if not site:
+            return None
+        if re.search(r"\b(?:website|site|go\s+to|navigate)\b|"
+                     r"\b[\w-]+\.(?:com|org|net|io|us|app|so|ai|tv|edu)\b|"
+                     r"\bdot\s+(?:com|org|net)\b", text or app, re.IGNORECASE):
+            return site
+        installed = self._installed_app_keys(await self._app_names())
+        if self._apps is None:
+            return None
+        keys = {key, site[0]} | self._NATIVE_APP_ALIASES.get(site[0], set())
+        return None if installed & keys else site
 
     @staticmethod
     def _browser_name(value: str) -> str | None:
@@ -982,18 +1001,11 @@ class Orchestrator:
             return label, args
         args = dict(args)
         app = str(args.get("app") or "").strip()
-        site = None
-        app_key = normalize_name(app)
-        if app_key in SITES:
-            site = (app_key, SITES[app_key])
-        elif (found := match_name(text)) is not None:
-            site = found
+        site = await self._site_for_app(app, text, match_goal=True)
         if site:
             name, host = site
-            installed = self._installed_app_keys(await self._app_names())
-            if name not in installed and normalize_name(app) not in installed:
-                trace["site_switch"] = [name, host]
-                return "open_url", {"url": fix_url(host)}
+            trace["site_switch"] = [name, host]
+            return "open_url", {"url": fix_url(host)}
         browser = self._browser_name(app)
         if browser and not self._goal_mentions_browser(text, browser):
             found = match_name(text)
@@ -1296,8 +1308,18 @@ class Orchestrator:
             source = parsed.expr or self._calculator_number(parsed.value)
             if parsed.expr is None and parsed.value < 0:
                 source = f"0-{self._calculator_number(abs(parsed.value))}"
+            opened = await self._calculator_act(
+                {"op": "open", "app": "Calculator",
+                 "expect": 'app "Calculator"'}, return_result=True)
+            apps = [opened["app"]] if opened.get("app") else []
+            apps.extend(re.findall(
+                r'^\s*[+~]?\s*app:\s*([^|\n]+)',
+                str(opened.get("diff_text") or ""), re.MULTILINE))
+            if opened.get("expect_ok") is False or opened.get("error") or any(
+                    str(app).strip().strip('"').casefold() != "calculator"
+                    for app in apps):
+                raise RuntimeError("Calculator is not frontmost")
             actions = [
-                {"op": "open", "app": "Calculator"},
                 {"op": "keys", "combo": "esc"},
                 *(
                     {"op": "keys", "combo": key}
@@ -1496,8 +1518,7 @@ function run() {
             or "this app"
 
     async def _confirm_summary(self, a: dict) -> str:
-        """<=12-word summary that names the object (recipient + first body
-        words, file name, app)."""
+        """Short summary naming the object, preserving full trash paths."""
         op = a["op"]
         if op == "confirm":
             return _cap12(str(a.get("summary") or "Continue?").strip('"'))
@@ -1517,7 +1538,7 @@ function run() {
                 if os.path.isabs(p) and (p == home or
                                          p.startswith(home + os.sep)):
                     p = "~" + p[len(home):]
-                return _cap12(f"Move {p} to Trash?")
+                return f"Move {p} to Trash?"
             if n == "empty_trash":
                 return "Empty the Trash permanently?"
             if n == "quit_app":
@@ -1561,12 +1582,66 @@ function run() {
         """Execute one DSL action; `_log` is its Last-batch line."""
         legacy = "script -> " if a["op"] == "script" else _repr_line(a) + "-> "
         act = _log_act(a)
-        r = await self._exec_action(a)
+        try:
+            r = None
+            permission_obs = self._last_obs
+            pending = self._permission_action_state
+            if pending:
+                source, before, result = pending
+                if self._last_obs is source:
+                    post = self._permission_post_obs(before, result)
+                    if a["op"] in _ACT_OPS or (
+                            a["op"] == "skill" and a.get("name") in _GATED_SKILLS):
+                        self._permission_action_state = None
+                        if post is None:
+                            post = await self._observe_once()
+                        if not post:
+                            r = {"status": "failed",
+                                 "error": "post-action observation unavailable"}
+                        elif await self._permission_gate(
+                                post, self._current_goal or self._utterance or "",
+                                reroute=False):
+                            r = {"status": "awaiting_user",
+                                 "_log": legacy + "permission_prompt_gate"}
+                    permission_obs = post
+            if r is None:
+                r = await self._exec_action(a)
+            if r.get("status") == "ok" and a["op"] not in (
+                    "confirm", "ask", "done", "refuse"):
+                self._permission_action_state = (
+                    self._last_obs, permission_obs, r.get("res") or {})
+        finally:
+            if a["op"] != "confirm":
+                self._batch_confirmed = False
         log = r.get("_log") or legacy + str(r.get("status", "?"))
         res = log[len(legacy):] if log.startswith(legacy) \
             else str(r.get("status", "?"))
         r["_log"] = self._batch_line(act, res, log)
         return r
+
+    @staticmethod
+    def _permission_post_obs(before: dict | None, result: dict) -> dict | None:
+        observed = result.get("observed")
+        if isinstance(observed, dict) and observed.get("app"):
+            return observed
+        if isinstance(observed, str) and observed.startswith("app:"):
+            text = observed
+        elif before and isinstance(result.get("diff_text"), str) and not (
+                result.get("full") or result.get("truncated") or
+                before.get("truncated")):
+            text = obsdiff.apply_diff(before.get("text") or "", result["diff_text"])
+        elif result.get("app") and isinstance(result.get("elements"), list):
+            return result
+        else:
+            return None
+        post = dict(before or {}, text=text, elements=obsdiff.elements(text))
+        app = re.search(r"^app:\s*([^|\n]+)", text)
+        window = re.search(r'\bwindow:\s*"([^"]*)"', text)
+        if app:
+            post["app"] = app.group(1).strip()
+        if window:
+            post["window"] = window.group(1)
+        return post
 
     async def _exec_action(self, a: dict) -> dict:
         """Execute one DSL action. Returns
@@ -1598,7 +1673,7 @@ function run() {
                 await self.server.say("Okay, cancelled")
                 return {"status": "cancelled",
                         "_log": f"{dsl_line}-> cancelled"}
-            # one confirm unlocks only the next dangerous action (brain-14)
+            # one confirm covers only the immediately following action
             self._batch_confirmed = True
             return {"status": "ok", "confirmed": True,
                     "_log": f"{dsl_line}-> confirmed"}
@@ -1766,19 +1841,13 @@ function run() {
         if op == "open":
             value = str(a.get("app") or a.get("name") or
                         a.get("target") or "").strip()
-            site = None
-            key = normalize_name(value)
-            if key in SITES:
-                site = (key, SITES[key])
-            elif (found := match_name(value)) is not None:
-                site = found
+            goal = self._current_goal or self._utterance
+            site = await self._site_for_app(value, goal)
             if site:
-                installed = self._installed_app_keys(await self._app_names())
-                if site[0] not in installed and key not in installed:
-                    a = {"op": "url", "url": fix_url(site[1])}
-                    op = "url"
-                    if self.tracer.current is not None:
-                        self.tracer.current["site_switch"] = [site[0], site[1]]
+                a = {"op": "url", "url": fix_url(site[1])}
+                op = "url"
+                if self.tracer.current is not None:
+                    self.tracer.current["site_switch"] = [site[0], site[1]]
             browser = self._browser_name(value)
             goal = self._current_goal or self._utterance
             if browser and not self._goal_mentions_browser(goal, browser):
@@ -2050,11 +2119,16 @@ function run() {
 
     # script confirmation policy (evals-safety-2)
     _SCRIPT_BLOCK = re.compile(
-        r"do shell script|doShellScript|do script|run script|keystroke|"
-        r"key code|ObjC|\$\.|NSFileManager|trash|delete|remove|saving no|"
+        r"do shell script|doShellScript|do ?script|run script|load script|"
+        r"using terms from|keystroke|"
+        r"key ?code|ObjC|\$\.|NSFileManager|NSTask|NSWorkspace|use framework|"
+        r"trash|delete|remove|saving no|restart|shut ?down|log ?out|"
+        r"\b(?:empty|eject|sleep)\b|"
         r"send|erase|format|quit|close|move|duplicate|make new|"
-        r"set .* to .*|click|perform action|AXPress|do JavaScript|"
-        r"open location|«event|\braw\b|open\s+(?:POSIX\s+)?file|"
+        r"makeNew|\.\s*make\s*\(|set .* to .*|click|perform action|AXPress|"
+        r"do ?JavaScript|open ?location|«\s*event|<<\s*event|\braw\b|"
+        r"open\s*\(*\s*(?:POSIX\s+)?file|"
+        r"\[|\\|\beval\s*\(|\bFunction\s*\(|String\s*\.\s*fromCharCode|"
         r"\.command\b|\.sh\b|removeItem|\brm\s", re.IGNORECASE)
     _SCRIPT_APPS_READ = {
         "com.apple.numbers", "numbers", "music", "calendar", "system events"}
@@ -2069,15 +2143,23 @@ function run() {
         read-only verbs and contains no blocked pattern. Numbers gets a
         wider exception (set value / background color / sort / make new
         table need no confirm). shell always confirms."""
-        if lang == "shell":
+        if lang not in ("applescript", "jxa"):
             return True
+        if any(unicodedata.category(c) in ("Cc", "Cf") and c not in "\n\t\r"
+               for c in code):
+            return True
+        code = " ".join(re.sub(r"¬\s*\n", " ", code).split())
         targets = {t.lower() for t in re.findall(
-            r'tell\s+application\s+(?:id\s+)?"([^"]+)"', code, re.IGNORECASE)}
-        if lang == "jxa" and not targets:
-            targets = {t.lower() for t in re.findall(
-                r'Application\(\s*[\'"]([^\'"]+)', code)}
+            r'\b(?:application|app|id)\s+[\'"]([^\'"]+)[\'"]',
+            code, re.IGNORECASE)}
+        targets.update(t.lower() for t in re.findall(
+            r'\bApplication\s*\(\s*[\'"]([^\'"]+)[\'"]',
+            code, re.IGNORECASE))
         allowed = self._SCRIPT_APPS_READ | self._SCRIPT_APPS_LIMITED
         if not targets or not targets <= allowed:
+            return True
+        if "system events" in targets and re.search(
+                r"\bprocess(?:es)?\b", code, re.IGNORECASE):
             return True
         numbers_only = targets <= {"com.apple.numbers", "numbers"}
         if numbers_only:
@@ -2098,8 +2180,14 @@ function run() {
 
     async def set_escalation(self, enabled: bool) -> dict:
         """Load or unload the optional planner without blocking the loop."""
-        enabled = bool(enabled)
-        if enabled:
+        self._escalate_desired = bool(enabled)
+        if not enabled:
+            if not self._escalate_lock.locked():
+                self._unload_escalation()
+            return {"loaded": False}
+        async with self._escalate_lock:
+            if not self._escalate_desired:
+                return {"loaded": False}
             if self.planner_escalate is not None:
                 return {"loaded": True}
             if self.planner is None:
@@ -2124,8 +2212,14 @@ function run() {
                     tag="planner-escalate")
             except Exception as e:
                 return {"loaded": False, "reason": str(e)[:200]}
+            if not self._escalate_desired:
+                del planner
+                await worker().submit_async(self._unload_escalation)
+                return {"loaded": False}
             self.planner_escalate = planner
             return {"loaded": True}
+
+    def _unload_escalation(self):
         old = self.planner_escalate
         self.planner_escalate = None
         if self._active_planner is old:
@@ -2145,7 +2239,6 @@ function run() {
                     clear()
             except Exception:
                 pass
-        return {"loaded": False}
 
     async def _planner_loop(self, text: str, trace: dict,
                             hint: str | None = None,
@@ -2719,17 +2812,14 @@ function run() {
             elif op == "open":
                 a = dict(a)
                 value = str(a.get("app") or a.get("name") or "").strip()
-                key = normalize_name(value)
-                site = (key, SITES[key]) if key in SITES else None
+                goal = self._current_goal or self._utterance
+                site = await self._site_for_app(value, goal)
                 if site:
-                    installed = self._installed_app_keys(
-                        await self._app_names())
-                    if site[0] not in installed and key not in installed:
-                        a = {"op": "url", "url": fix_url(site[1])}
-                        op = "url"
-                        if self.tracer.current is not None:
-                            self.tracer.current["site_switch"] = [
-                                site[0], site[1]]
+                    a = {"op": "url", "url": fix_url(site[1])}
+                    op = "url"
+                    if self.tracer.current is not None:
+                        self.tracer.current["site_switch"] = [
+                            site[0], site[1]]
                 browser = self._browser_name(value)
                 goal = self._current_goal or self._utterance
                 if browser and not self._goal_mentions_browser(goal, browser):

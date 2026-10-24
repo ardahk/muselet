@@ -5,6 +5,7 @@ brain trace-stats — p50/p95 latency report over runs/traces."""
 import argparse
 import asyncio
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -33,6 +34,11 @@ def _resolve_model(arg: str) -> str | None:
         except Exception:
             continue
     return arg if candidates == [arg] else None
+
+
+def route_catalog() -> Catalog:
+    """Catalog the router/ARGS prompts are rendered over: MUSELET_ROUTE_CATALOG (it3: catalog v3), else skills/."""
+    return Catalog.load(os.environ.get("MUSELET_ROUTE_CATALOG") or None)
 
 
 async def _stdin_lines():
@@ -102,7 +108,7 @@ async def serve(port: int = 8765, model: str | None = None,
     engine = None
     if model:
         from .decision import DecisionEngine
-        engine = DecisionEngine(model, Catalog.load(), args_model_path=args_model)
+        engine = DecisionEngine(model, route_catalog(), args_model_path=args_model)
         print(f"[engine] {model}", flush=True)
         print(f"[args] {engine.args_model_path}", flush=True)
     planner = None
@@ -173,7 +179,7 @@ def eval_route(model: str, cases_path: str, out_dir: str = "runs/evals",
         cases_sha = ""
     cases = [json.loads(l) for l in Path(cases_path).read_text().splitlines()
              if l.strip()]
-    engine = DecisionEngine(_resolve_model(model), Catalog.load(),
+    engine = DecisionEngine(_resolve_model(model), route_catalog(),
                             args_model_path=_resolve_model(args_model)
                             if args_model else None)
     print(f"[args] {engine.args_model_path}", flush=True)

@@ -64,7 +64,8 @@ async def run(orch, args, utterance) -> str:
         return "failed"
     title = _title(topic, text)
     trace = orch.tracer.current or {"decisions": []}
-    target = args.get("target") or "note"
+    target = str(args.get("target") or "note").strip().lower()
+    target = {"notes": "note", "document": "focused"}.get(target, target)   # catalog v3 (it3) values
     if target == "focused":
         outcome = await orch._run_skill(
             "type_text", {"text": text}, utterance, trace)
