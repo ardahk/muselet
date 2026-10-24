@@ -21,7 +21,7 @@ The text content and all truth files do not depend on the font.
 | `budget_oct2026.xlsx` | Sheet `Budget`: `Category | Budget | Actual | Remaining` for Rent, Groceries, Dining, Transport, Shopping, Subscriptions, Utilities, Health. Actual and Remaining are empty (the agent fills them). |
 | `budget_oct2026.truth.json` | Expected `actual` (= category_spend), `remaining` (= Budget - Actual) and `over_budget`. |
 | `receipts/receipt_01..08.png` | 600x900 receipts. 1-6 match a statement row exactly (merchant, date, total); 7 matches merchant+date but its TOTAL has two digits transposed; 8 (`PHILZ COFFEE`) matches nothing. |
-| `receipts.truth.json` | `{receipt: {match_row, status: matched|amount_mismatch|no_match, total, merchant, date}}`. |
+| `receipts.truth.json` | `{receipt: {match_row, status: matched|amount_mismatch|no_match, total, merchant, date}}`; the amount_mismatch entry also has `statement_amount` and `transposed_digits: true`. |
 
 Planted anomalies: duplicate `UBER TRIP -23.47` on 10-09, duplicate `AMAZON MKTP -64.99` on 10-21,
 outlier `APPLE STORE -1299.00` on Sat 10-24, refund `AMAZON MKTP REFUND +64.99` on 10-28 (Shopping,
@@ -37,5 +37,29 @@ counts as negative spend). No other exact (date, description, amount) duplicates
    and receipt 8 (no matching transaction). Check against `receipts.truth.json`.
 5. **Compute over-budget categories**: list categories with Remaining < 0 (`over_budget`).
 
-Note: with 120 rows of sampled spending, most variable categories exceed their budgets (by design of the
-sampling spec), so `over_budget` contains Groceries, Dining, Transport, Shopping and Health.
+## Story numbers (asserted by `generate.py`; generation fails if any drifts)
+
+| | |
+|---|---|
+| Opening balance | 3,120.55 |
+| Total income | 4,845.00 (2 x payroll 2,400.00 + Venmo 45.00) |
+| Total spend (debits minus refunds) | 4,112.26 |
+| Net | +732.74 |
+| Closing balance | 3,853.29 |
+
+| Category | Budget | Actual | Remaining |
+|---|---:|---:|---:|
+| Rent | 1,650 | 1,625.00 | 25.00 |
+| Groceries | 400 | 298.70 | 101.30 |
+| Dining | 250 | 347.21 | -97.21 |
+| Transport | 150 | 121.06 | 28.94 |
+| Shopping | 200 | 1,480.34 | -1,280.34 |
+| Subscriptions | 60 | 42.97 | 17.03 |
+| Utilities | 180 | 149.07 | 30.93 |
+| Health | 80 | 47.91 | 32.09 |
+
+`over_budget` is exactly **Dining** and **Shopping**. Shopping is over almost entirely because of the
+$1,299.00 Apple Store outlier (without it Shopping would be 181.34, under budget); Dining is over by
+$97.21 (lots of coffee). Every other category is under budget with at least $15 remaining. The asserted
+rules: income 4,845.00, spend 3,900-4,300, net > 0, Dining over by 40-120, Shopping minus the outlier
+<= budget, remaining >= 15 elsewhere, the planted anomalies above, and the receipt statuses.

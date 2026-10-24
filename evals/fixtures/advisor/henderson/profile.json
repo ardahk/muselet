@@ -1,0 +1,26 @@
+{
+  "household": "Henderson",
+  "as_of": "2026-10-23",
+  "members": [
+    {
+      "name": "Mark Henderson",
+      "age": 62
+    },
+    {
+      "name": "Elena Henderson",
+      "age": 60
+    }
+  ],
+  "filing_status": "married_filing_jointly",
+  "state": "CA",
+  "tax_year": 2026,
+  "estimated_taxable_income": "150000.00",
+  "estimated_taxable_income_note": "2026 federal taxable income before any Roth conversion",
+  "monthly_expenses": "8000.00",
+  "emergency_fund_months": 6,
+  "goals": [
+    "Retire fully when Mark turns 65",
+    "Lake house down payment next spring (see last meeting notes)",
+    "Start a charitable giving plan"
+  ]
+}
