@@ -1,11 +1,11 @@
-# hands — digest (pass 14: main bb494af, wip/local c85a000, cloud/bench f584cb2, cloud/data-pipeline 70b7d1b; no new app/ code since pass 11)
+# hands — digest (pass 15: re-verified against main 2920225)
 
-Resolved: hands-1 to hands-9 and hands-11 to hands-14. hands-15 superseded.
-Pass 11: main's app/ tree now equals wip/local 64dd1cb (already reviewed). wip/local 38768f3 has no app/ or brain-protocol changes, and cloud/data-pipeline 1d65818 does not touch app/. No new findings. Pass 12: cloud/bench 2c57d7f only merged main into its app/ code (bench safety cases); no new app/ code.
+All hands findings re-checked on main 2920225. Resolved on main: hands-1 to hands-9 and hands-11 to hands-14 (file:line in findings.jsonl, pass 15). hands-15 superseded. None of them exists only on a branch: all the Swift batches are on main.
+Main's app/ code is unchanged since bb494af (reviewed in passes 9-14), so there is no new app/ code to review in tonight's merges.
 
 ## Open P0/P1 (ranked)
 None.
 
 ## Highest-leverage next moves
-- hands-10 (P2): cap the act lead in Act.swift:269-271 with `min(lead, cursor_lead_ms/1000)` as RPC.swift does for skills. Up to 100 ms per act, up to 0.5 s per 5-action batch.
-- Residual from hands-12 (not filed): `appears` still uses substring matching and counts other already-open windows of the target app. Watch for false passes in the live T1/T2 suite.
+- hands-10 (P2): Act.swift:271 should cap the lead with `min(lead, cursor_lead_ms/1000)` (RPC.swift already does this for skills). Up to 100 ms per act, up to 0.5 s per 5-action batch.
+- Residual from hands-12 (not filed): `appears` still uses substring matching and counts other already-open windows of the target app. Watch for false passes in the live T1/T2 suite and the offline planner bench.
