@@ -1,19 +1,21 @@
 {
  "lane": "finance",
  "pass": 4,
- "ts": "2026-10-24T06:40:00Z",
+ "ts": "2026-10-24T07:20:00Z",
  "last_reviewed": {
-  "main": "e78f143",
-  "wip/local": "e0bdc65",
+  "main": "c2d2988",
+  "wip/local": "d5d2d7d",
   "cloud/finance": "529e9ff",
   "cloud/fixtures-docs": "4bf2291",
   "cloud/data-pipeline": "153a01c",
   "cloud/advisor": "9432c30",
-  "cloud/bench": "14c7eb1",
+  "cloud/bench": "911a384",
   "cloud/finance-2": "f4ae461",
   "cloud/advisor-2": "ec98013",
-  "cloud/pitch": "454a563"
+  "cloud/pitch": "454a563",
+  "cloud/brain-2": "9f41c11",
+  "cloud/grounding": "42310cd"
  },
  "next_id": 23,
- "notes": "pass 4: finance-2 144 tests pass and its truth (incl. duplicate_status, weekend, fuzzy/delayed receipts) reconciles with tests/recompute_truth.py; advisor-2 65 tests pass. finance-4/6/7/8/10/11/12 resolved. main/wip: nothing new in lane besides the planner line already reviewed."
+ "notes": "pass 4: finance-2 144 tests pass and its truth (incl. duplicate_status, weekend, fuzzy/delayed receipts) reconciles with tests/recompute_truth.py; advisor-2 65 tests pass. finance-4/6/7/8/10/11/12 resolved. main/wip: nothing new in lane besides the planner line already reviewed. | self-poll 07:20Z: main/wip/bench/brain-2/grounding have no finance/advisor lane changes (brain-2 only adds an advisor_prep 'Which client?' slot prompt); open list unchanged."
 }
