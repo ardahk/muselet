@@ -1,13 +1,13 @@
 {
  "lane": "finance",
- "pass": 11,
- "ts": "2026-10-24T09:35:00Z",
+ "pass": 12,
+ "ts": "2026-10-24T08:50:00Z",
  "last_reviewed": {
   "main": "280715d",
   "wip/local": "38768f3",
   "cloud/finance": "529e9ff",
   "cloud/fixtures-docs": "4bf2291",
-  "cloud/data-pipeline": "1d65818",
+  "cloud/data-pipeline": "a6b229a",
   "cloud/advisor": "9432c30",
   "cloud/bench": "2c57d7f",
   "cloud/finance-2": "dfaf785",
@@ -20,5 +20,5 @@
   "cloud/brain-3": "14a3f52"
  },
  "next_id": 26,
- "notes": "pass 8: finance-3 164 tests pass; advisor-3 127 tests pass, Henderson truth reconciles. normalize_client probe: 10/10 spoken forms map to the right folder (Hendersons/Davises/Joneses/Rosses/Chris Moses/Hendricks). Calendar is now from .ics (no Automation prompt). main/wip: planner prompt lines 14-15 only (new-document recipe, no third retry), no Numbers recipe change. | pass 9: main/wip only AGENTS.md standing decisions (demo setup scripts approved), tcc_warm and spend guard; no lane changes. Open list unchanged. | pass 10: main/wip (HandsKit observe fallback, live_t1 teardown, AGENTS knobs) and data-pipeline (eval_route tooling) have no lane changes; finance_review route acc reports unchanged (0.000/0.250 pilots). | pass 11: only cloud/bench moved (document-app safety guards in bench cases; planner diff = merged main). No lane changes."
+ "notes": "pass 8: finance-3 164 tests pass; advisor-3 127 tests pass, Henderson truth reconciles. normalize_client probe: 10/10 spoken forms map to the right folder (Hendersons/Davises/Joneses/Rosses/Chris Moses/Hendricks). Calendar is now from .ics (no Automation prompt). main/wip: planner prompt lines 14-15 only (new-document recipe, no third retry), no Numbers recipe change. | pass 9: main/wip only AGENTS.md standing decisions (demo setup scripts approved), tcc_warm and spend guard; no lane changes. Open list unchanged. | pass 10: main/wip (HandsKit observe fallback, live_t1 teardown, AGENTS knobs) and data-pipeline (eval_route tooling) have no lane changes; finance_review route acc reports unchanged (0.000/0.250 pilots). | pass 11: only cloud/bench moved (document-app safety guards in bench cases; planner diff = merged main). No lane changes. | pass 12: only cloud/data-pipeline moved (phase1_main report, parity_300, datums reads route_train/route_val). No lane code changes. Routing risk cleared: main run full-val finance_review acc 1.000 (n=36), advisor_prep 1.000 (n=24); parity_300 finance/advisor items 17/17 top-1 correct (recomputed from tinker_probs)."
 }
