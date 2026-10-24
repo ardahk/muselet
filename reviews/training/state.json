@@ -1,11 +1,11 @@
 {
-  "pass": 42,
-  "ts": "2026-10-24T20:37:25Z",
+  "pass": 43,
+  "ts": "2026-10-24T20:52:46Z",
   "mode": "pulse",
   "last_reviewed": {
-    "main": "dae4b26",
-    "wip/local": "972081d",
-    "cloud/data-pipeline": "f6354d6",
+    "main": "27ebd13",
+    "wip/local": "4585ce4",
+    "cloud/data-pipeline": "34aff30",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
@@ -18,7 +18,7 @@
     "cloud/advisor-3": "ca93147",
     "cloud/brain-3": "14a3f52",
     "cloud/finance-3": "31be399",
-    "cloud/decisions": "694c198",
+    "cloud/decisions": "b78d778",
     "cloud/pitch-2": "3303678",
     "cloud/brain-4": "dfb66a3",
     "cloud/hobby-gaps": "156556e",
@@ -37,8 +37,13 @@
     "cloud/data-planner": "ee8ae33",
     "cloud/bench-fix": "4bcf0db",
     "cloud/brain-8": "4546d09",
-    "cloud/planner-demos": "9008990"
+    "cloud/planner-demos": "9008990",
+    "cloud/clock-timers": "d060b5a",
+    "cloud/comms-2": "265c86d",
+    "cloud/mascot-animal": "238db23",
+    "cloud/planner-retrieval": "9786fa4"
   },
   "next_id": 38,
-  "notes_pass39": "main fb2cfd0: evals/live_t1.jsonl changed only precondition/check/teardown/document_apps on 6 cases; all 43 utterances unchanged, so decontam gates and it2/it3cand overlap results stand. No lane findings."
+  "notes_pass39": "main fb2cfd0: evals/live_t1.jsonl changed only precondition/check/teardown/document_apps on 6 cases; all 43 utterances unchanged, so decontam gates and it2/it3cand overlap results stand. No lane findings.",
+  "notes_pass43": "planner-retrieval: default retrieval bank is v2-tune (the planner-demos bank); fine for holdout scoring, but scores on v2-tune with retrieval on are leaky."
 }
