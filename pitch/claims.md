@@ -201,6 +201,6 @@ the morning replay was blocked by a harness bug; router it2 only, §1b). The Jev
 5. System One: DeskMind leads on JevBench and typed decisions (§1a); use only the allowed wording there.
 6. Contamination: quote competitor benchmarks only under the §1b rules; never from r1/r2.
 7. Memory beat ("navigate to wikipedia" -> "search for history") needs PR #50 merged; otherwise cut it.
-8. Clock beat needs the Clock backend (`hands probe timers` -> `clock_ready`); otherwise Muselet's own timer answers.
+8. Clock beat needs native Clock.app control over AX (hands-clock lane, `hands probe timers` -> `clock_ready`); otherwise Muselet's own timer answers. No Shortcuts indirection.
 9. Messaging beat sends only on a spoken "yes" to a contact who agreed; default answer on stage is "no".
 10. Premiere (dropped from the 3:00 cut): UXP bridge untested; the demo uses default shortcuts, so the demo project must use the default keymap.

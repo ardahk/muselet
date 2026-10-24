@@ -14,8 +14,8 @@ spoken** (use the bracketed line instead). Safety wording: only the "allowed" li
 3. Apps: Zen (default browser) open on a blank tab, signed in to the demo Gmail account with one received
    email open in the inbox. Messages signed in; demo contact (`DEMO_CONTACT`, e.g. a teammate's phone) in
    Contacts. Close Numbers, Notes, TextEdit, Clock. No user documents open anywhere.
-4. Clock: either the Clock AX backend (`hands-clock` lane, `hands probe timers` -> `clock_ready`) or the
-   `Muselet Start Timer` shortcut (`docs/CLOCK_TIMERS.md`). If neither: skip beat 2's Clock line.
+4. Clock: native Clock.app control over AX (`hands-clock` lane; no Shortcuts indirection). Check
+   `hands probe timers` -> `clock_ready:true`. If not ready: Muselet's own timer answers (beat 2 fallback).
 5. Volume 50, Light mode, Wi-Fi **on** (Gmail and Wikipedia need it; the offline beat turns it off later).
    Dock auto-hide off. HUD style glass. Panel closed, kitten idle bottom-right.
 6. `caffeinate -dimsu &`. Display mirroring on, font zoom off.
@@ -32,7 +32,7 @@ volume 50, Light mode, Wi-Fi on.
 | 0 | 0:00-0:08 | "This is Muselet. I hold one key and talk. Every model runs on this Mac." | – | Desktop, kitten idle | – | – |
 | 1 | 0:08-0:20 | (PTT) "Volume thirty." · (PTT) "Turn the volume down to twenty and switch to dark mode." | "Volume 30." · then compound reply | Volume HUD, screen flips dark, latency chip next to bubble | router -> `set_volume`; `_compound` splits clauses (each must route at p ≥ 0.75) | "The chip is in the trace; moving on." |
 | 1b | 0:20-0:24 | "That chip is release to first action: [`instant_e2e_ms_p50`] milliseconds. One forward pass, no generation." | – | zoom on chip | `ui.ms` (`orchestrator.py`) | if TBD: "one forward pass, on-device." |
-| 2 | 0:24-0:32 | (PTT) "Set a timer for ten minutes." | "Timer set in Clock for 10 minutes" | Clock app comes to the front with the timer running | `start_timer` -> Clock backend (`replies._timer_text`) | Muselet fallback says "Timer set for 10 minutes": "it falls back to its own timer if Clock isn't set up." |
+| 2 | 0:24-0:32 | (PTT) "Set a timer for ten minutes." | "Timer set in Clock for 10 minutes" | Clock app comes to the front with the timer running | `start_timer` -> Clock.app driven over AX (hands-clock lane; `replies._timer_text`) | Muselet fallback says "Timer set for 10 minutes": "it falls back to its own timer if Clock isn't set up." |
 | 3 | 0:32-0:44 | (PTT) "Navigate to Wikipedia." · (PTT) "Search for history." | – | Zen opens wikipedia.org, then Wikipedia's own search results for "history" (not Google) | `sites.py` -> `open_url`; then memory follow-up rule `site_search` (`ml/src/brain/memory/rules.py` on PR #50) rewrites to `https://en.wikipedia.org/w/index.php?search=history` | "It remembers what's in front; that's the working memory." (If PR #50 isn't merged: cut this beat.) |
 | 4 | 0:44-1:04 | (PTT) "Open TextEdit and write hello from Muselet." Presenter: "Multi-step: a local planner reads the accessibility tree, starts acting while it's still decoding, and checks each step." | planner `done` summary | Ghost cursor to TextEdit, new document, text appears | MULTI_STEP -> planner (4B, k=1 retrieval) batches with `expect` (`t2-textedit-write` live case) | "It replans on a failed check; here's the trace." |
 | 5 | 1:04-1:22 | (PTT) "Text DEMO_CONTACT that I'll be there in ten." | "Send 'I'll be there in ten' to <Resolved Name>?" | Messages opens with the draft filled; confirm bubble | `comms.parse_message` -> contacts-first resolve -> `send_message` (`risk: confirm`, `comms.py:596`) | Say **"yes"** (voice confirm) on stage only if the contact agreed; otherwise **"no"**: "No leaves the draft. It never sends without a yes." |
