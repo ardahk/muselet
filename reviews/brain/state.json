@@ -23,7 +23,7 @@
   "cloud/data-pipeline": "830ba35",
   "cloud/data-planner": "ee8ae33",
   "cloud/data-route": "42835ce",
-  "cloud/decisions": "08dae49",
+  "cloud/decisions": "c88b613",
   "cloud/docs-demo": "095d4ef",
   "cloud/docs-demo-2": "fa79929",
   "cloud/finance": "529e9ff",
@@ -69,6 +69,6 @@
   "main": "46b97f5",
   "wip/local": "719907a"
  },
- "pass": 48,
- "ts": "2026-10-24T23:24:00Z"
+ "pass": 49,
+ "ts": "2026-10-24T23:27:00Z"
 }

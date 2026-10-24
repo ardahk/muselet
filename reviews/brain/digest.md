@@ -1,6 +1,6 @@
-# brain lane digest — pass 48 (2026-10-24T23:24:00Z)
+# brain lane digest — pass 49 (2026-10-24T23:27:00Z)
 
-Open: P0 0 / P1 9 / P2 10. main 46b97f5 and wip/local 719907a: no lane changes since a97fcba.
+Open: P0 0 / P1 9 / P2 10. Only cloud/decisions moved (c88b613: training/decisions docs/snapshot, no lane files). main 46b97f5, wip/local 719907a unchanged.
 
 ## Open P0/P1 (ranked)
 - brain-38 [P1] Deterministic message parser hijacks non-messaging commands and other-channel requests — `ml/src/brain/comms.py` (cloud/comms-2@c65ee70; fix verified on cloud/safety-brain38@54ca8f6)
