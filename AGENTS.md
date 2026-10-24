@@ -26,6 +26,8 @@ Hackathon deadline: Cal Hacks submission Sun Oct 25 2026, 09:00 PDT. Tinker budg
   open unless the case created them. Live UI runs require an unlocked screen (`hands probe session` ->
   `screen_locked:false`); results gathered while locked are invalid (the lock screen is frontmost, AX is blind).
 - Reviewed PRs that pass tests may be merged by the lead without asking.
+- Intelligence over latency for multi-step work (user, Sat evening): planner steps may take a few seconds if that
+  raises pass rates (ship gate: per-step p50 <= 3 s on the Mac); single commands on the System 1 fast path stay instant.
 - Tinker: iterate beyond the $60 phase budget when results fall short (diagnose why, research, retry), but stay
   within the $150 hard cap.
 - Model choices (planner, grounder, router incl. the trained one): ship a recommended default but keep every
