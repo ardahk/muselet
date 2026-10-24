@@ -226,3 +226,73 @@ async def drain_queue(queue):
     while not queue.empty():
         items.append(queue.get_nowait())
     return items
+
+
+def test_close_bounded_aborts_peer_that_never_answers():
+    from bench.harness.proxy import _close_bounded
+
+    class Transport:
+        def __init__(self):
+            self.aborted = False
+
+        def abort(self):
+            self.aborted = True
+
+    class HangingConnection:
+        def __init__(self):
+            self.transport = Transport()
+
+        async def close(self):
+            await asyncio.sleep(60)
+
+    async def scenario():
+        connection = HangingConnection()
+        started = asyncio.get_running_loop().time()
+        await _close_bounded(connection, timeout=0.05)
+        assert asyncio.get_running_loop().time() - started < 10
+        assert connection.transport.aborted
+
+    asyncio.run(scenario())
+
+
+def test_disconnect_not_blocked_by_silent_brain_close():
+    import base64
+    import hashlib
+    import re
+
+    async def scenario():
+        async def brain_handler(reader, writer):
+            request = b""
+            while b"\r\n\r\n" not in request:
+                request += await reader.read(4096)
+            key = re.search(
+                rb"Sec-WebSocket-Key: (\S+)", request).group(1)
+            accept = base64.b64encode(hashlib.sha1(
+                key + b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+            ).digest())
+            writer.write(
+                b"HTTP/1.1 101 Switching Protocols\r\n"
+                b"Upgrade: websocket\r\nConnection: Upgrade\r\n"
+                b"Sec-WebSocket-Accept: " + accept + b"\r\n\r\n")
+            await writer.drain()
+            await asyncio.sleep(60)  # never answer the close handshake
+
+        server = await asyncio.start_server(brain_handler, "127.0.0.1", 0)
+        try:
+            port = server.sockets[0].getsockname()[1]
+            async with BenchProxy(f"ws://127.0.0.1:{port}") as proxy:
+                await proxy.begin_case("silent-brain", None)
+                async with websockets.connect(proxy.url) as hands:
+                    await proxy.wait_connected()
+                    await hands.send(json.dumps(
+                        {"t": "hello", "screens": []}))
+                    await asyncio.sleep(0.2)
+                # hands dropped; brain-side close must not stall the slot
+                await asyncio.wait_for(
+                    proxy.wait_disconnected(60), timeout=15)
+                assert proxy._slot_released()
+        finally:
+            server.close()
+            await server.wait_closed()
+
+    asyncio.run(scenario())
