@@ -1,4 +1,4 @@
-# hands — digest (pass 34)
+# hands — digest (pass 35)
 
 Open findings were re-verified on main 2920225 in pass 15: hands-1 to 9 and 11 to 14 are resolved, and hands-15 is superseded.
 Pass 21 checks:
@@ -6,6 +6,13 @@ Pass 21 checks:
 - wip/local b63699f is identical to main.
 - cloud/brain-5 b752261 handles `not_frontmost` by reading the failure `result`. That works: RPC.swift returns r with r["error"], BrainConnection always sends `result`, and server.rpc returns it with ok=false.
 No new defects.
+Pass 35: open 0 P0, 3 P1, 3 P2.
+- NEW P1 hands-19 (cloud/comms 956d4ac): send_message now goes to the contacts_search/messages_compose/messages_send RPCs, which HandsKit doesn't implement, so texting would fail with "Couldn't search your contacts". The working Swift send_message skill (Skills.swift:618) would no longer be used. Merge gate: land the HandsKit RPCs first, or fall back to the skill.
+- NEW P2 hands-20 (cloud/comms): send_draft checks the draft window before the voice confirm and doesn't re-check after it. cmd+return could go to a different browser tab.
+- hands-17 updated: brain-7's ack (no `ok`) is now on main 2bd626b, and app-ui still expects `ok`.
+- hands-18 is unchanged (cloud/app-ui afb2688 hasn't moved).
+- main cf53292 merged brain-7 (same as 13432fe, reviewed in pass 34), native-research, report and the data briefs. wip/local e14fa54 is a snapshot on main@cf53292 with no app/ changes. cloud/decisions 43abfa3 only changes decision.py (out of my lane). data-pipeline and report-2 are docs/data only.
+- hands-10 (Act.swift:348) and hands-16 (orchestrator.py:1078 on main) are still open.
 Pass 34: open 0 P0, 2 P1, 2 P2.
 - NEW P1 hands-17: cloud/app-ui and cloud/brain-7 each add `config`/`config_ack`, with incompatible acks (`ok` vs `loaded`). A successful brain-7 load shows "Not available" in the app. app-ui's server awaits config inline, which would block the receive loop during brain-7's 35B load. The two branches conflict in server.py and cli.py. LEAD DECISION: pick one schema and one semantics.
 - NEW P1 hands-18 (medium confidence): panel example prompts run with the MenuBarExtra window possibly frontmost/key. Observe has no own-pid fallback (Observe.swift:440), so the agent may act on Muselet itself. The pill typed path is correct.
