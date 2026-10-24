@@ -1,4 +1,26 @@
-# planner lane — pass 42 (main 3876f3a, wip 3cfa06d, comms-2 c65ee70, clock-timers d060b5a)
+# planner lane — pass 43 (main 3772f7c, wip 8fcf55f)
+
+Open P0: none.
+
+Open P1 (ranked):
+1. planner-30: JXA string-concat doShellScript bypasses script confirmation (ml/src/brain/orchestrator.py)
+2. planner-31: Rule 14 'expect focused' (no ref) is rejected by HandsKit before acting (prompts/planner_system.md)
+3. planner-15 (reopened): read-only Numbers scripts still trigger CONFIRM; writes don't (ml/src/brain/orchestrator.py)
+4. planner-32: open_folder catalog lacks 'view'; demo 1 detours via planner (skills/catalog.json)
+5. planner-28: compose_text types model text with no sendgate (ml/src/brain/tools/compose_text.py)
+6. planner-24: Calculator keys posted before Calculator is frontmost (ml/src/brain/orchestrator.py)
+7. planner-29: v2 bench goals near-duplicate the few-shot examples (evals/planner_v2_*)
+8. planner-6: premiere_command unimplemented; catalog args mismatch the UXP bridge (app/Sources/HandsKit/Skills.swift)
+
+Highest-leverage next moves:
+- Add `view` to open_folder in catalog.json and the prompt example: demo 1 becomes one skill call.
+- Script policy: always confirm JXA that uses currentApplication or bracket access; drop `set .* to`/`format` from the Numbers-target check.
+- Fix rule 14 to say `expect focused #<ref>`, and run dsl.parse_predicate on streamed expect lines.
+- Skip the duplicate verify RPC when act returned expect_ok; make RPC verify poll for skill and script expects.
+- Replace the done-rejection planner turn with a harness re-observe.
+
+Pass 43 notes: main 3876f3a..3772f7c in this lane is the comms channel redirect (compose_email/draft_email become send_message for messaging goals; planner `open Mail` is a terminal failure), the Clock hint, timers RPC, and k=1 plan_bank retrieval. Retrieval leakage was reviewed in pass 41: quote only v2-holdout. I found no new issues in that diff. The new findings come from re-walking demos 1 and 3 through the prompt, the DSL, the executor and HandsKit. wip/local has the same lane files as main. No cloud/* branch changed lane files since pass 42. I re-checked planner-24/26/27/28/6/25/29: the code is unchanged, so they stay open.
+
 
 Pass 42: no new findings. comms-2 sends requests that name a message channel (text/message/iMessage/SMS, unless mail/email is also named) to comms.start, through the router, the slot step, the planner skill step and ask. It relabels compose_email/draft_email as send_message, and the planner can't open Mail for a texting goal. Sending still needs a confirmation that shows the recipient and an excerpt (comms.py L582-602) and checks that Messages is frontmost. c65ee70 makes the verb-first form require a message noun. clock-timers only adds the one-time Clock-shortcut hint and the reply wording. main changed only HandsKit Contacts/MessagesCompose v2 and WindowsProbe; messages_send still posts a single Return after re-checking the window. Open findings are unchanged: planner-28, planner-24, planner-29, planner-6 (P1); planner-26, planner-27, planner-25 (P2).
 
