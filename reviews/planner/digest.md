@@ -1,8 +1,9 @@
-# planner lane — pass 45 (main ebdd639, wip eb1d232, w9-safety 2a7d0df, memory 5cd44e6, planner-lora ceafe3d)
+# planner lane — pass 46 (main 806b0d4, wip 6b1006e, planner-verify c9de7aa, planner-think 6d14a7a, w9 6aa332a)
 
 Open P0: none.
 
 Open P1 (ranked):
+0. planner-40: planner-verify accepts done after any successful skill, skipping the model check (ml/src/brain/orchestrator.py on cloud/planner-verify)
 1. planner-30: JXA string-concat doShellScript bypasses script confirmation (ml/src/brain/orchestrator.py). Fixed on w9-safety (PR #46), still open on main.
 2. planner-31: Rule 14 'expect focused' (no ref) is rejected by HandsKit before acting (prompts/planner_system.md)
 3. planner-38: Planner LoRA trained without few-shot/retrieval, but served with both by default (training/planner_lora/common.py, tools/serve_brain.sh)
@@ -14,11 +15,18 @@ Open P1 (ranked):
 9. planner-6: premiere_command unimplemented; catalog args mismatch the UXP bridge (app/Sources/HandsKit/Skills.swift)
 
 Highest-leverage next moves:
-- Before any LoRA ship call, evaluate the adapter under the exact serve flags (few-shot, RETRIEVAL_K), or serve it with `--planner-fewshot none` and RETRIEVAL_K=0.
+- planner-verify: before merging, drop the skill-ok = done-evidence rule (planner-40). Keep the decide-based verify, which also takes care of most of planner-33.
+- Before any LoRA ship call, evaluate the adapter under the exact serve flags (few-shot, RETRIEVAL_K, THINK), or serve it with `--planner-fewshot none` and RETRIEVAL_K=0 (planner-38).
 - Merge w9-safety, but first narrow `\[` to JXA computed keys and drop `\\`, `set .* to` and `format` for Numbers targets (planner-37, planner-15).
-- Add `view` to open_folder in catalog.json and to the prompt example, so demo 1 is a single skill call.
-- Fix rule 14 to say `expect focused #<ref>`; run dsl.parse_predicate on streamed expect lines.
-- planner-verify brief: in the verify step, re-observe and verify on the harness side; don't spend a planner turn on it (planner-33).
+- Add `view` to open_folder in catalog.json and to the prompt example (planner-32). Fix rule 14 to say `expect focused #<ref>` (planner-31).
+
+Pass 46 notes:
+- main and wip only add the memory_followups denylist in plan_bank (fine) and a brain-9 brief (named browser for open_url/web_search, OCR wait for web answers, planner warmup).
+- planner-verify has one issue, planner-40. Otherwise its done verification follows the brief: a fresh observe, OCR when the text is short, a bool decide on the inline planner weights (VERIFY_P 0.5), MAX_RECOVERY 2, and an honest "Not finished: ..." reply. The cost when there is no expect is one observe, possibly a screenshot+OCR, one decide prefill (~1.5-3k tokens) and, if the answer is no, a 24-token missing-text decode. That is my estimate; I did not measure it. It should fit the 3 s/step gate.
+- planner-think adds a bounded think block. It is off by default (THINK=0). The cache and feed handling looks right: the last sampled token is fed before </think> on every close path. With thinking on, TTFT for the first streamed action grows by the think budget.
+- w9 6aa332a scopes `appears` to the focused window plus its sheets and menus, and matches word-bounded. That is stricter; the prompt examples still fit. The permission gate now uses the post-action state, outside this lane.
+- memory-lt f0ea345 (WIP) adds long-term memory rows (up to 3) to the planner's dynamic prompt. The rows are not framed as data. I have not verified where they come from: if they can contain screen text, they are an injection surface. I'll re-check once it is out of WIP.
+- hands-clock and decisions don't touch planner paths.
 
 Pass 45 notes: main ebdd639 adds briefs only (planner-think, planner-verify, hands-clock, docs-demo, live-cases) and an AGENTS rule that planner steps may take a few seconds (p50 <= 3 s/step). wip/local has the same lane files as main. On w9-safety, the done-evidence commits were reverted, the Calculator frontmost gate fixes planner-24, and control/format characters in a script now force a confirm (fine). Trash resolution now requires an exact match, and installed apps are preferred over the site rewrite; I found no lane issues in those. memory/memory-lt adds working memory: a guarded LLM rewrite (the irreversible-verb guard blocks newly added send/delete/etc.), direct execution of safe skills only, and a `Recent:` block in the planner's dynamic message, so the static cache is intact. Screen text reaches the rewrite only as the URL's site, not the window title. Its one issue is planner-39 (latency). planner-lora gives planner-38. router-it3-serve widens planner-28. docs-demo and ui-polish don't touch this lane.
 
