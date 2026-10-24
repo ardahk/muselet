@@ -1,12 +1,14 @@
 {
-  "pass": 3,
-  "ts": "2026-10-24T05:45:00Z",
+  "pass": 4,
+  "ts": "2026-10-24T06:00:00Z",
   "last_reviewed": {
-    "main": "10793e0",
-    "wip/local": "1d7cc07",
-    "cloud/data-pipeline": "4cbb74a",
-    "cloud/finance": "f098120",
-    "cloud/fixtures-docs": "4bf2291"
+    "main": "6177cc1",
+    "wip/local": "cbc4879",
+    "cloud/data-pipeline": "8c7c023",
+    "cloud/finance": "529e9ff",
+    "cloud/fixtures-docs": "4bf2291",
+    "cloud/bench": "8429245",
+    "cloud/advisor": "9432c30"
   },
   "next_id": 10
 }
