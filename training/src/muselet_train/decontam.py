@@ -1,0 +1,120 @@
+"""Eval decontamination filter (lead decision A, mandatory after generation, before soft labels).
+
+Drop a route or ARGS item if, against ANY eval utterance, its normalized text is equal, char-5-gram
+Jaccard >= 0.5, token-bigram Jaccard >= 0.6, or token-8-gram Jaccard >= 0.6 (both texts >= 12 tokens).
+  python -m muselet_train.decontam --run R
+Rewrites route.jsonl / args.jsonl in place (originals kept as *.pre_decontam.jsonl).
+"""
+
+from __future__ import annotations
+
+import argparse
+import collections
+import csv
+import json
+import random
+import re
+from pathlib import Path
+
+from muselet_train.gen import DATA
+
+REPO = Path(__file__).resolve().parents[3]
+HOBBY = Path("/data/evals/hobbylm/data/frozen")
+
+
+def norm(t: str) -> str:
+    return " ".join(re.sub(r"[^a-z0-9' ]", " ", t.lower()).split())
+
+
+def _ngrams(seq, n: int) -> set:
+    return {tuple(seq[i:i + n]) for i in range(len(seq) - n + 1)}
+
+
+def _j(a: set, b: set) -> float:
+    return len(a & b) / len(a | b) if a and b else 0.0
+
+
+class Feats:
+    __slots__ = ("text", "toks", "c5", "b2", "g8")
+
+    def __init__(self, text: str):
+        self.text = norm(text)
+        self.toks = self.text.split()
+        self.c5 = _ngrams(self.text, 5) or {self.text}
+        self.b2 = _ngrams(self.toks, 2)
+        self.g8 = _ngrams(self.toks, 8) if len(self.toks) >= 12 else set()
+
+
+def eval_utterances() -> list[str]:
+    out = [json.loads(l)["utterance"] for p in sorted((REPO / "evals").glob("**/*.jsonl"))
+           for l in p.read_text().splitlines() if l.strip()]
+    for p in sorted(HOBBY.glob("*.tsv")):
+        out += [row[2] for row in csv.reader(p.open(), delimiter="\t") if len(row) > 2 and row[2].strip()]
+    return out
+
+
+class Index:
+    def __init__(self, texts: list[str]):
+        self.evals = [Feats(t) for t in texts if norm(t)]
+        self.exact = {e.text: e for e in self.evals}
+        self.by_c5 = collections.defaultdict(list)
+        for i, e in enumerate(self.evals):
+            for g in e.c5:
+                self.by_c5[g].append(i)
+
+    def match(self, text: str) -> tuple[str, Feats] | None:
+        f = Feats(text)
+        if f.text in self.exact:
+            return "exact", self.exact[f.text]
+        cands = {i for g in f.c5 for i in self.by_c5.get(g, ())}
+        for i in cands:  # every rule needs shared char-5-grams, so candidates cover all rules
+            e = self.evals[i]
+            if _j(f.c5, e.c5) >= 0.5:
+                return "char5", e
+            if _j(f.b2, e.b2) >= 0.6:
+                return "bigram", e
+            if f.g8 and e.g8 and _j(f.g8, e.g8) >= 0.6:
+                return "tok8", e
+        return None
+
+
+def run(run_name: str, seed: int) -> dict:
+    idx = Index(eval_utterances())
+    d = DATA / run_name
+    rep = {"eval_utterances": len(idx.evals), "dropped": {}, "pairs": []}
+    pairs = []
+    for name, lab_key in (("route", "label"), ("args", "skill")):
+        src = d / f"{name}.pre_decontam.jsonl"
+        if not src.exists():
+            (d / f"{name}.jsonl").rename(src)
+        rows = [json.loads(l) for l in src.read_text().splitlines() if l.strip()]
+        kept, drop = [], collections.Counter()
+        for r in rows:
+            m = idx.match(r["utterance"])
+            if m:
+                drop[r[lab_key]] += 1
+                pairs.append({"set": name, "label": r[lab_key], "rule": m[0], "train": r["utterance"],
+                              "eval": m[1].text})
+            else:
+                kept.append(r)
+        (d / f"{name}.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in kept))
+        rep["dropped"][name] = dict(sorted(drop.items()))
+        rep[f"{name}_in"], rep[f"{name}_kept"] = len(rows), len(kept)
+    rep["pairs"] = random.Random(seed).sample(pairs, min(10, len(pairs)))
+    (d / "decontam.json").write_text(json.dumps(rep, indent=1, ensure_ascii=False))
+    return rep
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--run", required=True)
+    ap.add_argument("--seed", type=int, default=0)
+    a = ap.parse_args()
+    rep = run(a.run, a.seed)
+    print(json.dumps({k: v for k, v in rep.items() if k != "pairs"}))
+    for p in rep["pairs"]:
+        print(p)
+
+
+if __name__ == "__main__":
+    main()

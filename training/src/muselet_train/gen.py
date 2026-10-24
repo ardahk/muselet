@@ -226,6 +226,75 @@ def collect(run: str) -> None:
                 raw.append({"id": o["custom_id"], "error": str(o.get("error") or o)[:300]})
     (d / "raw.jsonl").write_text("".join(json.dumps(x) + "\n" for x in raw))
     (d / "usage.json").write_text(json.dumps(usage, indent=1))
+    parse(run)
+
+
+def _ok(x: dict) -> bool:
+    j = _parse_json(x.get("text") or "") if "error" not in x else None
+    return bool(j) and isinstance(j.get("items"), list)
+
+
+def _call(r: dict, tries: int = 8) -> tuple[dict, dict]:
+    import anthropic
+    import openai
+
+    for k in range(tries):
+        try:
+            if r["provider"] == "anthropic":
+                m = anthropic.Anthropic(max_retries=0).messages.create(
+                    model=r["model"], max_tokens=MAX_TOKENS,
+                    messages=[{"role": "user", "content": r["prompt"]}])
+                return ({"id": r["id"], "model": m.model, "stop": m.stop_reason,
+                         "text": "".join(c.text for c in m.content if c.type == "text")},
+                        {"input": m.usage.input_tokens, "output": m.usage.output_tokens})
+            o = openai.OpenAI(max_retries=0).chat.completions.create(
+                model=r["model"], max_completion_tokens=MAX_TOKENS, reasoning_effort="low",
+                response_format={"type": "json_object"},
+                messages=[{"role": "user", "content": r["prompt"]}])
+            return ({"id": r["id"], "model": o.model, "stop": o.choices[0].finish_reason,
+                     "text": o.choices[0].message.content},
+                    {"input": o.usage.prompt_tokens, "output": o.usage.completion_tokens})
+        except (anthropic.RateLimitError, openai.RateLimitError, anthropic.InternalServerError,
+                anthropic.APIConnectionError, openai.APIConnectionError, openai.InternalServerError):
+            time.sleep(min(60, 2 ** k + random.random()))
+    return {"id": r["id"], "error": "retries_exhausted"}, {"input": 0, "output": 0}
+
+
+def sync(run: str, concurrency: int = 16, attempts: int = 2) -> None:
+    """Synchronous calls (no Batch API) for every request without a valid JSON result."""
+    import concurrent.futures as cf
+
+    d = DATA / run
+    reqs = _load(run, "requests.jsonl")
+    raw = {x["id"]: x for x in _load(run, "raw.jsonl")} if (d / "raw.jsonl").exists() else {}
+    up = d / "usage_sync.json"
+    usage = json.loads(up.read_text()) if up.exists() else {}
+    for _ in range(attempts):
+        todo = [r for r in reqs if not _ok(raw.get(r["id"], {}))]
+        print("sync todo", len(todo), flush=True)
+        if not todo:
+            break
+        with cf.ThreadPoolExecutor(concurrency) as ex:
+            for n, (x, u) in enumerate(ex.map(_call, todo), 1):
+                raw[x["id"]] = x
+                m = next(r["model"] for r in todo if r["id"] == x["id"])
+                t = usage.setdefault(m, {"calls": 0, "input": 0, "output": 0})
+                t["calls"] += 1
+                t["input"] += u["input"]
+                t["output"] += u["output"]
+                if n % 50 == 0:
+                    print(n, "/", len(todo), flush=True)
+                    (d / "raw.jsonl").write_text("".join(json.dumps(v) + "\n" for v in raw.values()))
+                    up.write_text(json.dumps(usage, indent=1))
+        (d / "raw.jsonl").write_text("".join(json.dumps(v) + "\n" for v in raw.values()))
+        up.write_text(json.dumps(usage, indent=1))
+    parse(run)
+
+
+def parse(run: str) -> None:
+    d = DATA / run
+    reqs = {r["id"]: r for r in _load(run, "requests.jsonl")}
+    raw = _load(run, "raw.jsonl")
     items = []
     stats = {"calls": len(raw), "errors": 0, "bad_json": 0}
     for x in raw:
@@ -242,12 +311,12 @@ def collect(run: str) -> None:
                 items.append({"src": x["id"], "k": k, "kind": r["kind"], "label": r["label"],
                               "style": r["style"], "model": x["model"], "raw": it})
     (d / "gen_items.jsonl").write_text("".join(json.dumps(x) + "\n" for x in items))
-    print(json.dumps({"stats": stats, "items": len(items), "usage": usage}, indent=1))
+    print(json.dumps({"stats": stats, "items": len(items)}, indent=1))
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["build", "submit", "poll", "collect"])
+    ap.add_argument("cmd", choices=["build", "submit", "poll", "collect", "sync"])
     ap.add_argument("--run", required=True)
     ap.add_argument("--fraction", type=float, default=1.0)
     ap.add_argument("--wait", action="store_true")
@@ -255,6 +324,8 @@ def main() -> None:
     a = ap.parse_args()
     if a.cmd == "build":
         build(a.run, a.fraction, skip=tuple(a.skip))
+    elif a.cmd == "sync":
+        sync(a.run)
     elif a.cmd == "submit":
         submit(a.run)
     elif a.cmd == "poll":
