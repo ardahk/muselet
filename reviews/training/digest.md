@@ -1,5 +1,5 @@
-# training review digest: pass 7
-_heads: main c2d2988, cloud/data-pipeline 8f0b9bc (Phase 1 trainer, pilot LR sweep, export/MLX parity), others unchanged. Self-poll; the lead is offline._
+# training review digest: pass 8
+_heads: main c2d2988, wip/local 8874962 (tree identical to main; no lane changes since e0bdc65), cloud/data-pipeline 8f0b9bc. All open findings re-checked; no change._
 
 ## Open P0/P1 (ranked)
 - **training-10** [P0] HobbyLM sealed-test items are in the training data, and decontam can't read evals/external (`training/src/muselet_train/dedup.py`). The trainer is now ready, so the main run could launch on contaminated data.
