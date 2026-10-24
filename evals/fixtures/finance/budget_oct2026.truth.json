@@ -21,30 +21,27 @@
     "Health": 80
   },
   "actual": {
-    "Rent": 1650.0,
-    "Groceries": 1238.07,
-    "Dining": 831.97,
-    "Transport": 717.93,
-    "Shopping": 1955.33,
-    "Subscriptions": 50.47,
-    "Utilities": 146.31,
-    "Health": 295.25
+    "Rent": 1625.0,
+    "Groceries": 298.7,
+    "Dining": 347.21,
+    "Transport": 121.06,
+    "Shopping": 1480.34,
+    "Subscriptions": 42.97,
+    "Utilities": 149.07,
+    "Health": 47.91
   },
   "remaining": {
-    "Rent": 0.0,
-    "Groceries": -838.07,
-    "Dining": -581.97,
-    "Transport": -567.93,
-    "Shopping": -1755.33,
-    "Subscriptions": 9.53,
-    "Utilities": 33.69,
-    "Health": -215.25
+    "Rent": 25.0,
+    "Groceries": 101.3,
+    "Dining": -97.21,
+    "Transport": 28.94,
+    "Shopping": -1280.34,
+    "Subscriptions": 17.03,
+    "Utilities": 30.93,
+    "Health": 32.09
   },
   "over_budget": [
-    "Groceries",
     "Dining",
-    "Transport",
-    "Shopping",
-    "Health"
+    "Shopping"
   ]
 }
