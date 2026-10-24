@@ -1,4 +1,8 @@
-# planner lane — pass 26 (main 04c3930, wip aec8fbf = main in this lane)
+# planner lane — pass 27 (main d7c192f, wip 367d450 = main in this lane, data-pipeline 0ce9ea6)
+
+Pass 27: no lane changes; main only touched AGENTS.md and the serve_brain router default. I re-checked all open findings on main: planner-24 (orchestrator.py L977), planner-26 (L289) and planner-25 (planner.py L334) are unchanged, and planner-6 is unchanged.
+
+## Pass 26 notes
 
 Pass 26: no new findings. grounder-wire (#19) and pitch-3 (#18) are merged. The prompt now lists click "<description>" below skills, keyboard shortcuts and pressing elements, and rules 16-18 are in planner_fewshot.md. planner-26 is now on main. Calculator is at L977.
 
