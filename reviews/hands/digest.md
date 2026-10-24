@@ -1,5 +1,6 @@
-# hands — digest (pass 9: main 76a03c1, wip/local 34ddf5f; new cloud/advisor-3, brain-3, finance-3 do not touch app/)
+# hands — digest (pass 10: main 0fd5698, wip/local 64dd1cb)
 
+Pass 10 reviewed: ServeSession (headless CLI harness), Automation consent (AEDeterminePermissionToAutomateTarget, prompts only on request, off main), ControlCenter open/close refactor, BrainClient. No new P0/P1. hands-10 still open (Act.swift:271@64dd1cb).
 Resolved: hands-1 to hands-9 and hands-11 to hands-14. hands-15 superseded.
 Pass 9 reviewed: fixed-source AppleScript handlers (AppleScript.swift: no source splicing, compiled once), the no_text_target guard on `type` (TextTarget.swift), and the window-pick fallback with a 0.8 s wait right after launch (Observe.swift). No new P0/P1.
 
