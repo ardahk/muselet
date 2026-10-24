@@ -1,9 +1,9 @@
 {
-  "pass": 46,
-  "ts": "2026-10-24T22:50Z",
+  "pass": 47,
+  "ts": "2026-10-24T23:00Z",
   "branches": {
-    "main": "806b0d4",
-    "wip/local": "6b1006e",
+    "main": "a97fcba",
+    "wip/local": "ac41cd2",
     "cloud/bench": "f584cb2",
     "cloud/data-pipeline": "830ba35",
     "cloud/decisions": "08dae49",
@@ -43,9 +43,9 @@
     "cloud/planner-retrieval": "7df32b1",
     "cloud/data-decisions": "91de461",
     "cloud/w9-safety": "6aa332a",
-    "cloud/memory": "e96ec18",
+    "cloud/memory": "ba3dc0a",
     "cloud/memory-eval": "c05944e",
-    "cloud/memory-lt": "f0ea345",
+    "cloud/memory-lt": "cc056af",
     "cloud/planner-lora": "ceafe3d",
     "cloud/router-it3-serve": "b455d2c",
     "cloud/docs-demo": "095d4ef",
@@ -53,8 +53,11 @@
     "cloud/docs-demo-2": "fa79929",
     "cloud/hands-clock": "26d4427",
     "cloud/live-cases": "5c173f6",
-    "cloud/planner-think": "6d14a7a",
-    "cloud/planner-verify": "c9de7aa"
+    "cloud/planner-think": "3677348",
+    "cloud/planner-verify": "d22b9a9",
+    "cloud/brain-9": "3f9718b",
+    "cloud/safety-bench28": "a0c456e",
+    "cloud/safety-brain27": "ac43219"
   },
-  "notes": "pass46: no new findings. bench-16 updated (Muselet-only --exclude-kind calc = 30/125 r4), bench-25 (grader changed again), bench-30 (think rule), bench-32 resolved, bench-33 partly fixed on docs-demo-2. Reviewed clean: live-cases multi-turn harness (turns_ok gates strict_pass; teardown only on case-created state), decisions calibration (dev-only fit), planner-verify generic_decide.inline, memory eval rules (holdout-only ship)."
+  "notes": "pass47: no new findings. bench-33 resolved (main a97fcba). bench-28 partly fixed (bank side) on safety-bench28. Reviewed clean: main router_check.py (tau fit on val only, it2-train rows dropped, route_v2 + v2-catalog subset), wip proxy _close_bounded. Memory site/name presets are a broad generic list (29 sites, most in neither split), so not eval-tuned."
 }
