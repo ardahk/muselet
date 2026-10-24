@@ -1,9 +1,9 @@
 {
-  "pass": 36,
-  "ts": "2026-10-24T19:20:00Z",
+  "pass": 37,
+  "ts": "2026-10-24T19:35:00Z",
   "branches": {
-    "main": "e56582b",
-    "wip/local": "73f7044",
+    "main": "fb2cfd0",
+    "wip/local": "9ed6bc8",
     "cloud/bench": "f584cb2",
     "cloud/data-pipeline": "f8b721a",
     "cloud/decisions": "694c198",
@@ -36,5 +36,5 @@
     "cloud/data-route": "42835ce",
     "cloud/data-planner": "ee8ae33"
   },
-  "notes": "pass36: bench-fix 4bcf0db (harness_timeout recovery, --run-pending, vendored HobbyLM helper) - bench-16 extended (harness_timeout excluded per run); bench-20 (HobbyLM timers) and bench-21 (calc setup quit vs open_cleared, replay.py:170,680,984) unchanged; --run-pending reports pending separately (ok). data-route 42835ce: gate dropped 156 pool rows overlapping route_v1/v2/live_t1/HobbyLM sealed (good); judges gpt-5.6-sol/claude-opus-5-5. data-planner ee8ae33: planner v2 260 scenarios -> bench-26. decisions 694c198 checkpoint log only; comms/app-ui/wip: no lane changes."
+  "notes": "pass37: main fb2cfd0 merged bench-fix 4bcf0db (reviewed pass 36; bench-16 extension, bench-20/21 now unchanged on main) and edited live_t1 (Finder no-windows preconditions; finance/advisor final-state checks) -> bench-25 update. wip mirrors main; no other lane changes."
 }

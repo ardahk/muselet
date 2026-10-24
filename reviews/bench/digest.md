@@ -1,4 +1,4 @@
-# bench digest — pass 36 (2026-10-24T19:20Z, main@e56582b)
+# bench digest — pass 37 (2026-10-24T19:35Z, main@fb2cfd0)
 
 P0: 0 | open P1: 6 | open P2: 7
 
@@ -10,7 +10,7 @@ P0: 0 | open P1: 6 | open P2: 7
 5. bench-15 — Grounding subset in pitch/claims.md not reproducible (--limit is a sorted prefix; no stratified sampler committed; ±6.7 pt at n=200) — `bench/grounding/run_screenspot.py` (main)
 6. bench-14 — No ScreenSpot-Pro/OSWorld-G decontamination for grounding training data — `training/src/muselet_train/decontam.py` (branch-only)
 
-Open P2: bench-26 (planner v2 tune/holdout share 14 screens; exact-goal split check only), bench-25 (live T1 86.4% over ran cases; 8 eligible T1 skipped at runtime, reasons untracked), bench-23 (route_v2 gold judge = it3 relabel judge; hard items dropped), bench-24 (evalcheck skips missing eval files), bench-22 (route evalcheck fixed on data-pipeline@512cce0; only the decisions decontam tokenizer still drops CJK; it has now run on the full decisions data, e125c13), bench-12 (chunked choice probabilities), bench-19 (claims.md quotes consumed holdout-1, n=14, overlapping CIs; use holdout2 + CI).
+Open P2: bench-26 (planner v2 tune/holdout share 14 screens; exact-goal split check only), bench-25 (live T1 86.4% over ran cases; 8 eligible T1 skipped at runtime, reasons untracked; live_t1 edited on main@fb2cfd0 after that run, no suite hash), bench-23 (route_v2 gold judge = it3 relabel judge; hard items dropped), bench-24 (evalcheck skips missing eval files), bench-22 (route evalcheck fixed on data-pipeline@512cce0; only the decisions decontam tokenizer still drops CJK; it has now run on the full decisions data, e125c13), bench-12 (chunked choice probabilities), bench-19 (claims.md quotes consumed holdout-1, n=14, overlapping CIs; use holdout2 + CI).
 
 ## Highest-leverage next moves
 - hobby-gaps is merged: forward HobbyLM's recorded timers to its grade (bench-20; the Muselet side now uses the timers RPC) and give both systems the same Calculator start state (bench-21).
