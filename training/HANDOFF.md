@@ -1,13 +1,17 @@
 ## Handoff
 
-_Lane: router (System 1 route + ARGS LoRA on Qwen/Qwen3.5-4B via Tinker). Updated 2026-10-24 21:15Z._
+_Lane: router (System 1 route + ARGS LoRA on Qwen/Qwen3.5-4B via Tinker). Updated 2026-10-24 21:25Z (org cut-over)._
 
 **State**
 - Done: catalog v3 (43 options, lead-approved; `training/artifacts/catalog_v3.json`, sha `fb99dd04…dd8cd20`); route_v2 frozen (`evals/route_v2.jsonl`, 955 items, sha256 `20cd542b50862ccf4dc83af18cf16bb9b8c61ab5da505abf745d00aa3155dd51`); it3 data = it3cand @ `84595279` merged with my new-intent data (`/data/gen/v3m`), 0 overlaps on all 4 gate rules; 35B teacher soft labels on 6,222 one-hot rows (applied, 0.6 gold + 0.4 teacher); base + it2 evals on route_v2 / route_v1 / v3 val + ARGS v3 val.
-- In flight: Tinker training run `it3` (log `/data/train/logs/it3.log`, LR 4e-4, rank 32, 1 epoch, 496 steps, eval every 100). On finish it writes `/data/train/it3/{final_eval.json,checkpoints.json}` and `training/reports/phase1_it3.md`. Watcher `/data/train/after_it3.sh` (log `/data/train/logs/after_it3.log`) then runs the it3 evals (`eval_it3.log`) and the export (`post_it3.sh` → `post_it3.log`: parity_300_it3, download, untied merge, MLX 4-bit, render check).
+- In flight: Tinker training run `it3` = **`aa6fe792-c23d-5da7-ac51-c3647ae35f5c:train:0`** (not killed). All 496 steps done (step-495 val300 top-1 .907, F1 .887); it is running the final full val (1,396 route + ARGS val) and then saves `it3-final` sampler + state. ETA ~21:35Z. Saved so far: `tinker://aa6fe792-c23d-5da7-ac51-c3647ae35f5c:train:0/weights/it3-200`, `…/weights/it3-400`. Expected final: `tinker://aa6fe792-c23d-5da7-ac51-c3647ae35f5c:train:0/sampler_weights/it3-final` (+ `weights/it3-final`). If this VM dies, the trainer process dies with it: the final sampler will not exist. Then resume from `weights/it3-400` (load state, train steps 400–495 on the same seed-0 sample, ~$6) or, cheaper, `tc.save_weights_for_sampler` of it3-400 and evaluate that. Training log (local) `/data/train/logs/it3.log`, LR 4e-4, rank 32, 1 epoch, 496 steps, eval every 100). On finish it writes `/data/train/it3/{final_eval.json,checkpoints.json}` and `training/reports/phase1_it3.md`. Watcher `/data/train/after_it3.sh` (log `/data/train/logs/after_it3.log`) then runs the it3 evals (`eval_it3.log`) and the export (`post_it3.sh` → `post_it3.log`: parity_300_it3, download, untied merge, MLX 4-bit, render check).
 - Not done: tau report for it3, HF upload, PR/lead post.
 
-**Next steps (exact)**
+**Next steps (exact)** — scripts are committed in `training/scripts/it3/` (copies of the `/data/train/*.sh` used here; paths assume `/data` from this VM — on a new VM rebuild `/data/gen/v3m` first, see Gotchas)
+0. Check the run from Tinker directly: `uv run python -c "import tinker;rc=tinker.ServiceClient().create_rest_client();print([c.tinker_path for c in rc.list_checkpoints('aa6fe792-c23d-5da7-ac51-c3647ae35f5c:train:0').result().checkpoints])"`. With SP = the it3-final sampler path:
+   - evals: `for s in route_v2 route_v1; do uv run python -m muselet_train.eval_route --tinker-path $SP --set $s --name it3; done; uv run python -m muselet_train.eval_route --tinker-path $SP --set items --items /data/gen/v3m/val_items.jsonl --tag val3 --name it3`
+   - ARGS val: `final_eval.json` from the trainer if it finished, else `uv run python scripts/it3/eval_args_v3.py` (edit the model list to it3/SP).
+   - export: `bash scripts/it3/post_it3.sh $SP` (parity_300_it3, download, untied merge, MLX 4-bit, check).
 1. `cd training; export MUSELET_CATALOG=$PWD/artifacts/catalog_v3.json`
 2. When `after_it3.log` prints AFTER_DONE: `uv run python -m muselet_train.tau --names base_v3 it2_v3eval it3 --val-tag val3 --out reports/it3_route_v2.json` (rule = evals/router_check.py: p_top<tau → MULTI_STEP, max val macro-F1, ties acc then lower tau, TAUS grid).
 3. Ship rule (pre-registered): route_v2 tuned ≥ it2 + 2 pts, route_v1_clean ≥ it2 − 1, ARGS exact (runtime) ≥ it2. it2 numbers: `/data/train/tau_mac_pre.json`, `/data/train/it2_v3eval/eval_args_val3.json`.
@@ -23,10 +27,10 @@ _Lane: router (System 1 route + ARGS LoRA on Qwen/Qwen3.5-4B via Tinker). Update
 
 **Spend**
 - Tinker: $77.51 through 17:00Z (lead) + decisions run ~$23 + it3 teacher $3.91 + it3 training est $31.61 + evals ~$2 ≈ $138. Stop line $140, hard cap $150.
-- OpenAI/Anthropic (this lane): ~$15 (route_v2 + it3 gen + v3 relabel).
+- OpenAI/Anthropic (this lane): ~$15 (estimate; not re-checked against billing) (route_v2 + it3 gen + v3 relabel).
 
 **Open questions for the lead**
-- None blocking. it2's Mac tau (.65) was fit on its own dev rows; here it2 is refit on the v3 val (1,396) with its v2 option list (tau .50).
+- None blocking. Data rebuild: if `/data` is lost, the merged pool can be rebuilt with `uv run python -m muselet_train.it3gen merge-it3cand` + `apply-teacher` only if `/data/gen/v3it3` and teacher_v3.jsonl exist; otherwise upload of `v3m` datums to HF was NOT done (gap) — ask lead whether to re-generate. it2's Mac tau (.65) was fit on its own dev rows; here it2 is refit on the v3 val (1,396) with its v2 option list (tau .50).
 
 **Gotchas**
 - Always set `MUSELET_CATALOG=training/artifacts/catalog_v3.json` for it3 (renderer, datums, evals); unset it (= `skills/catalog.json`, v2, 41 options) for it2. Option ids skip `a c g`: `b=advisor_prep d=draft_email e=compose_text f=MULTI_STEP h=ASK i=REFUSE j=ANSWER`.
