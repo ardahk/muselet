@@ -1,4 +1,13 @@
-# brain lane digest — pass 26 (2026-10-24T11:55Z; covers PULSEs 11:34Z and 11:49Z)
+# brain lane digest — pass 27 (2026-10-24T12:10Z)
+
+Pass 27: main d7c192f (serve_brain default router it2, tau .65, it2 as its own ARGS; AGENTS.md serving config) and wip/local 367d450
+(= main); no ml/, evals/ or prompts/ changes since 04c3930, so every pass-26 result below stands. cloud/data-pipeline 0ce9ea6:
+evalcheck reports only (outside lane). Router-number contamination concern closed: AGENTS/serve_brain now quote route_v1_clean
+(103), and route_v1_clean.jsonl is byte-identical to route_v1_clean_both.jsonl (clean vs both main-final and it2 training data),
+so it2's .913 is a clean number. Minor: serve_brain.sh ARGS comment still says "the router itself when it is r2 ... base otherwise",
+but the code (correctly per AGENTS) uses it2 as its own ARGS.
+
+## Pass 26 (2026-10-24T11:55Z; covers PULSEs 11:34Z and 11:49Z)
 
 Reviewed: main 7147694 -> 04c3930 (generic_decide init fix f5b54bd; merged cloud/grounder-wire #19: `click "<target>"` DSL ->
 screenshot -> Grounder -> act click, blind-observation hint, lazy --grounder-* flags, default eyes-4b; planner prompt rules 16-18
