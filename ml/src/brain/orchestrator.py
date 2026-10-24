@@ -2707,6 +2707,8 @@ function run() {
                         last_failure_detail = verification_missing
                         spent = not await self._recover(
                             trace, "verify", verification_missing)
+                        last_exp_ok = False
+                        last_exp_source = None
                         if spent:
                             return await self._honest_failure(
                                 text, goal, trace, actions_log, obs_text,
@@ -2738,9 +2740,13 @@ function run() {
             if harness_reject and res_status != "failed":
                 # the harness's own done rejection isn't a planner failure
                 # for the loop guard (planner-20)
+                last_exp_ok = False
+                last_exp_source = None
                 prev_had_failure = True
                 continue
             if res_status == "failed" or failed or not n_actions:
+                last_exp_ok = False
+                last_exp_source = None
                 # loop guard: same action failing twice in a row, or three
                 # failed turns -> ask the user instead of burning turns
                 fail_streak += 1

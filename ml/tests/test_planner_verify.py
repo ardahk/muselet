@@ -80,6 +80,20 @@ def test_wait_does_not_clear_last_consequential_expect(tmp_path):
         "ms": 0.0, "result": True}
 
 
+def test_failed_batch_clears_expect_evidence_before_done(tmp_path):
+    orch, planner = _orch(
+        tmp_path,
+        [['press #3', 'expect appears "Saved"', 'press #bad'],
+         ['done "x"']],
+        [0.9])
+    trace = trace_for(orch)
+
+    assert run(orch._planner_loop("save the file", trace)) == "ok"
+    assert len(planner.decide_calls) == 1
+    assert [entry["method"] for entry in _decisions(
+        trace, "planner.verify")] == ["model"]
+
+
 def test_self_verified_skill_evidence_accepts_done(tmp_path):
     orch, planner = _orch(
         tmp_path, [["skill mute on=true"], ['done "Muted"']])
