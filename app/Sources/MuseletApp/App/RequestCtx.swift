@@ -26,7 +26,7 @@ enum RequestCtx {
             return UtteranceCtx.begin()
         }
         let base: [String: Any] = ["app": lastOther ?? "none", "focused": "none", "selection": false,
-                                   "online": UtteranceCtx.online()]
+                                   "online": UtteranceCtx.online(), "url": "", "window_title": ""]
         return PendingCtx(fallback: base, queue: .global(qos: .userInitiated)) { base }
     }
 }
