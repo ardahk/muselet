@@ -228,3 +228,35 @@ Checkpoints:
 - step 400: `tinker://73495408-9d6d-56b5-9e1a-894744c13add:train:0/weights/it2-400`
 - step 495: `tinker://73495408-9d6d-56b5-9e1a-894744c13add:train:0/sampler_weights/it2-final`
 - step 495: `tinker://73495408-9d6d-56b5-9e1a-894744c13add:train:0/weights/it2-final`
+
+## Hypotheses (route_val, 1,216 items, same pinned split for main-final and it2; route_v1 not used)
+
+it2 is NOT a release candidate: its route train data has 8 short-edit pairs with 7 route_v1 cases (evalcheck gate,
+`reports/evalcheck/it2_report.json`). The gated rerun is it2b. These results judge the data change only.
+
+| # | Criterion | main-final | it2 | Verdict |
+|---|---|---|---|---|
+| H1 | media_control acc >= 0.85; <= 1 media->premiere error | 0.40; 10 | 0.80; 0 | Partly: confusion gone, acc short (n=25) |
+| H2 | ASK acc >= 0.70; non-ASK -> ASK <= 1% | 0.00; 0% | 0.917; 0.2% (2) | Confirmed |
+| H3 | MULTI_STEP -> finance_review <= 1%; finance_review acc >= 0.90 | 7.5% (12/159); 1.00 | 0.6% (1/159); 1.00 | Confirmed |
+| H4 | dark_mode acc >= 0.85; <= 1 dark -> sleep_display | 0.786; 4 | 0.893; 2 | Partly: acc met, 2 errors |
+| H5 | open_app acc >= 0.95; <= 1 open_app -> MULTI_STEP | 0.963; 1 | 1.000; 0 | Confirmed |
+| H6 | find_file and create_reminder acc >= 0.85 | 0.735 / 0.848 | 0.971 / 0.939 | Confirmed |
+| H7 | set_volume and change_volume >= 0.85 | 0.857 / 0.913 | 0.810 / 0.870 | Refuted for set_volume (17/21 vs 18/21) |
+| H8 | top-1 > main; ECE <= 0.03; ARGS EM >= 0.87 | 0.912; 0.017; 0.864 rt | 0.9375; 0.021; 0.866 / 0.869 rt | Top-1 and ECE met; ARGS EM 0.869 just under 0.87 |
+| H9 | runtime ARGS EM >= 0.864; empty on non-empty targets <= 1% | 0.864; 0 | 0.870; <= 3/741 | Confirmed |
+
+macro-F1 0.893 -> 0.931, Brier 0.136 -> 0.097. Regressions: compose_email 0.84 -> 0.72 (6 -> send_message),
+sleep_display 1.00 -> 0.87, set_brightness 0.92 -> 0.81.
+
+Regression reading (all errors for those labels in it2 pred_val): mostly val items whose gold label is a guess.
+- sleep_display -> bluetooth (3): "please turn it off", "just turn it off", "turn it off, please", with no referent
+  in context. These are ASK cases, not sleep_display.
+- set_brightness -> set_volume (3): "bump it to 60", "crank it to 95", "I'd like it at 36 percent", with no
+  referent. Also ASK.
+- compose_email -> send_message (6): indirect "Marcus needs to hear the flight's been moved". Email and message
+  are both reasonable; the label comes from the generator's seed skill.
+- media_control: "resume playing the music" -> mute (0.72) is a real error; "mute the playback" -> mute is
+  defensible.
+Fix candidate for iteration 3: route referent-less "turn it off" / "bump it to N" to ASK in val and train (rule:
+pronoun object, no app/selection referent).
