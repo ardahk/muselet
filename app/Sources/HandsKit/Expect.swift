@@ -1,3 +1,4 @@
+import ApplicationServices
 import Foundation
 
 public enum ExpectError: Error, CustomStringConvertible {
@@ -105,6 +106,66 @@ public enum Expect {
             let ok = !obs.elements.contains { $0.ref == ref }
             return (ok, "#\(ref) \(ok ? "gone" : "still present")")
         }
+    }
+}
+
+// MARK: - Live evaluation (beyond the observation cap)
+
+extension Hands {
+    /// Evaluate `p` against `obs`, with live fallbacks so the 150-node cap
+    /// never decides the answer:
+    ///  - `appears`: on a miss, search the whole app (menus, popovers,
+    ///    sheets, other windows, window titles) with a large cap.
+    ///  - `gone`: absent from the list is not enough; test the element's
+    ///    own liveness/visibility, and never report gone from a truncated walk.
+    public func evalExpect(_ p: ExpectPredicate, _ obs: Observation,
+                           deadline: Date? = nil) -> (Bool, String) {
+        switch p {
+        case .appears(let label):
+            let first = Expect.eval(p, obs)
+            if first.0 { return first }
+            let now = Date()
+            let budget = max(0.1, min(0.4, (deadline ?? now.addingTimeInterval(0.4))
+                .timeIntervalSince(now)))
+            let hit = labelSearchOverride?(label, obs.pid)
+                ?? searchLabel(label, pid: obs.pid, deadline: now.addingTimeInterval(budget))
+            return (hit, "appears \"\(label)\" -> \(hit)\(hit ? " (outside focused window/cap)" : "")")
+        case .gone(let ref):
+            if obs.elements.contains(where: { $0.ref == ref }) {
+                return (false, "#\(ref) still present")
+            }
+            if let el = knownElement(ref: ref) {
+                if !el.isAlive() { return (true, "#\(ref) gone") }
+                let a = el.copyAttrs()
+                let visible = a.size.width > 0 && a.size.height > 0
+                    && a.frame.intersects(Walker.screenUnion())
+                return visible ? (false, "#\(ref) still present (beyond observation cap)")
+                               : (true, "#\(ref) gone (hidden)")
+            }
+            if obs.truncated { return (false, "#\(ref) unknown; observation truncated") }
+            return (true, "#\(ref) gone")
+        default:
+            return Expect.eval(p, obs)
+        }
+    }
+
+    /// Search every window, sheet, menu and popover of `pid` for a label or
+    /// window title containing `label` (case-insensitive). Read-only; does
+    /// not touch ref/session state.
+    func searchLabel(_ label: String, pid: pid_t, deadline: Date) -> Bool {
+        guard pid > 0, !label.isEmpty else { return false }
+        let app = AXNode(AXUIElementCreateApplication(pid))
+        app.setMessagingTimeout(0.25)
+        if let wins = app.copySingleAttr(kAXWindowsAttribute as String) as? [AXUIElement] {
+            for w in wins {
+                let n = AXNode(w)
+                n.setMessagingTimeout(0.25)
+                if let t = n.copySingleAttr(kAXTitleAttribute as String) as? String,
+                   t.localizedCaseInsensitiveContains(label) { return true }
+            }
+        }
+        let recs = Walker.walk(root: app, deadline: deadline, interactiveCap: 3000)
+        return recs.contains { $0.label.localizedCaseInsensitiveContains(label) }
     }
 }
 

@@ -6,6 +6,10 @@
 #   debug_ui.sh ghost X Y W H "Label" [ok|fail]      # CG global top-left points
 #   debug_ui.sh ghost-ax ["label substring"]          # preview a press on a real AX element
 #   debug_ui.sh status                                 # writes a status line to the log
+#   debug_ui.sh hud volume 40 | hud mute | hud brightness 70      # skill HUD preview
+#   debug_ui.sh hud dark on|off | hud wifi on|off | hud bluetooth on|off
+#   HUD_STYLE=vibrancy debug_ui.sh hud volume 40       # glass (default) | vibrancy
+#   debug_ui.sh timer ["Tea"]                          # "Timer done" bubble (no timer runs)
 set -euo pipefail
 cmd="${1:?cmd}"; shift || true
 json() { python3 -c 'import json,sys; print(json.dumps(dict(zip(sys.argv[1::2], sys.argv[2::2]))))' "$@"; }
@@ -16,6 +20,13 @@ case "$cmd" in
   ghost)    info=$(json cmd ghost x "$1" y "$2" w "$3" h "$4" label "${5:-}" ok "$([ "${6:-ok}" = fail ] && echo false || echo true)") ;;
   ghost-ax) info=$(json cmd ghost-ax label "${1:-}") ;;
   status)   info=$(json cmd status) ;;
+  hud)
+    kind="${1:-volume}"; arg="${2:-}"
+    case "$kind" in
+      volume|mute|brightness) info=$(json cmd hud kind "$kind" level "${arg:-50}" style "${HUD_STYLE:-}") ;;
+      *) info=$(json cmd hud kind "$kind" on "${arg:-on}" style "${HUD_STYLE:-}") ;;
+    esac ;;
+  timer)    info=$(json cmd timer label "${1:-}") ;;
   *) echo "unknown cmd $cmd" >&2; exit 2 ;;
 esac
 osascript -l JavaScript - "$info" <<'JXA'

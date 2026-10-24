@@ -71,6 +71,9 @@ Brain -> app:
 - `{"t":"ui","mascot":"idle|listening|thinking|acting|success|confused|sleeping","bubble":"optional text"}`
 - `{"t":"say","text":"..."}` (shown in the mascot's speech bubble; no audio)
 - `{"t":"confirm","id":"c1","summary":"Send the message to Mom?"}`
+- `{"t":"confirm_cancel","id":"c1"}` (the confirm timed out or the task was cancelled; the app leaves confirm mode)
+- `ui` may carry `"ms": 212` on the final message of a request: release-to-first-action for skills, total for
+  planner/brain-tool tasks. The app shows it as a small latency chip next to the bubble for ~2 s.
 
 RPC methods (HandsKit):
 - `observe {scope:"focused_window"|"app"|"menubar", app?, max_nodes:150, diff:true}` ->

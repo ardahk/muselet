@@ -27,6 +27,9 @@ public struct Observation {
     public var text: String = ""
     public var diffText: String?
     public var full: Bool = false    // true when window session changed
+    /// The walk hit the node cap or the deadline: absent elements may
+    /// merely be past the cap (never conclude `gone` from absence alone).
+    public var truncated: Bool = false
     public var axMs: Double = 0
 }
 
@@ -119,17 +122,29 @@ public enum Walker {
     /// Stops early once `interactiveCap` interactive records are collected.
     public static func walk(root: Element, deadline: Date, maxDepth: Int = 25,
                             interactiveCap: Int = .max) -> [ElementRecord] {
+        walkInfo(root: root, deadline: deadline, maxDepth: maxDepth,
+                 interactiveCap: interactiveCap).records
+    }
+
+    /// `walk` plus whether it stopped early (deadline or cap) with nodes
+    /// still queued.
+    public static func walkInfo(root: Element, deadline: Date, maxDepth: Int = 25,
+                                interactiveCap: Int = .max)
+        -> (records: [ElementRecord], truncated: Bool) {
         let screens = screenUnion()
         var interactive: [ElementRecord] = []
         var labeled: [ElementRecord] = []
+        var truncated = false
         // (element, depth, clip rect, inWebArea)
         let rootAttrs = root.copyAttrs()
         var queue: [(Element, Int, CGRect, Bool)] =
             [(root, 0, rootAttrs.frame.isEmpty ? screens : rootAttrs.frame, false)]
         var qi = 0
         while qi < queue.count {
-            if Date() > deadline { break }
-            if interactive.count >= interactiveCap { break }
+            if Date() > deadline || interactive.count >= interactiveCap {
+                truncated = true
+                break
+            }
             let (el, depth, clip, web) = queue[qi]; qi += 1
             if depth > maxDepth { continue }
             let a = el.copyAttrs()
@@ -178,7 +193,7 @@ public enum Walker {
         }
         var all = interactive + labeled
         for i in all.indices { all[i].ref = i + 1 }   // provisional; Hands reassigns
-        return all
+        return (all, truncated)
     }
 }
 
@@ -305,19 +320,61 @@ public func isChromiumFamily(bundleId: String?, bundleURL: URL?) -> Bool {
 public final class Hands {
     public private(set) var epoch = 0
     private var current: [Int: ElementRecord] = [:]
-    private var previous: [ElementRecord] = []
+    private(set) var previous: [ElementRecord] = []
     private var manualAXPids: Set<pid_t> = []
     private var sessionKey = ""
-    private var nextRef = 1
+    /// First epoch of the current window session; acts carrying an older
+    /// epoch were planned against another window -> stale_ref.
+    public private(set) var sessionStartEpoch = 0
+    /// Refs minted in the current window session.
+    private var sessionRefs: Set<Int> = []
+    /// Element handle for every ref minted recently (any session; refs are
+    /// unique so there is no aliasing). Kept across epochs so `gone #ref`
+    /// can test liveness when the ref fell past the node cap.
+    private var knownElements: [Int: Element] = [:]
+    /// Recently left window sessions (LRU, 4): returning to a window (e.g.
+    /// after an Open dialog or popover window closes) resumes its refs, so
+    /// refs stay stable while the element persists.
+    private struct SessionSnapshot {
+        var previous: [ElementRecord]
+        var refs: Set<Int>
+        var startEpoch: Int
+    }
+    private var pastSessions: [String: SessionSnapshot] = [:]
+    private var pastOrder: [String] = []
     public weak var delegate: HandsDelegate?
     /// Injectable script runner for the `script` op (cached NSAppleScript).
     public var scripts: ScriptRunning = AppleScriptRunner()
+    /// Frontmost-app queries/activation (mocked in tests).
+    public var apps: AppControlling = WorkspaceApps()
 
     public private(set) var lastPid: pid_t = 0
+    /// Set when something outside an observation intentionally switched
+    /// apps (a skill such as open_app); the next input act binds to the
+    /// current frontmost app instead of re-activating the observed one.
+    public private(set) var focusRebindPending = false
+
+    // Test seams: replace the fused re-observation / settle wait / label search.
+    var observeOverride: (() throws -> Observation)?
+    var settleOverride: ((pid_t) -> Double)?
+    var labelSearchOverride: ((String, pid_t) -> Bool)?
+
+    // Process-wide monotonic ref counter: a ref number is never reused,
+    // so a ref from a previous window can never alias a new element.
+    private static let refLock = NSLock()
+    private static var refCounter = 0
+    static func mintRef() -> Int {
+        refLock.lock(); defer { refLock.unlock() }
+        refCounter += 1
+        return refCounter
+    }
 
     public init() {}
 
     public var currentEpoch: Int { epoch }
+
+    /// A skill or other non-observed action switched apps on purpose.
+    public func noteExternalFocusChange() { focusRebindPending = true }
 
     func appElement(forAppName name: String?) throws -> (Element, NSRunningApplication) {
         let app: NSRunningApplication?
@@ -394,27 +451,54 @@ public final class Hands {
         obs.app = app; obs.window = window; obs.pid = pid
 
         var records: [ElementRecord] = []
-        for r in roots {
-            records.append(contentsOf: Walker.walk(
-                root: r, deadline: deadline, interactiveCap: maxNodes * 2))
-            if Date() > deadline { break }
+        var truncated = false
+        for (i, r) in roots.enumerated() {
+            let w = Walker.walkInfo(root: r, deadline: deadline, interactiveCap: maxNodes * 2)
+            records.append(contentsOf: w.records)
+            truncated = truncated || w.truncated
+            if Date() > deadline {
+                if i < roots.count - 1 { truncated = true }
+                break
+            }
         }
-        if records.count > maxNodes { records = Array(records.prefix(maxNodes)) }
+        if records.count > maxNodes {
+            records = Array(records.prefix(maxNodes))
+            truncated = true
+        }
+        obs.truncated = truncated
 
         // Window session: same app+window ELEMENT keeps stable refs (titles
-        // may change); a different window restarts numbering and replaces
-        // the diff with the full text.
+        // may change); a different window starts a new session (fresh refs
+        // from the process-wide counter, never reused) and replaces the
+        // diff with the full text.
         let key = "\(pid)|\(roots.first?.stableId ?? 0)"
+        var resumed = false
         if key != sessionKey {
+            if !sessionKey.isEmpty {
+                pastSessions[sessionKey] = SessionSnapshot(
+                    previous: previous, refs: sessionRefs, startEpoch: sessionStartEpoch)
+                pastOrder.removeAll { $0 == sessionKey }
+                pastOrder.append(sessionKey)
+                while pastOrder.count > 4 { pastSessions.removeValue(forKey: pastOrder.removeFirst()) }
+            }
             sessionKey = key
-            nextRef = 1
-            previous = []
-            obs.full = true
+            if let snap = pastSessions.removeValue(forKey: key) {
+                pastOrder.removeAll { $0 == key }
+                previous = snap.previous
+                sessionRefs = snap.refs
+                sessionStartEpoch = snap.startEpoch
+                resumed = true
+            } else {
+                previous = []
+                sessionRefs = []
+                sessionStartEpoch = epoch + 1      // the epoch this observation gets
+            }
+            obs.full = true                        // the brain last saw another window
         }
 
-        // Stabilize refs against the previous epoch.
-        // matched maps provisional ref -> old ref; translate to stable space.
-        let provMatched = obs.full ? [:] : Differ.match(old: previous, new: records)
+        // Stabilize refs against the previous epoch (or the resumed
+        // session's last epoch). matched maps provisional ref -> old ref.
+        let provMatched = (obs.full && !resumed) ? [:] : Differ.match(old: previous, new: records)
         var matched: [Int: Int] = [:]           // stableRef -> oldRef
         for i in records.indices {
             let prov = records[i].ref
@@ -422,9 +506,13 @@ public final class Hands {
                 records[i].ref = oldRef
                 matched[oldRef] = oldRef
             } else {
-                records[i].ref = nextRef
-                nextRef += 1
+                records[i].ref = Self.mintRef()
             }
+        }
+        if knownElements.count > 5000 { knownElements = [:] }
+        for r in records {
+            sessionRefs.insert(r.ref)
+            knownElements[r.ref] = r.element
         }
 
         // Focused element -> ref.
@@ -460,15 +548,23 @@ public final class Hands {
                                    focusedRef: focusedRef, elements: records)
         obs.axMs = Date().timeIntervalSince(t0) * 1000
         lastPid = obs.pid
+        focusRebindPending = false
         return obs
     }
 
-    /// Resolve an element ref for an act call. `epoch` is informational;
-    /// a missing ref is `stale_ref`.
+    /// Resolve an element ref for an act call. stale_ref when the ref was
+    /// not minted in the current window session, is absent from the latest
+    /// epoch, or `epoch` predates the session (planned against another window).
     public func element(ref: Int, epoch e: Int? = nil) throws -> ElementRecord {
-        guard let r = current[ref] else { throw HandsError.staleRef(ref) }
+        if let e, e < sessionStartEpoch { throw HandsError.staleRef(ref) }
+        guard sessionRefs.contains(ref), let r = current[ref] else {
+            throw HandsError.staleRef(ref)
+        }
         return r
     }
 
     public func record(ref: Int) -> ElementRecord? { current[ref] }
+
+    /// Element handle for a recently minted ref (any session).
+    func knownElement(ref: Int) -> Element? { knownElements[ref] }
 }

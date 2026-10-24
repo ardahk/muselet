@@ -21,7 +21,8 @@ final class VoiceController {
     private var counter = 0
     private var currentID: String?
     private var lastPartial = ""
-    private var pressCtx: [String: Any]?
+    /// ctx capture started at key-down (AX off the main thread).
+    private var pressCtx: PendingCtx?
     private var moodBeforeListening: MascotMood = .idle
     /// Keep capturing briefly after release so the last syllable isn't clipped.
     private let releaseTail: TimeInterval = 0.06
@@ -149,9 +150,10 @@ final class VoiceController {
         counter += 1
         currentID = "u\(counter)-\(Int(Date().timeIntervalSince1970) % 100_000)"
         lastPartial = ""
-        // Capture ctx at push-to-talk key-down; sent on every utterance
-        // frame for this press (AGENTS.md contract).
-        pressCtx = UtteranceCtx.capture()
+        // Capture ctx at push-to-talk key-down (AGENTS.md contract). App
+        // name is read now; the AX part runs off the main thread with a
+        // 0.15 s timeout so a hung frontmost app can't stall listening.
+        pressCtx = UtteranceCtx.begin()
         model.isRecording = true
         model.micLevel = 0
         if model.mood != .listening { moodBeforeListening = model.mood }
@@ -183,8 +185,9 @@ final class VoiceController {
                 self.lastPartial = text
                 self.mascot?.showBubble(text, style: .transcript, autoHide: false)
                 if self.model.pendingConfirm == nil, let id {
+                    // Partials carry ctx only once the capture is ready.
                     self.brain?.sendUtterance(id: id, text: text, final: false,
-                                              ctx: self.pressCtx)
+                                              ctx: self.pressCtx?.ready)
                 }
             }
         }
@@ -233,6 +236,8 @@ final class VoiceController {
         }
     }
 
+    static let offlineHint = "My brain is offline. Start it with: uv run --project ml brain serve"
+
     private func handleFinal(_ text: String, id: String) {
         if model.pendingConfirm != nil {
             if let yes = Self.parseYesNo(text) {
@@ -250,14 +255,34 @@ final class VoiceController {
             return
         }
         model.log(.utterance, text)
-        guard let brain, brain.connected else {
+        guard let brain else {
             model.mood = .confused
-            mascot?.showBubble("My brain is offline. Start it with: uv run --project ml brain serve", style: .hint)
-            brain?.sendUtterance(id: id, text: text, final: true, ctx: pressCtx)   // queued for reconnect
+            mascot?.showBubble(Self.offlineHint, style: .hint)
             return
         }
-        brain.sendUtterance(id: id, text: text, final: true, ctx: pressCtx)
-        mascot?.showBubble(text, style: .transcript)
+        if !brain.connected {
+            // A brief drop (brain restarting) may recover: BrainConnection
+            // holds the latest final utterance for <= 5 s, then drops it and
+            // reports back (offline bubble). Never replay stale commands.
+            if brain.offlineFor > BrainConnection.outboxTTL || model.brainStatus == .busy {
+                model.mood = .confused
+                mascot?.showBubble(Self.offlineHint, style: .hint)
+                return
+            }
+            mascot?.showBubble("Reconnecting to my brain…", style: .hint)
+        } else {
+            mascot?.showBubble(text, style: .transcript)
+        }
+        // The final frame always carries ctx: wait <= 200 ms for the
+        // key-down capture, else send the fallback (app + online).
+        let ctx = pressCtx
+        if let ctx {
+            ctx.whenReady(timeout: 0.2) { [weak brain] c in
+                brain?.sendUtterance(id: id, text: text, final: true, ctx: c)
+            }
+        } else {
+            brain.sendUtterance(id: id, text: text, final: true, ctx: UtteranceCtx.begin().fallback)
+        }
     }
 
     private func restoreBubbleAfterVoice(hint: String?) {
@@ -310,24 +335,8 @@ final class VoiceController {
 
     // MARK: yes / no
 
-    static func parseYesNo(_ text: String) -> Bool? {
-        let t = text.lowercased()
-            .replacingOccurrences(of: "[^a-z' ]", with: " ", options: .regularExpression)
-            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespaces)
-        let noPhrases = ["don't", "do not", "never mind", "nevermind", "not now", "hold on"]
-        let yesPhrases = ["go ahead", "do it", "send it", "please do", "sounds good", "of course"]
-        for p in noPhrases where t.contains(p) { return false }
-        for p in yesPhrases where t.contains(p) { return true }
-        let yes: Set<String> = ["yes", "yeah", "yep", "yup", "sure", "confirm", "confirmed", "ok", "okay",
-                                "affirmative", "absolutely", "correct", "right", "ya", "yah"]
-        let no: Set<String> = ["no", "nope", "nah", "cancel", "stop", "abort", "negative", "wait"]
-        for w in t.split(separator: " ").map(String.init) {
-            if yes.contains(w) { return true }
-            if no.contains(w) { return false }
-        }
-        return nil
-    }
+    /// Confirm-gate parser; lives in HandsKit (`YesNo`) so it's unit-tested.
+    static func parseYesNo(_ text: String) -> Bool? { YesNo.parse(text) }
 }
 
 /// Throttles progress callbacks (called from arbitrary queues).

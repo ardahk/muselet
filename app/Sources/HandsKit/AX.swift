@@ -33,12 +33,16 @@ public protocol Element: AnyObject {
     func copySingleAttr(_ name: String) -> Any?
     /// Identity token for session bookkeeping (CFHash for AXUIElement).
     var stableId: Int { get }
+    /// False once the underlying UI element is destroyed
+    /// (kAXErrorInvalidUIElement). Used by `gone #ref`.
+    func isAlive() -> Bool
 }
 
 public extension Element {
     func setMessagingTimeout(_ seconds: Float) {}
     func copySingleAttr(_ name: String) -> Any? { nil }
     var stableId: Int { ObjectIdentifier(self).hashValue }
+    func isAlive() -> Bool { true }
 }
 
 private let kAttrNames: [String] = [
@@ -122,6 +126,14 @@ public final class AXNode: Element {
         var v: CFTypeRef?
         guard AXUIElementCopyAttributeValue(el, name as CFString, &v) == .success else { return nil }
         return v
+    }
+
+    public func isAlive() -> Bool {
+        if !timeoutSet { setMessagingTimeout(0.25) }
+        var v: CFTypeRef?
+        let err = AXUIElementCopyAttributeValue(el, kAXRoleAttribute as CFString, &v)
+        // Timeouts / cannot-complete mean "busy", not destroyed.
+        return err != .invalidUIElement
     }
 }
 
