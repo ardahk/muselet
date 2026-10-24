@@ -123,6 +123,11 @@ actions, results, per-stage latencies, final verification. Traces feed evals, fa
 ## Commands
 - Python env: `uv run --project ml python ...` (deps pinned in `ml/pyproject.toml`)
 - Speed lab: `uv run --project ml python bench/speed_lab.py --models <repo...> [--vlm-models <repo...>]`
+- Devin Cloud: `python3 tools/devin_cloud.py create|msg|status|log ...` (new sessions default to `fusion` mode;
+  reviewers use `--no-secrets`). Reviewer sessions are listed in `runs/reviewers.json`; findings live on
+  `origin/review/<lane>` in `reviews/<lane>/{findings.jsonl,digest.md}`.
+- Review heartbeat: `nohup tools/review_pulse.sh >> runs/review_pulse.log 2>&1 &` (snapshots local work to
+  `wip/local` via `tools/push_wip.sh` and pulses reviewers when branches move).
 
 ## Conventions
 - Pin dependency versions; prefer releases at least 7 days old.
