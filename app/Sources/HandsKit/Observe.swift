@@ -383,6 +383,25 @@ public final class Hands {
     }
     private var pastSessions: [String: SessionSnapshot] = [:]
     private var pastOrder: [String] = []
+
+    /// The app owning the topmost normal-layer on-screen window that is
+    /// not `ownPid` — i.e. the next app in z-order behind our UI.
+    static func nextAppInZOrder(excluding ownPid: pid_t)
+        -> NSRunningApplication? {
+        let infos = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID) as? [[String: Any]] ?? []
+        for w in infos {
+            guard let pid = w[kCGWindowOwnerPID as String] as? pid_t,
+                  pid != ownPid,
+                  (w[kCGWindowLayer as String] as? Int) == 0,
+                  let app = NSRunningApplication(processIdentifier: pid)
+            else { continue }
+            return app
+        }
+        return nil
+    }
+
     public weak var delegate: HandsDelegate?
     /// Injectable script runner for the `script` op (cached NSAppleScript).
     public var scripts: ScriptRunning = AppleScriptRunner()
@@ -437,7 +456,11 @@ public final class Hands {
             }
             guard let a = app else { throw ObserveError.appNotFound(n) }
         } else {
-            app = NSWorkspace.shared.frontmostApplication
+            let front = NSWorkspace.shared.frontmostApplication
+            // Muselet's own UI key (panel, pill): never observe our
+            // windows — target the next app in z-order instead.
+            app = front?.processIdentifier == getpid()
+                ? Hands.nextAppInZOrder(excluding: getpid()) : front
             guard let a = app else { throw ObserveError.appNotFound("<frontmost>") }
         }
         let running = app!

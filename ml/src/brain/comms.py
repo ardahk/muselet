@@ -306,6 +306,12 @@ async def _preview(orch, name: str, handle: dict, body: str) -> str:
     if error:
         if error == "screen_locked":
             message = "Unlock your screen first"
+        elif error == "recipient_unverified":
+            message = "Couldn't confirm that conversation, so I stopped"
+        elif error == "no_text_target":
+            message = "Couldn't find the Messages text box"
+        elif error == "bad_handle":
+            message = "That number or email doesn't look right"
         else:
             message = "Messages didn't come to the front"
         return await _fail(orch, message)

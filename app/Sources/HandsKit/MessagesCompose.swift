@@ -176,22 +176,75 @@ public final class MessagesComposer {
         return nil
     }
 
-    /// Text the recipient may appear in: window title plus every short
-    /// string exposed by elements in the window (header, To: chips).
-    private func windowTexts(_ window: Element, title: String) -> [String] {
-        var texts: [String] = title.isEmpty ? [] : [title]
-        var queue: [Element] = [window]
+    /// Subtrees that hold sidebar lists and the transcript: never read
+    /// for recipient identification (a name or number there belongs to a
+    /// different conversation). Descended solely to locate a To field.
+    static let prunableRoles: Set<String> = [
+        "AXScrollArea", "AXList", "AXOutline", "AXTable", "AXWebArea",
+        "AXSplitGroup",
+    ]
+    static let toFieldRoles: Set<String> = [
+        "AXTextField", "AXComboBox", "AXTokenField",
+    ]
+
+    /// The recipient field: AXTextField/AXComboBox/AXTokenField whose
+    /// description, title or placeholder is "to" (trimmed, casefolded,
+    /// a trailing ":" stripped).
+    public static func isToField(role: String?, title: String?,
+                                 desc: String?, placeholder: String?) -> Bool {
+        guard let role, toFieldRoles.contains(role) else { return false }
+        return [desc, title, placeholder]
+            .compactMap { raw -> String? in
+                var s = raw?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    .lowercased()
+                while s?.hasSuffix(":") == true { s = String(s!.dropLast()) }
+                return s?.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            .contains("to")
+    }
+
+    /// Every short string an element and its descendants expose.
+    static func subtreeTexts(_ el: Element) -> [String] {
+        var out: [String] = []
+        var queue: [Element] = [el]
         var seen = 0
-        while !queue.isEmpty, seen < 300, texts.count < 60 {
-            let el = queue.removeFirst()
+        while !queue.isEmpty, seen < 300 {
+            let e = queue.removeFirst()
             seen += 1
-            let a = el.copyAttrs()
+            let a = e.copyAttrs()
             for v in [a.title, a.value as? String, a.desc] {
                 if let s = v?.trimmingCharacters(in: .whitespacesAndNewlines),
-                   !s.isEmpty, s.count <= 200 { texts.append(s) }
+                   !s.isEmpty, s.count <= 200 { out.append(s) }
             }
             queue.append(contentsOf: a.children)
         }
+        return out
+    }
+
+    /// The only texts that may identify the open conversation: the window
+    /// title, AXToolbar (conversation header) subtrees, and To fields +
+    /// their token children. A name in the sidebar or transcript must
+    /// never satisfy the recipient check.
+    static func identifyingTexts(window: Element, title: String) -> [String] {
+        var texts: [String] = title.isEmpty ? [] : [title]
+        var seen = 0
+        func visit(_ el: Element, toOnly: Bool) {
+            guard seen < 500, texts.count < 80 else { return }
+            seen += 1
+            let a = el.copyAttrs()
+            if isToField(role: a.role, title: a.title, desc: a.desc,
+                         placeholder: a.placeholder) {
+                texts.append(contentsOf: subtreeTexts(el))
+                return
+            }
+            if !toOnly, a.role == "AXToolbar" {
+                texts.append(contentsOf: subtreeTexts(el))
+                return
+            }
+            let prune = prunableRoles.contains(a.role ?? "")
+            for c in a.children { visit(c, toOnly: toOnly || prune) }
+        }
+        for c in window.copyAttrs().children { visit(c, toOnly: false) }
         return texts
     }
 
@@ -255,9 +308,20 @@ public final class MessagesComposer {
                     "no_text_target")
         }
 
-        // Collect the recipient-identifying text BEFORE the draft lands —
-        // the body itself must never satisfy the recipient check.
-        let texts = windowTexts(window, title: title)
+        // Safety-critical: the recipient check runs BEFORE the field is
+        // touched — a wrong conversation is never even transiently
+        // modified. Only the title, toolbar header and To field count.
+        let texts = Self.identifyingTexts(window: window, title: title)
+        let recipientOK = MessageHandles.recipientMatches(
+            texts: texts, handle: handle,
+            contactName: contactName(for: handle))
+        guard recipientOK else {
+            return (false, [
+                "frontmost": true, "window_title": title,
+                "observed": ["window_title": title,
+                             "header": texts.prefix(10)],
+            ], "recipient_unverified")
+        }
 
         // Fill the draft: AXValue first, pasteboard+cmd+v as the fallback
         // (never keystrokes: Return in Messages sends).
@@ -277,19 +341,9 @@ public final class MessagesComposer {
         let read = field.copySingleAttr(kAXValueAttribute) as? String ?? ""
         let visible = read.trimmingCharacters(in: .whitespacesAndNewlines)
             == body.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // Safety-critical: a draft in the wrong conversation must not stand.
-        let recipientOK = MessageHandles.recipientMatches(
-            texts: texts, handle: handle,
-            contactName: contactName(for: handle))
-        if !recipientOK {
+        if !visible {
+            // The write left something else behind: put the old draft back.
             _ = field.setAttr(kAXValueAttribute, previous)
-            return (false, [
-                "frontmost": true, "window_title": title,
-                "body_visible": visible,
-                "observed": ["window_title": title,
-                             "header": texts.prefix(10)],
-            ], "recipient_unverified")
         }
         lastCompose = Compose(pid: pid, window: window, field: field,
                               body: body, handle: handle)

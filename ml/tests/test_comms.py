@@ -196,6 +196,24 @@ def test_errors_fail_closed(tmp_path, error, result, message):
     assert not o.server.confirms
 
 
+@pytest.mark.parametrize("error,message", [
+    ("recipient_unverified",
+     "Couldn't confirm that conversation, so I stopped"),
+    ("no_text_target", "Couldn't find the Messages text box"),
+    ("bad_handle", "That number or email doesn't look right"),
+    ("screen_locked", "Unlock your screen first"),
+    ("not_frontmost", "Messages didn't come to the front"),
+])
+def test_compose_error_bubbles(tmp_path, error, message):
+    def boom(_):
+        raise RuntimeError(error)
+    o = make_orch(tmp_path, [contact("Mom", "+15551234567")],
+                  messages_compose=boom)
+    assert run(comms.send_message(o, "Mom", "hi")) == "failed"
+    assert o.server.said[-1] == message
+    assert not o.server.confirms
+
+
 def test_planner_send_consumes_confirm_and_terminal_failure(tmp_path):
     o = make_orch(tmp_path, [contact("Mom", "+15551234567")],
                   messages_compose=lambda _: {

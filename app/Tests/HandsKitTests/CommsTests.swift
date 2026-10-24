@@ -179,6 +179,110 @@ final class SendGateTests: XCTestCase {
     }
 }
 
+/// identifyingTexts + recipientMatches on synthetic windows: only the
+/// title, the toolbar header and To fields may verify a conversation —
+/// the sidebar and transcript must never leak in.
+final class IdentifyingTextsTests: XCTestCase {
+    let handle = MessageHandles.parse("+1 555 123 4567")!  // +15551234567
+    let contactName = "Arda Hoke"
+
+    private func el(_ role: String, _ title: String? = nil,
+                    desc: String? = nil, value: String? = nil,
+                    kids: [MockElement] = []) -> MockElement {
+        let e = MockElement(role: role, children: kids)
+        e.attrs.title = title
+        e.attrs.desc = desc
+        e.attrs.value = value
+        return e
+    }
+
+    func testSidebarAndTranscriptNeverVerify() {
+        // Messages stayed on Mom's thread: the name and number appear in
+        // the sidebar list and transcript, never the header.
+        let window = el("AXWindow", nil, kids: [
+            el("AXToolbar", nil, kids: [
+                el("AXStaticText", "Mom"),
+            ]),
+            el("AXScrollArea", nil, kids: [
+                el("AXList", nil, kids: [
+                    el("AXStaticText", "Arda Hoke"),
+                    el("AXStaticText", "+1 (555) 123-4567"),
+                ]),
+            ]),
+        ])
+        let texts = MessagesComposer.identifyingTexts(
+            window: window, title: "Mom")
+        XCTAssertTrue(texts.contains("Mom"))
+        XCTAssertFalse(texts.contains("Arda Hoke"))
+        XCTAssertFalse(MessageHandles.recipientMatches(
+            texts: texts, handle: handle, contactName: contactName))
+    }
+
+    func testHeaderAndToTokenMatch() {
+        let window = el("AXWindow", nil, kids: [
+            el("AXToolbar", nil, kids: [
+                el("AXStaticText", "Arda Hoke"),
+            ]),
+            el("AXScrollArea", nil, kids: [
+                el("AXStaticText", "unrelated preview text"),
+            ]),
+        ])
+        XCTAssertTrue(MessageHandles.recipientMatches(
+            texts: MessagesComposer.identifyingTexts(
+                window: window, title: ""),
+            handle: handle, contactName: contactName))
+
+        // A To field: label "To:", token child names the recipient —
+        // and it still counts inside a prunable subtree.
+        let toField = el("AXTextField", desc: "To:", kids: [
+            el("AXToken", "Arda Hoke"),
+        ])
+        let window2 = el("AXWindow", nil, kids: [
+            el("AXSplitGroup", nil, kids: [toField]),
+        ])
+        let texts2 = MessagesComposer.identifyingTexts(
+            window: window2, title: "")
+        XCTAssertTrue(texts2.contains("Arda Hoke"))
+        XCTAssertTrue(MessageHandles.recipientMatches(
+            texts: texts2, handle: handle, contactName: contactName))
+    }
+
+    func testTitleOnlyMatch() {
+        let window = el("AXWindow")
+        XCTAssertTrue(MessageHandles.recipientMatches(
+            texts: MessagesComposer.identifyingTexts(
+                window: window, title: "Arda Hoke"),
+            handle: handle, contactName: contactName))
+    }
+
+    func testEmptyTextsFail() {
+        XCTAssertFalse(MessageHandles.recipientMatches(
+            texts: [], handle: handle, contactName: nil))
+        XCTAssertFalse(MessageHandles.recipientMatches(
+            texts: MessagesComposer.identifyingTexts(
+                window: el("AXWindow"), title: ""),
+            handle: handle, contactName: nil))
+    }
+
+    func testToFieldPredicate() {
+        XCTAssertTrue(MessagesComposer.isToField(
+            role: "AXTextField", title: nil, desc: "To:",
+            placeholder: nil))
+        XCTAssertTrue(MessagesComposer.isToField(
+            role: "AXComboBox", title: nil, desc: "to",
+            placeholder: nil))
+        XCTAssertTrue(MessagesComposer.isToField(
+            role: "AXTokenField", title: nil, desc: nil,
+            placeholder: "to"))
+        XCTAssertFalse(MessagesComposer.isToField(
+            role: "AXTextArea", title: nil, desc: "To:",
+            placeholder: nil))
+        XCTAssertFalse(MessagesComposer.isToField(
+            role: "AXTextField", title: nil, desc: "iMessage",
+            placeholder: nil))
+    }
+}
+
 final class ContactLabelTests: XCTestCase {
     func testLabels() {
         XCTAssertEqual(

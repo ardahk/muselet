@@ -208,6 +208,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mascot.showBubble(text, style: .say)
     }
 
+    /// A request sent from the panel: the MenuBarExtra window is key, so
+    /// ctx would bind to Muselet. Deactivate (which also closes the
+    /// panel), wait for the previous app to come forward, then capture.
+    /// If we're still frontmost, ctx reports app "none", never Muselet.
+    private func sendFromPanel(_ text: String, deadline: Date? = nil) {
+        NSApp.deactivate()
+        let end = deadline ?? Date().addingTimeInterval(0.5)
+        let front = NSWorkspace.shared.frontmostApplication
+        if front?.processIdentifier != getpid() {
+            voice.sendTyped(text, ctx: RequestCtx.capture())
+        } else if Date() < end {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                self.sendFromPanel(text, deadline: end)
+            }
+        } else {
+            let base: [String: Any] = [
+                "app": "none", "focused": "none", "selection": false,
+                "online": UtteranceCtx.online(),
+            ]
+            voice.sendTyped(
+                text, ctx: PendingCtx(fallback: base,
+                                      queue: .global(qos: .userInitiated)) { base })
+        }
+    }
+
     private func replyConfirm(yes: Bool) {
         guard let c = model.pendingConfirm else { return }
         brain.sendConfirmReply(id: c.id, yes: yes)
@@ -239,7 +264,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         a.reconnect = { [weak self] in self?.brain.reconnectNow() }
-        a.runExample = { [weak self] text in self?.voice.sendTyped(text, ctx: RequestCtx.capture()) }
+        a.runExample = { [weak self] text in self?.sendFromPanel(text) }
         a.setEscalatePlanner = { [weak self] on in
             guard let self else { return }
             PlannerSettings.escalate = on
