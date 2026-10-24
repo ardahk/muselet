@@ -213,7 +213,10 @@ class Orchestrator:
                         "args": {"delta": 15 if bright_up else -15}}
             volume_up = bool(re.search(r"\b(louder|up|increase|raise|higher)\b", t))
             volume_down = bool(re.search(r"\b(quieter|softer|down|lower|decrease|reduce)\b", t))
-            if volume_up != volume_down:
+            volume_context = re.search(
+                r"\b(volume|sound|audio|louder|quieter|softer)\b", t
+            ) or re.search(r"\bturn it (?:up|down)\b", t)
+            if volume_up != volume_down and volume_context:
                 from .decision import normalize_delta
                 magnitude = re.search(r"\b(a bit|a little|a lot|bit|little|lot|way)\b", t)
                 delta = normalize_delta(
@@ -293,13 +296,13 @@ class Orchestrator:
                 self._pending_task = None
                 outcome = await self._planner_loop(
                     goal, trace, answer=text)
-            elif (calc_result := calc.result(text)) is not None:
-                calculator = calc_result.value is not None and (
+            elif (calc_result := calc.result(text)) is not None and \
+                    calc_result.value is not None and (
                     str(self._ctx.get("app", "")).casefold() == "calculator"
                     or re.search(r"\bcalculator\b", text, re.IGNORECASE) is not None
-                )
+                    ):
                 outcome = await self._deliver_calc(
-                    calc_result, trace, calculator=calculator)
+                    calc_result, trace, calculator=True)
             elif self.engine is not None:
                 outcome = await self._engine_route(text, trace)
             else:
@@ -442,18 +445,20 @@ class Orchestrator:
             if label in ("set_brightness", "change_brightness"):
                 up = bool(re.search(r"\b(brighter|brighten|up|increase|raise|higher|more)\b", lower))
                 down = bool(re.search(r"\b(dimmer|dim|darker|down|decrease|lower|less|reduce)\b", lower))
-                if up != down and "delta" not in raw_args:
-                    raw_args = {**raw_args, "delta": 15 if up else -15}
+                if up != down:
+                    raw_args = {"delta": 15 if up else -15}
             elif label in ("set_volume", "change_volume"):
                 up = bool(re.search(r"\b(louder|up|increase|raise|higher)\b", lower))
                 down = bool(re.search(r"\b(quieter|softer|down|lower|decrease|reduce)\b", lower))
-                if up != down and "delta" not in raw_args:
+                if up != down:
                     from .decision import normalize_delta
                     magnitude = re.search(r"\b(a bit|a little|a lot|bit|little|lot|way)\b", lower)
-                    delta = normalize_delta(
-                        magnitude.group(1) if magnitude else "",
-                        "down" if down else "up")
-                    raw_args = {**raw_args, "delta": delta if delta is not None else (10 if up else -10)}
+                    model_delta = normalize_delta(raw_args.get("delta"), "up")
+                    word_delta = normalize_delta(
+                        magnitude.group(1) if magnitude else "", "up")
+                    amount = abs(model_delta) if model_delta is not None else (
+                        abs(word_delta) if word_delta is not None else 10)
+                    raw_args = {"delta": amount if up else -amount}
                     label = "change_volume"
         spec = self.catalog.get(label) or {}
         raw_args = slots.fill_defaults(label, raw_args, text)
@@ -707,9 +712,9 @@ class Orchestrator:
         readback = None
         matched = False
         try:
-            source = parsed.expr or format(parsed.value, ".12g")
+            source = parsed.expr or self._calculator_number(parsed.value)
             if parsed.expr is None and parsed.value < 0:
-                source = f"0-{format(abs(parsed.value), '.12g')}"
+                source = f"0-{self._calculator_number(abs(parsed.value))}"
             actions = [
                 {"op": "open", "app": "Calculator"},
                 {"op": "keys", "combo": "esc"},
@@ -747,18 +752,49 @@ class Orchestrator:
         ]
 
     @staticmethod
+    def _calculator_number(value: float) -> str:
+        if value == 0:
+            return "0"
+        places = max(0, 11 - math.floor(math.log10(abs(value))))
+        return (f"{value:.{places}f}".rstrip("0").rstrip(".")
+                if places else f"{value:.0f}")
+
+    @staticmethod
     def _calculator_readback_script() -> str:
         return '''
-var se = Application("System Events");
-var process = se.processes.byName("Calculator");
-var window = process.windows[0];
-var input = window.uiElements().find(function (node) {
-  return node.role() === "AXScrollArea" && node.description() === "Input";
-});
-var get = input.uiElements().find(function (node) {
-  return node.role() === "AXStaticText";
-}).value();
-return get;
+function run() {
+  try {
+    var process = Application("System Events").processes.byName("Calculator");
+    var windows = process.windows();
+    if (!windows.length) return "";
+    function find(node, depth) {
+      if (!node || depth > 10) return null;
+      try {
+        if (node.role() === "AXScrollArea" &&
+            node.description() === "Input") return node;
+      } catch (e) {}
+      try {
+        var children = node.uiElements();
+        for (var i = 0; i < children.length; i++) {
+          var found = find(children[i], depth + 1);
+          if (found) return found;
+        }
+      } catch (e) {}
+      return null;
+    }
+    var input = find(windows[0], 0);
+    if (!input) return "";
+    var children = input.uiElements();
+    for (var i = 0; i < children.length; i++) {
+      try {
+        if (children[i].role() === "AXStaticText") return children[i].value() || "";
+      } catch (e) {}
+    }
+    return "";
+  } catch (e) {
+    return "";
+  }
+}
 '''
 
     @staticmethod
@@ -774,6 +810,11 @@ return get;
         return str(result) if result is not None else ""
 
     async def _calculator_act(self, params: dict, *, return_result=False):
+        await self.server.ui("acting")
+        if self._ms_kind is None:
+            self._ms_kind = "skill"
+        if self._first_action_ms is None:
+            self._first_action_ms = (time.perf_counter() - self._t_final) * 1000
         if self._last_epoch is not None:
             params["epoch"] = self._last_epoch
         started = time.perf_counter()
@@ -1032,7 +1073,8 @@ return get;
         "com.apple.numbers", "numbers", "music", "calendar", "system events"}
     _SCRIPT_APPS_LIMITED = {"finder", "safari"}
     _READ_VERBS = re.compile(
-        r"\b(get|count|exists|reveal|open)\b", re.IGNORECASE)
+        r"\b(get|count|exists|reveal|open|windows|byName|uiElements|"
+        r"role|description|value)\b", re.IGNORECASE)
     _NUMBERS_OK = re.compile(
         r"set value|set background color|sort|make new table", re.IGNORECASE)
 

@@ -215,6 +215,11 @@ def convert(value: float, src: str, dst: str) -> tuple[float, str, str] | None:
 
 
 def _say_conv(v: float, src: str, dst: str) -> str | None:
+    result = _say_conv_result(v, src, dst)
+    return result[0] if result is not None else None
+
+
+def _say_conv_result(v: float, src: str, dst: str):
     c = convert(v, src, dst)
     if c is None:
         return None
@@ -224,8 +229,8 @@ def _say_conv(v: float, src: str, dst: str) -> str | None:
     if dd == "cups" and round(r, 2) == 1:
         dd = "cup"
     if sd.startswith("°"):
-        return f"{_fmt_num(v)}{sd} is {_fmt_num(r)}{dd}"
-    return f"{_fmt_num(v)} {sd} is {_fmt_num(r)} {dd}"
+        return f"{_fmt_num(v)}{sd} is {_fmt_num(r)}{dd}", r
+    return f"{_fmt_num(v)} {sd} is {_fmt_num(r)} {dd}", r
 
 
 # ---------- arithmetic ----------
@@ -255,40 +260,6 @@ def _simple_expression(s: str) -> str | None:
     return f"{match.group(1)}{match.group(2)}{match.group(3)}" if match else None
 
 
-def _problem_expression(s: str) -> str | None:
-    if _simple_expression(s):
-        return None
-    numbers = re.findall(r"(?<![\w.])\d+(?:\.\d+)?(?![\w.])", s)
-    if re.search(r"\bcost of (?:one|1)\b", s) and len(numbers) >= 2:
-        return f"{numbers[1]}/{numbers[0]}"
-    if len(numbers) != 2:
-        return None
-    first, second = numbers
-    if re.search(r"\b(?:change|ate)\b", s):
-        return f"{first}-{second}"
-    if re.search(r"\bhow much less\b", s):
-        return f"{second}-{first}"
-    if re.search(r"\b(?:bigger|larger|greater) than\b", s):
-        return f"{first}-{second}"
-    if re.search(r"\b(?:off|short of|out of|from|change|remain|remaining|left|ate)\b", s):
-        return f"{second}-{first}"
-    if re.search(r"\bgo into\b", s):
-        return f"{second}/{first}"
-    if re.search(r"\b(?:shared by|equal shares?|each pays|cost of one|speed)\b", s):
-        return f"{first}/{second}" if "cost of one" not in s else f"{second}/{first}"
-    if re.search(r"\bper hour\b.*\bstayed\b|\beach\b.*\btotal weight\b", s):
-        return f"{first}*{second}"
-    op_text = s
-    for pattern, replacement in _OP_WORDS:
-        op_text = re.sub(pattern, replacement, op_text)
-    op = re.search(r"[+*/]|(?<!\d)-", op_text)
-    if op:
-        return f"{first}{op.group(0)}{second}"
-    if re.search(r"\btotal\b", s) and re.search(r"\beach\b", s):
-        return f"{first}*{second}"
-    return None
-
-
 def _eval(node):
     if isinstance(node, ast.Expression):
         return _eval(node.body)
@@ -307,17 +278,15 @@ def _eval(node):
     raise ValueError("unsupported")
 
 
-def arithmetic(s: str) -> str | None:
+def arithmetic_result(s: str):
     """Digits-only text with op words -> 'x times y is z'."""
-    problem = _problem_expression(s)
-    if problem:
-        return arithmetic(problem)
     m = re.match(rf"^(?:the )?square root of {NUM}$", s)
     if m:
         v = float(m.group(1))
         if v < 0:
             return None
-        return f"The square root of {_fmt_num(v)} is {_fmt_num(math.sqrt(v))}"
+        result = math.sqrt(v)
+        return f"The square root of {_fmt_num(v)} is {_fmt_num(result)}", result
     for pat, rep in (
             (rf"^add {NUM} (?:and|to) {NUM}$", r"\1 + \2"),
             (rf"^subtract {NUM} from {NUM}$", r"\2 - \1"),
@@ -335,7 +304,7 @@ def arithmetic(s: str) -> str | None:
     try:
         v = _eval(ast.parse(s, mode="eval"))
     except ZeroDivisionError:
-        return "You can't divide by zero"
+        return "You can't divide by zero", None
     except (SyntaxError, ValueError, OverflowError):
         return None
     if abs(v) >= 1e15:
@@ -344,7 +313,12 @@ def arithmetic(s: str) -> str | None:
     spoken = re.sub(r"\d+(?:\.\d+)?", lambda m: _fmt_num(float(m.group(0))),
                     spoken)
     out = f"{spoken} is {_fmt_num(v)}"
-    return out if len(out.split()) <= 12 else f"That's {_fmt_num(v)}"
+    return (out if len(out.split()) <= 12 else f"That's {_fmt_num(v)}"), v
+
+
+def arithmetic(s: str) -> str | None:
+    result = arithmetic_result(s)
+    return result[0] if result is not None else None
 
 
 # ---------- percentages ----------
@@ -369,7 +343,7 @@ def _a(n: float) -> str:
     return "An" if an else "A"
 
 
-def percent(s: str, money: bool) -> str | None:
+def percent_result(s: str, money: bool):
     fmt = _money if money else _fmt_num
     m = re.match(rf"^(?:an? |the )?{NUM} percent tip (?:on|for|of) (?:an? )?{NUM}$", s) \
         or re.match(rf"^(?:the )?tip (?:on|for) {NUM} at {NUM} percent$", s)
@@ -378,23 +352,26 @@ def percent(s: str, money: bool) -> str | None:
         if s.startswith(("tip", "the tip")):
             amt, p = p, amt
         tip = round(amt * p / 100 + 1e-9, 2)
+        total = amt + tip
         return (f"{_a(p)} {_fmt_num(p)}% tip on {_money(amt)} is {_money(tip)}, "
-                f"total {_money(amt + tip)}")
+                f"total {_money(total)}", total)
     m = re.match(rf"^{NUM} percent of {NUM}$", s)
     if m:
         p, x = map(float, m.groups())
-        return f"{_fmt_num(p)}% of {fmt(x)} is {fmt(p * x / 100)}"
+        value = p * x / 100
+        return f"{_fmt_num(p)}% of {fmt(x)} is {fmt(value)}", value
     m = re.match(rf"^{NUM} percent off (?:of )?{NUM}$", s) or \
         re.match(rf"^{NUM} (?:with |at )?{NUM} percent off$", s)
     if m:
         a, b = map(float, m.groups())
         p, x = (a, b) if "percent off" in s.split(m.group(2))[0] else (b, a)
-        return f"{_fmt_num(p)}% off {fmt(x)} is {fmt(x * (1 - p / 100))}"
+        value = x * (1 - p / 100)
+        return f"{_fmt_num(p)}% off {fmt(x)} is {fmt(value)}", value
     m = re.match(rf"^{NUM} (plus|minus) {NUM} percent$", s)
     if m:
         x, op, p = float(m.group(1)), m.group(2), float(m.group(3))
         r = x * (1 + p / 100) if op == "plus" else x * (1 - p / 100)
-        return f"{fmt(x)} {op} {_fmt_num(p)}% is {fmt(r)}"
+        return f"{fmt(x)} {op} {_fmt_num(p)}% is {fmt(r)}", r
     m = re.match(rf"^{NUM} is what percent(?:age)? of {NUM}$", s) or \
         re.match(rf"^what percent(?:age)? of {NUM} is {NUM}$", s)
     if m:
@@ -402,15 +379,22 @@ def percent(s: str, money: bool) -> str | None:
         part, whole = (a, b) if s[0].isdigit() or s[0] == "-" else (b, a)
         if whole == 0:
             return None
-        return f"{fmt(part)} is {_fmt_num(part / whole * 100)}% of {fmt(whole)}"
+        value = part / whole * 100
+        return f"{fmt(part)} is {_fmt_num(value)}% of {fmt(whole)}", value
     m = re.match(rf"^({'|'.join(_FRACTIONS)}) of {NUM}$", s)
     if m:
         f, x = _FRACTIONS[m.group(1)], float(m.group(2))
-        return f"{m.group(1).replace('1 ', 'one ')} of {fmt(x)} is {fmt(f * x)}"
+        value = f * x
+        return f"{m.group(1).replace('1 ', 'one ')} of {fmt(x)} is {fmt(value)}", value
     return None
 
 
-def conversion(s: str) -> str | None:
+def percent(s: str, money: bool) -> str | None:
+    result = percent_result(s, money)
+    return result[0] if result is not None else None
+
+
+def conversion_result(s: str):
     s = re.sub(r"\b(an?|one) (?=(?:degrees )?[a-z])", "1 ", s)
     m = re.match(rf"^(?:convert )?{NUM} (?:feet|foot|ft) {NUM}"
                  rf"(?: inch(?:es)?)? (?:to|in|into) {_U}$", s)
@@ -418,7 +402,7 @@ def conversion(s: str) -> str | None:
         ft, inch, dst = float(m.group(1)), float(m.group(2)), m.group(3)
         c = convert(ft * 12 + inch, "inches", dst)
         if c:
-            return f"{_fmt_num(ft)} ft {_fmt_num(inch)} in is {_fmt_num(c[0])} {c[2]}"
+            return f"{_fmt_num(ft)} ft {_fmt_num(inch)} in is {_fmt_num(c[0])} {c[2]}", c[0]
     for pat, order in (
             (rf"^(?:convert )?{NUM} {_U} (?:to|in|into|as) {_U}$", (0, 1, 2)),
             (rf"^how many {_U} (?:are |is )?(?:there )?(?:in|is|are|make|per) "
@@ -427,8 +411,13 @@ def conversion(s: str) -> str | None:
         m = re.match(pat, s)
         if m:
             g = m.groups()
-            return _say_conv(float(g[order[0]]), g[order[1]], g[order[2]])
+            return _say_conv_result(float(g[order[0]]), g[order[1]], g[order[2]])
     return None
+
+
+def conversion(s: str) -> str | None:
+    result = conversion_result(s)
+    return result[0] if result is not None else None
 
 
 def _strip_calculator_phrasing(text: str) -> str:
@@ -445,59 +434,20 @@ def _strip_calculator_phrasing(text: str) -> str:
                   flags=re.IGNORECASE)
 
 
-def _colloquial_numbers(text: str) -> str:
-    ones = "|".join(word for word in _ONES if word != "zero")
-    tens = "|".join(_TENS)
-    text = re.sub(r"\bhalf a dozen\b", "six", text, flags=re.IGNORECASE)
-    text = re.sub(r"\ba dozen\b", "twelve", text, flags=re.IGNORECASE)
-    pattern = re.compile(rf"\b({ones})\s+({tens})(?:\s+({ones}))?\b",
-                         re.IGNORECASE)
-
-    def replace(match):
-        first = _ONES[match.group(1).lower()]
-        tens_value = _TENS[match.group(2).lower()]
-        last = _ONES[match.group(3).lower()] if match.group(3) else 0
-        return str(first * 100 + tens_value + last)
-
-    return pattern.sub(replace, text)
-
-
-def _numeric_answer(answer: str) -> float | None:
-    matches = re.findall(r"(?<![A-Za-z])[-−]?\$?\d[\d,]*(?:\.\d+)?", answer)
-    if not matches:
-        return None
-    try:
-        return float(matches[-1].replace("$", "").replace(",", "").replace("−", "-"))
-    except ValueError:
-        return None
-
-
 def result(text: str) -> CalcResult | None:
     """Return the spoken answer with its numeric value and keyable expression."""
     source = _strip_calculator_phrasing(text)
-    power_source = _TAIL.sub("", _FILLER.sub("", source, count=1)).strip()
-    power = re.fullmatch(
-        r"(\d+(?:\.\d+)?)\s+to the power of\s+(\d+)", power_source,
-        flags=re.IGNORECASE)
-    if power:
-        base, exponent = map(float, power.groups())
-        value = base ** exponent
-        return CalcResult(
-            f"{_fmt_num(base)} to the power of {_fmt_num(exponent)} is {_fmt_num(value)}",
-            value, None)
-    if not re.search(r"\$|\bdollars?\b|\bbucks?\b|\btip\b", source, re.I):
-        source = _colloquial_numbers(source)
     s, money = normalize(source)
     s = _FILLER.sub("", s, count=1)
     s = _TAIL.sub("", s).strip()
     s = re.sub(r"^(?:the )?(?:answer to |result of )", "", s)
     if not s:
         return None
-    for fn in (lambda: percent(s, money), lambda: conversion(s),
-               lambda: arithmetic(s)):
-        out = fn()
-        if out:
-            value = _numeric_answer(out)
+    for fn in (lambda: percent_result(s, money),
+               lambda: conversion_result(s), lambda: arithmetic_result(s)):
+        parsed = fn()
+        if parsed is not None:
+            out, value = parsed
             return CalcResult(out, value,
                               _simple_expression(s) if value is not None else None)
     return None
