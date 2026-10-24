@@ -1,9 +1,9 @@
 {
-  "pass": 36,
-  "ts": "2026-10-24T19:25:00Z",
+  "pass": 37,
+  "ts": "2026-10-24T20:12:00Z",
   "last_reviewed": {
-    "main": "fb2cfd0",
-    "wip/local": "9ed6bc8",
+    "main": "7065dd3",
+    "wip/local": "e29ea7c",
     "cloud/data-pipeline": "f8b721a",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -36,5 +36,5 @@
     "cloud/data-planner": "ee8ae33",
     "cloud/data-route": "42835ce"
   },
-  "notes": "pass 36: main fb2cfd0 (bench-fix merge + live-suite cases) has no lane changes; wip = main."
+  "notes": "pass 37: main merged app-ui + comms (identical to reviewed heads); wip adds HandsKit Messages compose; ux-23 new."
 }
