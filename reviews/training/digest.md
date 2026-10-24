@@ -1,6 +1,6 @@
-# training lane digest — pass 21 (main 758a017, cloud/data-pipeline 80cb13f, wip/local 630d661, cloud/decisions c08a96d, cloud/brain-5 003d1bb, cloud/brain-4 dfb66a3, cloud/hobby-gaps 929b931)
+# training lane digest — pass 22 (main 758a017, cloud/data-pipeline 8881d38, wip/local 4350185, cloud/decisions c08a96d, cloud/brain-5 003d1bb, cloud/brain-4 dfb66a3, cloud/hobby-gaps 929b931)
 
-Open: 1 P0, 12 P1, 11 P2. Pass 21: new training-32 (P1), -33, -34 (P2) on cloud/decisions; training-5 updated. brain-5 (ARGS coercion) and wip/local (HandsKit Swift) have nothing in the lane.
+Open: 1 P0, 12 P1, 11 P2. Pass 22: no new findings, none resolved. data-pipeline 8881d38 is docs-only (ARGS answer-only weighting in datums_export); wip/local 4350185 changes HandsKit Swift only.
 
 ## Open P0/P1 (ranked)
 1. **training-23 (P0, main)** — shipped router `route-4b-main` trained on stale pre-fix route data; `evals/router_check.py` still runs it. it2 plan pins main's split, but no retrain yet.
