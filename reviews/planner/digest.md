@@ -1,6 +1,6 @@
-# planner lane — pass 9 (main 76a03c1, wip 34ddf5f, cloud/brain-3 14a3f52, finance-3 31be399, advisor-3 ca93147)
+# planner lane — pass 10 (main 0fd5698, wip 64dd1cb; cloud unchanged since pass 9)
 
-Reviewed with no issues: main's prompt rules 14-15 (cmd+n for a new document; never repeat a failed action a third time), brain-3's action_line filter and skill auto-prefix (prose/tags are no longer counted toward the 5-action cap), the script failure copy, absolute volume, compound fast path, and finance-3's poll for the opened table.
+Nothing changed in my lane on main. wip 64dd1cb reviewed with no issues: Finder list names now take labels from text-field children (helps goal 1), type_text falls back to the main/frontmost window, and a focused text target takes the hot path. planner-20 and planner-6 are still open (brain-3 unchanged).
 
 ## Open P1 (ranked)
 1. planner-20 P1 — Harness's own done-rejection counts toward the 3-failed-turns loop guard, so a recovered task can end in "I'm stuck" — ml/src/brain/orchestrator.py@brain-3 L1080-1105
