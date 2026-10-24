@@ -358,6 +358,49 @@ class BenchProxy:
             raise RuntimeError(str(result.get("error") or reply.get("error") or "skill RPC failed"))
         return result
 
+    async def run_rpc(
+        self,
+        method: str,
+        params: dict[str, Any],
+        timeout: float = 20,
+        *,
+        allow_inflight: bool = False,
+    ) -> dict[str, Any]:
+        if self.capture.active and not allow_inflight:
+            raise RuntimeError("RPC is only allowed between utterances")
+        await self.wait_connected(timeout)
+        hands = self._hands
+        if hands is None:
+            raise ConnectionError("HandsKit client disconnected")
+        self._script_seq += 1
+        request_id = f"bench-{self._script_seq}"
+        future = asyncio.get_running_loop().create_future()
+        self._pending_rpcs[request_id] = future
+        request = {
+            "t": "rpc",
+            "id": request_id,
+            "method": method,
+            "params": params,
+        }
+        self.capture.frames.append({
+            "direction": "runner_to_hands",
+            "monotonic": time.monotonic(),
+            "wall_time": _wall_time(),
+            "frame": request,
+        })
+        try:
+            await hands.send(json.dumps(request, ensure_ascii=False))
+            reply = await asyncio.wait_for(future, timeout)
+        finally:
+            self._pending_rpcs.pop(request_id, None)
+        result = reply.get("result")
+        if not isinstance(result, dict):
+            result = {}
+        result.setdefault("ok", bool(reply.get("ok")))
+        if not result["ok"]:
+            raise RuntimeError(str(result.get("error") or reply.get("error") or "RPC failed"))
+        return result
+
     def snapshot(self) -> dict[str, Any]:
         return self.capture.as_dict()
 

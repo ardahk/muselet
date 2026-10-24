@@ -20,8 +20,9 @@ class FakePlanner:
     """plan() matches Planner.plan's signature; runs on the MLX worker
     thread, emits each canned line ~20 ms apart, then the None sentinel."""
 
-    def __init__(self, turns):
+    def __init__(self, turns, history="repr"):
         self.turns = turns          # list of turn -> list of lines
+        self.history = history      # older tests pin the legacy repr lines
         self.calls = 0
         self.user_msgs = []
         self.cancelled = None

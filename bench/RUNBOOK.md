@@ -19,6 +19,15 @@ DeskMind Hands `89be730acdbdd50a77bb6ac44583e190c719a14a`, DeskMind Brain `dadf9
 HobbyLM `4ea1389b68f5a6f7ec72200543fd8374c14d4526`. JevBench and Typed Decisions are pinned inside their scripts.
 Close Mail, Messages and any app holding user documents before starting.
 
+Before any case-specific precondition, document guard, setup, or utterance,
+the live suite, HobbyLM replay modes, and DeskMind runner invoke the selected
+HandsKit binary's `probe session` command with a five-second timeout. Locked
+or asleep sessions are skipped as `screen_locked`; failed or invalid probes
+are `session_unverifiable`. These cases get no setup, utterance, teardown, or
+restore, and DeskMind records them in `skipped.jsonl`. Dry runs only display
+the planned probe. As required by `AGENTS.md`, results gathered while the
+screen is locked are invalid.
+
 ## 0. One-time setup
 ```sh
 git fetch origin && git checkout cloud/bench && git pull

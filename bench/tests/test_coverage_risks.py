@@ -16,7 +16,8 @@ def test_coverage_keeps_confirmed_gaps_and_ranks_pending_risks():
     assert "Arithmetic word problems not parsed by calc" in report
     assert "Calculator/arithmetic has no executable skill or route" not in report
     assert "Countdown timers have no executable start_timer implementation" not in report
-    assert "Directional brightness: brain done; HandsKit delta pending (lead's Swift batch)" in report
+    assert "Directional brightness: brain done; HandsKit delta pending (lead's Swift batch)" not in report
+    assert "Directional brightness is implemented through the HandsKit delta argument" in report
     assert "Native System Settings navigation is not implemented" in report
     assert "## Risks pending live evidence" in report
     assert "unverified until the Muselet live replay runs" in report

@@ -24,10 +24,6 @@ GAP_EVIDENCE = {
     "Event requests with people cannot create invitees": (
         "skills/catalog.json:74-79; app/Sources/HandsKit/Skills.swift:922-944",
     ),
-    "Directional brightness: brain done; HandsKit delta pending (lead's Swift batch)": (
-        "ml/src/brain/orchestrator.py:443-462; skills/catalog.json:20-23; "
-        "app/Sources/HandsKit/Skills.swift:360-367",
-    ),
 }
 UNHANDLED_R4_CALC = {
     "C07", "C08", "C09", "C10", "C11", "C12", "C13", "C14", "C15",
@@ -92,8 +88,6 @@ def _gap_ids(datasets, catalog):
                     {"attendee", "attendees", "invitee", "invitees"} & event_args
                 ):
                     result["Event requests with people cannot create invitees"][dataset].append(ident)
-            elif kind == "device" and expected.startswith("BRIGHTNESS_"):
-                gap = "Directional brightness: brain done; HandsKit delta pending (lead's Swift batch)"
             elif kind == "calc" and ident in UNHANDLED_R4_CALC:
                 gap = "Arithmetic word problems not parsed by calc"
             if gap:
@@ -217,7 +211,9 @@ def build(upstream: Path, catalog_path: Path) -> str:
         "- Calculator arithmetic uses the existing deterministic grammar; unhandled r4 word problems are ranked "
         "above. Timer, Bluetooth, lock-screen, "
         "and empty-Trash paths are implemented in HandsKit. Brain-executor dispatch is present in the orchestrator. "
-        "Event invitees and native System Settings navigation remain unimplemented. "
+        "Directional brightness is implemented through the HandsKit delta argument (`skills/catalog.json:20-24`; "
+        "`app/Sources/HandsKit/Skills.swift:418-437,807-808`). Event invitees and native System Settings navigation "
+        "remain unimplemented. "
         "Evidence: `ml/src/brain/calc.py:437-453`; "
         "`ml/src/brain/orchestrator.py:296-302,346-356,405-422,433-481,695-747`; "
         "`app/Sources/HandsKit/Skills.swift:373-380,471-482`.",

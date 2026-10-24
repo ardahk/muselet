@@ -475,6 +475,16 @@ async def run_case(
         except Exception as exc:
             result["document_after_setup_error"] = str(exc)
 
+    before_utterance = case.get("before_utterance")
+    if callable(before_utterance) and setup_error is None:
+        try:
+            hook_result = before_utterance(runtime, result)
+            if inspect.isawaitable(hook_result):
+                hook_result = await hook_result
+            result["before_utterance_observation"] = hook_result
+        except Exception as exc:
+            setup_error = f"before-utterance setup failed: {exc}"
+
     trace: dict[str, Any] | None = None
     try:
         check_context: dict[str, Any] = {
@@ -521,6 +531,17 @@ async def run_case(
                 await runtime.prepare_for_cleanup()
             else:
                 result["timed_out"] = False
+            after_utterance = case.get("after_utterance")
+            if callable(after_utterance):
+                try:
+                    hook_result = after_utterance(runtime, result)
+                    if inspect.isawaitable(hook_result):
+                        hook_result = await hook_result
+                    result["after_utterance_observation"] = hook_result
+                except Exception as exc:
+                    result["after_utterance_error"] = str(exc)
+                    result["status"] = "failed"
+                    result["strict_pass"] = False
             trace = find_trace_record(trace_path, utterance, started_wall)
             if trace is None and not result.get("timed_out", False):
                 trace_deadline = time.monotonic() + 2

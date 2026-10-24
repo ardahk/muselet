@@ -21,8 +21,7 @@ def _frames(seconds=600, ok=True, duration="10 minutes", timer_id="timer-1", ide
     ]
 
 
-def test_timer_grading_uses_successful_proxied_start_timer_results(monkeypatch, tmp_path):
-    monkeypatch.setattr(replay, "CATALOG_PATH", tmp_path / "empty-catalog.json")
+def test_timer_grading_uses_rpc_snapshots_and_excludes_preexisting_ids(monkeypatch):
     success = replay._timer_start_results(_frames())
     assert [item["minutes"] for item in success] == [10]
     assert success[0]["seconds"] == 600
@@ -50,59 +49,76 @@ def test_timer_grading_uses_successful_proxied_start_timer_results(monkeypatch, 
     ]
 
 
-def test_timer_teardown_discloses_missing_cancel_skill_and_sends_nothing(
-        monkeypatch, tmp_path):
-    catalog = tmp_path / "catalog.json"
-    catalog.write_text(json.dumps({"skills": []}))
-    monkeypatch.setattr(replay, "CATALOG_PATH", catalog)
-
-    class Runtime:
-        timer_start_calls = [{"timer_id": "owned"}]
-        async def run_skill(self, *args, **kwargs):
-            raise AssertionError("must not probe absent cancel_timers")
-
-    runtime = Runtime()
-    result = asyncio.run(replay._timer_teardown(runtime, {}))
-    assert result == {
-        "timer_teardown": "not_cancelled_no_cancel_timers_skill",
-        "timer_ids": ["owned"],
-    }
-
-
-def test_catalogued_list_and_cancel_timer_skills_are_used(monkeypatch, tmp_path):
-    catalog = tmp_path / "catalog.json"
-    catalog.write_text(json.dumps({"skills": [
-        {"name": "list_timers", "args": []},
-        {"name": "cancel_timers", "args": [
-            {"name": "timer_ids", "type": "array", "required": True},
-        ]},
-    ]}))
-    monkeypatch.setattr(replay, "CATALOG_PATH", catalog)
-    proxy = SimpleNamespace(capture=SimpleNamespace(frames=_frames(), active=False))
+def test_timer_rpc_baseline_grades_only_new_timers_and_orders_by_fires_at():
     runtime = object.__new__(replay._HobbyRuntime)
-    runtime.proxy = proxy
-    runtime.timer_calls = []
+    runtime.proxy = SimpleNamespace(capture=SimpleNamespace(frames=[]))
     runtime.timer_start_calls = []
+    runtime.timer_calls = []
     runtime.timer_grading = None
-    requested = []
+    runtime.timer_preexisting_ids = set()
+    runtime.timer_rpc_available = None
+    runtime.timer_after_snapshot = False
+    runtime.started_timer_ids = []
+    replies = iter([
+        {"timers": [{"id": "old", "minutes": 3}]},
+        {"timers": [
+            {"id": "later", "minutes": 12, "total_s": 720, "fires_at": "b"},
+            {"id": "old", "minutes": 3, "fires_at": "a"},
+            {"id": "new", "minutes": 10, "total_s": 600, "fires_at": "a"},
+        ]},
+    ])
 
-    async def run_skill(name, args, **kwargs):
-        requested.append((name, args))
-        return {"ok": True, "result": {"timers": [
-            {"seconds": 600, "timer_id": "listed"},
-        ]}}
+    async def run_rpc(method, params):
+        assert method == "timers" and params == {}
+        return next(replies)
 
-    runtime.run_skill = run_skill
-    state = {}
-    asyncio.run(runtime._capture_timers(state))
-    assert runtime.timer_grading == "list_timers"
-    assert state["timers"] == [10]
-    assert requested == [("list_timers", {})]
+    runtime.run_rpc = run_rpc
+    async def scenario():
+        await runtime.capture_timer_baseline()
+        await runtime.capture_timer_after_case()
+    asyncio.run(scenario())
+    assert runtime.timer_grading == "hands_timers_rpc"
+    assert [item["minutes"] for item in runtime.timer_calls] == [10, 12]
+    assert runtime.started_timer_ids == ["new", "later"]
 
-    runtime.timer_start_calls = [{"timer_id": "owned-1"}]
-    runtime.timer_teardown = None
-    assert asyncio.run(replay._timer_teardown(runtime, {}))["timer_teardown"] == "cancel_timers"
-    assert requested[-1] == ("cancel_timers", {"timer_ids": ["owned-1"]})
+
+def test_timer_rpc_absence_falls_back_and_cancels_only_started_ids():
+    runtime = object.__new__(replay._HobbyRuntime)
+    runtime.proxy = SimpleNamespace(capture=SimpleNamespace(frames=_frames()))
+    runtime.timer_start_calls = []
+    runtime.timer_calls = []
+    runtime.timer_grading = None
+    runtime.timer_preexisting_ids = set()
+    runtime.timer_rpc_available = None
+    runtime.timer_after_snapshot = False
+    runtime.started_timer_ids = []
+    requests = []
+
+    async def missing(method, params):
+        raise RuntimeError("unknown method: timers")
+    runtime.run_rpc = missing
+    async def scenario():
+        await runtime.capture_timer_baseline()
+        await runtime.capture_timer_after_case()
+    asyncio.run(scenario())
+    assert runtime.timer_grading == "proxied_start_timer_ok_results"
+    assert [item["minutes"] for item in runtime.timer_calls] == [10]
+
+    runtime.started_timer_ids = ["timer-1", "timer-2"]
+    async def cancel(method, params):
+        requests.append((method, params))
+        if params["id"] == "timer-2":
+            raise RuntimeError("unknown_timer: timer-2")
+        return {"cancelled": [params["id"]]}
+    runtime.run_rpc = cancel
+    result = asyncio.run(replay._timer_teardown(runtime, {}))
+    assert requests == [
+        ("timers_cancel", {"id": "timer-1"}),
+        ("timers_cancel", {"id": "timer-2"}),
+    ]
+    assert "id" not in requests[0][1] or requests[0][1]["id"] == "timer-1"
+    assert result["cancelled_ids"] == ["timer-1"]
+    assert result["errors"] == [{"id": "timer-2", "error": "unknown_timer: timer-2"}]
 
 
 def test_calculator_setup_precedes_utterance_and_fails_closed():
@@ -149,7 +165,8 @@ def test_calc_setup_is_disclosed_in_dry_plan_and_run_metadata():
     tasks = [{"id": "C01", "kind": "calc", "text": "11 plus 4"}]
     plan = replay.plan("muselet", "r4", tasks, 1, 8765)
     assert plan[0]["calc_setup"] == "calculator_open_cleared"
+    assert plan[0]["session"] == "session: hands probe session (skip if locked/asleep)"
     assert replay._run_metadata(tasks) == {"calc_setup": "calculator_open_cleared"}
     assert replay._run_metadata([{"kind": "timer"}]) == {
-        "timer_grading": "proxied_start_timer_ok_results",
+        "timer_grading": "hands_timers_rpc",
     }

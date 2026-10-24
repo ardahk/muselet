@@ -254,7 +254,8 @@ def test_absolute_brightness_and_direct_failure_bubble(tmp_path):
                               engine=_skill_engine("set_brightness"))
         result = await failed.handle_utterance("make the screen brighter")
         assert result["outcome"] == "failed"
-        assert rejecting.said[-1] == "I can't change brightness by steps yet"
+        assert rejecting.said
+        assert not any("ask" in line.casefold() for line in rejecting.said)
         assert not rejecting.confirms
     asyncio.run(scenario())
 
@@ -285,6 +286,8 @@ def test_v0_relative_route_and_generic_require_one_of(tmp_path):
     ("set_brightness", {"level": 40}, "make it brighter", {"delta": 15}),
     ("change_volume", {"delta": 10}, "quieter", {"delta": -10}),
     ("set_volume", {"delta": 10}, "volume up", {"delta": 10}),
+    ("change_volume", {}, "volume down", {"delta": -10}),
+    ("set_brightness", {}, "turn brightness down a lot", {"delta": -15}),
 ])
 def test_direction_override_replaces_model_arguments(tmp_path, label, args, text, want):
     async def scenario():
@@ -294,4 +297,14 @@ def test_direction_override_replaces_model_arguments(tmp_path, label, args, text
         await orch.handle_utterance(text)
         assert server.skills()[0]["args"] == want
         assert not server.confirms
+    asyncio.run(scenario())
+
+
+def test_rel_delta_wins_for_volume_notches(tmp_path):
+    async def scenario():
+        engine = FakeEngine(default=("change_volume", .99))
+        orch, server, tracer = _orchestrator(tmp_path, engine=engine)
+        await orch.handle_utterance("turn the volume up two notches")
+        assert server.skills()[0]["args"] == {"delta": 20}
+        assert {"rel_delta": 20} in tracer.last["decisions"]
     asyncio.run(scenario())

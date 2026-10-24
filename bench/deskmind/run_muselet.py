@@ -33,6 +33,7 @@ from bench.harness.documents import (
     take_inventory,
     unclosable_items,
 )
+from bench.harness.session import probe_session
 
 DEFAULT_BENCH = Path("/home/ubuntu/ext/deskmind-ai__bench")
 SUITE_VERSION = "diag-v27"
@@ -50,6 +51,7 @@ def make_plan(tasks, repeats, port, runs_dir):
             "reset_apps": task.reset_apps,
             "stage": task.stage,
             "repeat": repeat,
+            "session": "session: hands probe session (skip if locked/asleep)",
             "workspace": str(runs_dir / task.id / f"repeat-{repeat}" / "ws"),
             "hands": ["hands", "serve", "--url", f"ws://127.0.0.1:{port}", "--utterance", task.goal],
         }
@@ -273,8 +275,16 @@ def _append_skipped_task(runs_dir: Path, task, repeat: int, guard: dict) -> dict
     return record
 
 
-def _guard_before_run(task, repeat: int, runs_dir: Path, run_dir: Path, run_script=None):
+def _guard_before_run(
+    task, repeat: int, runs_dir: Path, run_dir: Path, hands_command="hands",
+    run_script=None,
+):
+    session = probe_session(hands_command)
+    if session["skip_reason"]:
+        _append_skipped_task(runs_dir, task, repeat, session)
+        return None
     guard = asyncio.run(_task_document_inventory(task, run_script))
+    guard.update({key: value for key, value in session.items() if key != "skip_reason"})
     if guard.get("status") == "skipped":
         _append_skipped_task(runs_dir, task, repeat, guard)
         return None
@@ -486,7 +496,7 @@ def main(argv=None):
             run_id = f"muselet-{task.id}-{repeat}-{uuid.uuid4().hex[:8]}"
             run_dir = args.runs_dir / run_id
             document_guard = _guard_before_run(
-                task, repeat, args.runs_dir, run_dir,
+                task, repeat, args.runs_dir, run_dir, binary,
             )
             if document_guard is None:
                 continue
