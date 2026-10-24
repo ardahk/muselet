@@ -280,12 +280,12 @@ def test_utterance_frame_cancel(tracer):
 
 
 def test_script_confirm_policy():
-    from brain.orchestrator import script_needs_confirm
+    script_needs_confirm = Orchestrator.__new__(Orchestrator).script_needs_confirm
     assert script_needs_confirm("shell", "echo hi")
     assert script_needs_confirm("applescript", 'tell app "Finder" to empty trash')
     assert script_needs_confirm("jxa", "Application('Mail').quit()")
-    assert not script_needs_confirm("applescript", 'tell app "Finder" to activate')
-    assert not script_needs_confirm("jxa", "Math.sqrt(2)")
+    assert not script_needs_confirm("applescript", 'tell app "Finder" to get name of window 1')
+    assert not script_needs_confirm("jxa", "Application('Safari').get()")
 
 
 def test_utterance_fallback_says(tracer):

@@ -27,12 +27,6 @@ _WORD_NUM = {"zero": 0, "five": 5, "ten": 10, "fifteen": 15, "twenty": 20,
              "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
              "hundred": 100, "max": 100, "full": 100, "half": 50}
 
-# script-lang batches that must be confirmed before running
-_DANGEROUS_SCRIPT = re.compile(
-    r"\b(delete|remove|rm\s|empty trash|send|quit|shut ?down|restart|"
-    r"log ?out|do shell script|erase|format)\b", re.IGNORECASE)
-
-
 def _num(tok: str) -> int | None:
     tok = tok.strip().lower()
     if tok.isdigit():
@@ -364,16 +358,6 @@ def _cap12(s: str) -> str:
     if len(w) <= 12:
         return s
     return " ".join(w[:12]).rstrip(",.:;?\"") + "?"
-
-
-def script_needs_confirm(lang: str, code: str) -> bool:
-    """Brain-side script policy: shell always confirms; applescript/jxa
-    confirm when the code matches a destructive pattern."""
-    if lang == "shell":
-        return True
-    if lang in ("applescript", "jxa"):
-        return bool(_DANGEROUS_SCRIPT.search(code))
-    return True
 
 
 # Apps whose UI is a canvas the AX tree can't see into (matched case-insensitively
@@ -2053,11 +2037,16 @@ function run() {
 
     # script confirmation policy (evals-safety-2)
     _SCRIPT_BLOCK = re.compile(
-        r"do shell script|doShellScript|do script|run script|keystroke|"
-        r"key code|ObjC|\$\.|NSFileManager|trash|delete|remove|saving no|"
+        r"do shell script|doShellScript|do ?script|run script|load script|"
+        r"using terms from|keystroke|"
+        r"key ?code|ObjC|\$\.|NSFileManager|NSTask|NSWorkspace|use framework|"
+        r"trash|delete|remove|saving no|restart|shut ?down|log ?out|"
+        r"\b(?:empty|eject|sleep)\b|"
         r"send|erase|format|quit|close|move|duplicate|make new|"
-        r"set .* to .*|click|perform action|AXPress|do JavaScript|"
-        r"open location|«event|\braw\b|open\s+(?:POSIX\s+)?file|"
+        r"makeNew|\.\s*make\s*\(|set .* to .*|click|perform action|AXPress|"
+        r"do ?JavaScript|open ?location|«\s*event|<<\s*event|\braw\b|"
+        r"open\s*\(*\s*(?:POSIX\s+)?file|"
+        r"\[|\\|\beval\s*\(|\bFunction\s*\(|String\s*\.\s*fromCharCode|"
         r"\.command\b|\.sh\b|removeItem|\brm\s", re.IGNORECASE)
     _SCRIPT_APPS_READ = {
         "com.apple.numbers", "numbers", "music", "calendar", "system events"}
@@ -2072,15 +2061,20 @@ function run() {
         read-only verbs and contains no blocked pattern. Numbers gets a
         wider exception (set value / background color / sort / make new
         table need no confirm). shell always confirms."""
-        if lang == "shell":
+        if lang not in ("applescript", "jxa"):
             return True
+        code = " ".join(re.sub(r"¬\s*\n", " ", code).split())
         targets = {t.lower() for t in re.findall(
-            r'tell\s+application\s+(?:id\s+)?"([^"]+)"', code, re.IGNORECASE)}
-        if lang == "jxa" and not targets:
-            targets = {t.lower() for t in re.findall(
-                r'Application\(\s*[\'"]([^\'"]+)', code)}
+            r'\b(?:application|app|id)\s+[\'"]([^\'"]+)[\'"]',
+            code, re.IGNORECASE)}
+        targets.update(t.lower() for t in re.findall(
+            r'\bApplication\s*\(\s*[\'"]([^\'"]+)[\'"]',
+            code, re.IGNORECASE))
         allowed = self._SCRIPT_APPS_READ | self._SCRIPT_APPS_LIMITED
         if not targets or not targets <= allowed:
+            return True
+        if "system events" in targets and re.search(
+                r"\bprocess(?:es)?\b", code, re.IGNORECASE):
             return True
         numbers_only = targets <= {"com.apple.numbers", "numbers"}
         if numbers_only:
