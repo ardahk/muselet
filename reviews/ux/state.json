@@ -1,10 +1,10 @@
 {
-  "pass": 26,
-  "ts": "2026-10-24T12:10:00Z",
+  "pass": 27,
+  "ts": "2026-10-24T12:25:00Z",
   "last_reviewed": {
-    "main": "d7c192f",
-    "wip/local": "367d450",
-    "cloud/data-pipeline": "0ce9ea6",
+    "main": "fbd5aa0",
+    "wip/local": "2f26223",
+    "cloud/data-pipeline": "735686f",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "dfaf785",
@@ -23,7 +23,8 @@
     "cloud/hobby-gaps": "156556e",
     "cloud/brain-5": "b752261",
     "cloud/grounder-wire": "afb12a6",
-    "cloud/pitch-3": "e203181"
+    "cloud/pitch-3": "e203181",
+    "cloud/pitch-4": "6393857"
   },
-  "notes": "pass 26: main d7c192f (serve_brain router default, AGENTS.md serving config) has no lane edits; wip matches main; data-pipeline has no lane edits. 8 P2s open on main."
+  "notes": "pass 27: main fbd5aa0 (AGENTS.md benchmark rule) has no lane edits; wip matches main; pitch-4 and data-pipeline have no lane edits. 8 P2s open on main."
 }
