@@ -53,7 +53,12 @@ One JSON object per frame; `t` = message type.
 
 App -> brain:
 - `{"t":"hello","screens":[{"id":1,"frame":[x,y,w,h],"scale":2.0}]}`
-- `{"t":"utterance","id":"u1","text":"...","final":false}` (partials allow speculative prefill; `final:true` commits)
+- `{"t":"utterance","id":"u1","text":"...","final":false,"ctx":{"app":"Notes","focused":"textarea \"Note body\"","selection":false,"online":true}}`
+  (partials allow speculative prefill; `final:true` commits). `ctx` is captured by the app at push-to-talk
+  key-down, before any Muselet UI appears: `app` = frontmost app's localized name; `focused` = the focused
+  element as `<role> "<label>"` using the observation role names (or `none`); `selection` = focused element
+  has non-empty `AXSelectedText`; `online` = current network reachability (no blocking probe). The brain owns
+  `last_action` (`<skill> key=value ...` with the raw extracted arg strings, e.g. `start_timer duration="10 minutes"`).
 - `{"t":"cancel"}`
 - `{"t":"rpc_result","id":"r1","ok":true,"result":{...}}` or `{"t":"rpc_result","id":"r1","ok":false,"error":"..."}`
 - `{"t":"confirm_reply","id":"c1","yes":true}`
@@ -123,6 +128,11 @@ actions, results, per-stage latencies, final verification. Traces feed evals, fa
 ## Commands
 - Python env: `uv run --project ml python ...` (deps pinned in `ml/pyproject.toml`)
 - Speed lab: `uv run --project ml python bench/speed_lab.py --models <repo...> [--vlm-models <repo...>]`
+- Devin Cloud: `python3 tools/devin_cloud.py create|msg|status|log ...` (new sessions default to `fusion` mode;
+  reviewers use `--no-secrets`). Reviewer sessions are listed in `runs/reviewers.json`; findings live on
+  `origin/review/<lane>` in `reviews/<lane>/{findings.jsonl,digest.md}`.
+- Review heartbeat: `nohup tools/review_pulse.sh >> runs/review_pulse.log 2>&1 &` (snapshots local work to
+  `wip/local` via `tools/push_wip.sh` and pulses reviewers when branches move).
 
 ## Conventions
 - Pin dependency versions; prefer releases at least 7 days old.

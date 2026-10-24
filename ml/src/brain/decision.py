@@ -81,7 +81,8 @@ def parse_duration(text: str) -> int | None:
 
 def parse_datetime(text: str) -> str | None:
     """Spoken date/time -> ISO-8601 local. Returns None if unparsable."""
-    d = _dp.parse(text, settings={"PREFER_DATES_FROM": "future"})
+    d = _dp.parse(text, languages=["en"],
+                  settings={"PREFER_DATES_FROM": "future"})
     return d.isoformat(timespec="seconds") if d else None
 
 
@@ -121,6 +122,21 @@ def _online_ok() -> bool:
         return False
 
 
+class _OnlineProbe:
+    """Background reachability check: refreshes every 10 s, never blocks."""
+
+    def __init__(self):
+        self.value = True
+        import threading
+        t = threading.Thread(target=self._loop, daemon=True)
+        t.start()
+
+    def _loop(self):
+        while True:
+            self.value = _online_ok()
+            time.sleep(10)
+
+
 def split_model(model):
     """(transformer body taking token ids, lm_head) — same trick as
     bench/speed_lab.py. Inner model embeds + runs layers, returns hidden."""
@@ -151,8 +167,9 @@ class AlphaChoiceRenderer(PrefixedChoiceRenderer):
 
 
 class RouteDecisionRenderer(DecisionRenderer):
-    """SPEC 1.2: option list in the SYSTEM message (static prefix), request in
-    the USER message, `choice#?` prefill."""
+    """SPEC 1.2 / training/src/muselet_train/route_render.py: option list in
+    the SYSTEM message (static prefix), request in the USER message,
+    `choice#?` prefill."""
 
     def _build_messages(self, decision, choice_rendering):
         from tinker_cookbook.renderers import Message
@@ -179,57 +196,84 @@ class RouteResult:
     ms: dict = field(default_factory=dict)
 
 
+def catalog_options(catalog) -> list[tuple[str, str]]:
+    """(name, description) — skills in file order, then special_options in
+    file order (matches training muselet_train.catalog.options)."""
+    opts = [(s["name"], s["description"]) for s in catalog.skills.values()]
+    for s in catalog.special_options:
+        opts.append((s["name"], s["description"]))
+    return opts
+
+
+class RouteRenderer:
+    """Tokenizer-only route rendering — no model weights needed (parity
+    tests, eval pre-checks)."""
+
+    def __init__(self, tokenizer_path: str, catalog):
+        rname = model_info.get_recommended_renderer_name("Qwen/Qwen3.5-4B")
+        self.renderer = renderers.get_renderer(
+            rname, tokenizer_utils.get_tokenizer(tokenizer_path))
+        self.tokenizer = self.renderer.tokenizer
+        self.choice_renderer = AlphaChoiceRenderer(self.renderer)
+        self.route_renderer = RouteDecisionRenderer(
+            self.renderer, choice_renderer=self.choice_renderer)
+        self._options = catalog_options(catalog)
+
+    @property
+    def options(self) -> list[tuple[str, str]]:
+        return self._options
+
+    @property
+    def id_alphabet(self) -> list[str]:
+        return self.choice_renderer.usable_ids
+
+    def decision(self, utterance: str, ctx: dict) -> Decision:
+        text = ROUTE_USER.format(
+            app=ctx.get("app") or "none",
+            focused=ctx.get("focused") or "none",
+            sel="yes" if ctx.get("selection") else "no",
+            online="yes" if ctx.get("online", True) else "no",
+            last=ctx.get("last_action") or "none",
+            request=utterance)
+        return Decision(text=text, choices=self._options)
+
+    def render(self, utterance: str, ctx: dict):
+        return self.route_renderer.render(self.decision(utterance, ctx))
+
+
 class DecisionEngine:
     def __init__(self, model_path: str, catalog=None):
         self.model_path = model_path
         self.model, self.tokenizer = mlx_lm.load(model_path)
         self.body, self.lm_head = split_model(self.model)
-        rname = model_info.get_recommended_renderer_name("Qwen/Qwen3.5-4B")
-        ck_renderer = renderers.get_renderer(
-            rname, tokenizer_utils.get_tokenizer(model_path))
-        self.choice_renderer = AlphaChoiceRenderer(ck_renderer)
-        self.route_renderer = RouteDecisionRenderer(
-            ck_renderer, choice_renderer=self.choice_renderer)
+        self.rr = RouteRenderer(model_path, catalog)
+        self.choice_renderer = self.rr.choice_renderer
+        self.route_renderer = self.rr.route_renderer
         self.catalog = catalog
         self.last_action = "none"
-        self._online_ts, self._online = 0.0, True
+        self._probe = _OnlineProbe()
         self._route_prefix_tokens: list[int] | None = None
         self._route_cache = None          # static system+user-header prefix
         self._args_cache = None
+        parse_datetime("now")             # warm dateparser's english locale
 
     # ---------- catalog ----------
 
     def options(self) -> list[tuple[str, str]]:
-        """(name, description) in catalog file order + special options."""
-        opts = []
-        if self.catalog is not None:
-            for name, spec in self.catalog.skills.items():
-                opts.append((name, spec.get("description", name)))
-        for s in SPECIAL:
-            opts.append((s, {
-                "MULTI_STEP": "needs several actions, apps or UI steps",
-                "ASK": "a required argument is missing or unclear",
-                "REFUSE": "harmful, deceptive, private or impossible",
-                "ANSWER": "a question needing a spoken answer, not an action",
-            }[s]))
-        return opts
+        return self.rr.options
 
     def online(self) -> bool:
-        if time.time() - self._online_ts > 30:
-            self._online = _online_ok()
-            self._online_ts = time.time()
-        return self._online
+        return self._probe.value
 
     # ---------- route ----------
 
     def _route_decision(self, utterance: str, ctx: dict) -> Decision:
-        text = ROUTE_USER.format(
-            app=ctx.get("app", "none"), focused=ctx.get("focused", "none"),
-            sel="yes" if ctx.get("selection") else "no",
-            online="yes" if self.online() else "no",
-            last=ctx.get("last_action", self.last_action),
-            request=utterance)
-        return Decision(text=text, choices=self.options())
+        # ctx-supplied online wins (app/eval); engine probe is the fallback
+        ctx = dict(ctx)
+        if "online" not in ctx:
+            ctx["online"] = self.online()
+        ctx.setdefault("last_action", self.last_action)
+        return self.rr.decision(utterance, ctx)
 
     def _content_cut(self, rendered_tokens, sentinel: str) -> int:
         sent = self.tokenizer.encode(sentinel, add_special_tokens=False)
@@ -308,14 +352,18 @@ class DecisionEngine:
     # ---------- args ----------
 
     def arg_signature(self, name: str) -> str:
+        # exact match to training muselet_train.catalog.arg_signature:
+        # "level:int 0-100 required, kind:enum any|pdf optional"
         spec = (self.catalog.get(name) or {}) if self.catalog else {}
         parts = []
         for a in spec.get("args", []):
-            req = " required" if a.get("required") else ""
-            rng = ""
-            if a.get("min") is not None and a.get("max") is not None:
-                rng = f" {a['min']}-{a['max']}"
-            parts.append(f"{a['name']}:{a.get('type', 'str')}{rng}{req}")
+            sig = f"{a['name']}:{a['type']}"
+            if "min" in a or "max" in a:
+                sig += f" {a.get('min', '')}-{a.get('max', '')}"
+            if a.get("values"):
+                sig += " " + "|".join(a["values"])
+            sig += " required" if a.get("required") else " optional"
+            parts.append(sig)
         return ", ".join(parts)
 
     def args(self, skill: str, utterance: str, ctx: dict) -> dict:
@@ -337,17 +385,8 @@ class DecisionEngine:
         assert toks[:self._args_cut] == self._args_prefix_tokens, \
             "args render diverged from cached prefix"
         cache = copy.deepcopy(self._args_cache)
-        out_tokens = []
-        cur = mx.array([toks[self._args_cut:acut]])
-        for _ in range(32):
-            logits = self._logits_last(cache, cur)
-            nxt = int(np.argmax(np.array(logits)))
-            if nxt == self.tokenizer.eos_token_id:
-                break
-            out_tokens.append(nxt)
-            cur = mx.array([[nxt]])
-        text = self.tokenizer.decode(out_tokens).strip()
-        parsed = self._parse_args_line(text)
+        stop_ids = {self.tokenizer.eos_token_id}
+        for _s in ("
         parsed["ms"] = {"args_ms": round((time.perf_counter() - t0) * 1000, 2)}
         parsed["_raw"] = text
         return parsed
