@@ -97,7 +97,9 @@ def _obj(a: dict) -> str:
 
 def fail_text(name: str, args: dict, error: str = "") -> str:
     e, obj = (error or "").lower(), _obj(args or {})
-    if re.search(r"not installed|no application|can't find app|unknown app", e):
+    if e == "not_frontmost":
+        s = "Opened it, but it didn't come to the front"
+    elif re.search(r"not installed|no application|can't find app|unknown app", e):
         s = f"{obj or 'That app'} isn't installed. Try another app?"
     elif re.search(r"not found|no such|couldn't find|does not exist|no match|"
                    r"unknown contact", e):
