@@ -1,5 +1,5 @@
 {
-  "pass": 31,
+  "pass": 32,
   "ts": "2026-10-24T14:33:00Z",
   "last_reviewed": {
     "main": "5292608",
@@ -27,5 +27,10 @@
     "cloud/pitch-4": "6393857",
     "cloud/brain-6": "780f49d"
   },
-  "notes": "pass 31: main 5292608 (AGENTS.md only) has no lane edits; wip matches main. 8 P2s open on main."
+  "notes": "pass 31: main 5292608 (AGENTS.md only) has no lane edits; wip matches main. 8 P2s open on main.",
+  "reviewed": {
+    "main": "c949565",
+    "wip/local": "4ec066f",
+    "cloud/decisions": "e125c13"
+  }
 }
