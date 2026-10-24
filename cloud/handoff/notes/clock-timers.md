@@ -27,7 +27,7 @@ _Last updated: 2026-10-24, after PR #34 was opened (milestone: implementation co
 4. Address review comments on #34. Never merge; the lead merges.
 
 **Artifacts**
-- Branch `cloud/clock-timers`. Implementation commit `d060b5a`; a follow-up commit adds this handoff file. PR #34.
+- Branch `cloud/clock-timers`. Implementation commit `d060b5a`; handoff notes added in `3446136` and later commits on the branch. PR #34.
 - No HF repos, Tinker runs, checkpoints or run dirs: there was no training or eval in this lane.
 - Python test env on Linux: `ml/.venv`, plus `uv pip install --python ml/.venv/bin/python "mlx-cpu==0.32.4"`. That install is needed only on Linux, where `libmlx.so` is missing. It is not committed.
 
