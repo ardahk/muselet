@@ -1,6 +1,6 @@
-# planner lane — pass 12 (main 280715d, wip 38768f3 unchanged; cloud/bench 2c57d7f)
+# planner lane — pass 13 (main 280715d, wip 38768f3 unchanged; cloud/data-pipeline a6b229a)
 
-Only cloud/bench moved: a merge of main plus safety guards in the bench cases. Its other differences from main are decision_chunking.py and generic_decide.py, which belong to the router lane, not mine. No change to the open findings.
+Only cloud/data-pipeline moved (router datums and parity report), so nothing changed in my lane. No change to the open findings.
 
 ## Open P1 (ranked)
 1. planner-21 P1 — Main brain ignores web_ax_pending; planner plans on half-empty Chrome tree (demo goal 2) — ml/src/brain/orchestrator.py@main
