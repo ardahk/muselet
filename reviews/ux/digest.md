@@ -1,4 +1,4 @@
-# ux digest — pass 10 (main 280715d, wip/local 38768f3, cloud/brain-3 14a3f52)
+# ux digest — pass 11 (no lane change since pass 10) / pass 10 (main 280715d, wip/local 38768f3, cloud/brain-3 14a3f52)
 
 Pass 10: main landed it via 894df52 (no other lane changes). Pass 9: wip adds a native Automation onboarding row (per-app chips, Settings… when denied). It's good, but already-granted apps that aren't running show 'Grant' (ux-15).
 
