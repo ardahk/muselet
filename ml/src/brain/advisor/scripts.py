@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import html
+import re
 from decimal import Decimal
 
 from .brief import brief_html, brief_markdown
@@ -11,7 +13,9 @@ NOTES_ID = "com.apple.Notes"
 GREEN = (50886, 61423, 52942)    # rgb(198, 239, 206) in Numbers' 16-bit channels
 AMBER = (65535, 58853, 39321)    # rgb(255, 229, 153)
 HOLDINGS_COLUMNS = "A", "J"      # Account .. Unrealized G/L
-NOTE_TITLE = "{household} — annual review prep"
+NOTE_TITLE = "{household} — annual review prep (Muselet)"   # tag: the only note this tool updates
+REVIEW_SHEET = "Muselet Review"
+MARKER_TABLE = "Muselet Allocation"                             # marks a Review sheet this tool created
 
 
 def q(text: str) -> str:
@@ -28,18 +32,39 @@ def _num(x: str | Decimal) -> str:
     return format(d, "f")
 
 
-def _doc(document: str | None) -> str:
+def _doc(document: str | None, path: str | None = None) -> str:
+    if path:
+        return "theDoc"
     return f"document {q(document)}" if document else "front document"
+
+
+def _resolve_doc(path: str, indent: str = "\t", tries: int = 1) -> list[str]:
+    """Bind `theDoc` to the open Numbers document whose file is `path` (never by name: every client has a
+    portfolio.xlsx). tries > 1 polls every 0.1 s while Numbers is still opening the file."""
+    i = indent
+    body = [f"{i}set theDoc to missing value",
+            f"{i}repeat {int(tries)} times",
+            f"{i}\trepeat with d in documents",
+            f"{i}\t\ttry",
+            f"{i}\t\t\tif POSIX path of ((file of d) as alias) is {q(path)} then set theDoc to contents of d",
+            f"{i}\t\tend try",
+            f"{i}\tend repeat",
+            f"{i}\tif theDoc is not missing value then exit repeat",
+            *([f"{i}\tdelay 0.1"] if tries > 1 else []),
+            f"{i}end repeat",
+            f"{i}if theDoc is missing value then error {q('Numbers has no open document for ' + path)}"]
+    return body
 
 
 def _rgb(c: tuple[int, int, int]) -> str:
     return "{" + ", ".join(str(v) for v in c) + "}"
 
 
-def numbers_highlight_script(prep: dict, document: str | None = None, sheet: str = "Holdings") -> str:
+def numbers_highlight_script(prep: dict, document: str | None = None, sheet: str = "Holdings",
+                             path: str | None = None) -> str:
     """Green = harvestable TLH lots, amber = wash-sale-blocked lots. Sheet row = CSV data row + 1 (header)."""
-    lines = [f"tell application id {q(NUMBERS_ID)}",
-             f"\ttell table 1 of sheet {q(sheet)} of {_doc(document)}"]
+    lines = [f"tell application id {q(NUMBERS_ID)}", *(_resolve_doc(path) if path else []),
+             f"\ttell table 1 of sheet {q(sheet)} of {_doc(document, path)}"]
     for e in prep["tlh"]["lots"]:
         r = e["lot"]["row"] + 1
         color = GREEN if e["status"] == "ok" else AMBER
@@ -57,8 +82,10 @@ def _fill(lines: list[str], table_var: str, rows: list[list], indent: str) -> No
             lines.append(f"{indent}set value of cell {c} of row {r} of {table_var} to {val}")
 
 
-def numbers_review_script(prep: dict, document: str | None = None, sheet: str = "Review") -> str:
-    """Replace sheet `sheet` with an Allocation table and a Trades table."""
+def numbers_review_script(prep: dict, document: str | None = None, sheet: str = REVIEW_SHEET,
+                          path: str | None = None) -> str:
+    """Add sheet `sheet` with the allocation and trades tables. Never deletes user content: an existing sheet of
+    that name is replaced only if it carries this tool's marker table; otherwise the new sheet gets a number."""
     alloc = [["Asset class", "Value", "Current %", "Target %", "Drift (pp)", "Post-trade %"]]
     post = prep["rebalance"]["post_trade_pct"]
     for c in prep["allocation"]["classes"]:
@@ -75,18 +102,29 @@ def numbers_review_script(prep: dict, document: str | None = None, sheet: str = 
     if len(trades) == 1:
         trades.append(["No trades: allocation within band", "", "", "", Decimal(0), ""])
 
-    lines = [f"tell application id {q(NUMBERS_ID)}",
-             f"\ttell {_doc(document)}",
-             f"\t\tif exists sheet {q(sheet)} then delete sheet {q(sheet)}",
-             f"\t\tset s to make new sheet with properties {{name:{q(sheet)}}}",
+    lines = [f"tell application id {q(NUMBERS_ID)}", *(_resolve_doc(path) if path else []),
+             f"\ttell {_doc(document, path)}",
+             f"\t\tset nm to {q(sheet)}",
+             "\t\tif exists sheet nm then",
+             f"\t\t\tif exists table {q(MARKER_TABLE)} of sheet nm then",
+             "\t\t\t\tdelete sheet nm",
+             "\t\t\telse",
+             "\t\t\t\tset i to 2",
+             "\t\t\t\trepeat while exists sheet (nm & \" \" & i)",
+             "\t\t\t\t\tset i to i + 1",
+             "\t\t\t\tend repeat",
+             "\t\t\t\tset nm to nm & \" \" & i",
+             "\t\t\tend if",
+             "\t\tend if",
+             "\t\tset s to make new sheet with properties {name:nm}",
              "\t\ttell s",
              "\t\t\tset t1 to table 1",
-             f"\t\t\tset name of t1 to {q('Allocation')}",
+             f"\t\t\tset name of t1 to {q(MARKER_TABLE)}",
              f"\t\t\tset column count of t1 to {len(alloc[0])}",
              f"\t\t\tset row count of t1 to {len(alloc)}"]
     _fill(lines, "t1", alloc, "\t\t\t")
     lines += [f"\t\t\tset format of range {q(f'B2:B{len(alloc)}')} of t1 to currency",
-              f"\t\t\tset t2 to make new table with properties {{name:{q('Trades')}, "
+              f"\t\t\tset t2 to make new table with properties {{name:{q('Muselet Trades')}, "
               f"column count:{len(trades[0])}, row count:{len(trades)}}}",
               "\t\t\tset {x0, y0} to position of t1",
               "\t\t\tset position of t2 to {x0, y0 + (height of t1) + 40}"]
@@ -101,18 +139,23 @@ def numbers_review_script(prep: dict, document: str | None = None, sheet: str = 
 
 def notes_brief_script(prep: dict, phrasing: dict | None = None, folder: str = "Clients",
                        title: str | None = None, reveal: bool = False) -> str:
-    """Create (or replace) the prep note in `folder` of the default Notes account; `reveal` brings it on screen."""
+    """Write the brief to the note titled `title` (tagged "(Muselet)") in `folder`: update it if this tool made it
+    before, else create it. Never deletes notes. Notes names a note after its first line, so the tag is the h1."""
     title = title or NOTE_TITLE.format(household=prep["household"])
-    body = brief_html(brief_markdown(prep, phrasing))
+    body = re.sub(r"^<h1>.*?</h1>", "", brief_html(brief_markdown(prep, phrasing)), count=1)
+    body = f"<h1>{html.escape(title, quote=True)}</h1>" + body
     return "\n".join([
         f"tell application id {q(NOTES_ID)}",
         "\tset acct to default account",
         f"\tif not (exists folder {q(folder)} of acct) then make new folder at acct with properties {{name:{q(folder)}}}",
         f"\tset f to folder {q(folder)} of acct",
-        f"\trepeat with n in (get every note of f whose name is {q(title)})",
-        "\t\tdelete n",
-        "\tend repeat",
-        f"\t{'set n to ' if reveal else ''}make new note at f with properties {{name:{q(title)}, body:{q(body)}}}",
+        f"\tset hits to (every note of f whose name is {q(title)})",
+        "\tif (count of hits) > 0 then",
+        "\t\tset n to item 1 of hits",
+        f"\t\tset body of n to {q(body)}",
+        "\telse",
+        f"\t\tset n to make new note at f with properties {{name:{q(title)}, body:{q(body)}}}",
+        "\tend if",
         *(["\tactivate", "\tshow n"] if reveal else []),
         "end tell",
     ]) + "\n"
@@ -150,14 +193,7 @@ def calendar_lookup_script(name: str, days: int = 30) -> str:
     ]) + "\n"
 
 
-def numbers_wait_script(prefix: str = "portfolio", tries: int = 100) -> str:
-    """Wait (polling, <= tries x 0.1 s) until Numbers has a document whose name starts with `prefix`; return its name."""
-    return "\n".join([
-        f"tell application id {q(NUMBERS_ID)}",
-        f"\trepeat {int(tries)} times",
-        f"\t\tif (count of (every document whose name starts with {q(prefix)})) > 0 then exit repeat",
-        "\t\tdelay 0.1",
-        "\tend repeat",
-        f"\treturn name of first document whose name starts with {q(prefix)}",
-        "end tell",
-    ]) + "\n"
+def numbers_wait_script(path: str, tries: int = 100) -> str:
+    """Wait (polling, <= tries x 0.1 s) until Numbers has the document whose file is `path` open."""
+    return "\n".join([f"tell application id {q(NUMBERS_ID)}", *_resolve_doc(path, tries=tries),
+                      "\treturn POSIX path of ((file of theDoc) as alias)", "end tell"]) + "\n"

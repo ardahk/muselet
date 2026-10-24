@@ -33,7 +33,7 @@ class FakeServer:
         if method == "skill":
             return params["name"]
         code = params["code"]
-        for k, marker in [("calendar", "com.apple.iCal"), ("numbers_wait", "starts with"),
+        for k, marker in [("calendar", "com.apple.iCal"), ("numbers_wait", "return POSIX path of"),
                           ("numbers_highlight", "background color"), ("numbers_review", "make new sheet"),
                           ("notes", "com.apple.Notes")]:
             if marker in code:
@@ -53,7 +53,7 @@ class FakeServer:
         if k == "calendar":
             return {"ok": True, "output": CAL_OK}
         if k == "numbers_wait":
-            return {"ok": True, "output": "portfolio"}
+            return {"ok": True, "output": "/Users/x/Documents/Clients/Henderson/portfolio.xlsx"}
         return {"ok": True}
 
     async def say(self, text):
@@ -115,7 +115,7 @@ def test_happy_path_rpc_sequence_bubbles_and_outcome(clients):
     assert [FakeServer.key(m, p) for m, p in s.calls] == [
         "calendar", "open_folder", "open_file", "numbers_wait", "numbers_highlight", "numbers_review", "notes"]
     assert s.calls[1][1] == {"name": "open_folder", "args": {"path": str(clients / "Henderson")}}
-    assert s.calls[2][1] == {"name": "open_file", "args": {"path": str(clients / "Henderson/portfolio.xlsx")}}
+    assert s.calls[2][1] == {"name": "open_file", "args": {"path": os.path.realpath(clients / "Henderson/portfolio.xlsx")}}
     assert all(m == "act" and p["op"] == "script" and p["lang"] == "applescript"
                for m, p in s.calls if m == "act")
     assert s.bubbles == [
@@ -127,11 +127,13 @@ def test_happy_path_rpc_sequence_bubbles_and_outcome(clients):
         "Highlighting opportunities in Numbers...",
         "Writing the brief in Notes...",
     ]
-    assert s.says == ["Brief in Notes: 5 opportunities, $332,329 total impact."]
+    assert s.says == ["5 opportunities found. Brief is in Notes."]
+    assert not any("$" in b for b in s.bubbles + s.says)
     assert all(len(b.split()) <= 12 for b in s.bubbles + s.says)
     assert s.moods[-1] == "success"
     d = orch.tracer.decisions[-1]
-    assert d["total_impact_usd"] == "332328.60" and d["calendar"]["start"] == "2026-10-26T10:00"
+    assert d["calendar"]["start"] == "2026-10-26T10:00" and "total_impact_usd" not in d
+    assert d["document"] == os.path.realpath(clients / "Henderson/portfolio.xlsx")
     assert d["prep"]["tlh"]["evidence"]
     assert "advisor_prep" in orch.tracer.stages and "advisor_prep.notes_brief" in orch.tracer.stages
 
@@ -140,21 +142,52 @@ def test_golden_scripts_sent(clients):
     orch = FakeOrch()
     assert run(orch) == "ok"
     codes = {FakeServer.key(m, p): p["code"] for m, p in orch.server.calls if m == "act"}
+    root = os.path.realpath(clients)
     for k in ("calendar", "numbers_wait", "numbers_highlight", "numbers_review", "notes"):
-        _golden(f"{k}.applescript", codes[k])
+        _golden(f"{k}.applescript", codes[k].replace(root, "<CLIENTS>"))
     prep = advisor.prep(advisor.load_household(HOUSEHOLD))
-    assert codes["numbers_highlight"] == advisor.numbers_highlight_script(prep, document="portfolio")
+    xlsx = os.path.join(root, "Henderson", "portfolio.xlsx")
+    assert codes["numbers_highlight"] == advisor.numbers_highlight_script(prep, path=xlsx)
     assert codes["notes"].endswith('\tactivate\n\tshow n\nend tell\n')
-    assert codes["notes"].replace("set n to make", "make").replace("\tactivate\n\tshow n\n", "") == \
-        advisor.notes_brief_script(prep)
+    assert codes["notes"].replace("\tactivate\n\tshow n\n", "") == advisor.notes_brief_script(prep)
 
 
-def test_final_bubble_is_deterministic_sum():
+def test_scripts_target_the_opened_file_never_a_name_match(clients):
+    """finance-22: every Numbers write resolves the document by the file path the tool opened."""
+    orch = FakeOrch()
+    assert run(orch) == "ok"
+    codes = {FakeServer.key(m, p): p["code"] for m, p in orch.server.calls if m == "act"}
+    xlsx = os.path.realpath(clients / "Henderson/portfolio.xlsx")
+    for k in ("numbers_wait", "numbers_highlight", "numbers_review"):
+        assert f'if POSIX path of ((file of d) as alias) is "{xlsx}" then set theDoc to contents of d' in codes[k]
+        assert "front document" not in codes[k] and "starts with" not in codes[k]
+        assert 'document "portfolio"' not in codes[k]
+    assert "tell table 1 of sheet \"Holdings\" of theDoc" in codes["numbers_highlight"]
+    assert "\ttell theDoc\n" in codes["numbers_review"]
+
+
+def test_scripts_never_delete_user_content(clients):
+    """finance-14: no Notes delete at all; a Review sheet is replaced only if it carries the Muselet marker."""
+    orch = FakeOrch()
+    assert run(orch) == "ok"
+    codes = {FakeServer.key(m, p): p["code"] for m, p in orch.server.calls if m == "act"}
+    assert "delete" not in codes["notes"]
+    assert 'every note of f whose name is "Henderson — annual review prep (Muselet)"' in codes["notes"]
+    assert "set body of n to" in codes["notes"]
+    review = codes["numbers_review"]
+    assert [ln.strip() for ln in review.splitlines() if ln.strip().startswith("delete")] == ["delete sheet nm"]
+    assert review.index('if exists table "Muselet Allocation" of sheet nm then') < review.index("delete sheet nm")
+    assert 'set nm to "Muselet Review"' in review and 'set nm to nm & " " & i' in review
+    assert 'sheet "Review"' not in review
+
+
+def test_final_bubble_counts_and_never_sums():
+    """finance-16: the amounts are different kinds; the bubble gives the count only."""
     prep = advisor.prep(advisor.load_household(HOUSEHOLD))
-    assert str(tool.total_impact(prep)) == "332328.60"
-    assert tool.final_bubble(prep) == "Brief in Notes: 5 opportunities, $332,329 total impact."
-    assert tool.final_bubble({"opportunities": [{"impact_usd": "10.50"}]}) == \
-        "Brief in Notes: 1 opportunity, $11 total impact."
+    assert tool.final_bubble(prep) == "5 opportunities found. Brief is in Notes."
+    assert tool.final_bubble({"opportunities": [{"impact_usd": "10.50"}]}) == "1 opportunity found. Brief is in Notes."
+    assert tool.final_bubble({"opportunities": []}) == "No opportunities found. Brief is in Notes."
+    assert not hasattr(tool, "total_impact")
 
 
 def test_reads_run_concurrently_with_calendar(clients, monkeypatch):

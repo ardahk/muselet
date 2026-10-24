@@ -1,7 +1,14 @@
 tell application id "com.apple.Numbers"
+	set theDoc to missing value
 	repeat 100 times
-		if (count of (every document whose name starts with "portfolio")) > 0 then exit repeat
+		repeat with d in documents
+			try
+				if POSIX path of ((file of d) as alias) is "<CLIENTS>/Henderson/portfolio.xlsx" then set theDoc to contents of d
+			end try
+		end repeat
+		if theDoc is not missing value then exit repeat
 		delay 0.1
 	end repeat
-	return name of first document whose name starts with "portfolio"
+	if theDoc is missing value then error "Numbers has no open document for <CLIENTS>/Henderson/portfolio.xlsx"
+	return POSIX path of ((file of theDoc) as alias)
 end tell

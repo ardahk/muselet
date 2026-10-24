@@ -381,9 +381,10 @@ def truth() -> dict:
     sentence = next(x for x in re.split(r"(?<=[.!?])\s+|\n", notes)
                     if "lake house" in x.lower() and "down" in x.lower())
     lake = Decimal(re.search(r"\$([\d,]+(?:\.\d\d)?)", sentence).group(1).replace(",", ""))
+    # the only planned expense with an amount; the $5,000 church gift is past spending
     excess = savings - months * monthly - lake
     cash = {"savings": s(savings), "months": months, "monthly_expenses": s(monthly),
-            "emergency_reserve": s(months * monthly), "lake_house_reserve": s(lake),
+            "emergency_reserve": s(months * monthly), "reserves": [{"label": "lake house down payment", "amount": s(lake)}], "reserve_total": s(lake),
             "excess": s(max(excess, Decimal(0)))}
 
     # Roth room
@@ -468,7 +469,7 @@ def check_planted(t: dict) -> None:
     assert len(b) == 1 and b[0]["account"] == TRAD and b[0]["ticker"] == blocked[0]["lot"]["ticker"]
     assert (AS_OF - dt.date.fromisoformat(b[0]["date"])).days == 12
     assert Decimal(t["cash"]["savings"]) > 2 * 6 * Decimal(PROFILE["monthly_expenses"])
-    assert Decimal(t["cash"]["lake_house_reserve"]) == 120000 and Decimal(t["cash"]["excess"]) > 0
+    assert Decimal(t["cash"]["reserve_total"]) == 120000 and Decimal(t["cash"]["excess"]) > 0
     assert t["roth"]["room"] == "61400.00"
     d = t["donation"]["candidates"]
     assert [x["lot"]["ticker"] for x in d] == ["AAPL", "MSFT"], d
