@@ -1,6 +1,6 @@
-# training lane digest — pass 48 (main 806b0d4, wip/local 6b1006e, decisions 08dae49)
+# training lane digest — pass 49 (main a97fcba, wip/local ac41cd2, brain-9 3f9718b)
 
-Open: 0 P0, 14 P1, 16 P2. No new findings. training-49 (memory gate crash) is now on main. Four cloud branches edit cli.py/serve_brain.sh; re-check ROUTER=it3/MUSELET_ROUTE_CATALOG after they merge.
+Open: 0 P0, 14 P1, 16 P2. No new findings. training-44 fix is merged to main (#52); it3 serving is opt-in. brain-9's hidden 'browser' arg leaves router/ARGS parity intact.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
@@ -15,7 +15,7 @@ Open: 0 P0, 14 P1, 16 P2. No new findings. training-49 (memory gate crash) is no
 
 ## Next moves
 1. Read the Tinker console before any more sampling; about $4 left to $148. Unify thresholds.
-2. Merge router-it3-serve, then run test_route_parity v3 + router_check val/route_v2 on the Mac (free).
+2. router-it3 is on main: run test_route_parity v3 + router_check val/route_v2 on the Mac (free).
 3. CPU near-dup audit of the v3m pool vs route_v2; apply the it3 ship rule on the clean subset.
 4. Fix the memory-eval gate tuple shape before any route rebuild.
 5. Send planner-lora step 36 and step 72 to the Mac holdout matrix; dev can't pick between them.
