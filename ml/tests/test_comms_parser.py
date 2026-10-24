@@ -125,3 +125,19 @@ def test_is_messaging(text):
 ])
 def test_email_is_not_messaging(text):
     assert not is_messaging(text)
+
+
+@pytest.mark.parametrize("text,want", [
+    ("send a message saying hello to arda", {"to": "arda", "body": "hello"}),
+    ("send a text saying i'll be late to arda hoke",
+     {"to": "arda hoke", "body": "i'll be late"}),
+    ("send a quick message saying on my way to mom",
+     {"to": "mom", "body": "on my way"}),
+    ("send her a quick text", {"to": None, "body": None}),
+    ("send him a message saying hi", {"to": None, "body": "hi"}),
+    ("tell john to call me", {"to": "john", "body": "call me"}),
+    ("tell siri to call mom", None),
+    ("tell my mac to sleep", None),
+])
+def test_lead_review_phrasings(text, want):
+    assert parse_message(text) == want

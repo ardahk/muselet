@@ -174,6 +174,17 @@ class FakeHandsRuntime:
                     if code == "precondition sentinel":
                         output = "no"
                     result = {"output": output}
+                elif method == "messages_people":
+                    result = {"people": []}
+                elif method == "contacts_search":
+                    result = {"matches": [{
+                        "id": "mom", "name": "Mom", "handles": [{
+                            "kind": "phone", "value": "+15550100",
+                            "label": "mobile"}]}]}
+                elif method == "messages_compose":
+                    result = {"ok": True, "frontmost": True,
+                              "body_visible": True, "recipient_ok": True,
+                              "window_title": "Mom"}
                 else:
                     result = {"ok": True}
                 await ws.send(json.dumps(protocol.rpc_result(
@@ -273,28 +284,23 @@ def test_real_brain_regex_skill_through_bench_proxy(tmp_path):
 
 def test_real_brain_confirm_no_send_refuses_without_rpc(tmp_path, monkeypatch):
     async def scenario():
-        suite_case = next(
-            json.loads(line)
-            for line in (ROOT / "evals/live_t1.jsonl").read_text(encoding="utf-8").splitlines()
-            if json.loads(line).get("id") == "confirm-no-send"
-        )
         calls, confirms, snapshot, trace = await _run_brain_case(
-            suite_case["utterance"],
-            planner=FakePlanner([['confirm "Send it?"', "press #1"]]),
+            "delete the old invoices folder",
+            planner=FakePlanner([['confirm "Delete it?"', "press #1"]]),
             engine=MultiStepEngine(),
-            confirm_reply=suite_case["confirm_reply"],
+            confirm_reply=False,
             trace_dir=tmp_path,
             monkeypatch=monkeypatch,
         )
         assert snapshot["confirm_count"] == 1
         assert any(
             frame["frame"].get("t") == "confirm"
-            and frame["frame"].get("summary") == "Send it?"
+            and frame["frame"].get("summary") == "Delete it?"
             for frame in snapshot["frames"]
         )
         assert any(call["method"] == "observe" for call in calls)
         assert not any(call["method"] in ("act", "skill") for call in calls)
-        assert trace["outcome"] == suite_case["expect_outcome"]
+        assert trace["outcome"] == "cancelled"
 
     asyncio.run(scenario())
 
@@ -410,7 +416,6 @@ def test_run_live_drives_real_brain_and_fake_hands_through_proxy(
             brain, Catalog.load(), Tracer(trace_dir)
         )
         orch.planner = FakePlanner([
-            ['confirm "Send it?"', "press #1"],
             ["press #1"],
             ['done "finished"'],
         ])

@@ -191,6 +191,13 @@ def _parse_message_text(text: str) -> dict | None:
     noun = _NOUN.pattern
     verb = rf"{_VERB}\s+"
     article = rf"(?:{_ART}\s+)?"
+    saying_first = re.match(
+        rf"^{verb}(?:me\s+)?{article}(?:{_QUICK}\s+)?(?:{noun})\s+"
+        rf"(?:saying|that says|which says|to say)\s+(.+)\s+to\s+"
+        rf"([^\s,]+(?:\s+[^\s,]+){{0,2}})$", value, re.IGNORECASE)
+    if saying_first:
+        return _message_parts(saying_first.group(2),
+                              _body(saying_first.group(1)))
     prefix = re.match(
         rf"^{verb}(?:me\s+)?{article}(?:(?!a\b|i\b)[a-z]\s+)?"
         rf"(?:{_QUICK}\s+)?", value, re.IGNORECASE)
@@ -223,7 +230,7 @@ def _parse_message_text(text: str) -> dict | None:
         return _message_parts(to, body)
 
     match = re.match(
-        rf"^{_VERB}\s+(.+?)\s+{article}({_NOUN.pattern})"
+        rf"^{_VERB}\s+(.+?)\s+{article}(?:{_QUICK}\s+)?({_NOUN.pattern})"
         rf"(?:\s+(?:saying|that says|which says|that reads|to say|and say|"
         rf"that|:)\s*(.+))?$", value, re.IGNORECASE)
     if match:
@@ -236,7 +243,7 @@ def _parse_message_text(text: str) -> dict | None:
     if match:
         rest = match.group(1).strip()
         if not _norm(rest).startswith("the "):
-            explicit = re.match(r"^(.+?)\s+that\s+(.+)$", rest,
+            explicit = re.match(r"^(.+?)\s+(?:that|to)\s+(.+)$", rest,
                                 re.IGNORECASE)
             if explicit:
                 name, body_text = explicit.groups()
@@ -257,9 +264,11 @@ def _parse_message_text(text: str) -> dict | None:
                 name = " ".join(rest.split()[:2])
                 body_text = " ".join(rest.split()[2:])
             if 1 <= len(_name_tokens(name)) <= 3 and body_text and \
-                    _norm(name) not in {"me", "us", "it", "this", "that",
-                                        "siri", "muselet"} and \
-                    not _norm(name).startswith("the "):
+                    (_norm(name).split() or [""])[0] not in {
+                        "", "me", "us", "it", "this", "that", "siri", "alexa",
+                        "google", "muselet", "devin", "chatgpt", "claude",
+                        "computer"} and \
+                    not _norm(name).startswith(("the ", "my mac", "my computer")):
                 return _message_parts(name, _body(body_text))
     return None
 
