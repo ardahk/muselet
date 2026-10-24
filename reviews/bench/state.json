@@ -1,13 +1,14 @@
 {
- "pass": 2,
- "ts": "2026-10-24T05:38:39Z",
+ "pass": 3,
+ "ts": "2026-10-24T05:56:40Z",
  "branches": {
-  "main": "10793e0",
-  "wip/local": "1d7cc07",
-  "cloud/data-pipeline": "4cbb74a",
+  "main": "dec310b",
+  "wip/local": "cbc4879",
+  "cloud/bench": "8429245",
+  "cloud/data-pipeline": "8c7c023",
+  "cloud/finance": "529e9ff",
   "cloud/fixtures-docs": "4bf2291",
-  "cloud/finance": "f098120",
-  "cloud/bench": null
+  "cloud/advisor": "9432c30"
  },
- "notes": "cloud/bench still not pushed; no lane files on any branch. Pass 2 diffs touched no bench/*, evals/external, generic_decide.py. decontam.py re-checked for bench-8."
+ "notes": "cloud/bench reviewed in full (statically; bench/tests: 8 passed, 1 skipped (mlx tokenizer test)). No lane changes on main/wip/finance/advisor/fixtures-docs."
 }
