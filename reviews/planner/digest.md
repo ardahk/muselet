@@ -1,4 +1,8 @@
-# planner lane — pass 39 (main 026aff0, wip 98d1401, new brain-8 4546d09, planner-demos 84798ec)
+# planner lane — pass 40 (main dae4b26, wip 972081d = main in this lane, planner-demos 9008990)
+
+Pass 40: no new findings. brain-8 is merged into main, and 9a47376 tightens the permission gate (a matching phrase only counts when the window has an Allow/Deny-style button); no issues. planner-demos gate.py decontaminates synthetic states against the v2-holdout goals, the v1 tune/holdout/holdout2 goals, live_t1 and evals/external (exact, 13-gram, edit<=1) and rejects equal goal+observation pairs; no leakage found. Open findings on main are unchanged: planner-28 (compose_text, no sendgate), planner-24 (orchestrator.py L1263), planner-29 (validator has no few-shot check), planner-6, planner-26, planner-27, planner-25.
+
+## Pass 39 notes
 
 Pass 39: no new findings. planner-29 is now on main (the v2 bench merged without a few-shot overlap check). brain-8 adds a permission-prompt gate: it never answers system permission dialogs, asks the user instead and resumes afterwards. It also adds absolute folder paths and web question answers. I found no issues in a static review. planner-demos uses Anthropic and OpenAI teachers; it doesn't import the planner_v2 or holdout scenarios, so I found no eval leakage. main's HandsKit comms RPCs and the relative-path refusal look fine. Open findings: planner-28, planner-24, planner-6, planner-29 (P1); planner-26, planner-27, planner-25 (P2).
 
