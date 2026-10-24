@@ -1,12 +1,15 @@
 {
- "pass": 3,
+ "pass": 4,
  "reviewed": {
-  "main": "dec310b",
-  "wip/local": "cbc4879",
+  "main": "e78f143",
+  "wip/local": "e0bdc65",
   "cloud/fixtures-docs": "4bf2291",
-  "cloud/data-pipeline": "8c7c023",
+  "cloud/data-pipeline": "153a01c",
   "cloud/finance": "529e9ff",
+  "cloud/finance-2": "f4ae461",
   "cloud/advisor": "9432c30",
-  "cloud/bench": "8429245"
+  "cloud/advisor-2": "ec98013",
+  "cloud/bench": "14c7eb1",
+  "cloud/pitch": "454a563"
  }
 }
