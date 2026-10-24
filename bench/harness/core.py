@@ -200,6 +200,29 @@ async def evaluate_predicate(
         says = _trace_says(context)
         passed = any(expected in text for text in says)
         return {"predicate": predicate, "passed": passed, "actual": says}
+    if "int_at_least_saved" in predicate:
+        name, delta = predicate["int_at_least_saved"]
+        saved = context.get("saved", {})
+        try:
+            bound = float(saved[name]) + float(delta)
+        except (KeyError, TypeError, ValueError):
+            return {"predicate": predicate, "passed": False, "error": f"no saved value {name!r}"}
+        predicate = {
+            key: value for key, value in predicate.items() if key != "int_at_least_saved"
+        } | {"int_between": [bound, float("inf")]}
+    if "rpc" in predicate:
+        try:
+            response = await executor.run_rpc(
+                str(predicate["rpc"]), dict(predicate.get("params", {})),
+                allow_inflight=allow_inflight,
+            )
+            actual = _rpc_actual(response, predicate)
+            passed, observed = _compare(actual, predicate)
+            return {"predicate": predicate, "passed": passed, "actual": observed, "rpc_result": response}
+        except HarnessTimeout:
+            raise
+        except Exception as exc:
+            return {"predicate": predicate, "passed": False, "error": str(exc)}
     lang = next((name for name in _SCRIPT_LANGS if name in predicate), None)
     if lang is None:
         return {"predicate": predicate, "passed": False, "error": "unknown predicate type"}
@@ -214,6 +237,36 @@ async def evaluate_predicate(
         raise
     except Exception as exc:
         return {"predicate": predicate, "passed": False, "error": str(exc)}
+
+
+def _item_matches(item: Any, where: dict[str, Any]) -> bool:
+    if not isinstance(item, dict):
+        return False
+    for key, expected in where.items():
+        value = item.get(key)
+        options = expected if isinstance(expected, list) else [expected]
+        if not any(
+            abs(float(value) - float(option)) <= 1.5
+            if isinstance(option, (int, float)) and isinstance(value, (int, float))
+            else str(value).casefold() == str(option).casefold()
+            for option in options
+        ):
+            return False
+    return True
+
+
+def _rpc_actual(response: dict[str, Any], predicate: dict[str, Any]) -> str:
+    """`count: {path, where}` counts matching list items; `path` alone reads a value."""
+    count = predicate.get("count")
+    path = count.get("path") if isinstance(count, dict) else predicate.get("path")
+    value: Any = response
+    for key in str(path or "").split("."):
+        if key:
+            value = value.get(key) if isinstance(value, dict) else None
+    if isinstance(count, dict):
+        items = value if isinstance(value, list) else []
+        return str(sum(_item_matches(item, count.get("where", {})) for item in items))
+    return value if isinstance(value, str) else json.dumps(value, sort_keys=True)
 
 
 async def evaluate_predicates(
@@ -350,6 +403,175 @@ def _said_success(trace: dict[str, Any] | None, context: dict[str, Any]) -> bool
     return any(re.search(r"\b(done|success(?:ful)?)\b", text, re.IGNORECASE) for text in _trace_says(context))
 
 
+def _turn_reply(frames: list[dict[str, Any]]) -> tuple[str | None, str | None]:
+    """(last final mascot mood, brain reply text) from one turn's frames."""
+    mood = reply = None
+    for item in frames:
+        frame = item.get("frame") if item.get("direction") == "brain_to_hands" else None
+        if not isinstance(frame, dict):
+            continue
+        if frame.get("t") == "say" and frame.get("text"):
+            reply = str(frame["text"])
+        elif frame.get("t") == "ui" and frame.get("mascot") in ("success", "confused", "sleeping"):
+            mood = str(frame["mascot"])
+            if frame.get("bubble") and reply is None:
+                reply = str(frame["bubble"])
+    return mood, reply
+
+
+async def _run_turns(
+    case: dict[str, Any],
+    runtime: Any,
+    result: dict[str, Any],
+    trace_path: Path,
+    poll_interval: float,
+    timeout_s: float,
+) -> tuple[float | None, str | None, float | None, float | None, str]:
+    """Send `case["turns"]` in order on one HandsKit client (one brain session).
+
+    Each turn waits for its final outcome, then `wait_s`, then its own `check`s
+    (a check with `save` stores its observed value for later `int_at_least_saved`).
+    Returns (t0, started_wall, first_action_latency, verified_latency, utterance)
+    of the last turn sent; the caller grades the case's top-level checks.
+    """
+    turns = case["turns"]
+    texts = [str(turn["utterance"]) for turn in turns]
+    saved: dict[str, Any] = result.setdefault("saved_values", {})
+    records: list[dict[str, Any]] = result.setdefault("turns", [])
+    total_s = sum(float(turn.get("timeout_s", timeout_s)) + float(turn.get("wait_s", 1.0)) + 15 for turn in turns)
+    t0 = started_wall = first_action_latency = verified_latency = None
+    utterance = texts[0]
+    turns_ok = True
+    for index, turn in enumerate(turns):
+        utterance = texts[index]
+        turn_timeout = float(turn.get("timeout_s", timeout_s))
+        record: dict[str, Any] = {
+            "index": index + 1,
+            "utterance": utterance,
+            "confirm_reply": turn.get("confirm_reply", case.get("confirm_reply")),
+        }
+        records.append(record)
+        if index and not await runtime.wait_next_turn(turn_timeout + 15):
+            record.update({"status": "not_sent", "passed": False})
+            turns_ok = False
+            break
+        frame_start = len(runtime.snapshot().get("frames", []))
+        runtime.begin_turn(record["confirm_reply"])
+        if index:
+            await runtime.send_next_turn()
+        else:
+            await runtime.start_turns(texts, timeout_s=total_s)
+        capture = runtime.snapshot()
+        t0 = getattr(runtime, "utterance_monotonic", None)
+        started_wall = capture.get("utterance_wall")
+        deadline = (t0 if t0 is not None else time.monotonic()) + turn_timeout
+        first_action_latency = verified_latency = None
+        last = index == len(turns) - 1
+        trace = None
+        while time.monotonic() < deadline:
+            capture = runtime.snapshot()
+            trace = find_trace_record(trace_path, utterance, started_wall)
+            if trace is not None and runtime.terminal_monotonic is None:
+                runtime.mark_utterance_finished()
+            first = runtime.first_action_monotonic
+            if first is not None and t0 is not None:
+                first_action_latency = max(0.0, first - t0)
+                if last:
+                    context = {
+                        "capture": capture, "trace": trace, "utterance": utterance,
+                        "started_wall": started_wall, "saved": saved,
+                    }
+                    observations = await evaluate_predicates(
+                        case.get("check", []), runtime, context, allow_inflight=True
+                    )
+                    result["check_observations"].append({
+                        "at_s": max(0.0, time.monotonic() - t0),
+                        "phase": "poll", "turn": index + 1, "observations": observations,
+                    })
+                    if (
+                        verified_latency is None
+                        and all(item["passed"] for item in observations)
+                        and outcome_matches(case.get("expect_outcome"), trace, capture)
+                    ):
+                        verified_latency = max(0.0, time.monotonic() - t0)
+            if runtime.terminal_monotonic is not None:
+                break
+            await asyncio.sleep(min(poll_interval, max(0.0, deadline - time.monotonic())))
+        timed_out = runtime.terminal_monotonic is None
+        terminal = runtime.terminal_monotonic
+        if not timed_out:
+            await asyncio.sleep(float(turn.get("wait_s", 1.0)))
+            trace = trace or find_trace_record(trace_path, utterance, started_wall)
+        capture = runtime.snapshot()
+        mood, reply = _turn_reply(capture.get("frames", [])[frame_start:])
+        record.update({
+            "status": "timed_out" if timed_out else "done",
+            "observed_outcome": trace.get("outcome") if trace else None,
+            "mood": mood,
+            "reply": reply,
+            "latency_s": max(0.0, terminal - t0) if terminal is not None and t0 is not None else None,
+            "first_action_latency_s": first_action_latency,
+            "started_wall": started_wall,
+        })
+        if timed_out:
+            turns_ok = False
+            break
+        passed = True
+        if "expect_outcome" in turn:
+            record["outcome_pass"] = outcome_matches(turn["expect_outcome"], trace, capture)
+            passed = record["outcome_pass"]
+        if turn.get("check"):
+            context = {
+                "capture": capture, "trace": trace, "utterance": utterance,
+                "started_wall": started_wall, "saved": saved,
+            }
+            checks = await evaluate_predicates(turn["check"], runtime, context)
+            for predicate, item in zip(turn["check"], checks):
+                if isinstance(predicate, dict) and predicate.get("save") and "actual" in item:
+                    saved[str(predicate["save"])] = item["actual"]
+            record["check_observations"] = checks
+            passed = passed and all(item["passed"] for item in checks)
+        record["passed"] = passed
+        turns_ok = turns_ok and passed
+    result["turns_ok"] = turns_ok
+    result["timed_out"] = any(item.get("status") == "timed_out" for item in records)
+    if result["timed_out"]:
+        await runtime.prepare_for_cleanup()
+    return t0, started_wall, first_action_latency, verified_latency, utterance
+
+
+async def _cancel_timers(runtime: Any, step: dict[str, Any], result: dict[str, Any]) -> None:
+    """Teardown `{"cancel_timers": {"where": {...}}}`: cancel each matching `timers` entry by id.
+
+    Only safe when a precondition proved no matching timer existed before the case.
+    """
+    where = dict(step["cancel_timers"].get("where", {}))
+    try:
+        listing = await runtime.run_rpc("timers", {})
+        targets = [
+            item for item in listing.get("timers", []) if _item_matches(item, where)
+        ]
+        outcomes = []
+        for item in targets:
+            try:
+                outcomes.append(await runtime.run_rpc("timers_cancel", {"id": item.get("id")}))
+            except HarnessTimeout:
+                raise
+            except Exception as exc:
+                outcomes.append({"ok": False, "id": item.get("id"), "error": str(exc)})
+        result["teardown_observations"].append({"step": step, "targets": targets, "result": outcomes})
+        if any(
+            not outcome.get("ok", True) or outcome.get("unsupported") or outcome.get("failed")
+            for outcome in outcomes
+        ):
+            result["teardown_incomplete"] = True
+    except HarnessTimeout:
+        raise
+    except Exception as exc:
+        result["teardown_observations"].append({"step": step, "error": str(exc)})
+        result["teardown_incomplete"] = True
+
+
 def _precondition_steps(case: dict[str, Any]) -> list[Any]:
     predicates = case.get("precondition", [])
     if predicates is None:
@@ -387,6 +609,8 @@ async def run_case(
     """Run one live-style task, keeping all safety and grading logic shared."""
     case = resolve_templates(case, values)
     utterance = str(case.get("utterance", case.get("text", "")))
+    if case.get("turns"):
+        utterance = " → ".join(str(turn.get("utterance", "")) for turn in case["turns"])
     precondition_steps = _precondition_steps(case)
     result: dict[str, Any] = {
         "id": case.get("id"),
@@ -608,48 +832,53 @@ async def run_case(
         }
         if setup_error is None:
             timeout_s = float(case.get("timeout_s", 30))
-            if "timeout_s" in inspect.signature(runtime.start_utterance).parameters:
-                await runtime.start_utterance(utterance, timeout_s=timeout_s)
+            if case.get("turns"):
+                (
+                    t0, started_wall, first_action_latency, verified_latency, utterance,
+                ) = await _run_turns(case, runtime, result, trace_path, poll_interval, timeout_s)
             else:
-                await runtime.start_utterance(utterance)
-            capture = runtime.snapshot()
-            t0 = getattr(runtime, "utterance_monotonic", None)
-            started_wall = capture.get("utterance_wall")
-            deadline = (t0 if t0 is not None else time.monotonic()) + timeout_s
-            first_action_latency = None
-            verified_latency = None
-            while time.monotonic() < deadline:
+                if "timeout_s" in inspect.signature(runtime.start_utterance).parameters:
+                    await runtime.start_utterance(utterance, timeout_s=timeout_s)
+                else:
+                    await runtime.start_utterance(utterance)
                 capture = runtime.snapshot()
-                trace = find_trace_record(trace_path, utterance, started_wall)
-                if trace is not None and runtime.terminal_monotonic is None:
-                    runtime.mark_utterance_finished()
-                first = runtime.first_action_monotonic
-                if first is not None and t0 is not None:
-                    first_action_latency = max(0.0, first - t0)
-                    check_context = {
-                        "capture": capture, "trace": trace, "utterance": utterance,
-                        "started_wall": started_wall,
-                    }
-                    observations = await evaluate_predicates(
-                        case.get("check", []), runtime, check_context, allow_inflight=True
-                    )
-                    result["check_observations"].append({
-                        "at_s": max(0.0, time.monotonic() - t0),
-                        "phase": "poll",
-                        "observations": observations,
-                    })
-                    checks_pass = all(item["passed"] for item in observations)
-                    expected_pass = outcome_matches(case.get("expect_outcome"), trace, capture)
-                    if checks_pass and expected_pass and verified_latency is None:
-                        verified_latency = max(0.0, time.monotonic() - t0)
-                if runtime.terminal_monotonic is not None:
-                    break
-                await asyncio.sleep(min(poll_interval, max(0.0, deadline - time.monotonic())))
-            if runtime.terminal_monotonic is None:
-                result["timed_out"] = True
-                await runtime.prepare_for_cleanup()
-            else:
-                result["timed_out"] = False
+                t0 = getattr(runtime, "utterance_monotonic", None)
+                started_wall = capture.get("utterance_wall")
+                deadline = (t0 if t0 is not None else time.monotonic()) + timeout_s
+                first_action_latency = None
+                verified_latency = None
+                while time.monotonic() < deadline:
+                    capture = runtime.snapshot()
+                    trace = find_trace_record(trace_path, utterance, started_wall)
+                    if trace is not None and runtime.terminal_monotonic is None:
+                        runtime.mark_utterance_finished()
+                    first = runtime.first_action_monotonic
+                    if first is not None and t0 is not None:
+                        first_action_latency = max(0.0, first - t0)
+                        check_context = {
+                            "capture": capture, "trace": trace, "utterance": utterance,
+                            "started_wall": started_wall,
+                        }
+                        observations = await evaluate_predicates(
+                            case.get("check", []), runtime, check_context, allow_inflight=True
+                        )
+                        result["check_observations"].append({
+                            "at_s": max(0.0, time.monotonic() - t0),
+                            "phase": "poll",
+                            "observations": observations,
+                        })
+                        checks_pass = all(item["passed"] for item in observations)
+                        expected_pass = outcome_matches(case.get("expect_outcome"), trace, capture)
+                        if checks_pass and expected_pass and verified_latency is None:
+                            verified_latency = max(0.0, time.monotonic() - t0)
+                    if runtime.terminal_monotonic is not None:
+                        break
+                    await asyncio.sleep(min(poll_interval, max(0.0, deadline - time.monotonic())))
+                if runtime.terminal_monotonic is None:
+                    result["timed_out"] = True
+                    await runtime.prepare_for_cleanup()
+                else:
+                    result["timed_out"] = False
             after_utterance = case.get("after_utterance")
             if callable(after_utterance):
                 try:
@@ -674,6 +903,8 @@ async def run_case(
                 "capture": capture, "trace": trace, "utterance": utterance,
                 "started_wall": started_wall,
             }
+            if "saved_values" in result:
+                check_context["saved"] = result["saved_values"]
             checks = await evaluate_predicates(case.get("check", []), runtime, check_context)
             settle_deadline = time.monotonic() + float(case.get("settle_s", FINAL_SETTLE_S))
             while not all(item["passed"] for item in checks) and time.monotonic() < settle_deadline:
@@ -709,6 +940,7 @@ async def run_case(
                 and not any(item["passed"] for item in forbids)
                 and not capture.get("confirm_asked_unexpectedly", False)
                 and not capture.get("safety_blocked", False)
+                and result.get("turns_ok", True)
             )
             result.update({
                 "status": "passed" if strict_pass else "failed",
@@ -831,6 +1063,16 @@ async def run_case(
                     result["teardown_observations"].append({"step": "callable", "error": str(exc)})
                     result["strict_pass"] = False
                     result["status"] = "failed"
+                continue
+            if isinstance(step, dict) and "cancel_timers" in step:
+                try:
+                    await _cancel_timers(runtime, step, result)
+                except HarnessTimeout as exc:
+                    note_timeout(exc)
+                    if timeout_slot_held:
+                        return await abort_held_slot(teardown_steps=[
+                            pending for pending in case.get("teardown", []) if pending is not step
+                        ])
                 continue
             lang = next((key for key in _SCRIPT_LANGS if key in step), None)
             if lang is None:

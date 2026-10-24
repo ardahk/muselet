@@ -46,8 +46,51 @@ def _load_suite(path: Path) -> list[dict[str, Any]]:
         if case_id in ids:
             raise ValueError(f"{path}:{line_number}: duplicate id {case_id!r}")
         ids.add(case_id)
+        if "turns" in case:
+            error = _turns_error(case)
+            if error:
+                raise ValueError(f"{path}:{line_number}: {case_id}: {error}")
         cases.append(case)
     return cases
+
+
+def _turns_error(case: dict[str, Any]) -> str | None:
+    turns = case.get("turns")
+    if "utterance" in case or "text" in case:
+        return "use either turns or utterance, not both"
+    if not isinstance(turns, list) or not turns:
+        return "turns must be a non-empty list"
+    for number, turn in enumerate(turns, 1):
+        if not isinstance(turn, dict) or not str(turn.get("utterance", "")).strip():
+            return f"turn {number} has no utterance"
+        if turn.get("confirm_reply", None) not in (None, True, False):
+            return f"turn {number} confirm_reply must be null, true or false"
+        if not isinstance(turn.get("check", []), list):
+            return f"turn {number} check must be a list"
+        wait_s = turn.get("wait_s", 1.0)
+        if isinstance(wait_s, bool) or not isinstance(wait_s, (int, float)) or wait_s < 0:
+            return f"turn {number} wait_s must be a number >= 0"
+    return None
+
+
+def _case_utterance(case: dict[str, Any]) -> str | None:
+    if case.get("turns"):
+        return " → ".join(str(turn["utterance"]) for turn in case["turns"])
+    return case.get("utterance")
+
+
+def _turn_steps(case: dict[str, Any]) -> list[str]:
+    steps = []
+    for number, turn in enumerate(case["turns"], 1):
+        step = f"turn {number}: {turn['utterance']!r}"
+        reply = turn.get("confirm_reply", case.get("confirm_reply"))
+        if reply is not None:
+            step += f" confirm_reply={str(reply).lower()}"
+        step += f" wait_s={turn.get('wait_s', 1.0)}"
+        if turn.get("check"):
+            step += f" turn-checks={len(turn['check'])}"
+        steps.append(step)
+    return steps
 
 
 def _values(args: argparse.Namespace) -> dict[str, str]:
@@ -97,7 +140,10 @@ def _step_order(case: dict[str, Any], *, report_only: bool = False) -> list[str]
         steps.append("restore-get")
     if case.get("setup"):
         steps.append("setup")
-    steps.extend(("utterance", "poll-checks", "final-checks"))
+    if case.get("turns"):
+        steps.extend((*_turn_steps(case), "poll-checks", "final-checks"))
+    else:
+        steps.extend(("utterance", "poll-checks", "final-checks"))
     if case.get("forbid"):
         steps.append("forbid")
     if case.get("teardown"):
@@ -150,6 +196,16 @@ def _dry_run(cases: list[dict[str, Any]], args: argparse.Namespace) -> int:
             "resolved": resolve_templates(case, values),
             "step_order": _step_order(case, report_only=pending_report),
         })
+        if case.get("turns"):
+            rows[-1]["turns"] = [
+                {
+                    "utterance": turn["utterance"],
+                    "confirm_reply": turn.get("confirm_reply", case.get("confirm_reply")),
+                    "wait_s": turn.get("wait_s", 1.0),
+                    "checks": len(turn.get("check", [])),
+                }
+                for turn in resolve_templates(case["turns"], values)
+            ]
     print(json.dumps({
         "suite": str(args.suite),
         "cases": len(cases),
@@ -267,7 +323,7 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
                             "tier": case.get("tier"),
                             "category": case.get("category"),
                             "kind": case.get("category"),
-                            "utterance": case.get("utterance"),
+                            "utterance": _case_utterance(case),
                             "expect_outcome": case.get("expect_outcome"),
                             "confirm_reply": case.get("confirm_reply"),
                             "repeat": repeat,
@@ -441,7 +497,7 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
                                 "id": case["id"], "tier": case.get("tier"),
                                 "category": case.get("category"),
                                 "kind": case.get("category"),
-                                "utterance": case.get("utterance"),
+                                "utterance": _case_utterance(case),
                                 "status": "failed", "strict_pass": False,
                                 "error": str(exc),
                             }
@@ -493,7 +549,7 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
             {
                 "id": case.get("id"),
                 "category": case.get("category"),
-                "utterance": case.get("utterance"),
+                "utterance": _case_utterance(case),
                 "expected_outcome": case.get("expect_outcome"),
                 "result_count": sum(row.get("id") == case.get("id") for row in all_results),
             }
