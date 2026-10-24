@@ -1,10 +1,10 @@
 {
-  "pass": 6,
-  "ts": "2026-10-24T06:30:15Z",
+  "pass": 7,
+  "ts": "2026-10-24T06:49:41Z",
   "last_reviewed": {
     "main": "c2d2988",
     "wip/local": "e0bdc65",
-    "cloud/data-pipeline": "153a01c",
+    "cloud/data-pipeline": "8f0b9bc",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
     "cloud/finance-2": "f4ae461",
@@ -12,7 +12,8 @@
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "ec98013",
     "cloud/pitch": "454a563",
-    "cloud/grounding": "42310cd"
+    "cloud/grounding": "42310cd",
+    "cloud/brain-2": "9f41c11"
   },
   "next_id": 21,
   "mode": "self-poll (lead offline)"
