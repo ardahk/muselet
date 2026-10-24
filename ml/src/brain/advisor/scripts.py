@@ -100,8 +100,8 @@ def numbers_review_script(prep: dict, document: str | None = None, sheet: str = 
 
 
 def notes_brief_script(prep: dict, phrasing: dict | None = None, folder: str = "Clients",
-                       title: str | None = None) -> str:
-    """Create (or replace) the prep note in `folder` of the default Notes account."""
+                       title: str | None = None, reveal: bool = False) -> str:
+    """Create (or replace) the prep note in `folder` of the default Notes account; `reveal` brings it on screen."""
     title = title or NOTE_TITLE.format(household=prep["household"])
     body = brief_html(brief_markdown(prep, phrasing))
     return "\n".join([
@@ -112,6 +112,52 @@ def notes_brief_script(prep: dict, phrasing: dict | None = None, folder: str = "
         f"\trepeat with n in (get every note of f whose name is {q(title)})",
         "\t\tdelete n",
         "\tend repeat",
-        f"\tmake new note at f with properties {{name:{q(title)}, body:{q(body)}}}",
+        f"\t{'set n to ' if reveal else ''}make new note at f with properties {{name:{q(title)}, body:{q(body)}}}",
+        *(["\tactivate", "\tshow n"] if reveal else []),
+        "end tell",
+    ]) + "\n"
+
+
+CALENDAR_ID = "com.apple.iCal"
+
+
+def calendar_lookup_script(name: str, days: int = 30) -> str:
+    """Bring Calendar forward, find the earliest event in [today, today + days) whose title contains `name`,
+    show its day and return "summary<LF>start ISO<LF>end ISO" (empty string when there is none)."""
+    return "\n".join([
+        f"tell application id {q(CALENDAR_ID)}",
+        "\tactivate",
+        "\tset d0 to (current date) - (time of (current date))",
+        f"\tset d1 to d0 + {int(days)} * days",
+        "\tset best to missing value",
+        "\trepeat with c in calendars",
+        f"\t\trepeat with e in (every event of c whose summary contains {q(name)} and "
+        "start date is greater than or equal to d0 and start date is less than d1)",
+        "\t\t\tif best is missing value then",
+        "\t\t\t\tset best to contents of e",
+        "\t\t\telse if start date of e < start date of best then",
+        "\t\t\t\tset best to contents of e",
+        "\t\t\tend if",
+        "\t\tend repeat",
+        "\tend repeat",
+        "\tif best is missing value then return \"\"",
+        "\tset s to start date of best",
+        "\tswitch view to day view",
+        "\tview calendar at s",
+        "\treturn (summary of best) & linefeed & (s as «class isot» as string) & linefeed & "
+        "((end date of best) as «class isot» as string)",
+        "end tell",
+    ]) + "\n"
+
+
+def numbers_wait_script(prefix: str = "portfolio", tries: int = 100) -> str:
+    """Wait (polling, <= tries x 0.1 s) until Numbers has a document whose name starts with `prefix`; return its name."""
+    return "\n".join([
+        f"tell application id {q(NUMBERS_ID)}",
+        f"\trepeat {int(tries)} times",
+        f"\t\tif (count of (every document whose name starts with {q(prefix)})) > 0 then exit repeat",
+        "\t\tdelay 0.1",
+        "\tend repeat",
+        f"\treturn name of first document whose name starts with {q(prefix)}",
         "end tell",
     ]) + "\n"
