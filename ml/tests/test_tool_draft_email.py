@@ -1,7 +1,10 @@
 """Draft-email parsing, composition, and explicit send confirmation."""
 
 import asyncio
+import copy
 from urllib.parse import parse_qs, urlparse
+
+import pytest
 
 from brain.catalog import Catalog
 from brain.orchestrator import Orchestrator
@@ -184,6 +187,9 @@ def test_no_model_signin_and_send_draft(monkeypatch, tmp_path):
 
     o._draft = {"target": "mail", "app": "Mail", "window_title": "Inbox",
                 "to": "ada@example.com", "reply": False, "t": 0}
+    obs["elements"] = [
+        {"ref": 1, "role": "textfield", "label": "To", "value": "ada@example.com"},
+        {"ref": 2, "role": "textfield", "label": "Subject", "value": "Hello"}]
     o.server.confirm_yes = True
     o.server.handlers["act"] = lambda _: {"ok": True}
     assert run(draft_email.send_draft(o)) == "ok"
@@ -203,3 +209,55 @@ def test_send_draft_denied_and_precondition(monkeypatch, tmp_path):
                 "to": None, "reply": False, "t": 1}
     assert run(draft_email.send_draft(o)) == "failed"
     assert o.server.said[-1] == "The draft isn't in front anymore"
+
+
+@pytest.mark.parametrize("target, app", [("mail", "Mail"), ("gmail", "Chrome")])
+@pytest.mark.parametrize("change", ["none", "app", "window", "recipient", "subject",
+                                    "body", "draft_ref", "missing", "error"])
+def test_send_draft_rechecks_after_confirm(tmp_path, target, app, change):
+    obs = {"epoch": 1, "app": app, "window": "Draft - Gmail" if target == "gmail" else "Hello",
+           "elements": [
+               {"ref": 1, "role": "textfield", "label": "To", "value": "ada@example.com"},
+               {"ref": 2, "role": "textfield", "label": "Subject", "value": "Hello"},
+               {"ref": 3, "role": "textarea", "label": "Message body", "value": "Hi Ada"}]}
+    state = {"obs": obs}
+    o = make_orch(tmp_path, obs, act=lambda _: {"ok": True})
+
+    def observe(_):
+        if state["obs"] == "error":
+            raise RuntimeError("observe failed")
+        return state["obs"]
+
+    o.server.handlers["observe"] = observe
+    o._draft = {"target": target, "app": app, "window_title": obs["window"],
+                "to": "ada@example.com", "reply": False}
+
+    async def confirm(summary):
+        fresh = copy.deepcopy(obs)
+        fresh["epoch"] = 2
+        if change in ("app", "window"):
+            fresh[change] = "Other"
+        elif change in ("recipient", "subject", "body"):
+            index = {"recipient": 0, "subject": 1, "body": 2}[change]
+            fresh["elements"][index]["value"] = "Different"
+        elif change == "draft_ref":
+            fresh["elements"][2]["ref"] = 30
+        state["obs"] = {} if change == "missing" else "error" if change == "error" else fresh
+        return True
+
+    o.server.ask_confirm = confirm
+    assert run(draft_email.send_draft(o)) == ("ok" if change == "none" else "failed")
+    acts = [p for method, p in o.server.rpcs if method == "act"]
+    if change == "none":
+        assert acts == [{"op": "keys", "combo": "cmd+shift+d" if target == "mail" else "cmd+return",
+                         "epoch": 2}]
+    else:
+        assert not acts
+    assert o._draft is None
+
+
+def test_send_draft_unreadable_headers_never_sends(tmp_path):
+    o = make_orch(tmp_path, {"app": "Mail", "window": "Hello", "elements": []})
+    o._draft = {"target": "mail", "app": "Mail", "window_title": "Hello", "reply": True}
+    assert run(draft_email.send_draft(o)) == "failed"
+    assert "act" not in o.server.methods()
