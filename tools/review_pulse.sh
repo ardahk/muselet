@@ -7,7 +7,7 @@ cd "$(git rev-parse --show-toplevel)"
 INTERVAL=${INTERVAL:-900}
 TRAINING_SESSION=${TRAINING_SESSION:-25d3d0c17f9e454f8078f13d3b4f00ea}
 state=runs/review_pulse.state
-guard_state=runs/tinker_guard.state
+guard_state=runs/tinker_guard.state.v120-140   # keyed by thresholds: a level sent under older caps never suppresses a new warning
 while true; do
   tools/push_wip.sh || echo "$(date +%T) wip push failed"
   git fetch -q --prune origin
