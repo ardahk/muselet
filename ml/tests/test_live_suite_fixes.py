@@ -43,6 +43,9 @@ class ResultServer(FakeServer):
         return await super().rpc(method, params, timeout)
 
 
+DOWNLOADS = os.path.expanduser("~/Downloads")
+
+
 def _orch(tmp_path, routes, args=None, server=None):
     engine = FakeEngine(routes, args or {})
     o = Orchestrator(server or FakeServer(), Catalog.load(),
@@ -168,12 +171,12 @@ def test_vague_delta_and_absolute_level(tmp_path, text, skill, args,
     assert _skill_rpcs(o.server) == [(want_name, want_args)]
 
 
-def test_model_delta_is_not_overridden(tmp_path):
-    text = "make it way louder"
+def test_model_delta_keeps_its_sign_without_degree_word(tmp_path):
+    text = "make it louder"
     o, _ = _orch(tmp_path, {text: ("change_volume", 0.95)},
-                 {("change_volume", text): {"delta": -5}})
+                 {("change_volume", text): {"delta": 5}})
     run(o.handle_utterance(text))
-    assert _skill_rpcs(o.server) == [("change_volume", {"delta": -5})]
+    assert _skill_rpcs(o.server) == [("change_volume", {"delta": 5})]
 
 
 def test_abs_level_relative_guard_and_words():
@@ -201,7 +204,7 @@ def test_open_folder_extracts_finder_view(tmp_path, text, view):
                  {("open_folder", text): {"path": "downloads"}})
     run(o.handle_utterance(text))
     assert _skill_rpcs(o.server) == [
-        ("open_folder", {"path": "downloads", "view": view})]
+        ("open_folder", {"path": DOWNLOADS, "view": view})]
 
 
 def test_open_folder_retries_without_view_and_sends_key_combo(tmp_path):
@@ -219,9 +222,11 @@ def test_open_folder_retries_without_view_and_sends_key_combo(tmp_path):
         {("open_folder", text): {"path": "downloads"}}, server)
     run(o.handle_utterance(text))
     assert _skill_rpcs(server) == [
-        ("open_folder", {"path": "downloads", "view": "list"}),
-        ("open_folder", {"path": "downloads"})]
-    assert ("act", {"op": "keys", "combo": "cmd+2"}) in server.rpcs
+        ("open_folder", {"path": DOWNLOADS, "view": "list"}),
+        ("open_folder", {"path": DOWNLOADS})]
+    assert any(method == "act" and params.get("op") == "keys" and
+               params.get("combo") == "cmd+2"
+               for method, params in server.rpcs)
     assert any({"view_fallback": "list"} in trace["decisions"]
                for trace in _traces(o.tracer))
 
@@ -264,7 +269,7 @@ def test_open_folder_not_frontmost_does_not_send_view_fallback_keys(tmp_path):
     assert outcome["outcome"] == "failed"
     assert server.said[-1] == "Opened it, but it didn't come to the front"
     assert _skill_rpcs(server) == [
-        ("open_folder", {"path": "downloads", "view": "list"})]
+        ("open_folder", {"path": DOWNLOADS, "view": "list"})]
     assert not any(method == "act" and params.get("op") == "keys"
                    for method, params in server.rpcs)
 
@@ -274,7 +279,7 @@ def test_open_folder_without_view_words_has_no_view_arg(tmp_path):
     o, _ = _orch(tmp_path, {text: ("open_folder", 0.95)},
                  {("open_folder", text): {"path": "downloads"}})
     run(o.handle_utterance(text))
-    assert _skill_rpcs(o.server) == [("open_folder", {"path": "downloads"})]
+    assert _skill_rpcs(o.server) == [("open_folder", {"path": DOWNLOADS})]
 
 
 def test_path_aliases_and_object_phrases():
@@ -363,7 +368,7 @@ def test_path_ambiguity_and_missing_path_ask_without_rpc(tmp_path, monkeypatch):
         "I couldn't find unknown document. Which file?"
 
 
-def test_existing_path_and_folder_alias_are_not_resolved(tmp_path):
+def test_existing_path_and_folder_alias_skip_the_fuzzy_resolver(tmp_path):
     existing = tmp_path / "report.pdf"
     existing.write_text("x")
     text = "open report"
@@ -377,7 +382,7 @@ def test_existing_path_and_folder_alias_are_not_resolved(tmp_path):
                   {("open_folder", folder): {"path": "downloads"}})
     run(o2.handle_utterance(folder))
     assert _skill_rpcs(o2.server) == [
-        ("open_folder", {"path": "downloads"})]
+        ("open_folder", {"path": DOWNLOADS})]
 
 
 def test_path_phrase_resolves_when_model_omits_path(tmp_path, monkeypatch):
@@ -456,8 +461,10 @@ def test_compound_new_folder_then_open_uses_alias_path(tmp_path):
                                  "name": "trip photos"}})
     run(o.handle_utterance(text))
     assert _skill_rpcs(o.server) == [
-        ("new_folder", {"parent": "my desktop", "name": "trip photos"}),
-        ("open_folder", {"path": "~/Desktop/trip photos"})]
+        ("new_folder", {"parent": os.path.expanduser("~/Desktop"),
+                        "name": "trip photos"}),
+        ("open_folder",
+         {"path": os.path.expanduser("~/Desktop/trip photos")})]
     assert any("compound_followup" in decision
                for trace in _traces(o.tracer)
                for decision in trace["decisions"])
