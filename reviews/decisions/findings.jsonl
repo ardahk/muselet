@@ -74,3 +74,8 @@
 {"id": "decisions-12", "pass": 12, "ts": "2026-10-24T11:25:00Z", "status": "open", "branch": "cloud/decisions", "sha": "6d395df", "evidence": "Unchanged; not rebased."}
 {"id": "decisions-13", "pass": 12, "ts": "2026-10-24T11:25:00Z", "status": "open", "branch": "main", "sha": "d502b78", "evidence": "Unchanged."}
 {"id": "decisions-14", "pass": 12, "ts": "2026-10-24T11:25:00Z", "status": "open", "branch": "main", "sha": "d502b78", "evidence": "Unchanged."}
+{"id": "decisions-20", "pass": 13, "ts": "2026-10-24T11:40:00Z", "status": "open", "branch": "cloud/pitch-3", "sha": "e203181", "evidence": "Partly fixed on cloud/pitch-3 (not main): claims.md:13,36-48 now quote route_acc on route_v1_clean (103) with the 37-exclusion disclosure. Still open: claims.md:17 live_t1_pass/43 on the full live_t1 (10 cases near-dup in main-final training), no clean live subset. main 7147694 claims.md unchanged."}
+{"id": "decisions-13", "pass": 13, "ts": "2026-10-24T11:40:00Z", "status": "open", "branch": "cloud/pitch-3", "sha": "e203181", "evidence": "claims.md:13@e203181 still says 'top-1'; .864 comes from runs/router/r2_self_clean.json (Mac-only), so whether it is ungated or at tau .45 is not verifiable; state which in the row."}
+{"id": "decisions-14", "pass": 13, "ts": "2026-10-24T11:40:00Z", "status": "open", "branch": "cloud/pitch-3", "sha": "e203181", "evidence": "claims.md:17@e203181 unchanged (live run pending)."}
+{"id": "decisions-17", "pass": 13, "ts": "2026-10-24T11:40:00Z", "status": "open", "branch": "cloud/decisions", "sha": "6d395df", "evidence": "Unchanged."}
+{"id": "decisions-12", "pass": 13, "ts": "2026-10-24T11:40:00Z", "status": "open", "branch": "cloud/decisions", "sha": "6d395df", "evidence": "Unchanged; not rebased."}
