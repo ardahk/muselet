@@ -221,7 +221,7 @@ class Planner:
 
     def __init__(self, model_path: str, catalog, engine: DecisionEngine | None = None,
                  constrain: bool = PLANNER_CONSTRAIN_DEFAULT, done_alone: bool = True,
-                 few_shot: str | None = FEWSHOT_PATH, history: str = "marked"):
+                 few_shot: str | None = FEWSHOT_PATH, history: str = "dsl"):
         if history not in HISTORY_FORMATS:
             raise ValueError(f"history must be one of {HISTORY_FORMATS}")
         self.model_path = model_path

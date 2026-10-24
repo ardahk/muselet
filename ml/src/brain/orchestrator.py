@@ -131,9 +131,9 @@ def abs_level(text: str) -> int | None:
         if marker in ("to", "at"):
             if marker == "to" and k in ends:  # 'two to three': a range
                 continue
-            if nxt == "percent" or nxt not in _REL_UNITS:
-                if 0 <= v <= 100 and v == int(v):
-                    return int(v)
+            if (nxt == "percent" or nxt not in _REL_UNITS) and \
+                    0 <= v <= 100 and v == int(v):
+                return int(v)
             continue
         prev = toks[i - 1] if i else ""
         if nxt == "percent" and prev not in ("by",) and prev not in _UP \
@@ -168,7 +168,7 @@ def rel_delta(text: str) -> int | None:
         amt = 10
     if amt is None:
         return None
-    return sign * int(round(min(amt, 100)))
+    return sign * round(min(amt, 100))
 
 
 _JOIN = re.compile(r",?\s+(and\s+then|then|and)\s+", re.IGNORECASE)
@@ -266,6 +266,8 @@ class Orchestrator:
         self.engine = engine
         self.tau = tau
         self.planner = None
+        self.planner_escalate = None    # opt-in bigger planner (loop guard)
+        self._active_planner = None
         self._ms_kind = None
         self._last_epoch = None
         self._last_obs = None
@@ -797,7 +799,7 @@ class Orchestrator:
     def _batch_line(self, act: str, res: str, legacy: str) -> str:
         """One Last-batch line in the planner's history format: marked
         `[ok] <dsl>`, dsl `<dsl> -> ok`, repr = the legacy dict-repr line."""
-        fmt = getattr(self.planner, "history", "marked")
+        fmt = getattr(self._active_planner or self.planner, "history", "dsl")
         if fmt == "repr":
             return legacy
         if fmt == "dsl":
@@ -1049,6 +1051,8 @@ class Orchestrator:
         obs_text = ""
         diffs: list[str] | None = None
         fail_streak, prev_fail_key = 0, None
+        planner, escalated = self.planner, False
+        self._active_planner = planner
         for turn in range(12):
             if time.perf_counter() - t_start > 60:
                 break
@@ -1076,7 +1080,7 @@ class Orchestrator:
             cancel = threading.Event()
             loop = asyncio.get_running_loop()
             fut = worker().submit(
-                self.planner.plan, goal, obs_text, last_batch, q, loop,
+                planner.plan, goal, obs_text, last_batch, q, loop,
                 cancel, hint, self._script_output)
             self._script_output = None   # consumed by this turn
             self._current_goal = goal
@@ -1218,6 +1222,18 @@ class Orchestrator:
                 # failed turns -> ask the user instead of burning turns
                 fail_streak += 1
                 same = fail_key is not None and fail_key == prev_fail_key
+                if self.planner_escalate is not None and fail_streak >= 2:
+                    if not escalated:
+                        # opt-in: the escalation planner takes the remaining
+                        # turns instead of stopping
+                        planner, escalated = self.planner_escalate, True
+                        self._active_planner = planner
+                        trace["planner_escalated"] = True
+                        trace["decisions"].append({"planner_escalated": turn})
+                        fail_streak, prev_fail_key = 0, None
+                        prev_had_failure = True
+                        continue
+                    same = True         # escalation failed twice: stop
                 if same or fail_streak >= 3:
                     trace["decisions"].append({"loop_guard": "same_action"
                                                if same else "3_failed_turns",

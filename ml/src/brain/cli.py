@@ -58,17 +58,24 @@ def planner_opts(args) -> dict:
     return opts
 
 
-def make_planner(pmodel: str, engine=None, opts: dict | None = None):
+def make_planner(pmodel: str, engine=None, opts: dict | None = None,
+                 tag: str = "planner"):
     from .planner import Planner
     planner = Planner(pmodel, Catalog.load(), engine=engine, **(opts or {}))
-    print(f"[planner] {pmodel} {planner.settings()}", flush=True)
+    print(f"[{tag}] {pmodel} {planner.settings()}", flush=True)
     return planner
+
+
+# escalation planner: few-shot on, unconstrained, dsl history
+ESCALATE_OPTS = {"constrain": False, "few_shot": "prompts/planner_fewshot.md",
+                 "history": "dsl"}
 
 
 async def serve(port: int = 8765, model: str | None = None,
                 planner_model: str | None = None,
                 planner_kw: dict | None = None,
-                args_model: str | None = None):
+                args_model: str | None = None,
+                escalate_model: str | None = None):
     server = BrainServer(port=port)
     await server.start()
     engine = None
@@ -83,6 +90,9 @@ async def serve(port: int = 8765, model: str | None = None,
         planner = make_planner(pmodel, engine, planner_kw)
     orch = Orchestrator(server, Catalog.load(), Tracer(), engine=engine)
     orch.planner = planner
+    if planner and escalate_model:    # loaded now, kept resident
+        orch.planner_escalate = make_planner(
+            escalate_model, engine, ESCALATE_OPTS, tag="planner-escalate")
 
     async def on_utt(text: str, final: bool, ctx: dict | None = None):
         print(f"[utterance] {text} ctx={ctx}", flush=True)
@@ -251,7 +261,9 @@ def build_parser(argv=None):
                    default=True, help="block `done` after an action line")
     s.add_argument("--planner-fewshot", default="prompts/planner_fewshot.md",
                    metavar="PATH|none", help="few-shot examples in the cached prefix")
-    s.add_argument("--planner-history", default="marked",
+    s.add_argument("--planner-escalate-model", default=None, metavar="PATH",
+                   help="opt-in planner that takes over when the loop guard trips")
+    s.add_argument("--planner-history", default="dsl",
                    choices=["marked", "dsl", "repr"], help="Last batch line format")
     e = sub.add_parser("eval-route", help="eval the router on a JSONL cases file")
     e.add_argument("--model", default=None)
@@ -278,8 +290,10 @@ def run_cmd(args, ap):
     elif args.cmd == "serve":
         m = _resolve_model(args.model)
         am = _resolve_model(args.args_model) if args.args_model else None
+        em = args.planner_escalate_model
+        em = _resolve_model(em) if em and em.lower() != "none" else None
         asyncio.run(serve(args.port, m, args.planner_model, planner_opts(args),
-                          args_model=am))
+                          args_model=am, escalate_model=em))
     elif args.cmd == "eval-route":
         eval_route(args.model, args.cases, args.out,
                    tau=getattr(args, "tau", 0.55), args_model=args.args_model)

@@ -159,7 +159,8 @@ def test_cli_args_model_flags():
 def test_cli_serve_passes_args_model(monkeypatch):
     seen = {}
 
-    async def fake_serve(port, model, pmodel, pkw, args_model=None):
+    async def fake_serve(port, model, pmodel, pkw, args_model=None,
+                         escalate_model=None):
         seen.update(model=model, args_model=args_model)
 
     monkeypatch.setattr(cli, "serve", fake_serve)

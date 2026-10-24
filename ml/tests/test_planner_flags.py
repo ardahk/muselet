@@ -144,7 +144,7 @@ def test_constraint_built_lazily_once(monkeypatch):
 def test_planner_defaults_and_fewshot_in_system():
     p = _planner()
     assert (p.constrain, p.done_alone, p.history) == (
-        P.PLANNER_CONSTRAIN_DEFAULT, True, "marked")
+        P.PLANNER_CONSTRAIN_DEFAULT, True, "dsl")
     assert P.PLANNER_CONSTRAIN_DEFAULT is True
     fs = (ROOT / "prompts" / "planner_fewshot.md").read_text()
     assert p.system == _planner(few_shot=None).system + "\n\n" + fs
@@ -281,7 +281,7 @@ def test_cli_defaults():
     args, _ = cli.build_parser(["serve"])
     assert cli.planner_opts(args) == {"done_alone": True,
                                       "few_shot": "prompts/planner_fewshot.md",
-                                      "history": "marked"}
+                                      "history": "dsl"}
 
 
 def test_cli_flags_parse():
@@ -312,13 +312,14 @@ def test_flags_reach_planner_and_startup_log(capsys):
     d = cli.make_planner("fake", _fake_engine([]), cli.planner_opts(
         cli.build_parser(["serve"])[0]))
     assert d.constrain is P.PLANNER_CONSTRAIN_DEFAULT
-    assert "few_shot=prompts/planner_fewshot.md history=marked" in capsys.readouterr().out
+    assert "few_shot=prompts/planner_fewshot.md history=dsl" in capsys.readouterr().out
 
 
 def test_serve_cmd_passes_planner_opts(monkeypatch):
     got = {}
 
-    async def fake_serve(port, model, planner_model, planner_kw=None, args_model=None):
+    async def fake_serve(port, model, planner_model, planner_kw=None,
+                         args_model=None, escalate_model=None):
         got.update(planner_kw)
 
     monkeypatch.setattr(cli, "serve", fake_serve)
@@ -388,3 +389,97 @@ def test_three_real_failures_still_trip_guard(tmp_path):
 
 def run(coro):
     return asyncio.run(coro)
+
+
+# ---------- (e) opt-in escalation planner ----------
+
+STUCK = "I'm stuck on that, can you help?"
+
+
+def _esc_orch(tmp_path, main_turns, esc_turns, act):
+    from test_planner_loop import FakePlanner
+    o = _diff_orch(tmp_path, main_turns, act)
+    o.planner_escalate = FakePlanner(esc_turns, history="dsl")
+    return o
+
+
+def test_escalation_takes_over_after_two_failed_turns(tmp_path):
+    o = _esc_orch(tmp_path, [["press #1"], ["press #2"]],
+                  [["press #3"], ['done "ok"']],
+                  lambda p: {"ok": p.get("ref") == 3, "error": "boom"})
+    tr = trace_for(o)
+    assert run(o._planner_loop("go", tr)) == "ok"
+    assert o.planner.calls == 2 and o.planner_escalate.calls == 2
+    assert tr["planner_escalated"] is True
+    assert {"planner_escalated": 1} in tr["decisions"]
+    assert not any("loop_guard" in d for d in tr["decisions"])
+    # it sees the failed batch, in its own (dsl) history format
+    assert o.planner_escalate.user_msgs[0]["last_batch"] == \
+        ["press ref=2-> failed: boom"]
+    assert o.planner_escalate.user_msgs[1]["last_batch"] == ["press #3 -> ok"]
+
+
+def test_escalation_on_same_action_twice(tmp_path):
+    o = _esc_orch(tmp_path, [["press #1"]], [['done "ok"']],
+                  lambda p: {"ok": False, "error": "no such ref"})
+    tr = trace_for(o)
+    run(o._planner_loop("go", tr))
+    assert o.planner.calls == 2 and tr["planner_escalated"] is True
+
+
+def test_escalation_fails_twice_then_stops(tmp_path):
+    o = _esc_orch(tmp_path, [["press #1"], ["press #2"]],
+                  [["press #3"], ["press #4"], ["press #5"]],
+                  lambda p: {"ok": False, "error": "x"})
+    tr = trace_for(o)
+    assert run(o._planner_loop("go", tr)) == "awaiting_user"
+    assert o.planner.calls == 2 and o.planner_escalate.calls == 2
+    assert o.server.said[-1] == STUCK and o.server.uis[-1] == "confused"
+    assert tr["planner_escalated"] is True
+    assert any("loop_guard" in d for d in tr["decisions"])
+    assert o._pending_task["goal"] == "go"
+
+
+def test_no_escalation_keeps_today_guard(tmp_path):
+    o = _diff_orch(tmp_path, [["press #1"], ["press #2"], ["press #3"]],
+                   lambda p: {"ok": False, "error": "x"})
+    tr = trace_for(o)
+    assert run(o._planner_loop("go", tr)) == "awaiting_user"
+    assert o.planner.calls == 3 and "planner_escalated" not in tr
+
+
+def test_escalation_unused_when_main_succeeds(tmp_path):
+    o = _esc_orch(tmp_path, [["press #1"], ['done "ok"']], [['done "x"']],
+                  lambda p: {"ok": True})
+    tr = trace_for(o)
+    assert run(o._planner_loop("go", tr)) == "ok"
+    assert o.planner_escalate.calls == 0 and "planner_escalated" not in tr
+
+
+def test_cli_escalate_flag(monkeypatch):
+    args, _ = cli.build_parser(["serve"])
+    assert args.planner_escalate_model is None
+    seen = {}
+
+    async def fake_serve(port, model, pmodel, pkw, args_model=None,
+                         escalate_model=None):
+        seen["esc"] = escalate_model
+
+    monkeypatch.setattr(cli, "serve", fake_serve)
+    monkeypatch.setattr(cli, "_resolve_model", lambda m: f"/m/{m}")
+    cli.run_cmd(*cli.build_parser(["serve", "--planner-escalate-model", "Big"]))
+    assert seen["esc"] == "/m/Big"
+    for argv in (["serve"], ["serve", "--planner-escalate-model", "none"]):
+        cli.run_cmd(*cli.build_parser(argv))
+        assert seen["esc"] is None
+
+
+def test_escalation_planner_settings(capsys):
+    p = cli.make_planner("fake", _fake_engine([]), cli.ESCALATE_OPTS,
+                         tag="planner-escalate")
+    assert (p.constrain, p.few_shot, p.history) == (
+        False, "prompts/planner_fewshot.md", "dsl")
+    assert p._op_constraint() is None
+    fs = (ROOT / "prompts" / "planner_fewshot.md").read_text()
+    assert p.system.endswith("\n\n" + fs)
+    assert "[planner-escalate] fake constrain=False" in capsys.readouterr().out
