@@ -1,0 +1,71 @@
+{
+ "evals": {
+  "route_v1": 140,
+  "live_t1": 43
+ },
+ "route_train": {
+  "rows": 39181,
+  "pairs": 8,
+  "by_rule": {
+   "short_edit1": 8
+  },
+  "by_eval": {
+   "route_v1": 8
+  }
+ },
+ "route_val": {
+  "rows": 1216,
+  "pairs": 0,
+  "by_rule": {},
+  "by_eval": {}
+ },
+ "args_train": {
+  "rows": 29705,
+  "pairs": 0,
+  "by_rule": {},
+  "by_eval": {}
+ },
+ "args_val": {
+  "rows": 878,
+  "pairs": 0,
+  "by_rule": {},
+  "by_eval": {}
+ },
+ "affected": {
+  "route_v1": [
+   {
+    "idx": 8,
+    "utterance": "kill the sound"
+   },
+   {
+    "idx": 29,
+    "utterance": "close slack completely"
+   },
+   {
+    "idx": 30,
+    "utterance": "hide messages"
+   },
+   {
+    "idx": 67,
+    "utterance": "resume playback"
+   },
+   {
+    "idx": 112,
+    "utterance": "what's fifteen percent of eighty"
+   },
+   {
+    "idx": 120,
+    "utterance": "set volume too thirty"
+   },
+   {
+    "idx": 128,
+    "utterance": "kill bluetooth"
+   }
+  ],
+  "live_t1": []
+ },
+ "affected_counts": {
+  "route_v1": 7,
+  "live_t1": 0
+ }
+}

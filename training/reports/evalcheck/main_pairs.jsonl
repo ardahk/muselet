@@ -1,0 +1,644 @@
+{"train": "stop playback", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "skip this one", "eval": "route_v1", "eval_idx": 65, "eval_utterance": "skip this track", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "skip this one", "eval": "route_v1", "eval_idx": 124, "eval_utterance": "skip this song", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "flip playback", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "kill the music", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "go back a song", "eval": "route_v1", "eval_idx": 66, "eval_utterance": "go back a track", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "open resume.pdf", "eval": "route_v1", "eval_idx": 45, "eval_utterance": "open resume dot pdf", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "dark mode shortcut?", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Kill the wifi.", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide slack", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide spotify", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide safari", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide chrome", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide zoom", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide mail", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide discord", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide notes", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide photos", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide terminal", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide xcode", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide music", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide calendar", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide reminders", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide firefox", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide notion", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide finder", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide excel", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide keynote", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide pages", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide numbers", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide preview", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide maps", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide podcasts", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide quicktime", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide facetime", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide textedit", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide textedit", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "lock my screen", "eval": "route_v1", "eval_idx": 132, "eval_utterance": "secure my screen", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Copy the marked text.", "eval": "live_t1", "eval_idx": 28, "eval_utterance": "copy the selected text", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "launch premiere", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "bring up Xcode", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "open Messages", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "launch Zoom", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "bring up TextEdit", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "go to github.com", "eval": "route_v1", "eval_idx": 34, "eval_utterance": "go to github dot com", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Turn my wifi back on.", "eval": "route_v1", "eval_idx": 129, "eval_utterance": "turn my bluetooth back on", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "kill chrome", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "close the podcasts app", "eval": "live_t1", "eval_idx": 14, "eval_utterance": "close the calculator app", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "quit textedit", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Remind me taxes", "eval": "route_v1", "eval_idx": 104, "eval_utterance": "remind me", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Remind me laundry", "eval": "route_v1", "eval_idx": 104, "eval_utterance": "remind me", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Remind me vacuum", "eval": "route_v1", "eval_idx": 104, "eval_utterance": "remind me", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "show me the projects folder", "eval": "route_v1", "eval_idx": 40, "eval_utterance": "show me the desktop folder", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Kill the screen", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Turn the display off", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Shut off the display", "eval": "live_t1", "eval_idx": 8, "eval_utterance": "shut off the wifi", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Turn screen off", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Kill the display", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Turn the monitor off", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Dark screen, please", "eval": "route_v1", "eval_idx": 17, "eval_utterance": "dark appearance please", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "bring up terminal", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "launch keynote", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "bring up word", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "launch discord", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "launch pages", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "open textedit", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "bring up music", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "brightness eighty", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "brightness 3", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Dark mode please.", "eval": "route_v1", "eval_idx": 17, "eval_utterance": "dark appearance please", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Dark mode please.", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Dark mode, quick.", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Dark, please.", "eval": "route_v1", "eval_idx": 17, "eval_utterance": "dark appearance please", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "turn the internet off", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide word", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide premiere", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide the terminal", "eval": "live_t1", "eval_idx": 13, "eval_utterance": "hide the calculator", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "play something", "eval": "route_v1", "eval_idx": 106, "eval_utterance": "schedule something", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "skip track", "eval": "route_v1", "eval_idx": 65, "eval_utterance": "skip this track", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "resume music", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Kill Slack.", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Quit Messages.", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Exit TextEdit.", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Close Preview completely.", "eval": "route_v1", "eval_idx": 29, "eval_utterance": "close slack completely", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Kill Word.", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Close Slack now.", "eval": "route_v1", "eval_idx": 29, "eval_utterance": "close slack completely", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "close textedit", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "close the spotify app", "eval": "live_t1", "eval_idx": 14, "eval_utterance": "close the calculator app", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "type see you soon", "eval": "route_v1", "eval_idx": 73, "eval_utterance": "type see you tomorrow", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "kill the audio", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "unmute the speakers", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "silence the computer", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "mute the sound", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "brightness max", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "brightness zero", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "brightness 50", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "brightness 88", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "silence my mac", "eval": "route_v1", "eval_idx": 10, "eval_utterance": "unmute my mac", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "turn the audio off", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "unmute the sound", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "unmute the mac", "eval": "route_v1", "eval_idx": 10, "eval_utterance": "unmute my mac", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "dark look, please", "eval": "route_v1", "eval_idx": 17, "eval_utterance": "dark appearance please", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Put on jazz", "eval": "route_v1", "eval_idx": 68, "eval_utterance": "put on some jazz", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "save my screen", "eval": "route_v1", "eval_idx": 132, "eval_utterance": "secure my screen", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Continue playback.", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "turn the moon off", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Kill the monitor.", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Full size, please.", "eval": "route_v1", "eval_idx": 14, "eval_utterance": "full brightness please", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "kill discord", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "close slack already", "eval": "route_v1", "eval_idx": 29, "eval_utterance": "close slack completely", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Silence the sound", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Silence the sound", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Quiet the speakers", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Silence the Mac", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Hush the speakers", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Show me the public folder.", "eval": "route_v1", "eval_idx": 40, "eval_utterance": "show me the desktop folder", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Lower the volume.", "eval": "route_v1", "eval_idx": 103, "eval_utterance": "set the volume", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "start playback", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Dark theme, please", "eval": "route_v1", "eval_idx": 17, "eval_utterance": "dark appearance please", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Put it in dark", "eval": "route_v1", "eval_idx": 102, "eval_utterance": "put it in there", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Dark mode, thanks", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Turn the dark off", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Drop a marker here.", "eval": "route_v1", "eval_idx": 78, "eval_utterance": "drop a marker right here", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "turn the music off", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "restart this track", "eval": "route_v1", "eval_idx": 65, "eval_utterance": "skip this track", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "brightness 15", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "bring up the itinerary", "eval": "live_t1", "eval_idx": 12, "eval_utterance": "bring up the calculator", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "night mode on", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Shut off the monitor.", "eval": "live_t1", "eval_idx": 8, "eval_utterance": "shut off the wifi", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Turn my screen off.", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Turn the monitors off.", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "lock my mac", "eval": "route_v1", "eval_idx": 10, "eval_utterance": "unmute my mac", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "pause playback", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "brightness 60", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Light mode on.", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "bring up mail", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "launch xcode", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "launch numbers", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "bring up keynote", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "launch word", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "launch podcasts", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "bring up notion", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "kill terminal", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide the Finder", "eval": "live_t1", "eval_idx": 13, "eval_utterance": "hide the calculator", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Bring up roadmap.numbers", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Shut off the screen.", "eval": "live_t1", "eval_idx": 8, "eval_utterance": "shut off the wifi", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Screenshot my screen.", "eval": "route_v1", "eval_idx": 132, "eval_utterance": "secure my screen", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "restore the sound", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "unsilence my mac", "eval": "route_v1", "eval_idx": 10, "eval_utterance": "unmute my mac", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "show me the Downloads", "eval": "live_t1", "eval_idx": 15, "eval_utterance": "show me my downloads", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "copy the chosen part", "eval": "route_v1", "eval_idx": 75, "eval_utterance": "copy the highlighted part", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Put on some reggae", "eval": "route_v1", "eval_idx": 68, "eval_utterance": "put on some jazz", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "launch firefox", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "launch facetime", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "close messages", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "copy the marked part", "eval": "route_v1", "eval_idx": 75, "eval_utterance": "copy the highlighted part", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Turn the sound off.", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Unmute my speakers", "eval": "route_v1", "eval_idx": 10, "eval_utterance": "unmute my mac", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Bring up netflix", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Put it in middle", "eval": "route_v1", "eval_idx": 102, "eval_utterance": "put it in there", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "pull up numbers", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "switch over to messages", "eval": "route_v1", "eval_idx": 25, "eval_utterance": "switch over to notes", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "close Slack, thanks", "eval": "route_v1", "eval_idx": 29, "eval_utterance": "close slack completely", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "bring up spotify", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "bring up maps", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "snap just this window", "eval": "route_v1", "eval_idx": 50, "eval_utterance": "screenshot just this window", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Show me the Recents folder.", "eval": "route_v1", "eval_idx": 40, "eval_utterance": "show me the desktop folder", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Brightness 78.", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Brightness 95.", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Brightness 22.", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Make it louder", "eval": "live_t1", "eval_idx": 2, "eval_utterance": "make it way louder", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Make it 30% louder", "eval": "live_t1", "eval_idx": 2, "eval_utterance": "make it way louder", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Just a touch louder", "eval": "route_v1", "eval_idx": 7, "eval_utterance": "just a touch more", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Silence my speakers", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Resume audio", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Day mode on", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Bring up Notes", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Launch Music", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Bring up Photos", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Bring up Pages", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Launch Photos", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Launch Safari", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Launch Messages", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Launch Messages", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Bring up Preview", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Bring up Discord", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Full layout please.", "eval": "route_v1", "eval_idx": 14, "eval_utterance": "full brightness please", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Full screen, please", "eval": "route_v1", "eval_idx": 14, "eval_utterance": "full brightness please", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Full screenshot, please", "eval": "route_v1", "eval_idx": 14, "eval_utterance": "full brightness please", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Show me my day", "eval": "live_t1", "eval_idx": 15, "eval_utterance": "show me my downloads", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Stop playback", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Resume now", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "resume it", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Dark mode secretly.", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Mute the sound.", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Remind me later.", "eval": "route_v1", "eval_idx": 104, "eval_utterance": "remind me", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Lower the volume", "eval": "route_v1", "eval_idx": 103, "eval_utterance": "set the volume", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Hide Notes.", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Hide the app", "eval": "live_t1", "eval_idx": 13, "eval_utterance": "hide the calculator", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide Safari", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "set volume to 40", "eval": "route_v1", "eval_idx": 0, "eval_utterance": "set the volume to 40", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "start a timer", "eval": "route_v1", "eval_idx": 99, "eval_utterance": "start a countdown", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Hide Finder", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "launch Chrome", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "launch Preview", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "launch Terminal", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "launch Reminders", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Launch Spotify", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Bring up Reminders", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Copy the current text", "eval": "live_t1", "eval_idx": 28, "eval_utterance": "copy the selected text", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Hide it", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Play this song", "eval": "route_v1", "eval_idx": 124, "eval_utterance": "skip this song", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "lower the volume", "eval": "route_v1", "eval_idx": 103, "eval_utterance": "set the volume", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide it", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Hide Spotify", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Hide this", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Enable bluetooth", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Activate bluetooth", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Disable bluetooth", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Deactivate bluetooth", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "stop bluetooth", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Start Bluetooth.", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Turn the Bluetooth off.", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Cut bluetooth.", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Lock my mac.", "eval": "route_v1", "eval_idx": 10, "eval_utterance": "unmute my mac", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Lock my screen.", "eval": "route_v1", "eval_idx": 132, "eval_utterance": "secure my screen", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Secure the screen.", "eval": "route_v1", "eval_idx": 132, "eval_utterance": "secure my screen", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Lock the screen immediately.", "eval": "live_t1", "eval_idx": 10, "eval_utterance": "lock the screen please", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "lock the computer please", "eval": "live_t1", "eval_idx": 10, "eval_utterance": "lock the screen please", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "secure my laptop", "eval": "route_v1", "eval_idx": 132, "eval_utterance": "secure my screen", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Lock my screen, please.", "eval": "live_t1", "eval_idx": 10, "eval_utterance": "lock the screen please", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "go ahead and lock it", "eval": "route_v1", "eval_idx": 79, "eval_utterance": "go ahead and start it", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "lock the mac please", "eval": "live_t1", "eval_idx": 10, "eval_utterance": "lock the screen please", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "secure my computer", "eval": "route_v1", "eval_idx": 132, "eval_utterance": "secure my screen", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "lock the laptop please", "eval": "live_t1", "eval_idx": 10, "eval_utterance": "lock the screen please", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "lock the display please", "eval": "live_t1", "eval_idx": 10, "eval_utterance": "lock the screen please", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "Start a timer.", "eval": "route_v1", "eval_idx": 99, "eval_utterance": "start a countdown", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "set volume", "eval": "route_v1", "eval_idx": 103, "eval_utterance": "set the volume", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "text her", "eval": "route_v1", "eval_idx": 105, "eval_utterance": "email her", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "schedule meeting", "eval": "route_v1", "eval_idx": 106, "eval_utterance": "schedule something", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "email him", "eval": "route_v1", "eval_idx": 105, "eval_utterance": "email her", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "calculate fifteen percent of eighty", "eval": "route_v1", "eval_idx": 112, "eval_utterance": "what's fifteen percent of eighty", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "kill the screen", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "shut off the display", "eval": "live_t1", "eval_idx": 8, "eval_utterance": "shut off the wifi", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "quit messages", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "dark look please", "eval": "route_v1", "eval_idx": 17, "eval_utterance": "dark appearance please", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "put on jazz", "eval": "route_v1", "eval_idx": 68, "eval_utterance": "put on some jazz", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "quiet the speakers", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hush the speakers", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "turn the dark off", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "shut off the screen", "eval": "live_t1", "eval_idx": 8, "eval_utterance": "shut off the wifi", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "close slack thanks", "eval": "route_v1", "eval_idx": 29, "eval_utterance": "close slack completely", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "brightness 78", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "bring up notes", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "launch music", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "launch photos", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "bring up discord", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "full screenshot please", "eval": "route_v1", "eval_idx": 14, "eval_utterance": "full brightness please", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "toggle playback", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "dark mode secretly", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "set volume too zero", "eval": "route_v1", "eval_idx": 120, "eval_utterance": "set volume too thirty", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "launch chrome", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "launch reminders", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "copy the current text", "eval": "live_t1", "eval_idx": 28, "eval_utterance": "copy the selected text", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "disable bluetooth", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "start bluetooth", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "cut bluetooth", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "toggle playback", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "route", "split": "val"}
+{"train": "Shut off wifi.", "eval": "live_t1", "eval_idx": 8, "eval_utterance": "shut off the wifi", "rule": "short_edit1", "kind": "route", "split": "val"}
+{"train": "brightness 100", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "route", "split": "val"}
+{"train": "kill safari", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "route", "split": "val"}
+{"train": "Hide", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "val"}
+{"train": "stop playback", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "skip this one", "eval": "route_v1", "eval_idx": 65, "eval_utterance": "skip this track", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "skip this one", "eval": "route_v1", "eval_idx": 124, "eval_utterance": "skip this song", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "flip playback", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "kill the music", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "go back a song", "eval": "route_v1", "eval_idx": 66, "eval_utterance": "go back a track", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "open resume.pdf", "eval": "route_v1", "eval_idx": 45, "eval_utterance": "open resume dot pdf", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Kill the wifi.", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide slack", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide spotify", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide safari", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide chrome", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide zoom", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide mail", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide discord", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide notes", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide photos", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide terminal", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide xcode", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide music", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide calendar", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide reminders", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide firefox", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide notion", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide finder", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide excel", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide keynote", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide pages", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide numbers", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide preview", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide maps", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide podcasts", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide quicktime", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide facetime", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide textedit", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide textedit", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Copy the marked text.", "eval": "live_t1", "eval_idx": 28, "eval_utterance": "copy the selected text", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "launch premiere", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "bring up Xcode", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "open Messages", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "launch Zoom", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "bring up TextEdit", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "go to github.com", "eval": "route_v1", "eval_idx": 34, "eval_utterance": "go to github dot com", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Turn my wifi back on.", "eval": "route_v1", "eval_idx": 129, "eval_utterance": "turn my bluetooth back on", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "kill chrome", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "close the podcasts app", "eval": "live_t1", "eval_idx": 14, "eval_utterance": "close the calculator app", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "quit textedit", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Remind me taxes", "eval": "route_v1", "eval_idx": 104, "eval_utterance": "remind me", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Remind me laundry", "eval": "route_v1", "eval_idx": 104, "eval_utterance": "remind me", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Remind me vacuum", "eval": "route_v1", "eval_idx": 104, "eval_utterance": "remind me", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "show me the projects folder", "eval": "route_v1", "eval_idx": 40, "eval_utterance": "show me the desktop folder", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Kill the screen", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Turn the display off", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Shut off the display", "eval": "live_t1", "eval_idx": 8, "eval_utterance": "shut off the wifi", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Turn screen off", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Kill the display", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Turn the monitor off", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Dark screen, please", "eval": "route_v1", "eval_idx": 17, "eval_utterance": "dark appearance please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "bring up terminal", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "launch keynote", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "bring up word", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "launch discord", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "launch pages", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "open textedit", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "bring up music", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "kill the wifi", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "shut off wifi", "eval": "live_t1", "eval_idx": 8, "eval_utterance": "shut off the wifi", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Open resume.pdf", "eval": "route_v1", "eval_idx": 45, "eval_utterance": "open resume dot pdf", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "brightness eighty", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "brightness 3", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Dark mode please.", "eval": "route_v1", "eval_idx": 17, "eval_utterance": "dark appearance please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Dark mode please.", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Dark mode, quick.", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Dark, please.", "eval": "route_v1", "eval_idx": 17, "eval_utterance": "dark appearance please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Dark mode, please", "eval": "route_v1", "eval_idx": 17, "eval_utterance": "dark appearance please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Dark mode, please", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "turn the internet off", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide word", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide premiere", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide the terminal", "eval": "live_t1", "eval_idx": 13, "eval_utterance": "hide the calculator", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "play something", "eval": "route_v1", "eval_idx": 106, "eval_utterance": "schedule something", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "skip track", "eval": "route_v1", "eval_idx": 65, "eval_utterance": "skip this track", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "resume music", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Kill Slack.", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Quit Messages.", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Exit TextEdit.", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Close Preview completely.", "eval": "route_v1", "eval_idx": 29, "eval_utterance": "close slack completely", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Kill Word.", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Close Slack now.", "eval": "route_v1", "eval_idx": 29, "eval_utterance": "close slack completely", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Go to github.com", "eval": "route_v1", "eval_idx": 34, "eval_utterance": "go to github dot com", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "quit messages", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "close textedit", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "close the spotify app", "eval": "live_t1", "eval_idx": 14, "eval_utterance": "close the calculator app", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "type see you soon", "eval": "route_v1", "eval_idx": 73, "eval_utterance": "type see you tomorrow", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "kill the audio", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "unmute the speakers", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "silence the computer", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "mute the sound", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "brightness max", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "brightness zero", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "brightness 50", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "brightness 88", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "silence my mac", "eval": "route_v1", "eval_idx": 10, "eval_utterance": "unmute my mac", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "turn the audio off", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "unmute the sound", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "unmute the mac", "eval": "route_v1", "eval_idx": 10, "eval_utterance": "unmute my mac", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Dark mode, please.", "eval": "route_v1", "eval_idx": 17, "eval_utterance": "dark appearance please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Dark mode, please.", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "dark mode, please", "eval": "route_v1", "eval_idx": 17, "eval_utterance": "dark appearance please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "dark mode, please", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "dark look, please", "eval": "route_v1", "eval_idx": 17, "eval_utterance": "dark appearance please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Put on jazz", "eval": "route_v1", "eval_idx": 68, "eval_utterance": "put on some jazz", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "save my screen", "eval": "route_v1", "eval_idx": 132, "eval_utterance": "secure my screen", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Toggle playback.", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Skip this one.", "eval": "route_v1", "eval_idx": 65, "eval_utterance": "skip this track", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Skip this one.", "eval": "route_v1", "eval_idx": 124, "eval_utterance": "skip this song", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Go back a song.", "eval": "route_v1", "eval_idx": 66, "eval_utterance": "go back a track", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Kill the music.", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Continue playback.", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Turn the monitor off.", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Kill the screen.", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Shut off the display.", "eval": "live_t1", "eval_idx": 8, "eval_utterance": "shut off the wifi", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Kill the display.", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Kill the monitor.", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Full size, please.", "eval": "route_v1", "eval_idx": 14, "eval_utterance": "full brightness please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "kill discord", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "close slack already", "eval": "route_v1", "eval_idx": 29, "eval_utterance": "close slack completely", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Silence the sound", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Silence the sound", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Kill the audio", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Quiet the speakers", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Silence the Mac", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hush the speakers", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Unmute the speakers", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Show me the public folder.", "eval": "route_v1", "eval_idx": 40, "eval_utterance": "show me the desktop folder", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Lower the volume.", "eval": "route_v1", "eval_idx": 103, "eval_utterance": "set the volume", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "start playback", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Dark theme, please", "eval": "route_v1", "eval_idx": 17, "eval_utterance": "dark appearance please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Put it in dark", "eval": "route_v1", "eval_idx": 102, "eval_utterance": "put it in there", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Dark mode, thanks", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Turn the dark off", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Drop a marker here.", "eval": "route_v1", "eval_idx": 78, "eval_utterance": "drop a marker right here", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Start playback.", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "turn the music off", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "restart this track", "eval": "route_v1", "eval_idx": 65, "eval_utterance": "skip this track", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "brightness 15", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "bring up the itinerary", "eval": "live_t1", "eval_idx": 12, "eval_utterance": "bring up the calculator", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "dark mode please", "eval": "route_v1", "eval_idx": 17, "eval_utterance": "dark appearance please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "dark mode please", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "night mode on", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Shut off the monitor.", "eval": "live_t1", "eval_idx": 8, "eval_utterance": "shut off the wifi", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Turn my screen off.", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Turn the monitors off.", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "pause playback", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "brightness 60", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Light mode on.", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "bring up mail", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "launch xcode", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "launch numbers", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "bring up keynote", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "launch word", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "launch podcasts", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "bring up notion", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "kill slack", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "kill terminal", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Open resume.pdf.", "eval": "route_v1", "eval_idx": 45, "eval_utterance": "open resume dot pdf", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Spotify.", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide the Terminal", "eval": "live_t1", "eval_idx": 13, "eval_utterance": "hide the calculator", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Finder.", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Premiere", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Keynote.", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide Excel", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide Notion", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide Preview", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide FaceTime", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide Reminders", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide QuickTime", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide Podcasts", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide Numbers", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide TextEdit", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide TextEdit", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide the Finder", "eval": "live_t1", "eval_idx": 13, "eval_utterance": "hide the calculator", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Safari", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Preview", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide Xcode", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide Safari", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide Spotify", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide Finder", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide Chrome", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide the Terminal", "eval": "live_t1", "eval_idx": 13, "eval_utterance": "hide the calculator", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Xcode", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide Keynote", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide Word", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide Photos", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide Calendar", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide Maps", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide Firefox", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "hide Pages", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Bring up roadmap.numbers", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Shut off the screen.", "eval": "live_t1", "eval_idx": 8, "eval_utterance": "shut off the wifi", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Screenshot my screen.", "eval": "route_v1", "eval_idx": 132, "eval_utterance": "secure my screen", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Shut off the screen", "eval": "live_t1", "eval_idx": 8, "eval_utterance": "shut off the wifi", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Turn my screen off", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "quiet the speakers", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "restore the sound", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "unsilence my mac", "eval": "route_v1", "eval_idx": 10, "eval_utterance": "unmute my mac", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "show me the Downloads", "eval": "live_t1", "eval_idx": 15, "eval_utterance": "show me my downloads", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "copy the chosen part", "eval": "route_v1", "eval_idx": 75, "eval_utterance": "copy the highlighted part", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "copy the marked text", "eval": "live_t1", "eval_idx": 28, "eval_utterance": "copy the selected text", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Kill the monitor", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Put on some reggae", "eval": "route_v1", "eval_idx": 68, "eval_utterance": "put on some jazz", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "open messages", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "launch firefox", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "launch facetime", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "close messages", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "copy the marked part", "eval": "route_v1", "eval_idx": 75, "eval_utterance": "copy the highlighted part", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Turn the sound off.", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Unmute the mac.", "eval": "route_v1", "eval_idx": 10, "eval_utterance": "unmute my mac", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Unmute the speakers.", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Mute the sound", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Turn the sound off", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Unmute the Mac", "eval": "route_v1", "eval_idx": 10, "eval_utterance": "unmute my mac", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Unmute my speakers", "eval": "route_v1", "eval_idx": 10, "eval_utterance": "unmute my mac", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Bring up netflix", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Flip playback.", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Put it in middle", "eval": "route_v1", "eval_idx": 102, "eval_utterance": "put it in there", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "pull up numbers", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "switch over to messages", "eval": "route_v1", "eval_idx": 25, "eval_utterance": "switch over to notes", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "close Messages", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "close Slack, thanks", "eval": "route_v1", "eval_idx": 29, "eval_utterance": "close slack completely", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "bring up spotify", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "bring up maps", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "snap just this window", "eval": "route_v1", "eval_idx": 50, "eval_utterance": "screenshot just this window", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Show me the Recents folder.", "eval": "route_v1", "eval_idx": 40, "eval_utterance": "show me the desktop folder", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Brightness 50.", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Brightness 78.", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Stop playback.", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Brightness zero.", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Brightness 95.", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Brightness 22.", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Make it louder", "eval": "live_t1", "eval_idx": 2, "eval_utterance": "make it way louder", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Make it 30% louder", "eval": "live_t1", "eval_idx": 2, "eval_utterance": "make it way louder", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Just a touch louder", "eval": "route_v1", "eval_idx": 7, "eval_utterance": "just a touch more", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Unmute the sound", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Silence my speakers", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Silence my Mac", "eval": "route_v1", "eval_idx": 10, "eval_utterance": "unmute my mac", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Resume audio", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Restore the sound", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Dark, please", "eval": "route_v1", "eval_idx": 17, "eval_utterance": "dark appearance please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Dark mode please", "eval": "route_v1", "eval_idx": 17, "eval_utterance": "dark appearance please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Dark mode please", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Night mode on", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Day mode on", "eval": "route_v1", "eval_idx": 122, "eval_utterance": "dark mode on", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Bring up Notes", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Launch Music", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Bring up Photos", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Launch Zoom", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Bring up TextEdit", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Bring up Pages", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Launch Photos", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Launch Safari", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Launch Messages", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Launch Messages", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Bring up Preview", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Bring up Discord", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Launch Xcode", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Launch Keynote", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Quit Messages", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Quit TextEdit", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Slack", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Calendar", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Notes", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Music", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Zoom", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Photos", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide TextEdit", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide TextEdit", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Terminal", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Notion", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Discord", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide FaceTime", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Reminders", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Maps", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Firefox", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Podcasts", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Numbers", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Pages", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Keynote", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Excel", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Word", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide Spotify", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Full layout please.", "eval": "route_v1", "eval_idx": 14, "eval_utterance": "full brightness please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "open resume PDF", "eval": "route_v1", "eval_idx": 45, "eval_utterance": "open resume dot pdf", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Full screen, please", "eval": "route_v1", "eval_idx": 14, "eval_utterance": "full brightness please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Full screenshot, please", "eval": "route_v1", "eval_idx": 14, "eval_utterance": "full brightness please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Show me my day", "eval": "live_t1", "eval_idx": 15, "eval_utterance": "show me my downloads", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Toggle playback", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Stop playback", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Resume now", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "resume it", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Play something", "eval": "route_v1", "eval_idx": 106, "eval_utterance": "schedule something", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Copy the marked text", "eval": "live_t1", "eval_idx": 28, "eval_utterance": "copy the selected text", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Make it louder.", "eval": "live_t1", "eval_idx": 2, "eval_utterance": "make it way louder", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "silence my speakers", "eval": "live_t1", "eval_idx": 3, "eval_utterance": "silence the speakers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "unsilence my Mac", "eval": "route_v1", "eval_idx": 10, "eval_utterance": "unmute my mac", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Shut off the monitor", "eval": "live_t1", "eval_idx": 8, "eval_utterance": "shut off the wifi", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "shut off the display", "eval": "live_t1", "eval_idx": 8, "eval_utterance": "shut off the wifi", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "turn the display off", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "launch Chrome", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "bring up Notes", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "launch Preview", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "open TextEdit", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "launch Terminal", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "launch Reminders", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "bring up Notion", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Launch Chrome", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Bring up Music", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Launch Spotify", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Bring up Reminders", "eval": "route_v1", "eval_idx": 26, "eval_utterance": "bring up numbers", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Launch Terminal", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Launch Discord", "eval": "live_t1", "eval_idx": 11, "eval_utterance": "launch textedit", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Screenshot my screen", "eval": "route_v1", "eval_idx": 132, "eval_utterance": "secure my screen", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Copy the current text", "eval": "live_t1", "eval_idx": 28, "eval_utterance": "copy the selected text", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Enable bluetooth", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Activate bluetooth", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Disable bluetooth", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Deactivate bluetooth", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "enable bluetooth", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "disable bluetooth", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "stop bluetooth", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Enable Bluetooth.", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Activate Bluetooth.", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Start Bluetooth.", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Disable Bluetooth.", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Deactivate Bluetooth.", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Turn the Bluetooth off.", "eval": "route_v1", "eval_idx": 20, "eval_utterance": "turn the screen off", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Stop Bluetooth.", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Start bluetooth", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Stop bluetooth", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "stop Bluetooth", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Enable bluetooth.", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Activate bluetooth.", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Start bluetooth.", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Disable bluetooth.", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Stop bluetooth.", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Deactivate bluetooth.", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Cut bluetooth.", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Lock my mac.", "eval": "route_v1", "eval_idx": 10, "eval_utterance": "unmute my mac", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Lock my screen.", "eval": "route_v1", "eval_idx": 132, "eval_utterance": "secure my screen", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Secure the screen.", "eval": "route_v1", "eval_idx": 132, "eval_utterance": "secure my screen", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Lock the screen immediately.", "eval": "live_t1", "eval_idx": 10, "eval_utterance": "lock the screen please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "lock my mac", "eval": "route_v1", "eval_idx": 10, "eval_utterance": "unmute my mac", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "lock the computer please", "eval": "live_t1", "eval_idx": 10, "eval_utterance": "lock the screen please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "secure my laptop", "eval": "route_v1", "eval_idx": 132, "eval_utterance": "secure my screen", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Lock my screen, please.", "eval": "live_t1", "eval_idx": 10, "eval_utterance": "lock the screen please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "lock my screen", "eval": "route_v1", "eval_idx": 132, "eval_utterance": "secure my screen", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "go ahead and lock it", "eval": "route_v1", "eval_idx": 79, "eval_utterance": "go ahead and start it", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "lock the mac please", "eval": "live_t1", "eval_idx": 10, "eval_utterance": "lock the screen please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "secure my computer", "eval": "route_v1", "eval_idx": 132, "eval_utterance": "secure my screen", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "lock the laptop please", "eval": "live_t1", "eval_idx": 10, "eval_utterance": "lock the screen please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "lock the display please", "eval": "live_t1", "eval_idx": 10, "eval_utterance": "lock the screen please", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Start a timer.", "eval": "route_v1", "eval_idx": 99, "eval_utterance": "start a countdown", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "set volume", "eval": "route_v1", "eval_idx": 103, "eval_utterance": "set the volume", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Hide it.", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Set volume.", "eval": "route_v1", "eval_idx": 103, "eval_utterance": "set the volume", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Play something.", "eval": "route_v1", "eval_idx": 106, "eval_utterance": "schedule something", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Change the volume.", "eval": "route_v1", "eval_idx": 103, "eval_utterance": "set the volume", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "Text her.", "eval": "route_v1", "eval_idx": 105, "eval_utterance": "email her", "rule": "short_edit1", "kind": "args", "split": "train"}
+{"train": "toggle playback", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "args", "split": "val"}
+{"train": "Shut off wifi.", "eval": "live_t1", "eval_idx": 8, "eval_utterance": "shut off the wifi", "rule": "short_edit1", "kind": "args", "split": "val"}
+{"train": "brightness 100", "eval": "route_v1", "eval_idx": 12, "eval_utterance": "brightness seventy", "rule": "short_edit1", "kind": "args", "split": "val"}
+{"train": "kill safari", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "args", "split": "val"}

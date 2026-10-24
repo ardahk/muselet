@@ -1,0 +1,8 @@
+{"train": "calculate fifteen percent of eighty", "eval": "route_v1", "eval_idx": 112, "eval_utterance": "what's fifteen percent of eighty", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide word", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "mute the sound", "eval": "route_v1", "eval_idx": 8, "eval_utterance": "kill the sound", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "hide calendar", "eval": "route_v1", "eval_idx": 30, "eval_utterance": "hide messages", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "toggle playback", "eval": "route_v1", "eval_idx": 67, "eval_utterance": "resume playback", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "set volume too zero", "eval": "route_v1", "eval_idx": 120, "eval_utterance": "set volume too thirty", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "disable bluetooth", "eval": "route_v1", "eval_idx": 128, "eval_utterance": "kill bluetooth", "rule": "short_edit1", "kind": "route", "split": "train"}
+{"train": "close slack now", "eval": "route_v1", "eval_idx": 29, "eval_utterance": "close slack completely", "rule": "short_edit1", "kind": "route", "split": "train"}

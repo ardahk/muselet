@@ -86,8 +86,7 @@ class Index:
         self.exact = {e.text: e for e in self.evals}
         self.by_len = collections.defaultdict(list)
         for e in self.evals:
-            if len(e.toks) <= SHORT + 1:
-                self.by_len[len(e.toks)].append(e)
+            self.by_len[len(e.toks)].append(e)
         self.by_c5 = collections.defaultdict(list)
         for i, e in enumerate(self.evals):
             for g in e.c5:
@@ -106,11 +105,10 @@ class Index:
                 return "bigram", e
             if f.g8 and e.g8 and _j(f.g8, e.g8) >= 0.6:
                 return "tok8", e
-        if len(f.toks) <= SHORT:
-            for n in (len(f.toks) - 1, len(f.toks), len(f.toks) + 1):
-                for e in self.by_len.get(n, ()):
-                    if tok_edit_le1(f.toks, e.toks):
-                        return "short_edit1", e
+        for n in (len(f.toks) - 1, len(f.toks), len(f.toks) + 1):  # either side short (<= 5 tokens)
+            for e in self.by_len.get(n, ()):
+                if min(len(f.toks), len(e.toks)) <= SHORT and tok_edit_le1(f.toks, e.toks):
+                    return "short_edit1", e
         return None
 
 

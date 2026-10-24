@@ -1,0 +1,248 @@
+{
+ "evals": {
+  "route_v1": 140,
+  "live_t1": 43
+ },
+ "route_train": {
+  "rows": 36580,
+  "pairs": 267,
+  "by_rule": {
+   "short_edit1": 267
+  },
+  "by_eval": {
+   "route_v1": 205,
+   "live_t1": 62
+  }
+ },
+ "route_val": {
+  "rows": 1130,
+  "pairs": 5,
+  "by_rule": {
+   "short_edit1": 5
+  },
+  "by_eval": {
+   "route_v1": 4,
+   "live_t1": 1
+  }
+ },
+ "args_train": {
+  "rows": 27023,
+  "pairs": 368,
+  "by_rule": {
+   "short_edit1": 368
+  },
+  "by_eval": {
+   "route_v1": 292,
+   "live_t1": 76
+  }
+ },
+ "args_val": {
+  "rows": 792,
+  "pairs": 4,
+  "by_rule": {
+   "short_edit1": 4
+  },
+  "by_eval": {
+   "route_v1": 3,
+   "live_t1": 1
+  }
+ },
+ "affected": {
+  "route_v1": [
+   {
+    "idx": 0,
+    "utterance": "set the volume to 40"
+   },
+   {
+    "idx": 7,
+    "utterance": "just a touch more"
+   },
+   {
+    "idx": 8,
+    "utterance": "kill the sound"
+   },
+   {
+    "idx": 10,
+    "utterance": "unmute my mac"
+   },
+   {
+    "idx": 12,
+    "utterance": "brightness seventy"
+   },
+   {
+    "idx": 14,
+    "utterance": "full brightness please"
+   },
+   {
+    "idx": 17,
+    "utterance": "dark appearance please"
+   },
+   {
+    "idx": 20,
+    "utterance": "turn the screen off"
+   },
+   {
+    "idx": 25,
+    "utterance": "switch over to notes"
+   },
+   {
+    "idx": 26,
+    "utterance": "bring up numbers"
+   },
+   {
+    "idx": 29,
+    "utterance": "close slack completely"
+   },
+   {
+    "idx": 30,
+    "utterance": "hide messages"
+   },
+   {
+    "idx": 34,
+    "utterance": "go to github dot com"
+   },
+   {
+    "idx": 40,
+    "utterance": "show me the desktop folder"
+   },
+   {
+    "idx": 45,
+    "utterance": "open resume dot pdf"
+   },
+   {
+    "idx": 50,
+    "utterance": "screenshot just this window"
+   },
+   {
+    "idx": 65,
+    "utterance": "skip this track"
+   },
+   {
+    "idx": 66,
+    "utterance": "go back a track"
+   },
+   {
+    "idx": 67,
+    "utterance": "resume playback"
+   },
+   {
+    "idx": 68,
+    "utterance": "put on some jazz"
+   },
+   {
+    "idx": 73,
+    "utterance": "type see you tomorrow"
+   },
+   {
+    "idx": 75,
+    "utterance": "copy the highlighted part"
+   },
+   {
+    "idx": 78,
+    "utterance": "drop a marker right here"
+   },
+   {
+    "idx": 79,
+    "utterance": "go ahead and start it"
+   },
+   {
+    "idx": 99,
+    "utterance": "start a countdown"
+   },
+   {
+    "idx": 102,
+    "utterance": "put it in there"
+   },
+   {
+    "idx": 103,
+    "utterance": "set the volume"
+   },
+   {
+    "idx": 104,
+    "utterance": "remind me"
+   },
+   {
+    "idx": 105,
+    "utterance": "email her"
+   },
+   {
+    "idx": 106,
+    "utterance": "schedule something"
+   },
+   {
+    "idx": 112,
+    "utterance": "what's fifteen percent of eighty"
+   },
+   {
+    "idx": 120,
+    "utterance": "set volume too thirty"
+   },
+   {
+    "idx": 122,
+    "utterance": "dark mode on"
+   },
+   {
+    "idx": 124,
+    "utterance": "skip this song"
+   },
+   {
+    "idx": 128,
+    "utterance": "kill bluetooth"
+   },
+   {
+    "idx": 129,
+    "utterance": "turn my bluetooth back on"
+   },
+   {
+    "idx": 132,
+    "utterance": "secure my screen"
+   }
+  ],
+  "live_t1": [
+   {
+    "idx": 2,
+    "utterance": "make it way louder"
+   },
+   {
+    "idx": 3,
+    "utterance": "silence the speakers"
+   },
+   {
+    "idx": 8,
+    "utterance": "shut off the wifi"
+   },
+   {
+    "idx": 10,
+    "utterance": "lock the screen please"
+   },
+   {
+    "idx": 11,
+    "utterance": "launch textedit"
+   },
+   {
+    "idx": 12,
+    "utterance": "bring up the calculator"
+   },
+   {
+    "idx": 13,
+    "utterance": "hide the calculator"
+   },
+   {
+    "idx": 14,
+    "utterance": "close the calculator app"
+   },
+   {
+    "idx": 15,
+    "utterance": "show me my downloads"
+   },
+   {
+    "idx": 28,
+    "utterance": "copy the selected text"
+   }
+  ]
+ },
+ "affected_counts": {
+  "route_v1": 37,
+  "live_t1": 10
+ }
+}

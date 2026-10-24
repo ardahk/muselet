@@ -17,6 +17,7 @@ import tinker
 
 from muselet_train import datums as D
 from muselet_train.catalog import option_names, skill_by_name
+from muselet_train.evalcheck import check_rows
 from muselet_train.route_render import (
     STUDENT_MODEL, RouteContext, args_messages, args_runtime_prompt, base_renderer, render_route)
 from muselet_train.teacher import chunked_decision
@@ -140,6 +141,11 @@ async def main_async(a) -> None:
         tr_a = rng.sample(tr_a, min(len(tr_a), a.limit - len(tr_r)))
     full_va_r, full_va_a = va_r, va_a
     va_r, va_a = rng.sample(va_r, min(a.val_route, len(va_r))), rng.sample(va_a, min(a.val_args, len(va_a)))
+    gate = check_rows([{"utterance": x.utterance, "rendered_utterance": D.noisy(x.utterance, "r:" + x.utterance, x.split),
+                        "split": x.split} for x in tr_r + full_va_r], tr_a + full_va_a)
+    hits = {k: v["pairs"] for k, v in gate.items() if k.startswith(("route_", "args_")) and v["pairs"]}
+    if hits:  # hard gate: no training or val item may be near any route_v1 / live_t1 utterance
+        raise SystemExit(f"evalcheck gate failed: {hits}; affected {gate['affected_counts']}")
     rd, ad = D.route_datums(tr_r, a.model), D.args_datums(tr_a, a.model)
     toks = sum(d.model_input.length for d in rd + ad) * a.epochs
     n_steps = (len(rd) + len(ad)) * a.epochs // a.batch
