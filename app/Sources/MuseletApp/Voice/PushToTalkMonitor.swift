@@ -86,8 +86,10 @@ final class PushToTalkMonitor {
     private func handle(type: CGEventType, event: CGEvent) {
         // Ignore input HandsKit synthesized (tagged eventSourceUserData):
         // the agent's own `keys esc` must not cancel its task, and its
-        // keystrokes must not abort a recording as a ⌥ chord.
-        if (type == .keyDown || type == .flagsChanged) && SyntheticEvent.isTagged(event) { return }
+        // keystrokes (and media keys, should this tap ever listen for
+        // system-defined events) must not abort a recording as a ⌥ chord.
+        if type != .tapDisabledByTimeout && type != .tapDisabledByUserInput
+            && SyntheticEvent.isTagged(event) { return }
         switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
             ensureEnabled()

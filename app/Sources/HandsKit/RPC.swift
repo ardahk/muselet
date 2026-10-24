@@ -2,7 +2,24 @@ import AppKit
 import ApplicationServices
 import Foundation
 
-/// Dispatches brain -> app RPC methods per AGENTS.md.
+/// Dispatches brain -> app RPC methods per AGENTS.md:
+///  - `observe`, `act`, `skill`, `screenshot`, `ocr`, `verify`, `apps`.
+///  - `act` `keys` takes media keys too: `volume_up`, `volume_down`, `mute`,
+///    `brightness_up`, `brightness_down`, `play_pause`, `next_track`,
+///    `previous_track` (system-defined events like the hardware keys,
+///    tagged as Muselet input; read-back `level_before` / `level` /
+///    `changed` for volume and brightness). See `Hands.act`.
+///  - `skill set_brightness {delta}`: relative brightness (current + delta,
+///    clamped 0...100, read back); `open_folder {view}`; `type_text` /
+///    `type` into a keystroke app (Calculator, `via: "keystroke_app"`);
+///    truthful launches (`not_frontmost`). See `Skills`.
+///  - `timers {}` -> `{timers: [{id, label (null if none), total_s, left_s,
+///    minutes, fires_at}]}`: Muselet-started timers (`start_timer`), soonest
+///    first; `minutes` = whole minutes left, rounded up.
+///  - `timers_cancel {id?}` -> `{cancelled: [timer...], timers: [remaining...]}`:
+///    one timer, or every Muselet timer without `id`; an unknown id is
+///    ok=false `unknown_timer` (with the pending list).
+///    (Timers are RPCs, not skills, so the catalog is unchanged.)
 public final class RPCHandler {
     public let hands = Hands()
     public let skills: Skills
@@ -37,8 +54,10 @@ public final class RPCHandler {
         guard warmUp else { return }
         // Precompile the skill AppleScripts off the hot path (compile only:
         // nothing runs, so no app is launched and no Automation prompt shows).
-        DispatchQueue.global(qos: .utility).async { [skills = self.skills] in
+        DispatchQueue.global(qos: .utility).async { [skills = self.skills, hands = self.hands] in
             skills.warmUp()
+            // The volume read-back of `keys volume_up/down/mute` (Hands' own runner).
+            (hands.scripts as? AppleScriptRunner)?.precompile([Skills.volumeStateScript])
         }
         // Vision's first accurate OCR in a new binary takes ~25 s; pay it now.
         DispatchQueue.global(qos: .background).async { OCR.warmUp() }
@@ -148,6 +167,23 @@ public final class RPCHandler {
                 let obs = try hands.observe(scope: "focused_window", diff: false)
                 let (ok, observed) = hands.evalExpect(pred, obs)
                 return (true, ["ok": ok, "observed": observed], nil)
+
+            case "timers":
+                return (true, ["timers": skills.timerList()], nil)
+
+            case "timers_cancel":
+                // No id: every Muselet timer. An id must name a pending timer.
+                var id: String?
+                if let v = params["id"] ?? params["timer_id"], !(v is NSNull) {
+                    guard let s = v as? String, !s.isEmpty else {
+                        return (false, nil, HandsError.invalidParams("timers_cancel: id must be a timer id").description)
+                    }
+                    id = s
+                }
+                let cancelled = skills.cancelTimers(id: id)
+                let r: [String: Any] = ["cancelled": cancelled, "timers": skills.timerList()]
+                if let id, cancelled.isEmpty { return (false, r, "unknown_timer: \(id)") }
+                return (true, r, nil)
 
             case "apps":
                 let running = NSWorkspace.shared.runningApplications.compactMap { a -> [String: Any]? in
