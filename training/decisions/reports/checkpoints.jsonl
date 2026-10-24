@@ -1,0 +1,12 @@
+{"run": "dec-pilot-lr4e4", "step": 50, "kind": "sampler", "path": "tinker://35f28b5d-15fc-5eb5-ade8-86264f1d4c5f:train:0/sampler_weights/dec-pilot-lr4e4-step-50"}
+{"run": "dec-pilot-lr4e4", "step": 50, "kind": "state", "path": "tinker://35f28b5d-15fc-5eb5-ade8-86264f1d4c5f:train:0/weights/dec-pilot-lr4e4-step-50"}
+{"run": "dec-pilot-lr2e4", "step": 50, "kind": "sampler", "path": "tinker://69bac09b-ecd4-5b8b-b867-c92075b511c5:train:0/sampler_weights/dec-pilot-lr2e4-step-50"}
+{"run": "dec-pilot-lr2e4", "step": 50, "kind": "state", "path": "tinker://69bac09b-ecd4-5b8b-b867-c92075b511c5:train:0/weights/dec-pilot-lr2e4-step-50"}
+{"run": "dec-pilot-lr4e4", "step": 79, "kind": "sampler", "path": "tinker://35f28b5d-15fc-5eb5-ade8-86264f1d4c5f:train:0/sampler_weights/dec-pilot-lr4e4-step-79"}
+{"run": "dec-pilot-lr4e4", "step": 79, "kind": "state", "path": "tinker://35f28b5d-15fc-5eb5-ade8-86264f1d4c5f:train:0/weights/dec-pilot-lr4e4-step-79"}
+{"run": "dec-pilot-lr2e4", "step": 79, "kind": "sampler", "path": "tinker://69bac09b-ecd4-5b8b-b867-c92075b511c5:train:0/sampler_weights/dec-pilot-lr2e4-step-79"}
+{"run": "dec-pilot-lr2e4", "step": 79, "kind": "state", "path": "tinker://69bac09b-ecd4-5b8b-b867-c92075b511c5:train:0/weights/dec-pilot-lr2e4-step-79"}
+{"run": "dec-pilot-lr4e4", "step": 79, "kind": "sampler", "path": "tinker://35f28b5d-15fc-5eb5-ade8-86264f1d4c5f:train:0/sampler_weights/dec-pilot-lr4e4-final"}
+{"run": "dec-pilot-lr4e4", "step": 79, "kind": "state", "path": "tinker://35f28b5d-15fc-5eb5-ade8-86264f1d4c5f:train:0/weights/dec-pilot-lr4e4-final"}
+{"run": "dec-pilot-lr2e4", "step": 79, "kind": "sampler", "path": "tinker://69bac09b-ecd4-5b8b-b867-c92075b511c5:train:0/sampler_weights/dec-pilot-lr2e4-final"}
+{"run": "dec-pilot-lr2e4", "step": 79, "kind": "state", "path": "tinker://69bac09b-ecd4-5b8b-b867-c92075b511c5:train:0/weights/dec-pilot-lr2e4-final"}
