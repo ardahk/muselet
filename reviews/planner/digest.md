@@ -1,4 +1,6 @@
-# planner lane — pass 23 (main d502b78 = hobby-gaps merged; wip c7c04ce = main in this lane)
+# planner lane — pass 24 (main d502b78 unchanged; wip 0db1681 only touches generic_decide.py, which is the router lane; data-pipeline 0c1ca3d didn't touch this lane)
+
+Pass 24: no new findings, and the open findings are unchanged.
 
 Resolved: planner-23 on main (the volume fast path was dropped in the merge). 89 tests pass on main, including the planner-20 repro.
 
