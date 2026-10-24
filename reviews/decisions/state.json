@@ -1,13 +1,13 @@
 {
- "pass": 21,
- "ts": "2026-10-24T16:30:00Z",
+ "pass": 22,
+ "ts": "2026-10-24T16:45:00Z",
  "branches": {
   "main": "c949565",
   "wip/local": "4ec066f",
-  "cloud/data-pipeline": "512cce0",
+  "cloud/data-pipeline": "6c1e565",
   "cloud/bench": "f584cb2",
   "cloud/pitch": "ad1b058",
-  "cloud/decisions": "e125c13",
+  "cloud/decisions": "184c80f",
   "cloud/pitch-2": "3303678",
   "cloud/brain-4": "dfb66a3",
   "cloud/hobby-gaps": "156556e",
@@ -15,6 +15,10 @@
   "cloud/pitch-3": "e203181",
   "cloud/grounder-wire": "afb12a6",
   "cloud/pitch-4": "6393857",
-  "cloud/brain-6": "780f49d"
+  "cloud/brain-6": "780f49d",
+  "cloud/brain-7": "13432fe",
+  "cloud/report": "dffa733",
+  "cloud/native-research": "fa88c22",
+  "cloud/app-ui": "afb2688"
  }
 }
