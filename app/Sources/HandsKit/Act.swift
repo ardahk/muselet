@@ -14,7 +14,15 @@ public enum HandsError: Error, CustomStringConvertible {
     /// The frontmost app is not the observed/target app and could not be
     /// re-activated: never type into the wrong app.
     case focusChanged(expected: String, frontmost: String)
+    /// Nothing that accepts text has the keyboard focus (`observed` says
+    /// which app/window/element is focused); nothing was typed.
+    case noTextTarget(observed: String)
     case `internal`(String)
+    /// Extra `observed` hint for the response, if any.
+    public var observed: String? {
+        if case .noTextTarget(let o) = self { return o }
+        return nil
+    }
     public var description: String {
         switch self {
         case .staleRef(let r): return "stale_ref #\(r)"
@@ -25,6 +33,7 @@ public enum HandsError: Error, CustomStringConvertible {
         case .skillFailed(let s): return s
         case .focusChanged(let want, let got):
             return "focus_changed: frontmost is \(got), expected \(want)"
+        case .noTextTarget: return "no_text_target"
         case .internal(let s): return s
         }
     }
@@ -34,6 +43,7 @@ public enum HandsError: Error, CustomStringConvertible {
         case .needsConfirmation: return "needs_confirmation"
         case .notImplemented: return "not_implemented"
         case .focusChanged: return "focus_changed"
+        case .noTextTarget: return "no_text_target"
         default: return "error"
         }
     }
@@ -278,14 +288,19 @@ extension Hands {
                 let text = params["text"] as? String ?? ""
                 _ = rec.element.setAttr(kAXFocusedAttribute, true)
                 usleep(30_000)
+                // Never type into nothing: a non-text ref (button, row, ...)
+                // is fine only if it or the focus it left accepts text
+                // (spreadsheet cell, web editable).
+                try requireTextTarget(rec)
+                let typeText = typeTextOverride ?? Events.typeText
                 if rec.inWebArea {
                     // React-style inputs ignore AXValue: select-all + type.
                     Combo.post(try Combo.parse("cmd+a"))
-                    Events.typeText(text)
+                    typeText(text)
                 } else if rec.element.isSettable(kAXValueAttribute) {
                     _ = rec.element.setAttr(kAXValueAttribute, text)
                 } else {
-                    Events.typeText(text)
+                    typeText(text)
                 }
                 if params["enter"] as? Bool == true { Events.key(36) }
             case "keys":
@@ -425,6 +440,7 @@ extension Hands {
         } catch let e as HandsError {
             out["ok"] = false
             out["error"] = e.description
+            if let o = e.observed { out["observed"] = o }
             out["act_ms"] = (Date().timeIntervalSince(t0) * 1000).rounded(to: 2)
             delegate?.handsDidAct(op: params["op"] as? String ?? "?",
                                   frame: nil, ok: false)
@@ -518,6 +534,29 @@ extension Hands {
 
     private func lastObservedPid() -> pid_t {
         lastPid != 0 ? lastPid : apps.frontmostPid()
+    }
+
+    /// Short role names whose elements take typed text as such.
+    static let textRecordRoles: Set<String> = ["textfield", "textarea", "combobox"]
+
+    /// `type #ref`: the ref (already focused) must accept text, or the
+    /// keyboard focus it left must (Numbers cell, web editable inside a
+    /// group). Else no_text_target and nothing is typed.
+    func requireTextTarget(_ rec: ElementRecord) throws {
+        if Self.textRecordRoles.contains(rec.role) { return }
+        let pid = lastPid != 0 ? lastPid : apps.frontmostPid()
+        let info = apps.app(pid: pid)
+        if TextTarget.acceptsText(rec.element, rec.element.copyAttrs(), bundleId: info?.bundleId) { return }
+        let app = axAppOverride?(pid) ?? {
+            let n = AXNode(AXUIElementCreateApplication(pid))
+            n.setMessagingTimeout(0.25)
+            return n
+        }()
+        let chk = TextTarget.check(app: app, appName: info?.name ?? apps.name(pid: pid),
+                                   bundleId: info?.bundleId, windowFallback: false)
+        if chk.ok { return }
+        throw HandsError.noTextTarget(
+            observed: "#\(rec.ref) \(rec.role) \"\(String(rec.label.prefix(40)))\" takes no text; " + chk.observed)
     }
 
     /// hands-8: synthesized keys/typing/clicks must go to the observed app.

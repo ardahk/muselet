@@ -3,6 +3,9 @@ import Foundation
 
 /// Headless brain client: connects to ws://127.0.0.1:8765, sends hello,
 /// dispatches rpc messages, replies with rpc_result, reconnects with backoff.
+/// With utterances (`hands serve --utterance ...`) a `ServeSession` decides
+/// when to send the next one and when to exit (0 done, 2 timeout), printing
+/// a one-line JSON summary on stdout.
 public final class BrainClient: NSObject, URLSessionWebSocketDelegate {
     private let url: URL
     private let handler: RPCHandler
@@ -13,29 +16,55 @@ public final class BrainClient: NSObject, URLSessionWebSocketDelegate {
     private var reconnectScheduled = false
     /// Hands is stateful — every RPC executes on this one serial queue.
     private let handsQueue = DispatchQueue(label: "hands.serial")
-    /// Utterances queued for `hands serve --utterance`.
-    private var pendingUtterances: [String]
-    private var uttSeq = 0
-    private var waitingForOutcome = false
+    /// Utterance turns, exit rules and the summary.
+    public let serve: ServeSession
 
     public init(url: URL = URL(string: "ws://127.0.0.1:8765")!,
                 handler: RPCHandler = RPCHandler(),
-                utterances: [String] = []) {
+                config: ServeSession.Config = ServeSession.Config(utterances: [])) {
         self.url = url
         self.handler = handler
-        self.pendingUtterances = utterances
+        self.serve = ServeSession(config: config)
         super.init()
         self.session = URLSession(configuration: .default, delegate: self,
                                   delegateQueue: nil)
     }
 
-    /// Run forever; call on the main thread or a dedicated run loop.
+    public convenience init(url: URL, handler: RPCHandler = RPCHandler(), utterances: [String]) {
+        self.init(url: url, handler: handler, config: ServeSession.Config(utterances: utterances))
+    }
+
+    /// Run until the session exits (forever without utterances); call on
+    /// the main thread.
     public func run() -> Never {
         connect()
+        // Exit rules are time based: tick ~10x per second.
+        let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            self.perform(self.serve.tick(now: Date()))
+        }
+        RunLoop.current.add(timer, forMode: .default)
         // An attached source keeps the run loop from exiting with no input.
         RunLoop.current.add(Port(), forMode: .default)
         while running { RunLoop.current.run(mode: .default, before: .distantFuture) }
         exit(0)
+    }
+
+    private func perform(_ step: ServeSession.Step) {
+        switch step {
+        case .none: break
+        case .send(let id, let text):
+            // Capture ctx at send time (AGENTS.md contract).
+            send(["t": "utterance", "id": id, "text": text,
+                  "final": true, "ctx": UtteranceCtx.capture()])
+        case .exit(let code):
+            running = false
+            print(serve.summaryLine())
+            fflush(stdout)
+            task?.cancel(with: .normalClosure, reason: nil)
+            usleep(150_000)             // let the close frame go out
+            exit(code)
+        }
     }
 
     private func connect() {
@@ -44,8 +73,14 @@ public final class BrainClient: NSObject, URLSessionWebSocketDelegate {
         task?.resume()
         sendHello()
         receive()
-        waitingForOutcome = false
-        sendNextUtteranceIfAny()
+    }
+
+    /// The socket is open: the session may send its first utterance.
+    public func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
+                           didOpenWithProtocol protocol: String?) {
+        guard webSocketTask === task else { return }
+        let step = serve.connected(now: Date())
+        DispatchQueue.main.async { [weak self] in self?.perform(step) }
     }
 
     private func sendHello() {
@@ -58,16 +93,6 @@ public final class BrainClient: NSObject, URLSessionWebSocketDelegate {
             ])
         }
         send(["t": "hello", "screens": screens])
-    }
-
-    private func sendNextUtteranceIfAny() {
-        guard !pendingUtterances.isEmpty, !waitingForOutcome else { return }
-        waitingForOutcome = true
-        uttSeq += 1
-        let text = pendingUtterances.removeFirst()
-        // Capture ctx at send time (AGENTS.md contract).
-        send(["t": "utterance", "id": "u\(uttSeq)", "text": text,
-              "final": true, "ctx": UtteranceCtx.capture()])
     }
 
     private func receive() {
@@ -91,14 +116,10 @@ public final class BrainClient: NSObject, URLSessionWebSocketDelegate {
     }
 
     private func onText(_ s: String) {
-        guard let data = s.data(using: .utf8),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let t = obj["t"] as? String else { return }
-        switch t {
-        case "rpc":
-            guard let id = obj["id"] as? String,
-                  let method = obj["method"] as? String else { return }
-            let params = obj["params"] as? [String: Any] ?? [:]
+        guard let frame = BrainInbound.decode(s) else { return }
+        switch frame {
+        case .rpc(let id, let method, let params):
+            serve.rpcStarted(id: id)
             // Serial hands queue: Hands is stateful, never run RPCs in parallel.
             handsQueue.async { [weak self] in
                 guard let self else { return }
@@ -108,17 +129,15 @@ public final class BrainClient: NSObject, URLSessionWebSocketDelegate {
                 if let r = result { reply["result"] = r }
                 if !ok { reply["error"] = error ?? "error" }
                 self.send(reply)
+                self.serve.rpcFinished(id: id, ok: ok)
             }
-        case "ui":
-            // utterance finished when the mascot reports an outcome
-            if let m = obj["mascot"] as? String,
-               m == "success" || m == "confused" || m == "sleeping" {
-                waitingForOutcome = false
-                sendNextUtteranceIfAny()
-            }
-        case "say", "confirm":
-            break   // headless: no UI to drive yet
-        default:
+        case .ui(let mascot, let bubble, let ms):
+            serve.ui(mood: mascot, bubble: bubble, ms: ms)
+        case .say(let text):
+            serve.say(text)
+        case .confirm(_, let summary):
+            serve.confirm(summary)      // headless: never answered (no auto-yes)
+        case .confirmCancel, .unknown:
             break
         }
     }

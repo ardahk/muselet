@@ -328,6 +328,11 @@ final class SpyRunner: ScriptRunning {
     var ran: [String] = []
     var respond = ""
     func run(_ source: String) throws -> String { ran.append(source); return respond }
+    /// Handler calls are recorded as `<script>.<handler>(<args>)`.
+    func call(_ script: SkillScript, _ handler: String, _ args: [Any]) throws -> String {
+        ran.append("\(script.name).\(handler)(\(args.map { "\($0)" }.joined(separator: ",")))")
+        return respond
+    }
 }
 
 final class CatalogTests: XCTestCase {
@@ -390,7 +395,7 @@ final class SkillGatingTests: XCTestCase {
                        events: MockPoster(), apps: MockApps(), hooks: .inert)
         let r = s.execute(name: "set_volume", args: ["level": 30])
         XCTAssertEqual(r["ok"] as? Bool, true, "\(r)")
-        XCTAssertEqual(spy.ran.first, "set volume output volume 30")
+        XCTAssertEqual(spy.ran.first, "volume.set_level(30)")   // precompiled handler, no new source
         XCTAssertNotNil(r["ms"])
     }
 

@@ -109,15 +109,14 @@ public enum Screenshot {
         }
     }
 
-    /// AX focused (else main) window frame of `pid`, global top-left points.
+    /// AX focused (else main, else frontmost AXWindows) window frame of
+    /// `pid`, global top-left points.
     public static func focusedWindowFrame(pid: pid_t) -> CGRect? {
         guard pid > 0 else { return nil }
         let app = AXNode(AXUIElementCreateApplication(pid))
         app.setMessagingTimeout(0.25)
-        let w = app.copySingleAttr(kAXFocusedWindowAttribute as String)
-            ?? app.copySingleAttr(kAXMainWindowAttribute as String)
-        guard let w, CFGetTypeID(w as CFTypeRef) == AXUIElementGetTypeID() else { return nil }
-        let f = AXNode(w as! AXUIElement).copyAttrs().frame
+        guard let w = Hands.pickWindow(app: app)?.window else { return nil }
+        let f = w.copyAttrs().frame
         return f.width > 0 ? f : nil
     }
 

@@ -9,6 +9,7 @@
 #   debug_ui.sh ghost X Y W H "Label" [ok|fail]      # CG global top-left points
 #   debug_ui.sh ghost-ax ["label substring"]          # preview a press on a real AX element
 #   debug_ui.sh status                                 # writes a status line to the log
+#   debug_ui.sh automation-status                      # Automation consent per app -> log (never prompts)
 #   debug_ui.sh hud volume 40 | hud mute | hud brightness 70      # skill HUD preview
 #   debug_ui.sh hud dark on|off | hud wifi on|off | hud bluetooth on|off
 #   HUD_STYLE=vibrancy debug_ui.sh hud volume 40       # glass (default) | vibrancy
@@ -30,6 +31,7 @@ case "$cmd" in
   ghost)    info=$(json cmd ghost x "$1" y "$2" w "$3" h "$4" label "${5:-}" ok "$([ "${6:-ok}" = fail ] && echo false || echo true)") ;;
   ghost-ax) info=$(json cmd ghost-ax label "${1:-}") ;;
   status)   info=$(json cmd status) ;;
+  automation-status) info=$(json cmd automation_status) ;;
   hud)
     kind="${1:-volume}"; arg="${2:-}"
     case "$kind" in

@@ -35,7 +35,8 @@ public final class RPCHandler {
         self.skills = skills ?? Skills()
         self.skillTargets = skillTargets ?? SkillTargets()
         guard warmUp else { return }
-        // Warm the AppleScript runner off the hot path (first compile ~9 s).
+        // Precompile the skill AppleScripts off the hot path (compile only:
+        // nothing runs, so no app is launched and no Automation prompt shows).
         DispatchQueue.global(qos: .utility).async { [skills = self.skills] in
             skills.warmUp()
         }
@@ -72,6 +73,8 @@ public final class RPCHandler {
                     "elements": elements, "text": obs.text, "ax_ms": obs.axMs.rounded(to: 2),
                 ]
                 if let f = obs.focusedRef { r["focused_ref"] = f }
+                // focused | main | windows | app | none | menubar | all_windows
+                r["window_source"] = obs.windowSource
                 if let d = obs.diffText { r["diff_text"] = d }
                 if obs.full { r["full"] = true }
                 if obs.truncated { r["truncated"] = true }
