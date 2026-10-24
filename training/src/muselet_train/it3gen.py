@@ -343,12 +343,50 @@ def v3_apply(run: str) -> None:
                       "by": dict(collections.Counter(f"{x['old']}->{x['label']}" for x in ch.values()))}))
 
 
+def gate_filter(run: str) -> None:
+    """Drop every pool row (route train/val raw + ASR-rendered text, ARGS) that overlaps a frozen eval under the
+    4-rule gate, so the trainer's hard gate passes on any subsample. Writes <run>/evalcheck_filter.json."""
+    import collections
+
+    from muselet_train import datums as D
+    from muselet_train.evalcheck import eval_items, overlaps
+
+    d = GEN / run
+    evals = eval_items()
+    rep, bad = {}, set()
+    files = {f: [json.loads(x) for x in (d / f).read_text().splitlines()]
+             for f in ("route_train.jsonl", "route_val.jsonl", "args.jsonl")}
+    for f, rows in files.items():
+        split = "val" if f == "route_val.jsonl" else "train"
+        of = {}
+        for r in rows:
+            u = r["utterance"]
+            of[u] = u
+            if f.startswith("route"):
+                of[D.noisy(u, "r:" + u, split)] = u
+        hits = overlaps(list(of), evals)
+        bad |= {of[h["train"]] for h in hits}
+        rep[f] = {"rows": len(rows), "pairs": len(hits), "by_eval": dict(collections.Counter(h["eval"] for h in hits)),
+                  "pairs_list": [{k: h[k] for k in ("train", "eval", "eval_idx", "eval_utterance", "rule")} for h in hits]}
+    for f, rows in files.items():
+        keep = [r for r in rows if r["utterance"] not in bad]
+        rep[f] |= {"dropped": len(rows) - len(keep)}
+        (d / f.replace(".jsonl", ".pre_gate.jsonl")).write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+        (d / f).write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in keep))
+    rep["dropped_utts"] = sorted(bad)
+    (d / "evalcheck_filter.json").write_text(json.dumps(rep, indent=1, ensure_ascii=False))
+    print(json.dumps({f: {k: v for k, v in rep[f].items() if k != "pairs_list"} for f in files} | {"dropped_utts": sorted(bad)},
+                     ensure_ascii=False))
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--round", type=int, default=0)
     ap.add_argument("--run", default="v3it3")
-    ap.add_argument("stage", choices=["v2-write", "v2-judge", "v2-gate", "it3-gen", "relabel", "v3-apply"])
+    ap.add_argument("stage", choices=["v2-write", "v2-judge", "v2-gate", "it3-gen", "relabel", "v3-apply", "gate-filter"])
     a = ap.parse_args()
+    if a.stage == "gate-filter":
+        return gate_filter(a.run)
     if a.stage == "v3-apply":
         return v3_apply(a.run)
     if a.stage == "v2-write" and a.round:
