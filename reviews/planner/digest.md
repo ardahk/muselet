@@ -1,13 +1,14 @@
-# planner lane — pass 13 (main 280715d, wip 38768f3 unchanged; cloud/data-pipeline a6b229a)
+# planner lane — pass 14 (main bb494af = brain-3 + finance-3 + advisor-3 merged; wip c85a000)
 
-Only cloud/data-pipeline moved (router datums and parity report), so nothing changed in my lane. No change to the open findings.
+Resolved: planner-21. web_ax_pending handling is on main via brain-3. 227 non-MLX tests pass on main.
+New: evals/planner_offline.py (28 scenarios, bb5a80b) reviewed. The few-shot examples don't overlap any scenario goal, so there is no leakage. The grader doesn't match the runtime (planner-22).
 
 ## Open P1 (ranked)
-1. planner-21 P1 — Main brain ignores web_ax_pending; planner plans on half-empty Chrome tree (demo goal 2) — ml/src/brain/orchestrator.py@main
-2. planner-20 P1 — Harness's own done-rejection counts toward the 3-failed-turns loop guard — ml/src/brain/orchestrator.py@brain-3 L1080-1105
+1. planner-20 P1 — The harness's own `done` rejection counts toward the 3-failed-turns guard, so a recovered task can end in "I'm stuck" — now on main, ml/src/brain/orchestrator.py L1087-1096
+2. planner-22 P1 — The offline planner benchmark scores lines the runtime would accept (prose, missing `skill` prefix) as invalid, which skews the knob comparisons — evals/planner_offline.py
 3. planner-6 P1 — Premiere runs via keyboard shortcuts only; the 8766 UXP bridge isn't connected, so results can't be verified — app/Sources/HandsKit/Skills.swift
 
 ## Highest-leverage next moves
-- Fix planner-20 on brain-3 (one flag), then merge brain-3. That closes planner-21 too.
-- Premiere: add an expect to each premiere_command (`appears "Export"`), or connect the bridge for add_marker and export_sequence.
-- Run test_planner_loop on the Mac (MLX) with a fail, fail, done case.
+- orchestrator.py: skip fail_streak += 1 on the done-rejection turn (one flag).
+- planner_offline.py: apply dsl.action_line before BatchCutter and grade, so the benchmark mirrors the runtime before any knob or model is picked.
+- Premiere: add an expect to each premiere_command, or connect the bridge for add_marker and export_sequence.
