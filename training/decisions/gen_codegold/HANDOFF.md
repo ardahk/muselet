@@ -31,7 +31,7 @@ uv venv ml/.venv --python 3.12 && uv pip install -p ml/.venv -e ml pytest pyarro
 # restore the run dirs (gitignored) from the private WIP snapshot
 ml/.venv/bin/python -c "from huggingface_hub import snapshot_download as s; s('jonsnov/muselet-decisions-v2-wip', repo_type='dataset', revision='3de9c2e7fc1c3110ebf94ebdbd43fffe4f190c66', local_dir='.')"
 mkdir -p data/bench/typed_decisions && cp runs/decisions/codegold/refs/typed_decisions_test.parquet data/bench/typed_decisions/test-00000-of-00001.parquet
-git clone https://github.com/deskmind-ai/jevbench runs/bench/_src/jevbench && git -C runs/bench/_src/jevbench checkout 609a664e81f46e03731600bd7bd9f1b7a61257c5   # JevBench public refs (path used by decontam2.py); adjust URL if the remote differs
+git clone https://github.com/fstandhartinger/jevbench runs/bench/_src/jevbench && git -C runs/bench/_src/jevbench checkout 609a664e81f46e03731600bd7bd9f1b7a61257c5   # JevBench public refs (path used by decontam2.py)
 timeout 280 ml/.venv/bin/python -m pytest training/decisions/gen_codegold/tests -q -x
 # 1. finish full2 labeling (resumable: skips decision_ids already in label_results.jsonl), then decontam
 ml/.venv/bin/python -m training.decisions.gen_codegold.run label    --run full2 --seed 3 --per-family 200 --budget 33
