@@ -1,4 +1,7 @@
-# planner lane — pass 41 (main 27ebd13, wip 4585ce4, new planner-retrieval 9786fa4, comms-2, clock-timers, mascot-animal)
+# planner lane — pass 42 (main 3876f3a, wip 3cfa06d, comms-2 c65ee70, clock-timers d060b5a)
+
+Pass 42: no new findings. comms-2 sends requests that name a message channel (text/message/iMessage/SMS, unless mail/email is also named) to comms.start, through the router, the slot step, the planner skill step and ask. It relabels compose_email/draft_email as send_message, and the planner can't open Mail for a texting goal. Sending still needs a confirmation that shows the recipient and an excerpt (comms.py L582-602) and checks that Messages is frontmost. c65ee70 makes the verb-first form require a message noun. clock-timers only adds the one-time Clock-shortcut hint and the reply wording. main changed only HandsKit Contacts/MessagesCompose v2 and WindowsProbe; messages_send still posts a single Return after re-checking the window. Open findings are unchanged: planner-28, planner-24, planner-29, planner-6 (P1); planner-26, planner-27, planner-25 (P2).
+
 
 Pass 41: no new findings. planner-retrieval plan_bank.py draws its BM25 demos from v2-tune and excludes the v1 tune/holdout/holdout2, v2-holdout, live_t1 and external goals (L187-208). Holdout results stay clean, but v2-tune scores are inflated once retrieval is on, so quote only v2-holdout for retrieval comparisons. I only skimmed comms-2 and clock-timers this pass and will review them fully next pass. mascot-animal doesn't touch this lane. main changed only catalog.py and the create_event UTC offset. Open findings are unchanged: planner-28, planner-24, planner-29, planner-6 (P1); planner-26, planner-27, planner-25 (P2).
 
