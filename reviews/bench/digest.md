@@ -1,9 +1,9 @@
-# bench digest — pass 5 (self-poll, 2026-10-24T07:05Z)
+# bench digest — pass 6 (self-poll, 2026-10-24T07:30Z)
 
-P0: 0. Open P1: 6. Open P2: 3. Reviewed: cloud/bench@911a384, cloud/grounding@42310cd, cloud/data-pipeline@153a01c, main@c2d2988, wip/local@d5d2d7d, cloud/brain-2@9f41c11.
+P0: 0. Open P1: 6. Open P2: 3. Reviewed: cloud/bench@911a384, cloud/grounding@42310cd, cloud/data-pipeline@8f0b9bc, main@c2d2988, wip/local@d5d2d7d, cloud/brain-2@9f41c11.
 
 ## Open P0/P1 (ranked)
-1. bench-8 — decontam crashes on evals/external `text` rows; HobbyLM path hard-coded — training/src/muselet_train/decontam.py
+1. bench-8 — decontam/dedup crash on evals/external `text` rows; HobbyLM path hard-coded. The Phase 1 trainer now consumes route_dedup.jsonl, and the reports give no decontam count — training/src/muselet_train/{decontam,dedup,datums}.py
 2. bench-14 — No dedup for ScreenSpot-Pro/OSWorld-G before grounding training (becomes P0 when Phase-4 data is built) — training/src/muselet_train/decontam.py
 3. bench-13 — Runtime zoom re-crops the 1 MP shot, so the bench's zoom gain won't transfer — ml/src/brain/grounder.py
 4. bench-7 — Event replay can send real invites (calendar not proven local) — bench/hobbylm/replay.py
