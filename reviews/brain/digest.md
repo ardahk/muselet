@@ -1,26 +1,24 @@
-# brain lane digest — pass 22 (2026-10-24T10:45Z)
+# brain lane digest — pass 23 (2026-10-24T11:00Z)
 
-Reviewed: main d514300 (merged PR #15 cloud/brain-4 + HandsKit batch 5 + tools/serve_brain.sh), wip/local b63699f (= main tree),
-cloud/brain-5 b752261 (not_frontmost handling + merge of main), cloud/data-pipeline f13aa6d (export untie lm_head, eval fix).
-Tests: main 914 passed / 2 skipped / 51 xfailed; brain-5 1033 passed / 2 skipped / 51 xfailed.
+Reviewed: main 26ff05b (merged PR #17 cloud/brain-5, argfix kill/cut/stop polarity, v2 route parity reference), wip/local 2c79363 (= main),
+cloud/hobby-gaps 861b991 (merge of main d514300 only), cloud/data-pipeline eae3b7e (plan doc), cloud/decisions 91a62c2 (training labeler; outside lane).
+Tests: main 1085 passed / 2 skipped / 0 xfailed (parity gate live: test_route_parity 52 passed); hobby-gaps 936 passed / 51 xfailed.
 
-Open: P0 0, P1 6, P2 5.  Resolved this pass: brain-21 on main (Swift brightness delta merged).
+Open: P0 0, P1 5, P2 5.  Resolved this pass: brain-15 (route parity gate re-armed on main).
 
-## Open P0/P1 (ranked)
-1. brain-24 (P1, brain-5) fuzzy path lookup picks `invoice 2023.pdf` for "trash invoice 2024" (orchestrator.py:599@b752261).
-2. brain-16 (P1, main + brain-5) abs_level: main now inherits brain-4's version — "down a bit at 3 pm" -> 3 and "turn up the volume 20%" -> 20;
-   brain-5 adds "for a min" -> 0, "battery is full" -> 100.
-3. brain-22 (P1, now on main) planner history default `dsl` (`press #4 -> ok`) vs `[ok]` few-shot; history lines still parse as actions. Shipped as recommended by tools/serve_brain.sh.
-4. brain-23 (P1, hobby-gaps) "all the way up" becomes +25 (brain-5 is correct).
-5. brain-17 (P1, main) compound check runs serial route passes before speculative reuse.
-6. brain-15 (P1, main) test_route_parity xfails all 51 cases (v1 samples file).
+## Open P1 (ranked)
+1. brain-24 (main) fuzzy path lookup: "trash invoice 2024" resolves to invoice 2023.pdf (orchestrator.py:599@26ff05b). Now in the demo path.
+2. brain-16 (main) abs_level: "down a bit at 3 pm" -> 3, "volume 20%" after "turn up" -> 20, "for a min" -> 0, "battery is full" -> 100.
+3. brain-22 (main) planner history `x -> ok` vs `[ok] x` few-shot; `press #4 -> ok` still parses as an action.
+4. brain-23 (hobby-gaps) "all the way up" -> +25; branch now conflicts with main in orchestrator.py/catalog.py.
+5. brain-17 (main) compound check runs serial route passes before speculative reuse.
 
 ## Next moves
-1. Before merging brain-5: ASK (don't auto-pick) on fuzzy path matches for destructive ops; anchor min/max/full to the controlled property.
-2. Reject incidental times/durations/percent-after-direction in abs_level (brain-16) — now in the demo path on main.
-3. Either revert history default to `marked` or make dsl.action_line reject `-> ok|failed` suffixes (brain-22).
-4. Land parity_300.jsonl / v2 samples on main to re-arm the parity gate (brain-15).
-5. Drop hobby-gaps' _run_skill relative overrides; brain-5's 10/30 scheme follows the brief.
+1. pathfind: exact matches only for trash/move/rename; fuzzy hits must ASK with the candidate name (brain-24).
+2. abs_level: anchor min/max/full/N% to the property word and reject times/durations (brain-16); repros in reviews/brain/tests/test_brain_pass{16,18,20}.py.
+3. Make dsl.action_line reject `-> ok|failed` suffixes or align the few-shot with dsl history (brain-22).
+4. When rebasing hobby-gaps on main, keep brain-5's relative scheme and drop the _run_skill overrides (brain-23).
+5. Speculative-route reuse before the compound split (brain-17).
 
-Notes (no findings): brain-5 not_frontmost path returns a single fail bubble and terminates the planner batch (orchestrator.py:1066-1072, 1396);
-data-pipeline untie_lm_head yields an untied lm_head that main's split_model already supports; serve_brain.sh uses base ARGS with trained router as documented.
+Notes (no findings): argfix ec91b20 adds kill/cut/shut down/stop -> off for wifi/bluetooth; mixed-polarity utterances still return None, and
+"cutting out" doesn't match `\bcut\b`.
