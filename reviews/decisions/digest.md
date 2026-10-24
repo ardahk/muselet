@@ -11,7 +11,7 @@ Contamination re-check this pass: 2400 freshly generated code-family items vs Je
 5. decisions-17 P1 per-family noul priors (counting 7.5% true, numeric 73%) — families/*
 6. decisions-14 P1 live_t1 T1 quoted while live_t1 was the tuning set — pitch/claims.md
 7. decisions-13 P1 route_acc 'top-1' is tau-gated — pitch/claims.md:13
-8. decisions-25 / -5 / -4 / -3 P1 data brief stale; bf16 vs Mac mixing; noul order flip; route regression unmeasured
+8. decisions-25 / -4 / -3 P1 data brief stale; noul order flip; route regression unmeasured
 
 ## Highest-leverage next moves
 - Pick calibrated vs T=1 before uploading the mlx4 export (export.py copies T .905/.741 by default) (decisions-31); then bench the mlx4 export on the Mac with the same runners before quoting any number (decisions-5).
