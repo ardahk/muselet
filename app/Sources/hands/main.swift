@@ -77,7 +77,8 @@ struct ProbeCmd: ParsableCommand {
             // Live: the timers of running Muselet / `hands serve` processes
             // (their snapshot files). --demo: the RPC round trip in-process.
             printJSON(demo ? TimerProbe.demo() : ["timers": TimerSnapshot.read(),
-                                                  "source": TimerSnapshot.directory.path])
+                                                  "source": TimerSnapshot.directory.path,
+                                                  "backend": ClockTimers(runner: ShortcutsCLI()).info(refresh: true)])
         case "applescript":
             printJSON(legacy ? AppleScriptProbe.legacy() : AppleScriptProbe.handlers())
         case "automation":

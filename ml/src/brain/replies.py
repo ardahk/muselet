@@ -30,6 +30,29 @@ def _dur(v) -> str:
     return " ".join(p for p in parts if p) or "0 s"
 
 
+def _dur_words(v) -> str:
+    """600 -> "10 minutes", 5400 -> "1 hour 30 minutes", 1 -> "1 second"."""
+    try:
+        s = int(round(float(v)))
+    except (TypeError, ValueError):
+        return str(v)
+    h, m, sec = s // 3600, s % 3600 // 60, s % 60
+    parts = [f"{n} {unit}{'' if n == 1 else 's'}"
+             for n, unit in ((h, "hour"), (m, "minute"), (sec, "second")) if n]
+    return " ".join(parts) or "0 seconds"
+
+
+# Once per brain session, after a start_timer fallback for a missing shortcut.
+CLOCK_HINT = "Add the Clock shortcut in Settings to use the Clock app"
+
+
+def _timer_text(a: dict, result) -> str:
+    r = result if isinstance(result, dict) else {}
+    secs = r.get("seconds", a.get("duration"))
+    where = " in Clock" if r.get("backend") == "clock" else ""
+    return f"Timer set{where} for {_dur_words(secs)}"
+
+
 def human(name: str) -> str:
     return name.replace("_", " ")
 
@@ -68,7 +91,7 @@ def success_text(name: str, args: dict, result=None) -> str:
         "new_folder": lambda: f'Created folder "{a.get("name")}"',
         "move_to_trash": lambda: f"Moved {_base(a.get('path'))} to Trash",
         "take_screenshot": lambda: "Screenshot saved",
-        "start_timer": lambda: f"Timer set for {_dur(a.get('duration'))}",
+        "start_timer": lambda: _timer_text(a, result),
         "create_event": lambda: f"Added {a.get('title')} to Calendar",
         "create_reminder": lambda: f"Reminder set: {a.get('title')}",
         "todays_agenda": lambda: "Here's today",
