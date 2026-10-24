@@ -221,13 +221,13 @@
       "key": "rebalance",
       "title": "Rebalance back to target",
       "impact_usd": "118151.60",
-      "impact_kind": "dollars moved"
+      "impact_kind": "to move"
     },
     {
       "key": "cash_excess",
       "title": "Invest excess savings",
       "impact_usd": "68480.00",
-      "impact_kind": "idle cash"
+      "impact_kind": "idle in savings"
     },
     {
       "key": "roth_conversion",

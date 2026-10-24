@@ -411,14 +411,14 @@ def truth() -> dict:
 
     # Meeting
     ev = dict(re.findall(r"^(SUMMARY|DTSTART|DTEND):(.*?)\r?$", ics, flags=re.M))
-    iso = lambda v: dt.datetime.strptime(v, "%Y%m%dT%H%M%S").strftime("%Y-%m-%dT%H:%M")  # noqa: E731
+    iso = lambda v: dt.datetime.strptime(v, "%Y%m%dT%H%M%S").strftime("%Y-%m-%dT%H:%M")
     meeting = {"summary": ev["SUMMARY"], "start": iso(ev["DTSTART"]), "end": iso(ev["DTEND"])}
 
     opps = [
         {"key": "rebalance", "title": "Rebalance back to target", "impact_usd": rebalance["total_bought"],
-         "impact_kind": "dollars moved"},
+         "impact_kind": "to move"},
         {"key": "cash_excess", "title": "Invest excess savings", "impact_usd": cash["excess"],
-         "impact_kind": "idle cash"},
+         "impact_kind": "idle in savings"},
         {"key": "roth_conversion", "title": "Roth conversion window", "impact_usd": roth["room"],
          "impact_kind": "convertible at 22% or less"},
         {"key": "tax_loss_harvest", "title": "Tax-loss harvesting", "impact_usd": tlh["harvestable_loss_total"],
