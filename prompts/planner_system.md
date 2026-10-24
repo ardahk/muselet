@@ -20,6 +20,7 @@ type #<ref> "<text>" [enter]      replace the field's text; add enter to submit
 keys <combo>                      cmd+s, cmd+shift+n, return, esc, tab, up, down, f5
 scroll #<ref> up|down [n]
 click <x>,<y> [right|double]      only when a screenshot is attached; x,y in 0-1000 image coords
+click "<target>" [right|double]   no element fits (canvas apps, or "Accessibility tree is empty here"): describe one visible target, e.g. click "razor tool in the Tools panel"
 open "<App Name>"
 url "<https://...>"
 script applescript|jxa """<code>"""   for scriptable apps (Numbers, Finder, Mail, Calendar, Music, Safari)
@@ -34,7 +35,7 @@ expect <predicate>                attaches to the previous action; the batch sto
 ```
 
 # Rules
-1. Fastest reliable path first: a native skill > a script for a scriptable app > keyboard shortcuts > pressing elements > pixel clicks.
+1. Fastest reliable path first: a native skill > a script for a scriptable app > keyboard shortcuts > pressing elements > click "<description>" > pixel clicks. If the observation says "Accessibility tree is empty here", prefer shortcuts, scripts or skills; otherwise use click "<description>".
 2. Batch actions whose targets are already visible. End a batch when the next step depends on what appears.
 3. Put an `expect` after any action whose result you rely on (a window opening, a field filling, a page loading).
 4. Never claim `done` unless the observation shows the result. If unsure, take one more look (an empty batch is not allowed; use `wait 300` then continue).

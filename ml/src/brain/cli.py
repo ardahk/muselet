@@ -66,6 +66,19 @@ def make_planner(pmodel: str, engine=None, opts: dict | None = None,
     return planner
 
 
+def grounder_cfg(args) -> dict:
+    """`brain serve --grounder-*` -> Orchestrator.grounder_cfg ({} = disabled). Validates the adapter
+    name without importing MLX."""
+    spec = (args.grounder_model or "none").strip()
+    if spec.lower() == "none":
+        return {}
+    from .grounder import get_adapter
+    name, _, repo = spec.partition("=")
+    get_adapter(name)
+    return {"model": name, "repo": repo or None, "max_pixels": args.grounder_max_pixels,
+            "zoom_frac": args.grounder_zoom_frac}
+
+
 # escalation planner: few-shot on, unconstrained, dsl history
 ESCALATE_OPTS = {"constrain": False, "few_shot": "prompts/planner_fewshot.md",
                  "history": "dsl"}
@@ -75,7 +88,8 @@ async def serve(port: int = 8765, model: str | None = None,
                 planner_model: str | None = None,
                 planner_kw: dict | None = None,
                 args_model: str | None = None,
-                escalate_model: str | None = None):
+                escalate_model: str | None = None,
+                grounder: dict | None = None):
     server = BrainServer(port=port)
     await server.start()
     engine = None
@@ -90,6 +104,16 @@ async def serve(port: int = 8765, model: str | None = None,
         planner = make_planner(pmodel, engine, planner_kw)
     orch = Orchestrator(server, Catalog.load(), Tracer(), engine=engine)
     orch.planner = planner
+    if grounder is not None:
+        orch.grounder_cfg = grounder or None      # {} = disabled
+    if orch.grounder_cfg:                         # lazy: weights load on the first `click "<target>"`
+        print(f"[grounder] {orch.grounder_cfg['model']} max_pixels={orch.grounder_cfg['max_pixels']} "
+              f"zoom_frac={orch.grounder_cfg['zoom_frac']} (lazy)", flush=True)
+
+    async def on_hello(screens):
+        orch.screens = screens
+
+    server.on_hello = on_hello
     if planner and escalate_model:    # loaded now, kept resident
         orch.planner_escalate = make_planner(
             escalate_model, engine, ESCALATE_OPTS, tag="planner-escalate")
@@ -265,6 +289,13 @@ def build_parser(argv=None):
                    help="opt-in planner that takes over when the loop guard trips")
     s.add_argument("--planner-history", default="dsl",
                    choices=["marked", "dsl", "repr"], help="Last batch line format")
+    s.add_argument("--grounder-model", default="eyes-4b", metavar="NAME[=PATH]|none",
+                   help="grounder adapter for `click \"<target>\"` (brain.grounder.ADAPTERS, e.g. "
+                        "eyes-4b, ui-venus-1.5-8b; name=path for local weights); loaded on first use")
+    s.add_argument("--grounder-max-pixels", type=int, default=1_000_000,
+                   help="pixel cap per grounder screenshot/model call (2000000 = slower, more accurate)")
+    s.add_argument("--grounder-zoom-frac", type=float, default=0.4,
+                   help="stage-2 zoom region as a fraction of the window side")
     e = sub.add_parser("eval-route", help="eval the router on a JSONL cases file")
     e.add_argument("--model", default=None)
     e.add_argument("--args-model", default=None,
@@ -293,7 +324,8 @@ def run_cmd(args, ap):
         em = args.planner_escalate_model
         em = _resolve_model(em) if em and em.lower() != "none" else None
         asyncio.run(serve(args.port, m, args.planner_model, planner_opts(args),
-                          args_model=am, escalate_model=em))
+                          args_model=am, escalate_model=em,
+                          grounder=grounder_cfg(args)))
     elif args.cmd == "eval-route":
         eval_route(args.model, args.cases, args.out,
                    tau=getattr(args, "tau", 0.55), args_model=args.args_model)
