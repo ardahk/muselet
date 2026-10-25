@@ -187,9 +187,10 @@ async def serve(port: int = 8765, model: str | None = None,
         "mlx-community/Qwen3.6-35B-A3B-4bit"
     if grounder is not None:
         orch.grounder_cfg = grounder or None      # {} = disabled
-    if orch.grounder_cfg:                         # lazy: weights load on the first `click "<target>"`
+    if orch.grounder_cfg:                         # weights prewarm off-thread; see _schedule_warm_grounder
         print(f"[grounder] {orch.grounder_cfg['model']} max_pixels={orch.grounder_cfg['max_pixels']} "
               f"zoom_frac={orch.grounder_cfg['zoom_frac']} (lazy)", flush=True)
+        orch._schedule_warm_grounder()
 
     async def on_hello(screens):
         orch.screens = screens

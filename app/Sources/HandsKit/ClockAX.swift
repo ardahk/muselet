@@ -493,6 +493,73 @@ extension Skills {
         return finish("start_unverified", method: wheelMethod, labelSet: labelSet)
     }
 
+    /// `timer_control {action: pause|resume|cancel}` over the Clock Timers
+    /// tab: press the running timer's pause/resume/cancel control and verify
+    /// the state change. Returns nil on verified success, else a reason.
+    /// Pause/resume target is selected like cancel (label, else nearest
+    /// remaining time).
+    func clockAXControl(_ action: String, info: TimerRegistry.Info?,
+                        now: Date) -> String? {
+        guard hooks.clockAXReady() else { return "clock_ax_unavailable" }
+        guard let app = apps.runningApp(bundlePrefix: ClockAX.bundleId) else { return "clock_not_running" }
+        guard apps.ensureFrontmost(pid: app.pid, timeout: clockAXTimeout) else { return "clock_not_frontmost" }
+        guard let window = Hands.pickWindow(app: axApp(app.pid))?.window else { return "clock_no_window" }
+        var nodes = ClockAX.collect(window).nodes
+        var ui = ClockAX.parse(nodes)
+        if let tab = ui.tab, !ui.tabSelected {
+            guard nodes[tab].el.performAction(kAXPressAction as String) else { return "timers_tab_failed" }
+            let end = Date().addingTimeInterval(clockAXSettle)
+            while Date() < end {
+                Hands.pollWait(clockAXPoll)
+                nodes = ClockAX.collect(window).nodes
+                ui = ClockAX.parse(nodes)
+                if ui.tabSelected { break }
+            }
+            guard ui.tabSelected else { return "timers_tab_failed" }
+        }
+        let haveButton = action == "cancel" ? ui.running.filter { $0.cancelButton != nil }
+                                            : ui.running.filter { $0.pauseButton != nil }
+        let selected: ClockAX.Running?
+        if let label = info?.label, !label.isEmpty,
+           let same = haveButton.first(where: { $0.label?.caseInsensitiveCompare(label) == .orderedSame }) {
+            selected = same
+        } else if let info {
+            let target = info.firesAt.timeIntervalSince(now)
+            selected = haveButton.min { abs($0.leftS - target) < abs($1.leftS - target) }
+                .flatMap { abs($0.leftS - target) <= ClockAX.matchTolerance ? $0 : nil }
+        } else {
+            selected = haveButton.max { $0.leftS < $1.leftS }
+        }
+        let button = action == "cancel" ? selected?.cancelButton : selected?.pauseButton
+        guard let selected, let button, nodes.indices.contains(button) else {
+            return "clock_timer_not_found"
+        }
+        let beforeLabel = (nodes[button].a.title ?? nodes[button].a.desc ?? "").lowercased()
+        // already in the requested state is a no-op success
+        if action == "pause" && beforeLabel.contains("resume") { return nil }
+        if action == "resume" && beforeLabel.contains("pause") && !beforeLabel.contains("resume") { return nil }
+        let beforeCount = ui.running.count
+        let beforeLeft = selected.leftS
+        guard nodes[button].el.performAction(kAXPressAction as String) else {
+            return "clock_\(action)_unverified"
+        }
+        let end = Date().addingTimeInterval(clockAXSettle)
+        while Date() < end {
+            Hands.pollWait(clockAXPoll)
+            let nodes2 = ClockAX.collect(window).nodes
+            let after = ClockAX.parse(nodes2)
+            if action == "cancel" {
+                if after.running.count < beforeCount { return nil }
+            } else if let row = after.running.first(where: { abs($0.leftS - beforeLeft) <= 3 }),
+                      let b = row.pauseButton, nodes2.indices.contains(b) {
+                let lbl = (nodes2[b].a.title ?? nodes2[b].a.desc ?? "").lowercased()
+                if action == "pause" && lbl.contains("resume") { return nil }
+                if action == "resume" && lbl.contains("pause") && !lbl.contains("resume") { return nil }
+            }
+        }
+        return "clock_\(action)_unverified"
+    }
+
     func clockAXRead() -> (status: String, running: [ClockAX.Running]) {
         guard hooks.clockAXReady() else { return ("unavailable", []) }
         guard let app = apps.runningApp(bundlePrefix: ClockAX.bundleId) else { return ("not_running", []) }

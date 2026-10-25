@@ -539,3 +539,66 @@ def test_ask_allowed_for_specific_goal(tmp_path):
     _run(orch.handle_utterance(utterance))
 
     assert planner.calls == 1   # ask passed through, waited for user
+
+
+def test_blind_click_blocked_in_spotify(tmp_path):
+    """Safety incident replay: grounded click on a 'green Play button' in a
+    chrome-only Spotify tree must be refused."""
+    from brain.orchestrator import _NO_BLIND_CLICK_APPS, normalize_name
+    utterance = "play some jazz on spotify"
+    planner = FakePlanner([
+        ['click "green Play button of the top result"'],
+        ['done "done"'],
+    ])
+    obs = _observe(
+        [{"ref": 1, "role": "button", "label": "close"},
+         {"ref": 2, "role": "button", "label": "minimise"},
+         {"ref": 3, "role": "button", "label": "zoom"}],
+        text='app: Spotify | window: "Spotify Premium"')
+    server, tracer, orch = _setup(
+        tmp_path, {utterance.lower(): ("MULTI_STEP", 0.9)},
+        planner=planner, observe=obs)
+
+    _run(orch.handle_utterance(utterance))
+
+    assert "spotify" in _NO_BLIND_CLICK_APPS
+
+
+def test_timer_control_intent(tmp_path):
+    """'pause the timer' and bare 'pause it' (recent start_timer) route to
+    timer_control, never media_control."""
+    _, _, orch = _setup(tmp_path, {}, planner=None)
+    orch._ctx["app"] = "Clock"
+    assert orch._timer_control_intent("pause the timer") == "pause"
+    assert orch._timer_control_intent("cancel my timer") == "cancel"
+    assert orch._timer_control_intent("resume it") == "resume"
+    assert orch._timer_control_intent("stop that") == "cancel"
+    assert orch._timer_control_intent("pause the music") is None
+    orch._ctx["app"] = "Safari"
+    assert orch._timer_control_intent("pause it") is None
+    orch._last_timer_at = time.time()
+    assert orch._timer_control_intent("pause it") == "pause"
+
+
+def test_untargeted_blind_app_gets_no_blind_hint(tmp_path):
+    """Devin frontmost (Electron = chrome-only tree) + a Spotify goal: the
+    planner must not get BLIND_HINT / the screenshot path."""
+    utterance = "play some jazz on spotify"
+    planner = FakePlanner([['done "ok"']])
+    obs = _observe(
+        [{"ref": 1, "role": "button", "label": "close"},
+         {"ref": 2, "role": "button", "label": "minimise"},
+         {"ref": 3, "role": "button", "label": "zoom"}],
+        text='app: Devin | window: "Devin"')
+    _, tracer, orch = _setup(
+        tmp_path, {utterance.lower(): ("MULTI_STEP", 0.9)},
+        planner=planner, observe=obs)
+    orch.planner_blind = planner  # same fake; detection is what matters
+
+    _run(orch.handle_utterance(utterance))
+
+    first = planner.user_msgs[0]
+    assert "not the goal's target" in first["obs"]
+    assert "act by description" not in first["obs"]
+    decisions = tracer.rows[-1]["decisions"]
+    assert any("blind_untargeted" in d for d in decisions)
