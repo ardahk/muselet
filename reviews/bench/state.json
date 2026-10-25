@@ -1,9 +1,9 @@
 {
-  "pass": 51,
-  "ts": "2026-10-25T00:05Z",
+  "pass": 52,
+  "ts": "2026-10-25T00:20Z",
   "branches": {
-    "main": "0b83c3b",
-    "wip/local": "e4f4331",
+    "main": "8fb465c",
+    "wip/local": "fe6c209",
     "cloud/bench": "f584cb2",
     "cloud/data-pipeline": "830ba35",
     "cloud/decisions": "ae36620",
@@ -43,7 +43,7 @@
     "cloud/planner-retrieval": "7df32b1",
     "cloud/data-decisions": "91de461",
     "cloud/w9-safety": "6aa332a",
-    "cloud/memory": "711c0fe",
+    "cloud/memory": "a8af560",
     "cloud/memory-eval": "c05944e",
     "cloud/memory-lt": "4794e8a",
     "cloud/planner-lora": "79f0a97",
@@ -51,7 +51,7 @@
     "cloud/docs-demo": "095d4ef",
     "cloud/ui-polish": "e8bceef",
     "cloud/docs-demo-2": "fa79929",
-    "cloud/hands-clock": "26d4427",
+    "cloud/hands-clock": "6ab40be",
     "cloud/live-cases": "fa9c374",
     "cloud/planner-think": "3677348",
     "cloud/planner-verify": "484f5e7",
@@ -64,5 +64,5 @@
     "cloud/safety-brain38": "54ca8f6",
     "cloud/safety-planner28": "e3abc5e"
   },
-  "notes": "pass51: new bench-34 (think ship decided on a single-seed sampled run). Reviewed: 62eed6f harness quits only case-launched document apps and new Finder window ids (baseline diff), which is fine. Think gains vs the k=1 baseline are real (v2-holdout 60->78/130 greedy). Other branch moves are merges of main."
+  "notes": "pass52: bench-34 now serving (THINK=512 qwen). New bench-35 (claims stale after tau .35). it3 stays opt-in because it fails the pre-registered rule, which is correct. hands-clock and memory moves touch no lane files."
 }
