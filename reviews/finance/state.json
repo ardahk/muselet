@@ -1,7 +1,7 @@
 {
   "lane": "finance",
-  "pass": 83,
-  "ts": "2026-10-25T09:09:57Z",
+  "pass": 84,
+  "ts": "2026-10-25T09:25:14Z",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
@@ -48,8 +48,8 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "2445a1d",
-    "wip/local": "6e7f50b",
+    "main": "85958b0",
+    "wip/local": "3d21638",
     "cloud/memory": "a8af560",
     "cloud/memory-eval": "c05944e",
     "devin/1792872486-data-route-handoff": "seen",
@@ -97,11 +97,11 @@
     "cloud/browser-flow": "485763f",
     "cloud/docs-final": "bf9118d",
     "cloud/agentic-fixes2": "104a411",
-    "cloud/cool-tasks": "e4def97",
+    "cloud/cool-tasks": "a77104e",
     "cloud/native-tools": "6053e4e",
     "cloud/ui-progress": "a66166b"
   },
   "next_id": 28,
-  "notes": "pass83: main 2445a1d (demo-loop5-9): finish.py email_open criterion ('open the latest email from X'), Gmail 'Ask Gmail' not a send target, maps/shopping hint text. Static probe on main: 8 finance/advisor phrases route as before (calendar/finder_files redirects remain); demo request still gets search criterion (finance-34); email_open only fires for 'open the latest email from ...', not finance_review phrasing. cool-tasks e4def97 merges main. wip differs only in the amazon hint row. finance-31/33/34 unchanged.",
+  "notes": "pass84: main 85958b0 (demo-loop10-12): soft expects when self._progress is set (a524768; progress_kind is None for finance/advisor phrases, so finance planner expects stay hard), shopping few-shot/hint, create_reminder->planner override for shopping words. cool-tasks a77104e merges main. wip = main. finance-31/33/34 unchanged.",
   "timestamp": "2026-10-25T05:37:35Z"
 }
