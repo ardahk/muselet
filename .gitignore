@@ -1,7 +1,7 @@
 .venv
 __pycache__/
 *.pyc
-models/
+models
 data/
 !bench/hobbylm/upstream/data/
 !bench/hobbylm/upstream/data/**
