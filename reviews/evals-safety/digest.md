@@ -1,4 +1,8 @@
-# evals-safety digest, pass 62 (main@f5b4606)
+# evals-safety digest (pass 72, 2026-10-25T04:51:36Z)
+
+New: -53 (P2) wip/local rejects any first-turn ASK on vague goals, incl. recipient asks.
+-52: fenced on wip/local c156d18; not yet on main/fallback.
+
 
 1. **P0 -50** sealed HobbyLM D04-D06 utterances tuned on (a1fd57f); exclude/separate them in any later HobbyLM number.
 

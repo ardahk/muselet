@@ -1,9 +1,9 @@
 {
-  "pass": 71,
-  "ts": "2026-10-25T04:37:40Z",
+  "pass": 72,
+  "ts": "2026-10-25T04:51:36Z",
   "last_reviewed": {
     "main": "82c9810",
-    "wip/local": "5b656ef",
+    "wip/local": "c156d18",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -89,6 +89,6 @@
     "cloud/premiere-demo": "a1c0f04",
     "cloud/premiere-route-fix": "7769c32"
   },
-  "next_id": 53,
-  "note": "pass 71: main 82c9810 observation_blind treats window-chrome-only AX trees as blind (empty list still blind; no grading/safety change). premiere-route-fix 7769c32 pre-routes premiere_edit before page tasks, removes draft_email args being dispatched to premiere_edit. wip/local snapshot only."
+  "next_id": 54,
+  "note": "pass 72: wip/local c156d18 only. -52 partially fixed there (fenced + relevance gate). New -53 open-ended ASK rejection."
 }
