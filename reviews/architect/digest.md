@@ -1,7 +1,8 @@
-# architect digest - pass 63 (2026-10-25T02:40Z)
-Reviewed: main 55e38f9 (calendar precondition date-parse fallback, swift run from a file not `swift -e`, precondition_error carried into records) and wip/local fd357b3 (calendar snapshot moved to the runner process for EventKit TCC). bench/tests: 268 passed, 3 skipped. New: architect-41 (P2): Python passes tz-aware isoformat with microseconds, which the new parser likely still rejects (static review only). architect-40 refined: report the r4 rerun twice, full and with D04-D06 neutralised. Open: P0 0, P1 11, P2 8.
+# architect digest - pass 64 (2026-10-25T02:55Z)
+Reviewed: main 13d0486 (calendar capture moved to the runner; same diff as wip/local fd357b3, which is unchanged). New: architect-42 (P1): the move also deleted start-state screenshot capture, so the 20/125 r4 screenshot+none cases KeyError at the final snapshot. Fix before any r4 rerun. Open: P0 0, P1 12, P2 8.
 
 ## Open P1 (ranked)
+000. architect-42 - 13d0486 drops start-state screenshot capture; 20/125 r4 cases crash - bench/hobbylm/replay.py
 00. architect-40 - Sealed r4 failures patched post-hoc; rerun = tuned-on-test - ml/src/brain/orchestrator.py
 1. architect-37 - it3 default router; no it3 sealed overlap check; replay unpinned - tools/serve_brain.sh
 1b. architect-29 - No winning competitor number (TD tie within 1 SE, JevBench loses, HobbyLM r4 missing) - pitch/claims.md
