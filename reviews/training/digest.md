@@ -1,6 +1,6 @@
-# training lane digest — pass 89 (main b92677f)
+# training lane digest — pass 90 (main 430e59e)
 
-Open: 1 P0, 17 P1, 18 P2. No new findings. README (7e21fd4) claims it3 decontamination + .945 route_v2 (training-53) and planner .85 held-out as current (training-55). Top: training-54, training-59, training-50.
+Open: 1 P0, 17 P1, 18 P2. No new findings. training-58 updated: PLANNER=35b now k=0/think 1024 with no committed result; REPORT:36 still says think 512/k=1. Top: training-54, training-59, training-50.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
