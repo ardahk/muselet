@@ -366,7 +366,7 @@ def test_serve_cmd_passes_planner_opts(monkeypatch):
 
     async def fake_serve(port, model, planner_model, planner_kw=None,
                          args_model=None, escalate_model=None, grounder=None,
-                         verify_done=True):
+                         verify_done=True, planner_aux_model=None):
         got.update(planner_kw)
 
     monkeypatch.setattr(cli, "serve", fake_serve)
@@ -524,7 +524,7 @@ def test_cli_escalate_flag(monkeypatch):
 
     async def fake_serve(port, model, pmodel, pkw, args_model=None,
                          escalate_model=None, grounder=None,
-                         verify_done=True):
+                         verify_done=True, planner_aux_model=None):
         seen["esc"] = escalate_model
 
     monkeypatch.setattr(cli, "serve", fake_serve)

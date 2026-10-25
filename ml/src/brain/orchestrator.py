@@ -462,6 +462,7 @@ class Orchestrator:
         self._focus_ctx = {}
         self._planner_ran = False
         self.planner = None
+        self.planner_aux = None
         self.planner_escalate = None    # opt-in bigger planner (loop guard)
         self.escalate_opts = None
         self._escalate_lock = asyncio.Lock()
@@ -507,6 +508,12 @@ class Orchestrator:
         self.grounder = None        # brain.grounder.Grounder, built on first use
         self.screens: list | None = None    # app `hello` screens (backing scale)
         self.verify_done = True
+
+    def _text_model(self, planner=None):
+        """Model for non-DSL text/decide calls: the escalation planner keeps its own; otherwise the aux model (base 4B), else the planner."""
+        if planner is not None and planner is self.planner_escalate:
+            return planner
+        return self.planner_aux or self.planner
 
     # ---------- v0 router ----------
 
@@ -836,7 +843,7 @@ class Orchestrator:
         reason = result.reason
         if (reason and reason not in {"llm-gated", "llm-invalid"} and
                 result.path == "none" and self.memory_llm and
-                self.planner is not None):
+                self._text_model() is not None):
             try:
                 from .memory.rewrite import (
                     STATIC, dynamic, has_context, llm_rewrite,
@@ -848,7 +855,7 @@ class Orchestrator:
                 else:
                     prompt = STATIC + context
                     output = await worker().submit_async(
-                        self.planner.complete, prompt, 40)
+                        self._text_model().complete, prompt, 40)
                     result = llm_rewrite(
                         text, self.memory, focus_ctx, now,
                         lambda _prompt, _tokens: output, 40, memory=rows)
@@ -1820,10 +1827,10 @@ class Orchestrator:
             )
             return await self._deliver_calc(
                 parsed, trace, calculator=calculator)
-        if self.planner is not None:
+        if self._text_model() is not None:
             from .planner import worker
             ans = await worker().submit_async(
-                self.planner.generate,
+                self._text_model().generate,
                 "Answer in at most 12 words.",
                 f'Question: "{text}"', 48)
             await self.server.say(ans or "I don't know")
@@ -2135,7 +2142,7 @@ function run() {
                             obs_text: str) -> str:
         fallback = "the goal isn't visible on screen yet"
         planner = self._active_planner or self.planner
-        if not callable(getattr(planner, "generate", None)):
+        if not callable(getattr(self._text_model(planner), "generate", None)):
             return fallback
         action_lines = [line[:160] for line in actions_log[-12:]]
         user = (f'Goal: "{goal}"\nActions taken:\n'
@@ -2144,7 +2151,8 @@ function run() {
         try:
             from .planner import worker
             answer = await worker().submit_async(
-                planner.generate, VERIFY_MISSING_SYSTEM, user, 24)
+                self._text_model(planner).generate,
+                VERIFY_MISSING_SYSTEM, user, 24)
         except Exception as e:  # noqa: BLE001 - missing-text model is optional
             log.warning("verification missing-text generation failed: %s", e)
             return fallback
@@ -2187,7 +2195,8 @@ function run() {
         started = time.perf_counter()
         try:
             from .planner import worker
-            probs = await worker().submit_async(planner.decide, state, question)
+            probs = await worker().submit_async(
+                self._text_model(planner).decide, state, question)
             p_yes = float(probs.get("true", 0.0))
         except Exception as e:  # noqa: BLE001 - verifier unavailable
             ms = (time.perf_counter() - started) * 1000
@@ -3895,7 +3904,7 @@ function run() {
         return "ok"
 
     def _web_question(self, text: str | None) -> bool:
-        return bool(text) and self.planner is not None and \
+        return bool(text) and self._text_model() is not None and \
             self._ctx.get("online") is True and question_like(text)
 
     async def _window_ocr_text(self) -> str:
@@ -3996,7 +4005,8 @@ function run() {
                     "Answer from the page, or NOT_FOUND:")
             try:
                 answer = await worker().submit_async(
-                    self.planner.generate, WEB_ANSWER_SYSTEM, user, 48)
+                    self._text_model().generate,
+                    WEB_ANSWER_SYSTEM, user, 48)
             except Exception as e:   # noqa: BLE001 - model error = fallback
                 log.warning("web answer failed: %s", e)
                 answer = ""
