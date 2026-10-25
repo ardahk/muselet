@@ -1,6 +1,6 @@
-# bench digest — pass 79 (2026-10-25T07:50Z, main@cef8797)
+# bench digest — pass 80 (2026-10-25T08:15Z, main@73b8031)
 
-P0: 0 | open P1: 13 | open P2: 18
+P0: 0 | open P1: 13 | open P2: 19
 
 Ranked open P1:
 1. bench-44 LoRA planner shipped (efd2f3f) on uncommitted numbers. Pooled .731 vs .647; most of the gain is on v2-ho, whose screens were in training.
@@ -48,3 +48,11 @@ Pass 77: main de1070d..3a0860c. bench-51 RESOLVED (symlinks untracked). NEW P2 b
 Pass 78 (no new findings): main 3a0860c..cf33215 merges agentic-evidence, app-knowhow, browser-flow, obs-labels and control-labels. bench-50 is now on main: the unified evidence() still treats 'no Pause/Resume' as a cancelled timer for both auto-done and the done gate. app-knowhow rewrites app_hints tips (another planner-prompt change, bench-46). The Swift obs-labels change adds derived labels for unlabeled controls, which changes observation text for all planners (bench-46/-49: the LoRA SFT render predates it). No bench/eval/serve_brain changes. bench-42, -44 and -36 are still unfixed. wip/local = main.
 
 Pass 79 (no new findings): main cf33215..cef8797 sends agentic app tasks and timer controls to the blind/agentic planner (35B when cached). bench-52 updated: docs-final itself quotes 6.0 s step p50 for that planner, against the 3 s gate. cloud/docs-final bf9118d (unmerged) is largely candid: DeskMind leads System One (.831/.658 vs .779/.622), no valid HobbyLM score, DeskMind Bench not run, agentic build unmeasured. But it still headlines the LoRA as 'holdout mean .850' (unweighted; pooled is .731, and the gain is concentrated on contaminated v2-ho screens: bench-44/-31/-30). Before merge: quote the pooled number, or add the contamination caveat next to .850. wip/local c86fec4 has no changes in my lane.
+
+Pass 80: 1 new finding (bench-53, P2, cloud/agentic-fixes2 b9cd089): YouTube play evidence accepts any watch?v= URL, including the brain's own last url action, with no subject or player-state check. Before it merges, use only the observed URL and require the subject in the title. Main cef8797..73b8031:
+- Adds a Spotify few-shot "play boyle iyi on Spotify". No eval or bench case uses that wording (grep), so bench-48 doesn't regress.
+- Spotify play evidence now requires the current track name to contain the subject. Good positive evidence.
+- PLANNER=35b is a new explicit option, but the default blind planner is still picked by cache state (bench-52 open).
+- The few-shot, app-hint and observation changes add to bench-46.
+- bench-50 (timer cancel) is unchanged on main and on agentic-fixes2.
+wip/local b8eeec4 differs only in Observe.swift.
