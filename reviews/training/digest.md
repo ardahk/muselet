@@ -1,21 +1,21 @@
-# training lane digest — pass 100 (main b00f679)
+# training lane digest — pass 101 (main 32c0ad4)
 
-Open: 1 P0, 17 P1, 19 P2. No new findings; main unchanged, wip rewrites the Premiere hint (clean) and adds value rendering + a Shift+3 repeat block. Top: training-54, training-59, training-50.
+Open: 1 P0, 19 P1, 18 P2. New: training-61 (P1). training-55 raised to P1 (merged). Top: training-54, training-61, training-59.
 
 ## Ranked open P0/P1
-1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
-2. training-49 P1 — memory-eval gate appends 2-tuples; overlaps() raises ValueError, so route rebuild is broken (training/data_route/build.py, now on main).
-3. training-47 P1 — route_v2 gate misses mid-length paraphrases; 13-gram rule can't fire on 640/955 items (evalcheck.py).
-4. training-48 P1 — merge_it3cand keeps source splits; val3/tau may be inflated (router_check drops only exact it2-train rows).
-5. training-45 P1 — it3 ARGS audit noise fixed only on the 1,061 sampled rows.
-6. training-29 P1 — short_edit1 over-drops short commands.
-7. training-43 / training-37 P1 — route_v2 and route_v1_clean blind to short commands.
-8. training-8 / training-15 P1 — adjudicator sees gold; no per-label stop gate.
-9. training-24 / 25 / 26 / 28 P1 — ASK undercoverage, weak labels, pronoun ARGS, media_control in Premiere.
+1. training-54 P0 — argfix.py wording copied from HobbyLM sealed r4 (D04-D06 not held out). Outside the training lane.
+2. training-61 P1 — deployed planner (base 4B native tools, THINK=1024, k=0) is unmeasured; planner_offline has no tools mode.
+3. training-59 P1 — pre-router destructive regex refuses route_v2 empty-trash and v2-shell-rm; matches HobbyLM r3 N11.
+4. training-53 P1 — deployed router is it3 with no sealed overlap report; README:37 unqualified.
+5. training-55 P1 — merged prompt rewrite + k=0/no few-shot: .850/.770 no longer describe any default.
+6. training-50 P1 — $0.84 vs $5.84 in REPORT:134 and claims:45; warn at $140 not $148.
+7. training-58 P1 — script default still cache-dependent; no per-result planner metadata; REPORT 35B settings stale; soft expects unmeasured.
+8. training-49 / 47 / 48 P1 — memory-eval tuple crash; route_v2 near-dup gaps; it3 family split leakage.
+9. training-45 / 29 / 43 / 37 / 8 / 15 / 24 / 25 / 26 / 28 P1 — see findings.jsonl.
 
 ## Next moves
-1. Read the Tinker console before any more sampling; about $4 left to $148. Unify thresholds.
-2. router-it3 is on main: run test_route_parity v3 + router_check val/route_v2 on the Mac (free).
-3. CPU near-dup audit of the v3m pool vs route_v2; apply the it3 ship rule on the clean subset.
-4. Fix the memory-eval gate tuple shape before any route rebuild.
-5. Send planner-lora step 36 and step 72 to the Mac holdout matrix; dev can't pick between them.
+1. Measure the deployed planner (tools mode) on the holdouts against LoRA-DSL and 35B before the demo.
+2. Run sealed competitor sets with ROUTER=it2, or commit the it3 overlap report.
+3. Exempt Trash and scoped deletes from the pre-router refusal.
+4. Correct $0.84 to $5.84 in REPORT and claims; set HARD_WARN to $148.
+5. Report HobbyLM r4 without D04-D06.
