@@ -1,4 +1,4 @@
-# bench digest — pass 60 (2026-10-25T02:40Z, main@55e38f9)
+# bench digest — pass 61 (2026-10-25T02:52Z, main@13d0486)
 
 P0: 0 | open P1: 12 | open P2: 11
 
@@ -21,3 +21,5 @@ Next moves:
 5. THINK_SAMPLER=greedy or >=3 qwen seeds (bench-34).
 
 Pass 60: new P2 bench-40 (unverified, needs Mac) HobbyLM EventKit date parse in 55e38f9 likely still exits 3 on aware+microsecond isoformat; event tasks would skip for Muselet only. Check: on the Mac, look for 'EventKit calendar snapshot failed' in the r4 event-kind records. Reviewed fine: wip/local fd357b3 moves the end-state calendar read into the runner process (EventKit access), reusing the start-state window.
+
+Pass 61 (no new findings): main 13d0486 = the wip fd357b3 change reviewed in pass 60 (end-state calendar read in the runner process, start window reused); fine. bench-40 still open: the Swift parseDate in _read_calendar_events is unchanged and the runner still passes aware+microsecond isoformat strings.
