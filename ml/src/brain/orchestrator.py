@@ -583,6 +583,8 @@ class Orchestrator:
         previous_memory_ids = list(self._last_memory_ids)
         self._last_memory_ids = []
         trace = self.tracer.begin(text)
+        if ctx:
+            trace["ctx"] = dict(ctx)     # offline replay (brain.replay)
         # utterance-frame ctx wins (app/focused/selection/online)
         if ctx:
             for k in ("app", "focused", "selection", "online"):
@@ -1123,6 +1125,7 @@ class Orchestrator:
         self._spec_gen += 1
         top5 = sorted(res.probs.items(), key=lambda kv: -kv[1])[:5]
         trace["decisions"].append({"route_probs": top5, "p_top": res.p_top,
+                                   "text": text,
                                    "route_ms": res.ms.get("route_ms"),
                                    "spec_hit": spec_hit})
         label = res.top
@@ -1171,7 +1174,7 @@ class Orchestrator:
             ext = await worker().submit_async(
                 self.engine.args, label, text, dict(self._ctx))
         trace["decisions"].append({"args_ms": ext.get("ms", {}).get("args_ms"),
-                                   "raw": ext.get("_raw"),
+                                   "raw": ext.get("_raw"), "skill": label,
                                    "spec_args": spec_ext is not None})
         raw_args = {k: v for k, v in ext.items()
                     if k not in ("ms", "_raw", "missing")}
