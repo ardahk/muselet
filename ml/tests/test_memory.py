@@ -288,9 +288,9 @@ def test_refinement_only_matches_short_commands():
     assert not result.changed
     assert detect(utterance, change, {}, 11) is None
 
-    for utterance in ("a bit more", "louder"):
-        assert detect(utterance, change, {}, 11) == "refinement"
-        assert resolve(utterance, change, {}, 11).changed
+    assert detect("a bit more", change, {}, 11) == "refinement"
+    assert resolve("a bit more", change, {}, 11).changed
+    assert detect("louder", change, {}, 11) is None
 
 
 def test_native_commands_and_nonreferential_pronouns_skip_llm():
@@ -443,3 +443,48 @@ def test_fast_path_microbenchmarks():
         detect_samples.append((time.perf_counter() - start) * 1000)
     assert statistics.median(adapter_samples) < 2
     assert statistics.median(detect_samples) < 1
+
+
+def _live_history(utterance, app, skill, args, url=None):
+    ctx = {"app": app, "t": 0}
+    if url:
+        ctx["url"] = url
+    return [{"utterance": utterance, "ctx": ctx,
+             "outcome": {"skill": skill, "args": args, "ok": True}}]
+
+
+def test_live_self_contained_relative_volume_stays_unchanged():
+    history = _live_history("turn the volume up", "Music", "change_volume",
+                            {"delta": 10})
+    for text in ("make it way louder", "a lot quieter", "much brighter"):
+        result = eval_adapter(text, {"app": "Music", "t": 5}, history)
+        assert not result["changed"], text
+    result = eval_adapter("a lot more", {"app": "Music", "t": 5}, history)
+    assert result["changed"] and "a lot" in result["text"]
+
+
+def test_live_explicit_target_blocks_site_scoping():
+    wiki = "https://en.wikipedia.org/wiki/History"
+    history = _live_history("search wikipedia for history", "Zen",
+                            "open_url", {"url": wiki}, url=wiki)
+    ctx = {"app": "Zen", "url": wiki, "t": 10}
+    for text in ("search for flights to tokyo in safari",
+                 "search for flights to tokyo on google",
+                 "look up cat videos on youtube",
+                 "search for tokyo hotels on kayak.com"):
+        result = eval_adapter(text, ctx, history)
+        assert not result["changed"], text
+    assert eval_adapter("search for tokyo", ctx, history)["changed"]
+
+
+def test_live_questions_are_not_site_scoped():
+    wiki = "https://en.wikipedia.org/wiki/History"
+    history = _live_history("search wikipedia for history", "Zen",
+                            "open_url", {"url": wiki}, url=wiki)
+    ctx = {"app": "Zen", "url": wiki, "t": 10}
+    for text in ("look up when the golden gate bridge opened",
+                 "search for how tall mount everest is",
+                 "look up who wrote dune",
+                 "find out what time the store closes"):
+        result = eval_adapter(text, ctx, history)
+        assert not result["changed"], text
