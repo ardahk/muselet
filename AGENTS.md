@@ -37,13 +37,16 @@ Hackathon deadline: Cal Hacks submission Sun Oct 25 2026, 09:00 PDT. Tinker budg
 
 ## Current serving configuration (`tools/serve_brain.sh`; every alternative selectable by env)
 - Router + ARGS: Tinker-trained 4B iteration 2 (`models/route-4b-it2-mlx4`, HF `jonsnov/muselet-route-4b-main-mlx4`
-  @ 54b2181), tau 0.65 (val-fitted). Alternatives: r2 @ 2e3e7bf, base `mlx-community/Qwen3.5-4B-4bit`.
+  @ 54b2181), tau 0.35 (val-fitted on the it3 val set; was .65). it3 (`ROUTER=it3`, tau .50) is opt-in: it
+  failed the pre-registered rule (route_v2 .945 vs .838, but route_v1_clean .922 vs .942 and ARGS .855 vs .856). Alternatives: r2 @ 2e3e7bf, base `mlx-community/Qwen3.5-4B-4bit`.
   Quote router numbers on `evals/route_v1_clean.jsonl` (103 cases without near-duplicates in training data).
   Competitor benchmarks (HobbyLM sealed, DeskMind Bench) run ONLY with it2 or a later router whose overlap check is 0
   for that set (it2: HobbyLM r4 and DeskMind Bench 0 real overlaps after the CJK-aware gate). Never run r1/r2
   (main-final data: 12-15 near-duplicates per HobbyLM sealed round) on sealed sets.
 - Planner: base 4B-4bit, greedy, `prompts/planner_fewshot.md` (rules 16-18 + examples), DSL history, line-start op
-  constraint, done-alone, 1 BM25-retrieved example from the v2-tune bank (`RETRIEVAL_K=0|1|2`, default 1). 35B-A3B via `--planner-model` or `ESCALATE=1`. Offline planner bench: `evals/planner_offline.py`
+  constraint, done-alone, 1 BM25-retrieved example from the v2-tune bank (`RETRIEVAL_K=0|1|2`, default 1), thinking budget
+  512 tokens with the qwen sampler on every step (`THINK`, `THINK_ON`, `THINK_SAMPLER`; holdout mean .642 -> .770, step p50 2.6 s),
+  verified done + bounded recovery (`VERIFY_DONE`), working/long-term memory (`MEMORY`, `MEMORY_LLM`, `LONGTERM`). 35B-A3B via `--planner-model` or `ESCALATE=1`. Offline planner bench: `evals/planner_offline.py`
   (tune / holdout / holdout2 sets; never tune on holdouts).
 - Grounder: eyes-4b, two-stage zoom, 1 MP (`click "<description>"` in the DSL), lazy-loaded; 2 MP / UI-Venus selectable.
 
