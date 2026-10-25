@@ -561,14 +561,23 @@ DEFAULT_GROUNDER = {"model": "eyes-4b", "repo": None, "max_pixels": 1_000_000,
                     "zoom_frac": 0.4}
 
 
+# macOS window controls ("close button", "minimize button", the zoom button's
+# "this button also has an action to zoom the window", "full screen button")
+_WINDOW_CHROME = re.compile(
+    r"^(?:close|minimi[sz]e|zoom|full ?screen)(?: button)?$|zoom the window",
+    re.IGNORECASE)
+
+
 def observation_blind(obs: dict | None) -> bool:
-    """AX can't help: no elements, or a canvas app (Premiere, Figma, games ...)."""
+    """AX can't help: no elements, only window controls (CEF/Electron apps such as
+    Spotify that keep renderer AX off), or a canvas app (Premiere, Figma, games ...)."""
     if not obs:
         return False
     app = (obs.get("app") or "").strip().lower()
     if any(app.startswith(c.lower()) for c in CANVAS_APPS):
         return True
-    return not obs.get("elements")
+    return all(_WINDOW_CHROME.search(str(e.get("label") or "").strip())
+               for e in obs.get("elements") or [])
 
 
 class Orchestrator:
