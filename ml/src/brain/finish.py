@@ -82,6 +82,14 @@ def criterion(goal: str) -> tuple[str, str, str] | None:
         x = _subject(g, m.end()) if m else g
         return ("play", x, f"{x} is playing (a pause control is visible / "
                 "player state is playing)")
+    m = re.search(
+        r"\bopen\s+(?:the\s+)?(?:latest|newest)\s+e-?mail\s+from\s+(.+?)"
+        r"\s*(?:\.|\!|\?|in\s+gmail|on\s+gmail)?\s*$", g, re.IGNORECASE)
+    if m:
+        x = m.group(1).strip()
+        return ("email_open", x,
+                f"an open email view showing an email from {x} "
+                "with a Reply control")
     if _OPEN.search(g):
         x = g[_OPEN.search(g).end():].strip()
         x = re.sub(r"\s*(?:app|website|site|page)\s*[.!?]?\s*$", "",
@@ -100,8 +108,8 @@ def finish_when(goal: str) -> str | None:
     return c[2] if c else None
 
 
-EVIDENCE_KINDS = ("play", "cart", "search", "directions", "relay",
-                  "summary_note")
+EVIDENCE_KINDS = ("play", "cart", "search", "directions", "email_open",
+                  "relay", "summary_note")
 APP_KINDS = {
     "start_timer": "timer_start", "create_reminder": "reminder",
     "new_note": "note", "compose_text": "note", "create_event": "event",
@@ -388,6 +396,12 @@ def evidence(kind: str, subject: str = "", obs: dict | str | None = None,
         return bool(_CART_DONE.search(text) or _CART_DONE.search(ocr or ""))
     if kind == "directions":
         return bool(_ROUTE.search(title) or _ROUTE.search(text))
+    if kind == "email_open":
+        has_reply = bool(re.search(
+            r'(?:button|link) "(?:Reply|Reply all)"', text))
+        want = [w for w in norm_words(subject).split() if len(w) > 1]
+        return has_reply and bool(want) and all(
+            w in norm_words(text) for w in want)
     return not progress
 
 _LIVE_ROW = re.compile(r'button "(?:Resume|Pause)"', re.IGNORECASE)
