@@ -1,9 +1,9 @@
 {
- "pass": 87,
- "ts": "2026-10-25T10:00Z",
+ "pass": 88,
+ "ts": "2026-10-25T10:30Z",
  "branches": {
-  "main": "b92677f",
-  "wip/local": "f1e504c",
+  "main": "430e59e",
+  "wip/local": "9f6aa0d",
   "cloud/bench": "f584cb2",
   "cloud/data-pipeline": "830ba35",
   "cloud/decisions": "ae36620",
@@ -89,7 +89,7 @@
   "cloud/browser-flow": "485763f",
   "cloud/docs-final": "bf9118d",
   "cloud/agentic-fixes2": "104a411",
-  "cloud/cool-tasks": "3937e6b",
+  "cloud/cool-tasks": "2fafa9e",
   "cloud/native-tools": "6053e4e",
   "cloud/ui-progress": "a66166b"
  },

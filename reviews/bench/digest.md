@@ -1,4 +1,4 @@
-# bench digest — pass 87 (2026-10-25T10:00Z, main@b92677f)
+# bench digest — pass 88 (2026-10-25T10:30Z, main@430e59e)
 
 P0: 0 | open P1: 14 | open P2: 23
 
@@ -98,3 +98,9 @@ Pass 87: 1 new finding (bench-58, P2): the new README quotes router .945 on rout
 - c37f6ee (MLX worker survives cancellation) is a reliability fix only.
 - bench-57 (wipe regex) and bench-54 (Devpost .850) are unchanged.
 - wip/local f1e504c has no diff from main.
+
+Pass 88 (no new findings): main b92677f..430e59e.
+- bench-52 updated: PLANNER=35b now uses retrieval 0 / think 1024. The cache-default blind 35B keeps k=1 / think 512 (cli.py:181-183), which c104e8b calls broken. serve_brain.sh:67's 1024 for a full 35B path never takes effect.
+- The 'style reply' rule (69e6fa9) makes the model compose replies for short style words ('funny', 'polite'). Sends are still confirm-gated.
+- Observation pinning of inputs (0fdba8f) and Premiere hot-text are Swift; they change observation text (bench-46).
+- bench-57, bench-58 and bench-54 are unchanged. wip/local 9f6aa0d has no diff from main. cool-tasks 2fafa9e is a merge of main; bench-56 is unchanged.
