@@ -1,9 +1,9 @@
 {
-  "pass": 65,
-  "ts": "2026-10-25T03:03:27Z",
+  "pass": 66,
+  "ts": "2026-10-25T03:19:07Z",
   "last_reviewed": {
-    "main": "6a37d0c",
-    "wip/local": "9571a9e",
+    "main": "fa0f040",
+    "wip/local": "973a9b0",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -74,8 +74,10 @@
     "cloud/memory-llm-gate": "f6229d7",
     "cloud/panel-hook-fix": "ef35421",
     "cloud/memory-hotfix": "d932320",
-    "cloud/memory-rules2": "03c3cd1"
+    "cloud/memory-rules2": "03c3cd1",
+    "cloud/design-polish": "bf4ae64",
+    "cloud/memory-writes": "d04e26c"
   },
-  "next_id": 51,
-  "note": "pass 65: main 6a37d0c patches upstream HobbyLM calc_checker for macOS 27 (same element, OR'd condition). Prior calc results null -> invalid. -25 updated."
+  "next_id": 52,
+  "note": "pass 66: main fa0f040 (7235a34 bench memory isolation per brain start; #70 design). New -51. wip 973a9b0 is pre-#70 (clock hint still present), no lane delta. memory-writes narrows episode/workflow writes."
 }
