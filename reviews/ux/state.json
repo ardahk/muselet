@@ -1,9 +1,9 @@
 {
-  "pass": 72,
-  "ts": "2026-10-25T05:57:00Z",
+  "pass": 73,
+  "ts": "2026-10-25T06:13:00Z",
   "last_reviewed": {
-    "main": "fe2de69",
-    "wip/local": "422399a",
+    "main": "e2f7e5e",
+    "wip/local": "3f8e2f8",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -88,7 +88,8 @@
     "cloud/planner-aux": "387c3b4",
     "cloud/premiere-demo": "a1c0f04",
     "cloud/premiere-route-fix": "7769c32",
-    "cloud/agentic-loop": "9b2e512"
+    "cloud/agentic-loop": "dc7a063",
+    "cloud/agentic-apps": "523d2c1"
   },
-  "notes": "pass 72: main fe2de69 uses the local eyes-4b (no lazy HF download). wip 422399a (b43270d fix-thinking) prewarms the grounder, keeps blind mode only for the target app, adds blind_click_blocked and pause/resume/cancel for Clock timers. ux-20 is mostly mitigated (residual 10 s silent wait during prewarm). ux-29 is unchanged: the blind planner still thinks 512 tokens on every turn. No new findings."
+  "notes": "pass 73: main e2f7e5e merged fix-thinking (grounder prewarm; ux-20 residual only), agentic-loop (finish gate), and dc7a063 (no grounded clicks in Spotify; the planner error is internal). New ux-31: agentic-apps defaults on and routes all 12 app skills through the planner, a speed and feedback regression on the demo flows; the recipient-naming send confirm is a good change."
 }

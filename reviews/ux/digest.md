@@ -1,8 +1,8 @@
-# ux digest — pass 72
+# ux digest — pass 73
 
-Heads: main fe2de69, wip 422399a, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
+Heads: main e2f7e5e, wip 3f8e2f8, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
 
-Counts: 0 P0, 1 P1, 14 P2 (ux-29 reopened, now on main: blind planner thinks 512 tokens every turn) (ux-29 resolved: the LoRA planner defaults to THINK=0). New in pass 63: ux-30 (fix-pending: speech that isn't a command during a confirm gets no feedback). ux-26 resolved by design #70 (main fe2de69); ux-25 and ux-27 still live on main.
+Counts: 0 P0, 1 P1, 15 P2 (ux-29 reopened, now on main: blind planner thinks 512 tokens every turn) (ux-29 resolved: the LoRA planner defaults to THINK=0). New in pass 63: ux-30 (fix-pending: speech that isn't a command during a confirm gets no feedback). ux-26 resolved by design #70 (main e2f7e5e); ux-25 and ux-27 still live on main.
 Open P1:
 - ux-28: the failure bubble shows raw "Not finished: expect failed: …" (orchestrator.py:3061, 2065)
 Open P2, ranked:
@@ -17,3 +17,5 @@ Highest-leverage next moves:
 3. ux-25 + ux-27: poke hint/pill and memory bubble copy, on main (~0.5 h total)
 4. ux-14: ui('idle') after "Okay, cancelled", and reset the mood in onConfirmCancel (~0.25 h)
 5. ux-24: lead decision on the script gate
+
+- ux-31 (P2, cloud/agentic-apps 523d2c1): agentic-apps defaults on, so all 12 app skills (timer, message, email, notes, music, Premiere) run through the multi-turn planner with only 'thinking'. Lead decision: default off, or only after the native skill fails.
