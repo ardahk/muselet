@@ -1,12 +1,14 @@
-# Planner review digest — pass 79 (2026-10-25T07:55Z)
+# Planner review digest — pass 80 (2026-10-25T08:20Z)
 
-Moved: main cf33215→cef8797 (5d135d0 agentic-fixes2 brief; cef8797 forces the 35B for agentic app tasks and timer controls); wip c86fec4 (= 5d135d0); new docs-final bf9118d (docs only).
-- planner-51 (P1, worse): every agentic app task and timer control now plans on the 35B with think 512 and batch cap 2. No numbers.
-- planner-55 (P2, new): docs-final says agentic-app turns stay on the LoRA, which contradicts main cef8797.
-- agentic-fixes2 brief (not landed): YouTube watch?v= play evidence would depend on planner-52, since the guard blocks same-host watch?v= urls. Dropping invalid expects would address planner-31.
-- planner-40/45/46/47/48/50/52/53/54 unchanged.
+Moved: main cef8797→3e323a9 (#101 spotify-play; PLANNER=35b opt-in); wip b8eeec4 (= main); new agentic-fixes2 b9cd089 (not on main).
+- planner-50 (P1, partly fixed): the wrong Spotify track is no longer accepted; genre and 'X by <artist>' goals now can never verify.
+- planner-56 (P1, new, fixes2): YouTube play evidence accepts any watch?v= page and never checks which video.
+- planner-57 (P2, new, fixes2): the content-ask guard rejects 'Which contact should I message?', and `about` is passed as exact text to type.
+- planner-31 (P1, fixes2): invalid expects are now dropped and the action runs unverified; the prompt is still unfixed.
+- OK: PLANNER=35b is opt-in; a pending task is dropped when the app changes; the double-click is gated by subject words in OCR.
+- planner-40/45/46/47/48/51/52/53/54/55 unchanged.
 
-New: 1 (P2). Resolved: 0. Open: 0 P0, 13 P1, 12 P2.
+New: 2 (1 P1, 1 P2). Resolved: 0. Open: 0 P0, 14 P1, 13 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
