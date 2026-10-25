@@ -1,9 +1,9 @@
 {
-  "pass": 95,
-  "ts": "2026-10-25T11:59:02Z",
+  "pass": 96,
+  "ts": "2026-10-25T12:13:49Z",
   "last_reviewed": {
     "main": "2de65a9",
-    "wip/local": "a6035fb",
+    "wip/local": "9015e83",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -100,5 +100,5 @@
     "cloud/ui-progress": "a66166b"
   },
   "next_id": 60,
-  "note": "pass 95: main 2de65a9 unchanged. wip/local a6035fb (local main@a2004d9) removes finance/advisor engines per AGENTS.md user override -> evals-safety-59 P1. Finance findings -39/-40 concern deleted engine code/fixture spec; fixtures remain. -56/-57/-58 unchanged."
+  "note": "pass 96: main 2de65a9 unchanged. wip/local 9015e83 (local main@2900d4b): removes app workflow recipes from planner_system.md (Numbers/Premiere/browser examples); untrusted-data rule 12 kept; -59 updated."
 }

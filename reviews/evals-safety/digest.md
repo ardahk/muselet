@@ -1,6 +1,6 @@
-# evals-safety digest (pass 95, 2026-10-25T11:59:02Z)
+# evals-safety digest (pass 96, 2026-10-25T12:13:49Z)
 
-NEW P1 evals-safety-59 (wip/local): finance engines removed, claims stale, no finance answer-key eval. -56 (P0), -57, -58 open.
+No new findings; -56 (P0), -57, -58, -59 open.
 
 
 -54 downgraded to P1: Spotify runtime path fixed by #101; eval check and non-Spotify play evidence still weak.
