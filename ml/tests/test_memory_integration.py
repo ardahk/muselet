@@ -75,6 +75,57 @@ def test_disabled_memory_routes_followup_normally(tmp_path):
     asyncio.run(run())
 
 
+def test_llm_gate_and_invalid_reasons_are_recorded_in_followup_trace(
+        tmp_path, monkeypatch):
+    class _ImmediateWorker:
+        async def submit_async(self, fn, *args):
+            return fn(*args)
+
+    class _Planner:
+        response = ""
+        calls = 0
+
+        def complete(self, _prompt, _tokens):
+            self.calls += 1
+            return self.response
+
+    monkeypatch.setattr("brain.planner.worker", _ImmediateWorker)
+
+    async def run():
+        planner = _Planner()
+        orch = Orchestrator(
+            FakeServer(), Catalog.load(), Tracer(tmp_path / "traces"),
+            longterm_store=MemoryStore(path=tmp_path / "memory.sqlite"))
+        orch.longterm_enabled = False
+        orch.planner = planner
+        orch.memory = WorkingMemory()
+        orch.memory.record(
+            "open Finder", "open Finder", "open_app", {"app": "Finder"},
+            True, {"app": "Finder"}, t=time.time())
+
+        trace = {"decisions": []}
+        gated = await orch._memory_followup(
+            "search for best podcasts", trace)
+        assert gated.reason == "llm-gated"
+        assert planner.calls == 0
+        assert trace["decisions"][-1]["memory.followup"]["reason"] == \
+            "llm-gated"
+
+        orch.memory = WorkingMemory()
+        orch.memory.record(
+            "search for history", "search for history", "web_search",
+            {"query": "history"}, True, {"app": "Safari"}, t=time.time())
+        planner.response = "open the second budget spreadsheet"
+        trace = {"decisions": []}
+        invalid = await orch._memory_followup("the other one", trace)
+        assert invalid.reason == "llm-invalid"
+        assert trace["decisions"][-1]["memory.followup"]["reason"] == \
+            "llm-invalid"
+        assert planner.calls == 1
+
+    asyncio.run(run())
+
+
 def test_memory_ask_does_not_create_planner_pending_task(tmp_path):
     async def run():
         server = FakeServer()

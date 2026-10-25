@@ -75,6 +75,10 @@ _ORDINAL = re.compile(
 _PRONOUN = re.compile(
     r"\b(?:it|that|this|there|the same|him|her|them)\b",
     re.IGNORECASE)
+_DEICTIC_THIS = re.compile(
+    r"\bthis\s+(?!one\b|ones\b|is\b|was\b|to\b|into\b|in\b|on\b|over\b|"
+    r"here\b|there\b)[^\W_]+\b",
+    re.IGNORECASE)
 _REFINEMENT = re.compile(
     r"^(?:bump\s+it\s+(?:up|down)|a\s+little\s+(?:more|less)|"
     r"too\s+(?:dim|dark|bright|loud|quiet)(?:\s+bump\s+it\s+up)?|"
@@ -114,14 +118,19 @@ _NONPRONOUN_THIS = re.compile(
     r"\bthis\s+(?:week|weekend|morning|afternoon|evening|month|year|time)\b",
     re.IGNORECASE)
 _THAT_CONJUNCTION = re.compile(
-    r"\b(?:remind\s+me|say|saying|tell\b(?:\s+\w+){0,5})\s+"
-    r"(?P<that>that)\b",
+    r"\b(?:message|text|email|mail|tell|remind|say|saying)\b"
+    r"(?:\s+\w+){0,3}\s+(?P<that>that)\b"
+    r"(?=\s+\w+(?:['’]\w+)?\s+\w+)|"
+    r"\blet\s+\w+\s+know(?:\s+\w+){0,3}\s+"
+    r"(?P<that2>that)\b(?=\s+\w+(?:['’]\w+)?\s+\w+)",
     re.IGNORECASE)
 _NATIVE_IDIOM = re.compile(
     r"\bturn it (?:up|down)\b|\bwhat time is it\b|"
     r"\bis it\b.+\?|\bweather\b|"
     r"\bit['’]s\b.+|"
-    r"\b(?:make it )?(?:louder|quieter|brighter|dimmer)\b",
+    r"\b(?:make it )?(?:louder|quieter|brighter|dimmer)\b|"
+    r"^(?:copy|cut|paste|select|highlight|read)\s+(?:that|this|it)"
+    r"(?:\s+(?:text|page|aloud|out loud))?[.!]?$",
     re.IGNORECASE)
 _ALIAS = {
     "google": "google.com", "youtube": "youtube.com",
@@ -258,6 +267,7 @@ def _has_pronoun(text: str) -> bool:
     cleaned = _THAT_CONJUNCTION.sub(
         lambda match: match.group(0)[:match.start("that") - match.start()],
         cleaned)
+    cleaned = _DEICTIC_THIS.sub(" ", cleaned)
     cleaned = re.sub(r"\bif\s+it\s+\w+", " ", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\b(?:just\s+)?do\s+it\b", " ", cleaned,
                      flags=re.IGNORECASE)
@@ -314,8 +324,6 @@ def detect(text: str, wm, ctx: dict | None, now: float,
         if turn.skill in _REFINEMENT_SKILLS and \
                 not _SELF_CONTAINED_RELATIVE.search(text):
             return "refinement"
-        if _NATIVE_IDIOM.search(text):
-            return None
     if _NATIVE_IDIOM.search(text):
         return None
     if _CORRECTION.search(text):

@@ -4,7 +4,7 @@ import time
 
 import brain.memory as memory_module
 from brain.memory import WorkingMemory, detect, eval_adapter, resolve
-from brain.memory.rewrite import STATIC
+from brain.memory.rewrite import STATIC, _valid, llm_rewrite
 from brain.memory.rules import SEARCH_URLS
 from brain.memory.working import site_for_url
 
@@ -544,6 +544,90 @@ def test_native_commands_and_nonreferential_pronouns_skip_llm():
     assert calls == []
 
 
+def test_deictic_this_is_not_a_pronoun_but_layout_referents_are():
+    music = _memory("open_app", {"app": "Music"}, resolved="open Music")
+
+    for utterance in ("screenshot this window", "skip this song"):
+        assert detect(utterance, music, {}, 11) is None
+        result = resolve(utterance, music, {}, 11)
+        assert result.text == utterance
+        assert not result.changed
+
+    assert detect("snap this to the left half", music, {}, 11) == "item"
+    assert detect("now this one on the right", music, {}, 11) == "pronoun"
+
+
+def test_selection_idiom_stays_native_and_does_not_reach_llm():
+    wm = _memory("open_file", {"path": "~/Documents/report.txt"})
+    calls = []
+
+    def forbidden_llm(*args):
+        calls.append(args)
+        raise AssertionError("native selection command reached the LLM")
+
+    assert detect("copy that", wm, {}, 11) is None
+    result = resolve("copy that", wm, {}, 11, llm=forbidden_llm)
+    assert result.path == "none"
+    assert result.text == "copy that"
+    assert not result.changed
+    assert calls == []
+
+
+def test_that_after_a_comms_verb_is_a_conjunction_with_a_clause():
+    wm = _memory("open_app", {"app": "Messages"})
+    assert detect(
+        "message Noah that yoga's moved to sunday morning", wm, {}, 11
+    ) is None
+    assert detect("send that to priya", wm, {}, 11) == "pronoun"
+
+
+def test_llm_is_gated_for_site_search_irreversible_and_empty_context():
+    calls = []
+
+    def forbidden_llm(*args):
+        calls.append(args)
+        raise AssertionError("gated rewrite reached the LLM")
+
+    no_site = _memory("open_app", {"app": "Finder"}, resolved="open Finder")
+    result = resolve(
+        "search for best podcasts", no_site, {"app": "Finder"}, 11,
+        llm=forbidden_llm)
+    assert result.path == "none"
+    assert result.reason == "llm-gated"
+
+    no_person = _memory("open_url", {"url": "https://example.com"})
+    result = resolve("send him a message", no_person, {}, 11,
+                     llm=forbidden_llm)
+    assert result.path == "none"
+    assert result.reason == "llm-gated"
+
+    stale = llm_rewrite(
+        "open it", WorkingMemory(), {}, 11, forbidden_llm)
+    assert stale.path == "none"
+    assert stale.reason == "llm-gated"
+    assert calls == []
+
+
+def test_llm_rewrite_validator_preserves_content_and_context_referents():
+    recent = "Recent: create_event title=Carpool with Priya start=monday 8am"
+    assert _valid(
+        "make it tuesday instead",
+        "add a carpool with Priya at 8 am tuesday",
+        recent)
+    assert not _valid(
+        "make it tuesday instead",
+        "add a carpool with Priya at 8 am wednesday",
+        recent)
+    assert not _valid(
+        "open it", "open the budget spreadsheet",
+        "Focus: app=Finder\nRecent: open_file path=report.pdf")
+    assert _valid("hyde it", "hide Music", "Focus: app=Music")
+    assert _valid(
+        "set a timer for seven thirty",
+        "set a timer for 7:30",
+        "Recent: start_timer duration=30 minutes")
+
+
 def test_again_after_redacted_communication_asks_for_details():
     message = _memory(
         "send_message", {"to": "Arda", "body": "private"},
@@ -574,9 +658,9 @@ def test_llm_fallback_parses_results_and_guard_rejects_new_irreversible_verb():
     assert ask.ask == "Which one?"
 
     rewritten = resolve("the second one", wm, {}, 11,
-                        llm=llm_output("open Wikipedia"))
+                        llm=llm_output("show the second"))
     assert rewritten.path == "llm"
-    assert rewritten.text == "open Wikipedia"
+    assert rewritten.text == "show the second"
     assert calls[-1][1] == 40
 
     unsafe = resolve("open it", wm, {}, 11,
