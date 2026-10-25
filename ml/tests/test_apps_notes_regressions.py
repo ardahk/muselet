@@ -62,3 +62,53 @@ def test_exact_compound_text_edit(tmp_path):
     assert result["outcome"] == "ok"
     assert server.skills()[0] == {"name": "open_app", "args": {"app": "TextEdit"}}
     assert server.skills()[1] == {"name": "type_text", "args": {"text": "hello"}}
+
+
+@pytest.mark.parametrize("text,topic", [
+    ("Open notes and write a template about my day so I can fill it out",
+     "a template about my day so I can fill it out"),
+    ("write a poem in my notes", "a poem"),
+    ("make a list on the notes", "a list"),
+    ("create a template into notes", "a template"),
+    ("draft a plan in a notes", "a plan"),
+])
+def test_notes_preroute_native_rpc(text, topic):
+    class Writer:
+        def generate(self, system, user, **kwargs):
+            assert f"Topic: {topic}" in user
+            return "My day\nMood: ____\nHighlights: ____"
+
+    engine = FakeEngine()
+    server = FakeServer()
+    orch = Orchestrator(server, engine=engine)
+    orch.planner = Writer()
+    assert asyncio.run(orch.handle_utterance(text))["outcome"] == "ok"
+    assert engine.route_calls == []
+    assert server.skills() == [{"name": "new_note", "args": {
+        "title": "My day", "body": "My day\nMood: ____\nHighlights: ____"}}]
+    assert server.confirms == []
+    assert not any(m == "act" for m, _ in server.rpcs)
+
+
+@pytest.mark.parametrize("text", ["", "open notes", "notes about X in TextEdit",
+                                       "write notes about X in TextEdit",
+                                       "open notes and write", "write in notes"])
+def test_notes_preroute_does_not_overmatch(text):
+    from brain.tools.compose_text import parse_request
+    assert parse_request(text) is None
+
+
+@pytest.mark.parametrize("generated", ["", RuntimeError("generation failed")])
+def test_notes_preroute_generation_failure(generated):
+    class Writer:
+        def generate(self, *args, **kwargs):
+            if isinstance(generated, Exception):
+                raise generated
+            return generated
+
+    server = FakeServer()
+    orch = Orchestrator(server, engine=FakeEngine())
+    orch.planner = Writer()
+    assert asyncio.run(orch.handle_utterance("write a poem in notes"))["outcome"] == "failed"
+    assert server.skills() == []
+    assert server.confirms == []

@@ -699,10 +699,14 @@ class Orchestrator:
                     if memory_result and memory_result.changed:
                         text = memory_result.text
                         self._utterance = text
+                    from .tools import compose_text
                     if (msg := comms.parse_message(text)) is not None and \
                             msg.get("channel") in (None, "messages"):
                         trace["decisions"].append({"message_redirect": msg})
                         outcome = await comms.start(self, msg, text)
+                    elif (nargs := compose_text.parse_request(text)) is not None:
+                        trace["decisions"].append({"compose_redirect": nargs})
+                        outcome = await self._brain_tool("compose_text", nargs, text)
                     elif (calc_result := calc.result(text)) is not None and \
                             calc_result.value is not None and (
                             str(self._ctx.get("app", "")).casefold() == "calculator"
