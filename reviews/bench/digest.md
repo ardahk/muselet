@@ -1,4 +1,4 @@
-# bench digest — pass 80 (2026-10-25T08:15Z, main@73b8031)
+# bench digest — pass 81 (2026-10-25T08:30Z, main@73b8031)
 
 P0: 0 | open P1: 13 | open P2: 19
 
@@ -56,3 +56,5 @@ Pass 80: 1 new finding (bench-53, P2, cloud/agentic-fixes2 b9cd089): YouTube pla
 - The few-shot, app-hint and observation changes add to bench-46.
 - bench-50 (timer cancel) is unchanged on main and on agentic-fixes2.
 wip/local b8eeec4 differs only in Observe.swift.
+
+Pass 81 (no new findings, no status changes): main still 73b8031. agentic-fixes2 104a411 is a merge of main; bench-53 unchanged. wip/local 51d833a has no diff from main.
