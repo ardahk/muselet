@@ -117,3 +117,66 @@ def test_elements_carry_frames():
     assert by[4]["frame"] == [1, 2, 3, 4] and by[4]["value"] == ""
     assert "frame" not in by[31] and by[31]["label"] == "Export"
     assert by[7]["selected"] is True and by[9]["checked"] is False
+
+
+OBS_DIALOG = '''app: Adobe Premiere | window: "Clip speed / duration" | focused: #2
+#1 button "clipSpeed" value="100"
+#2 button "UI_HotTextNumberT" value="5"
+#3 slider "Volume" value="0.5"
+#4 stepper "Copies" value="1"
+#5 incrementor "Rate" value="60"
+#6 picker "Presets" value="Default"
+#7 button "OK"'''
+
+
+def test_numeric_obs_empty_diff_is_identity():
+    assert apply_diff(OBS_DIALOG, "") == OBS_DIALOG
+    assert apply_diff(OBS_DIALOG, None) == OBS_DIALOG
+
+
+def test_numeric_and_hottext_value_changes_render():
+    out = apply_diff(OBS_DIALOG, '~ #1 value="200"\n~ #2 value="8"\n'
+                                 '~ #3 value="0.8"\n~ #4 value="2"\n'
+                                 '~ #5 value="75"\n~ #6 value="Custom"')
+    for line in ('#1 button "clipSpeed" value="200"',
+                 '#2 button "UI_HotTextNumberT" value="8"',
+                 '#3 slider "Volume" value="0.8"',
+                 '#4 stepper "Copies" value="2"',
+                 '#5 incrementor "Rate" value="75"',
+                 '#6 picker "Presets" value="Custom"'):
+        assert line in body(out)
+
+
+def test_empty_numeric_value_not_rendered():
+    out = apply_diff(OBS_DIALOG, '~ #3 value=""')
+    assert '#3 slider "Volume"' in body(out)
+    assert not any(l.startswith('#3 slider') and 'value=' in l
+                   for l in body(out))
+
+
+def test_ordinary_button_value_not_rendered():
+    out = apply_diff(OBS_DIALOG, '~ #7 value="x"')
+    assert '#7 button "OK"' in body(out) and 'value="x"' not in out
+
+
+def test_hottext_match_is_case_sensitive():
+    obs = 'app: X | window: "w"\n#1 button "hottext" value="1"'
+    out = apply_diff(obs, '~ #1 value="9"')
+    assert '#1 button "hottext"' in body(out) and 'value=' not in out
+
+
+def test_elements_retain_numeric_value_strings():
+    out = apply_diff(OBS_DIALOG, '~ #1 value="200"\n~ #3 value="0.8"')
+    els = {e["ref"]: e for e in elements(out)}
+    assert els[1]["value"] == "200"
+    assert els[2]["value"] == "5"
+    assert els[3]["value"] == "0.8"
+
+
+def test_chained_numeric_diffs_match_fresh():
+    a = apply_diff(OBS_DIALOG, '~ #1 value="200"')
+    b = apply_diff(a, '~ #1 value="250"\n'
+                      '+ #9 button "UI_HotTextNumberT" value="10"')
+    fresh = OBS_DIALOG.replace('value="100"', 'value="250"') + \
+        '\n#9 button "UI_HotTextNumberT" value="10"'
+    assert b == fresh

@@ -35,6 +35,121 @@ def test_spoken_apps(entry, spoken, expected):
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("entry", ["skill", "planner", "execute"])
+@pytest.mark.parametrize("spoken", [
+    "premiere", "premiere pro", "Adobe Premiere Pro",
+    "adobe premiere pro.app", "ADOBE PREMIERE PRO",
+    "Premiere Pro.app", "PREMIERE.app",
+])
+def test_spoken_versioned_apps(entry, spoken):
+    expected = "Adobe Premiere Pro 2026"
+    async def scenario():
+        server = FakeServer(apps={
+            "installed": ["Adobe Premiere Pro 2026", "TextEdit"],
+            "running": []})
+        orch = Orchestrator(server)
+        orch._utterance = f"open {spoken}"
+        if entry == "skill":
+            await orch._run_skill("open_app", {"app": spoken},
+                                  orch._utterance, {"decisions": []})
+            assert server.skills()[-1]["args"]["app"] == expected
+        else:
+            action = {"op": "open", "app": spoken}
+            if entry == "planner":
+                await orch._exec_one(action)
+            else:
+                await orch.execute_actions([action])
+            assert [p for m, p in server.rpcs
+                    if m == "act"][-1]["app"] == expected
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("entry", ["skill", "execute"])
+@pytest.mark.parametrize("spoken,installed,running", [
+    ("premiere", ["Adobe Premiere Pro 2025", "Adobe Premiere Pro 2026"], []),
+    ("premiere pro", ["Adobe Premiere Pro 2025", "Adobe Premiere Pro 2026"],
+     [{"name": "Adobe Premiere Pro 2025"}]),
+    ("premiere pro", ["TextEdit"], []),
+    ("pro", ["Adobe Premiere Pro 2026"], []),
+    ("premiere rush", ["Adobe Premiere Pro 2026"], []),
+])
+def test_versioned_app_no_match_asks(entry, spoken, installed, running):
+    async def scenario():
+        server = FakeServer(apps={"installed": installed,
+                                  "running": running})
+        orch = Orchestrator(server)
+        if entry == "skill":
+            result = await orch._run_skill(
+                "open_app", {"app": spoken}, f"open {spoken}",
+                {"decisions": []})
+        else:
+            result = await orch.execute_actions(
+                [{"op": "open", "app": spoken}])
+        assert result == "awaiting_user"
+        assert server.said == ["Which app?"]
+        assert not server.skills()
+        assert not [p for m, p in server.rpcs if m == "act"]
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("entry", ["skill", "execute"])
+@pytest.mark.parametrize("spoken", [
+    "Adobe Premiere Pro", "premiere", "premiere pro",
+])
+def test_unversioned_exact_wins_over_versioned(entry, spoken):
+    async def scenario():
+        server = FakeServer(apps={
+            "installed": ["Adobe Premiere Pro", "Adobe Premiere Pro 2026"],
+            "running": []})
+        orch = Orchestrator(server)
+        if entry == "skill":
+            await orch._run_skill("open_app", {"app": spoken},
+                                  f"open {spoken}",
+                                  {"decisions": []})
+            assert server.skills()[-1]["args"]["app"] == "Adobe Premiere Pro"
+        else:
+            await orch.execute_actions(
+                [{"op": "open", "app": spoken}])
+            assert [p for m, p in server.rpcs
+                    if m == "act"][-1]["app"] == "Adobe Premiere Pro"
+        assert "Which app?" not in server.said
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("entry", ["skill", "execute"])
+def test_running_unversioned_installed_versioned_dedups(entry):
+    async def scenario():
+        server = FakeServer(apps={
+            "running": [{"name": "Adobe Premiere Pro"}],
+            "installed": ["Adobe Premiere Pro 2026", "TextEdit"]})
+        orch = Orchestrator(server)
+        if entry == "skill":
+            await orch._run_skill("open_app", {"app": "premiere pro"},
+                                  "open premiere pro", {"decisions": []})
+            assert server.skills()[-1]["args"]["app"] == "Adobe Premiere Pro"
+        else:
+            await orch.execute_actions(
+                [{"op": "open", "app": "premiere pro"}])
+            assert [p for m, p in server.rpcs
+                    if m == "act"][-1]["app"] == "Adobe Premiere Pro"
+        assert "Which app?" not in server.said
+    asyncio.run(scenario())
+
+
+def test_open_premiere_pro_utterance_resolves_versioned_install():
+    engine = FakeEngine(
+        routes={"open premiere pro": ("open_app", .985)},
+        argmap={("open_app", "open premiere pro"): {"app": "Premiere Pro"}})
+    server = FakeServer(apps={
+        "installed": ["Adobe Premiere Pro 2026", "TextEdit"], "running": []})
+    orch = Orchestrator(server, engine=engine)
+    result = asyncio.run(orch.handle_utterance("Open Premiere Pro"))
+    assert result["outcome"] == "ok"
+    assert server.skills()[0] == {
+        "name": "open_app", "args": {"app": "Adobe Premiere Pro 2026"}}
+    assert "Which app?" not in server.said
+
+
 @pytest.mark.parametrize("apps,expected", [
     ({"installed": ["Notes"], "running": []}, "awaiting_user"),
     ({"running": []}, "ok"),

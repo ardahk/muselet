@@ -238,15 +238,8 @@ public final class RPCHandler {
                             "pid": a.processIdentifier,
                             "active": a.isActive]
                 }
-                var installed: [String] = []
-                let fm = FileManager.default
-                for d in ["/Applications", "/System/Applications"] {
-                    for i in (try? fm.contentsOfDirectory(atPath: d)) ?? []
-                    where i.hasSuffix(".app") {
-                        installed.append(String(i.dropLast(4)))
-                    }
-                }
-                return (true, ["running": running, "installed": installed.sorted()], nil)
+                return (true, ["running": running,
+                               "installed": installedAppNames()], nil)
 
             default:
                 return (false, nil, "unknown method \(method)")
@@ -257,4 +250,15 @@ public final class RPCHandler {
             return (false, nil, "\(error)")
         }
     }
+}
+
+func installedAppNames(
+    in directories: [URL] = AppResolver.applicationDirectories) -> [String] {
+    var seen = Set<String>()
+    var names: [String] = []
+    for url in AppResolver.installedAppURLs(in: directories) {
+        let base = url.deletingPathExtension().lastPathComponent
+        if seen.insert(base).inserted { names.append(base) }
+    }
+    return names.sorted()
 }
