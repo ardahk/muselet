@@ -77,3 +77,12 @@ Last batch:
 [ok] press #40
 Reply:
 done "Playing jazz on YouTube"
+
+Goal: "play boyle iyi on Spotify"
+app: Spotify | window: "Spotify" | focused: none
+Accessibility tree is empty here: act by description.
+Finish when: boyle iyi is playing (a pause control is visible / player state is playing)
+Last batch:
+[ok] url "spotify:search:boyle%20iyi"
+Reply:
+click "Böyle İyi song title in the search results" double
