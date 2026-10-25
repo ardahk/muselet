@@ -1,10 +1,10 @@
-# decisions — digest (pass 64)
+# decisions — digest (pass 65)
 
-Heads: main de1070d (agentic-apps merged: decisions-43 P1 + -42 P2 now LIVE; -37 P0, -40, -41 live), wip 52e4b94 (= main minus ml/.venv link), agentic-evidence c4703c4 keeps _last_ok_url evidence, app-knowhow fc92f6b leaves the -40 counts unchanged, browser-flow c0421e6 has no decisions surface. Budget: about $142.06 MTD estimated.
+Heads: main 3a0860c (35B escalate blind planner, default when cached: decisions-37 now also hits the 35B verifier; new decisions-44 P2), wip 83cf584 (= main), agentic-evidence 1918cad still keeps _last_ok_url evidence, app-knowhow c69dfec leaves -40 at 3/103, 46/955, browser-flow 485763f = main merge. Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
-1. decisions-37 P0 LIVE on main: inline() lacks temperature attrs -> planner done-verifier always errors, verify silently off — ml/src/brain/generic_decide.py:177-190@e9fb42d
+1. decisions-37 P0 LIVE on main: inline() lacks temperature attrs -> planner done-verifier always errors (incl. 35B escalate blind planner), verify silently off — ml/src/brain/generic_decide.py:177-190@e9fb42d
 2. decisions-40 P1 open_ended_redirect overrides correct routes (route_v1_clean 4/103, route_v2 64/955 with gold labels) LIVE on main (now 3/103, 46/955) — ml/src/brain/orchestrator.py:1502-1508@e425cad
 3. decisions-41 P1 LIVE on main: finish-evidence 'search' done accepted from the planner's own URL (_last_ok_url) and a mis-cut subject; bypasses expect + model verify — ml/src/brain/finish.py:112@e2f7e5e
 4. decisions-43 P1 LIVE on main default-on agentic apps redirect all app-kind routes to the planner: 22/103 route_v1_clean, 290/955 route_v2; route/e2e claims no longer describe the shipped path — orchestrator.py:1655@1904638
@@ -19,7 +19,7 @@ Contamination re-check this pass: 2400 freshly generated code-family items vs Je
 
 ## Highest-leverage next moves
 - NOW: set temperature_probs/conf = 1.0 in GenericMLXDecider.inline() on main (decisions-37, P0); add a __new__-path unit test.
-- Fix decisions-41 on main (drop _last_ok_url as search evidence, fix _subject cuts); before merging agentic-apps, run e2e AGENTIC_APPS=0 vs 1 and planner-LoRA parity/bench with hidden_skills (decisions-43, -42).
+- Fix decisions-41 on main (drop _last_ok_url as search evidence, fix _subject cuts); agentic-apps is on main: run e2e AGENTIC_APPS=0 vs 1 and planner-LoRA parity/bench with hidden_skills (decisions-43, -42).
+- Make BLIND_PLANNER default explicit and log it per run; bench base vs escalate blind before quoting (decisions-44).
 - Quote {{route_acc}} for it3 @ .50 (serving) and fix claims.md:13,163 / REPORT.md:12 (decisions-38).
-- Bench the mlx4 export on the Mac with the same runners before quoting any number (decisions-5).
-- results.md: full run is below DeskMind on JevBench and tied on TD on a different backend; label rows test-selected (decisions-32). Keep claims.md:85-86.
+- Bench the mlx4 export on the Mac with the same runners before quoting any number (decisions-5); results.md: label the full run below DeskMind on JevBench, TD tie on a different backend, test-selected (decisions-32).
