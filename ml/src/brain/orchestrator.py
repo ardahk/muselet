@@ -3259,6 +3259,10 @@ function run() {
             return r
         if op == "click" and normalize_name(str(
                 (self._last_obs or {}).get("app") or "")) == "spotify":
+            if a.get("double"):
+                # gated path only: double-click a track row's TITLE; the
+                # blind_click gate still requires subject in the OCR hit
+                return await self._click_target(a)
             why = ("grounded clicks are disabled in Spotify; use press #N "
                    "on an AX button or Spotify AppleScript")
             return {"status": "failed", "error": why,
@@ -3497,12 +3501,12 @@ function run() {
         blk_app = normalize_name(str((self._last_obs or {}).get("app")
                                      or self._ctx.get("app") or ""))
         if blk_app in _NO_BLIND_CLICK_APPS:
-            hit = str(gate_info.get("hit") or "").lower()
+            from .finish import norm_words as _nw
+            hit = _nw(str(gate_info.get("hit") or ""))
             tgt = self._goal_named_target(
                 self._current_goal or self._utterance or "")
-            tgt_words = set(normalize_name(tgt or "").split())
-            subject = {w for w in re.findall(r"[a-z']+",
-                       (self._current_goal or self._utterance or "").lower())
+            tgt_words = set(_nw(tgt or "").split())
+            subject = {w for w in _nw(self._current_goal or "").split()
                        if not _CLICK_GOAL_SKIP.match(w) and len(w) > 1
                        and w not in tgt_words}
             if not (subject and subject <= set(hit.split())
@@ -4002,7 +4006,16 @@ function run() {
         if obs:
             self._last_obs = obs
         obs = obs or self._last_obs or {}
-        args = {"obs": obs, "script_stdout": self._last_script_stdout,
+        script_stdout = self._last_script_stdout
+        if crit[0] == "play" and "spotify" in goal.lower():
+            ss = await self._rpc_action(
+                "act", {"op": "script", "lang": "applescript",
+                        "code": 'tell application "Spotify" to get player state & " " & (name of current track as string)'},
+                {"op": "script"})
+            out = (ss.get("res") or {})
+            script_stdout = str(out.get("output") or out.get("stdout") or
+                                script_stdout or "")
+        args = {"obs": obs, "script_stdout": script_stdout,
                 "url": self._last_ok_url or self._ctx.get("url")}
         ok = evidence(kind, subject, **args)
         if not ok and kind == "cart":

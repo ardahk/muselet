@@ -41,6 +41,16 @@ _DURATION = re.compile(
     re.IGNORECASE)
 
 
+def norm_words(text: str) -> str:
+    """Accent/case-insensitive word text: NFKD, strip combining marks,
+    Turkish dotless i handled, casefold."""
+    import unicodedata
+    t = unicodedata.normalize("NFKD", text.replace("I", "i").replace(
+        "\u0130", "i"))
+    t = "".join(c for c in t if not unicodedata.combining(c))
+    return " ".join(t.casefold().split())
+
+
 def criterion(goal: str) -> tuple[str, str, str] | None:
     """(kind, subject, text) for a goal's observable end state, or None.
     kind is cart | directions | play | open | search."""
@@ -249,6 +259,10 @@ def evidence(kind: str, subject: str = "", obs: dict | str | None = None,
         labels = [str(e.get("label") or "") for e in obs.get("elements") or []
                   if str(e.get("role") or "").lower() == "button"]
         labels += _BUTTON.findall(text)
+        if "spotify" in goal.lower():
+            st = norm_words(str(script_stdout or ""))
+            return "playing" in st and (not subject or
+                                        norm_words(subject) in st)
         page_url = str(obs.get("url") or url or "")
         watch_url = bool(re.search(
             r"(?:https?://)?(?:www\.)?youtube\.com/watch\?v=",

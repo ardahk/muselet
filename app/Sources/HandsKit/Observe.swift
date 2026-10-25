@@ -361,7 +361,7 @@ public enum Differ {
     /// Diff previous-epoch records vs current (refs already stabilized).
     public static func diff(old: [ElementRecord], new: [ElementRecord],
                             matched: [Int: Int]) -> String {
-        let oldByRef = Dictionary(uniqueKeysWithValues: old.map { ($0.ref, $0) })
+        let oldByRef = Dictionary(old.map { ($0.ref, $0) }, uniquingKeysWith: { first, _ in first })
         var matchedOld = Set(matched.values)
         var lines: [String] = []
         for e in new {
@@ -755,7 +755,7 @@ public final class Hands {
             obs.diffText = ""
         }
         previous = records
-        current = Dictionary(uniqueKeysWithValues: records.map { ($0.ref, $0) })
+        current = Dictionary(records.map { ($0.ref, $0) }, uniquingKeysWith: { first, _ in first })
         obs.text = Serializer.text(app: obs.app, window: obs.window,
                                    focusedRef: focusedRef, elements: records)
         obs.axMs = Date().timeIntervalSince(t0) * 1000

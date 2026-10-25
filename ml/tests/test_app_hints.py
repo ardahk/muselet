@@ -170,7 +170,7 @@ def test_app_knowhow_tips_are_short_and_never_pixel_click_user_data():
                 "mail", "apple_maps", "premiere"):
         assert 2 <= len(rows[hid].tips) <= 5, hid
         assert len(render_hints([rows[hid]])) <= 1200
-    for hid in ("spotify", "mail", "messages", "notes", "calendar",
+    for hid in ("mail", "messages", "notes", "calendar",
                 "reminders", "finder_files", "rename_files", "system_settings"):
         for tip in rows[hid].tips:
             assert not re.search(r'\bclick\s+(["\d#<]|the\b|on\b)', tip), (hid, tip)
