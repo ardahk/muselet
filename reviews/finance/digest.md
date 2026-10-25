@@ -1,4 +1,4 @@
-# finance digest (Pass 69, 2026-10-25; main e425cad; finance-33 P0 and finance-31 still open on main)
+# finance digest (Pass 70, 2026-10-25; main e425cad; finance-33 P0 and finance-31 still open on main; new: finance-34 on wip)
 Open P0:
 - finance-33 (main dc6f2f5): open-ended routing (OPEN_ENDED=1 default) sends demo beat 9 'Prep me for my meeting with the Hendersons.' from advisor_prep to the planner, because the calendar hint matches 'meeting'. Also finance_review whenever the user says 'file' or 'folder'. Workaround: OPEN_ENDED=0. Fix: skip executor=brain labels in open_ended_redirect (app_hints.py:104-122).
 Open P1:
@@ -10,7 +10,7 @@ Open P1:
 
 - finance-30: verified-done never sees Numbers script results, so answer goals are likely rejected (ml/src/brain/orchestrator.py:1633-1690, 2655-2700).
 
-Open P2: finance-32 (the new acceptance gate on cloud/test-strategy has no 'Reconcile my receipts.' case, so the OCR/receipt beat is ungated), finance-29 (W9 script gate confirms the prompt's SUMIF recipe, 'Duplicate' cell text and `set n to row count`), finance-28 (the 'all' summary drops the unmatched receipt and need-review count at the 12-word cap), finance-26 (both finance demo live cases skipped by default as 'pending'), finance-23 (advisor doc-by-path), finance-25 (4 s Numbers table poll on cold open), finance-24 (merchant prefix over-match), finance-15 (single filers / 401k-HSA-checking taxed), finance-17 (numbers written as words pass the phrasing filter).
+Open P2: finance-34 (wip finish.py tells the planner a finance goal is done when 'a results page for duplicate charges ... is showing'), finance-32 (the new acceptance gate on cloud/test-strategy has no 'Reconcile my receipts.' case, so the OCR/receipt beat is ungated), finance-29 (W9 script gate confirms the prompt's SUMIF recipe, 'Duplicate' cell text and `set n to row count`), finance-28 (the 'all' summary drops the unmatched receipt and need-review count at the 12-word cap), finance-26 (both finance demo live cases skipped by default as 'pending'), finance-23 (advisor doc-by-path), finance-25 (4 s Numbers table poll on cold open), finance-24 (merchant prefix over-match), finance-15 (single filers / 401k-HSA-checking taxed), finance-17 (numbers written as words pass the phrasing filter).
 
 Next moves:
 - Before recording on main dc6f2f5: OPEN_ENDED=0 (finance-33) and FALLBACK_PLANNER=0 (finance-31), or exempt executor=brain skills from both paths, then run acc-demo-advisor-prep and acc-demo-finance-dupes.
