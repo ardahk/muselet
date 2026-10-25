@@ -244,10 +244,12 @@ def planner_prompt(catalog_desc: str) -> str:
     return text.replace("{catalog}", catalog_desc)
 
 
-def catalog_desc(catalog, arg_signature) -> str:
+def catalog_desc(catalog, arg_signature, hidden=()) -> str:
     """one line per skill: name(arg_signature): description"""
     lines = []
     for name, spec in catalog.skills.items():
+        if name in hidden:
+            continue
         sig = arg_signature(name)
         lines.append(f"{name}({sig}): {spec.get('description', name)}")
     return "\n".join(lines)
@@ -262,7 +264,7 @@ class Planner:
                  retrieval_k: int = 0, retrieval_bank: str = "v2-tune",
                  think_budget: int = 0, think_on: str = "all",
                  think_sampler: str = "greedy", think_seed: int = 0,
-                 app_hints: bool = False):
+                 app_hints: bool = False, hidden_skills=()):
         if history not in HISTORY_FORMATS:
             raise ValueError(f"history must be one of {HISTORY_FORMATS}")
         if retrieval_k not in (0, 1, 2):
@@ -280,6 +282,7 @@ class Planner:
         self.think_budget, self.think_on = think_budget, think_on
         self.think_sampler, self.think_seed = think_sampler, think_seed
         self.app_hints = app_hints
+        self.hidden_skills = frozenset(hidden_skills)
         self.plan_bank = None
         if retrieval_k > 0:
             from .plan_bank import PlanBank, load_bank
@@ -306,7 +309,7 @@ class Planner:
         self._rewrite_cut = None
         self._rewrite_cache = None
         self.system = planner_prompt(
-            catalog_desc(catalog, self._arg_sig_for))
+            catalog_desc(catalog, self._arg_sig_for, self.hidden_skills))
         if (fs := few_shot_text(few_shot)):
             self.system += "\n\n" + fs      # part of the cached prefix
 
