@@ -1,6 +1,6 @@
-# training lane digest — pass 57 (main e4594d9)
+# training lane digest — pass 58 (main 9be963d)
 
-Open: 0 P0, 15 P1, 17 P2. No lane changes since pass 55; training-53 (it3 default without committed sealed-set overlap report) remains the top new item.
+Open: 0 P0, 15 P1, 17 P2. Docs understate planner-LoRA spend ($0.84 vs $5.84 in its report); the pitch headlines route_v2 .945, which is not decontamination-verified for it3.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).

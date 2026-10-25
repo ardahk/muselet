@@ -1,6 +1,6 @@
 {
-  "pass": 57,
-  "ts": "2026-10-25T01:05:00Z",
+  "pass": 58,
+  "ts": "2026-10-25T01:25:00Z",
   "mode": "pulse",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
@@ -48,8 +48,8 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "e4594d9",
-    "wip/local": "fc5d595",
+    "main": "9be963d",
+    "wip/local": "4d22445",
     "cloud/memory": "ba3dc0a",
     "cloud/memory-eval": "c05944e",
     "cloud/memory-lt": "cc056af",
@@ -90,5 +90,6 @@
   "notes_pass54": "main: serve defaults change it2 tau .65->.35 and it3 .50 (val fit), it3 stays opt-in; planner think 512; memory phase 1/2. Router ctx is unchanged (url/window_title are memory-only per AGENTS.md). runs/router/*.json not committed, so tau/metric numbers are unverified. training-49 build.py:206 and training-50 tinker_spend.py:27 unchanged.",
   "notes_pass55": "main: it3 default router (b69a980), decisions LoRA merged (#39), brain-9, hands-clock. AGENTS cites it3 HF @6be63a1 while serve_brain.sh/REPORT cite e057412 (export) \u2014 repo head vs export rev, not a weight change as far as committed docs show. training-49/50 unchanged.",
   "notes_pass56": "main eb3e945 = design brief only; memory-llm-gate touches no training/eval/router files. Open findings unchanged (training-49 build.py:206, training-50 tinker_spend.py:27, training-53 no it3 evalcheck report).",
-  "notes_pass57": "main: live harness + live_t2_new check tweak only; memory-hotfix/rules2 touch no training/eval/router files. Open findings unchanged."
+  "notes_pass57": "main: live harness + live_t2_new check tweak only; memory-hotfix/rules2 touch no training/eval/router files. Open findings unchanged.",
+  "notes_pass58": "main: docs-demo-3 (#68) docs/pitch numbers; memory rules (#71,#72) touch no training/router files. training-50 and training-47 updated with doc evidence; training-49/53 unchanged."
 }
