@@ -1,6 +1,6 @@
 {
-  "pass": 72,
-  "ts": "2026-10-25T05:12:00Z",
+  "pass": 73,
+  "ts": "2026-10-25T05:28:00Z",
   "mode": "pulse",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
@@ -49,7 +49,7 @@
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
     "main": "e425cad",
-    "wip/local": "80c871c",
+    "wip/local": "323d274",
     "cloud/memory": "ba3dc0a",
     "cloud/memory-eval": "c05944e",
     "cloud/memory-lt": "cc056af",
@@ -118,5 +118,6 @@
   "notes_pass69": "main merged fallback, open-ended, fix-same-tab, fix-pending, hands-clock-verify, design-polish, premiere-demo. premiere_edit appended router:false (no route-ID shift for it2; it3 uses catalog_v3). Router tau/catalog_v3 unchanged. New training-55. Re-checked 54/53/50/49 unchanged.",
   "notes_pass70": "main 82c9810: window-chrome-only AX treated as blind (grounder path), orchestrator only. premiere-route-fix: pre-route ordering/arg dispatch fix, orchestrator only. No router/training/eval/prompt change; training-55 unchanged. Re-checked 54/53/50/49 unchanged.",
   "notes_pass71": "main unchanged 82c9810. wip/local c156d18: ClockAX.swift + fallback orchestrator/tests only; no router/training/eval/prompt change. Open findings unchanged.",
-  "notes_pass72": "main e425cad (#86): planner screen-context now gated on goal relevance (_goal_screen_relevant), open-ended ask guard, Clock wheel keyboard fallback. Gating narrows but does not remove the untrained context block for the LoRA planner (training-55 stays open; still no holdout rerun). No router/training/eval change. wip/local 80c871c is a snapshot on 82c9810 (pre-#86). 54/53/50/49 unchanged."
+  "notes_pass72": "main e425cad (#86): planner screen-context now gated on goal relevance (_goal_screen_relevant), open-ended ask guard, Clock wheel keyboard fallback. Gating narrows but does not remove the untrained context block for the LoRA planner (training-55 stays open; still no holdout rerun). No router/training/eval change. wip/local 80c871c is a snapshot on 82c9810 (pre-#86). 54/53/50/49 unchanged.",
+  "notes_pass73": "main unchanged e425cad. wip/local 323d274 (local c711320): BLIND_PLANNER=base default, finish_when, blind few-shot. New training-56."
 }
