@@ -1,5 +1,5 @@
-# architect digest - pass 62 (2026-10-25T02:25Z)
-Reviewed: main f5b4606 (69a9650: runtime frees a latched slot via release_slot/force_release; f5b4606: sealed r4 strings paraphrased out of the tests) and wip/local c49bf0e (replay records precondition_error/observations). architect-39 is resolved: repro_force_release.py shows the slot freed and the next client paired. architect-40 is narrowed to the quoting rule, since a live run 20261025T015646Z ran after the patch. Open: P0 0, P1 11, P2 7. No new findings.
+# architect digest - pass 63 (2026-10-25T02:40Z)
+Reviewed: main 55e38f9 (calendar precondition date-parse fallback, swift run from a file not `swift -e`, precondition_error carried into records) and wip/local fd357b3 (calendar snapshot moved to the runner process for EventKit TCC). bench/tests: 268 passed, 3 skipped. New: architect-41 (P2): Python passes tz-aware isoformat with microseconds, which the new parser likely still rejects (static review only). architect-40 refined: report the r4 rerun twice, full and with D04-D06 neutralised. Open: P0 0, P1 11, P2 8.
 
 ## Open P1 (ranked)
 00. architect-40 - Sealed r4 failures patched post-hoc; rerun = tuned-on-test - ml/src/brain/orchestrator.py
