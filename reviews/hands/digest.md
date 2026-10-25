@@ -1,6 +1,6 @@
-# hands — digest (Pass 84)
+# hands — digest (Pass 85)
 
-Open: 0 P0, 6 P1, 16 P2.
+Open: 0 P0, 7 P1, 15 P2.
 
 Ranked open P0/P1:
 -1. P1 hands-38 (main e2f7e5e via a615f00, ClockAX.swift:523-552): the Clock cancel falls back to `live.first` and presses a stale detail-pane Cancel after a fixed 80 ms. It can cancel a user's own Clock timer and still report success. Fix before the demo.
@@ -15,6 +15,10 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 85:
+- main 85958b0 (#115-#117): a524768 turns a failed expect into status ok whenever a finish criterion exists, so the batch no longer stops at the first failed expect. hands-44 raised to P1. The rest is shopping few-shot/hints and the create_reminder guard (brain only). No app/ change.
+- cloud/cool-tasks a77104e is a main merge plus hints; wip/local matches main.
 
 Pass 84 (no new findings; open counts unchanged):
 - main 2445a1d (#110-#114): brain hints only (shopping, maps), finish email_open criterion, and sendgate 'Ask Gmail'. The hands-45 regex widened (status record). No app/ change.
