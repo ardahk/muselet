@@ -1,8 +1,8 @@
 # hands — digest (Pass 55)
 
 Pass 55:
-- NEW P1 hands-32: cloud/design b93bb50 deletes main's ClockTimers.swift, SettingsView, PanelComponents, KittenAvatar and TimerSettings. Do not merge as-is.
-- main eb3e945 and wip/local 3f21dc6 have no app/ changes.
+- No new findings. Still open, P1 hands-32: cloud/design b93bb50 (unchanged) deletes main's ClockTimers.swift, SettingsView, PanelComponents, KittenAvatar and TimerSettings. Do not merge as-is.
+- main e4594d9, wip/local fc5d595, cloud/memory-hotfix d932320 and cloud/memory-rules2 03c3cd1 have no app/ changes. hands-26 (orchestrator.py:2542), hands-27 (BrainClient.swift:91) and hands-28 (ClockAX.swift:409) re-checked on main: still open.
 - panel-hook-fix ef35421 only touches DebugHooks, which are UI-only. docs-demo-3 and memory-llm-gate have no app/ changes.
 
 Pass 53:
