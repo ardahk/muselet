@@ -1,3 +1,21 @@
+# Brain lane review: pass 88 (2026-10-25T10:42Z)
+
+Open: P0 0, P1 16, P2 30. New: brain-75 (P2).
+
+## Branches
+- main 430e59e: c104e8b premiere agentic route with {} args, 35b defaults RETRIEVAL_K=0/THINK=1024; 69e6fa9 style `about` composed by the model. Swift Observe/Act changes are outside the lane.
+- wip/local 9f6aa0d: snapshot on main; lane identical.
+- cloud/cool-tasks 2fafa9e: merges main through 2dda1fb; brain-74 and brain-75 now on it; carry unchanged.
+
+## New
+- brain-75 (P2, main + cool-tasks): any <=5-word `about` containing funny/polite/short/nice/kind/... is treated as a style, so literal replies like 'thanks, that is very kind' or 'running short today' are paraphrased instead of typed. Repro test_brain_pass88.py 3/3.
+
+## Rechecked
+brain-66 partly addressed (short style abouts only; 'the meeting' still typed verbatim). serve_brain.sh 35B THINK=1024 fallback on line 67 is dead code (brain-64 context). Everything else unchanged.
+
+## Tests
+18 MLX-only suite failures (main 2528, cool-tasks 2544 passed). Review repros: main 75 / 53, cool-tasks 75 / 53.
+
 # Brain lane review: pass 87 (2026-10-25T10:12Z)
 
 Open: P0 0, P1 16, P2 29. No new findings.
