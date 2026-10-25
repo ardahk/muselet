@@ -1,7 +1,8 @@
-# architect digest - pass 97 (2026-10-25T12:58Z)
-Reviewed: main d09f4d8 (#130 page-loaded signal: AXLoaded web_loaded/web_busy, waits after navigation; README rebrand + kitten.png); wip/local 01a929c (snapshot of local main@264cc82, not on origin/main): click-AX test fixed, Numbers cheat sheet adds Sort-picker and SORT/SORTBY facts, docs. No cloud branch moved. Swift (Observe.swift/RPC.swift) read only, not compiled.
-Tests (Linux, --timeout=30, test_planner_think.py ignored): main 1 failed, 2436 passed, 113 skipped (new: architect-64); wip 88 failed, 2137 passed, 111 skipped, 2 xfailed, planner worker still times out.
-Open: P0 0, P1 23, P2 15. New: 64, 65 (P2). Re-checked (ran): 63, 62, 57, 58, 54, 48 open; 55, 53, 51, 61 untouched.
+# architect digest - pass 98 (2026-10-25T13:30Z)
+Reviewed: main b00f679 (README architecture image only); wip/local 35aed2d (local main@264cc82 plus uncommitted work, not on origin/main): HandsKit AppResolver now recursively enumerates /Applications, /System/Applications and ~/Applications (finds apps in vendor subfolders, e.g. versioned Premiere), exact match before substring; `apps` RPC uses the same list; brain resolves "<App> 2026" style versioned installs only when exactly one candidate matches. Swift read only, not compiled. No cloud branch moved.
+Watch, not filed: recursive enumeration runs on every `apps` RPC and open-by-name; cost on a full /Applications is unmeasured, and the substring fallback now also sees nested helper apps.
+Tests (Linux, wip 35aed2d, --timeout=30, test_planner_think.py ignored): 88 failed, 2177 passed, 111 skipped, 2 xfailed (no new failures; 2 timeouts). main code unchanged since d09f4d8 (64 still red).
+Open: P0 0, P1 23, P2 15. No new findings. Re-checked (ran): 63, 62, 57, 58, 54, 48; 64, 65 unchanged; 55, 53, 51, 61 untouched.
 
 ## Open P0/P1 (ranked)
 1. architect-63: wip suite red (88) and hangs; Premiere confirm-timeout safety tests among them.
