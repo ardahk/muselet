@@ -1,7 +1,7 @@
 {
   "lane": "finance",
-  "pass": 94,
-  "ts": "2026-10-25T12:43:55Z",
+  "pass": 95,
+  "ts": "2026-10-25T13:14:23Z",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
@@ -48,8 +48,8 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "d09f4d8",
-    "wip/local": "01a929c",
+    "main": "b00f679",
+    "wip/local": "35aed2d",
     "cloud/memory": "a8af560",
     "cloud/memory-eval": "c05944e",
     "devin/1792872486-data-route-handoff": "seen",
@@ -102,6 +102,6 @@
     "cloud/ui-progress": "a66166b"
   },
   "next_id": 28,
-  "notes": "pass94: main d09f4d8 (PR #130 page-load signal, README rebrand) no finance effect, engines intact. wip/local 01a929c (264cc82 Numbers hint) finance-36 still P0 wip only.",
+  "notes": "pass95: main b00f679 README architecture image only, engines intact. wip/local 35aed2d app-name resolver; finance-36 still P0 wip only.",
   "timestamp": "2026-10-25T05:37:35Z"
 }
