@@ -20,6 +20,7 @@ import unicodedata
 
 from . import argfix, calc, dsl, obsdiff, pathfind, replies, sendgate, slots
 from .memory import MemoryStore, Resolution, WorkingMemory, resolve
+from .memory.working import site_for_url
 from .catalog import Catalog, CatalogError
 from .sites import APP_SCHEMES, SITES, fix_url, match_name, normalize_name
 from .traces import Tracer
@@ -81,7 +82,26 @@ def _script_failure(error: str, res: dict | None) -> tuple[str, str]:
 _ABS_SKILL = {"change_volume": "set_volume", "change_brightness": "set_brightness"}
 _ABS_WORDS = {"max": 100, "maximum": 100, "full": 100, "half": 50,
               "min": 0, "minimum": 0}
-_CODE_ARGS = {"set_brightness": {"delta"}, "open_folder": {"view"}}
+_CODE_ARGS = {
+    "set_brightness": {"delta"}, "open_folder": {"view"},
+    "open_url": {"same_tab"}, "web_search": {"same_tab"},
+}
+_NEW_TAB = re.compile(
+    r"\b(?:new|another|separate|different)\s+"
+    r"(?:browser\s+)?(?:tab|window)\b", re.I)
+_PAGE_TASK = re.compile(
+    r"\b(?:add|put)\b.+?\b(?:to|in|into)\s+"
+    r"(?:my\s+|the\s+)?(?:[\w-]+\s+)?"
+    r"(?:cart|basket|bag|wish\s*list|watch\s*list)\b|"
+    r"^(?:please\s+)?(?:click|tap|press|select|choose|pick|open|play|watch|"
+    r"show|read)\s+(?:on\s+)?(?:the\s+)?"
+    r"(?:first|second|third|fourth|fifth|last|top|next|previous|"
+    r"\d+(?:st|nd|rd|th))\b|"
+    r"^(?:please\s+)?(?:click|tap)\s+(?:on\s+)?\S|"
+    r"^(?:please\s+)?scroll\s+(?:up|down|to)\b|"
+    r"^(?:please\s+)?(?:sort|filter)\s+"
+    r"(?:it\s+|them\s+|the\s+results\s+)?by\b|"
+    r"\bon\s+(?:this|the)\s+page\b", re.I)
 _FOLLOW = re.compile(
     r"^(?:(?:and then|and|then)\s+)?(?:open|show|reveal)\s+"
     r"(?:it|that|them|the folder|the file)$", re.IGNORECASE)
@@ -583,6 +603,7 @@ class Orchestrator:
         self._last_url = None
         self._ctx = {"app": "none", "focused": "none", "selection": False,
                      "last_action": "none"}
+        self._page_task: dict | None = None
         self._t_final = 0.0
         self._web_ax_t0 = None      # first web_ax_pending observe arrival
         self._first_action_ms: float | None = None
@@ -682,6 +703,7 @@ class Orchestrator:
         from .tools import draft_email
         original_text = text
         t0 = time.perf_counter()
+        self._page_task = None
         said_items = getattr(self.server, "said", None)
         said_before = len(said_items) if isinstance(said_items, list) else 0
         self._t_final = t0
@@ -820,7 +842,15 @@ class Orchestrator:
                         text = memory_result.text
                         self._utterance = text
                     from .tools import compose_text
-                    if (msg := comms.parse_message(text)) is not None and \
+                    if (page := self._page_task_for(text)):
+                        self._page_task = page
+                        trace["decisions"].append({"page_task": page})
+                        outcome = await self._planner_loop(
+                            text, trace,
+                            hint=f"act in the current {page['app']} page "
+                                 f"({page['site']}); no new tab, no other "
+                                 "site or search engine")
+                    elif (msg := comms.parse_message(text)) is not None and \
                             msg.get("channel") in (None, "messages"):
                         trace["decisions"].append({"message_redirect": msg})
                         outcome = await comms.start(self, msg, text)
@@ -1684,6 +1714,43 @@ class Orchestrator:
             self.tracer.current.setdefault("decisions", []).append(
                 {"browser_arg": browser})
         return args
+
+    def _same_tab_args(self, name: str, args: dict, text: str,
+                       trace: dict) -> dict:
+        if name not in ("open_url", "web_search") or \
+                "same_tab" in args or self._collect is not None or \
+                "browser_rewrite" in trace or _NEW_TAB.search(text):
+            return args
+        front = self._ctx.get("app")
+        if not sendgate.is_browser(front):
+            return args
+        if args.get("browser") and (
+                (self._browser_name(args["browser"])
+                 or normalize_name(args["browser"])) !=
+                (self._browser_name(front) or normalize_name(front))):
+            return args
+        if name == "web_search":
+            url = self._focus_ctx.get("url")
+            if url and site_for_url(url) not in {
+                    "google.com", "bing.com", "duckduckgo.com"}:
+                return args
+        out = dict(args, same_tab=True, browser=args.get("browser") or front)
+        trace.setdefault("decisions", []).append({"same_tab": front})
+        return out
+
+    def _page_task_for(self, text: str) -> dict | None:
+        front = self._ctx.get("app")
+        url = self._focus_ctx.get("url")
+        if not sendgate.is_browser(front) or \
+                not isinstance(url, str) or not url.startswith("http"):
+            return None
+        site = site_for_url(url)
+        if not site or not _PAGE_TASK.search(text) or _NEW_TAB.search(text):
+            return None
+        match = match_name(text)
+        if match and site_for_url(fix_url(match[1])) != site:
+            return None
+        return {"app": front, "site": site, "url": url}
 
     async def warm_planner(self, planner, tag: str = "planner"):
         if not callable(getattr(planner, "warm", None)):
@@ -2580,6 +2647,10 @@ function run() {
                 trace if trace is not None else {"decisions": []})
             if label in ("open_url", "web_search"):
                 skill_args = self._with_browser(skill_args, goal)
+                if self._page_task:
+                    skill_args = self._same_tab_args(
+                        label, skill_args, goal,
+                        trace if trace is not None else {"decisions": []})
             a["name"], a["args"] = label, skill_args
             if label == "type_text" and not self._signin_gate(
                     a["args"].get("text"), trace=trace, goal=goal):
@@ -2728,6 +2799,16 @@ function run() {
             if str(a["url"]).partition(":")[0].casefold() not in APP_SCHEMES:
                 a = self._with_browser(a, goal)
             self._last_url = str(a.get("url") or "")
+            if self._page_task:
+                browser = {"browser": a["browser"]} if a.get("browser") else {}
+                args = self._same_tab_args(
+                    "open_url", {"url": a["url"], **browser}, goal,
+                    self.tracer.current or {"decisions": []})
+                r = await self._rpc_action(
+                    "skill", {"name": "open_url", "args": args}, a)
+                r["_log"] = (
+                    f"{dsl_line}-> {'ok' if r['status'] == 'ok' else 'failed: ' + r.get('error', '?')}")
+                return r
         params = {k: v for k, v in a.items() if k != "op"}
         params["op"] = op
         r = await self._rpc_action("act", params, a)
@@ -4010,6 +4091,9 @@ function run() {
         if name in ("open_url", "web_search"):
             args = self._with_browser(
                 args, self._current_goal or self._utterance or "")
+            args = self._same_tab_args(
+                name, args, self._current_goal or self._utterance or "",
+                trace)
         from . import comms
         if comms.is_messaging(self._utterance or "") and \
                 name in ("compose_email", "draft_email"):

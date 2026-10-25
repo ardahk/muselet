@@ -269,7 +269,8 @@ public enum PathAlias {
 /// frontmost (`{app, frontmost, launched}`); `open_url` / `web_search` wait
 /// <= 3 s for the requested (or default) browser frontmost with a changed
 /// window title (`{browser, browser_requested?, browser_fallback?, frontmost,
-/// window_title, title_changed}`); `open_folder` /
+/// window_title, title_changed, same_tab_used}`; same-tab navigation also
+/// returns `url_changed` and `page_url?`; `open_folder` /
 /// `open_file` wait <= 3 s for Finder / the file's app frontmost with the
 /// window title read back (`{app, frontmost, window_title, title_matches}`).
 /// Never frontmost -> ok=false, error `not_frontmost`, `observed`, and the
@@ -297,6 +298,7 @@ public final class Skills {
     /// Launch verification bounds (tests shorten them).
     var openAppTimeout: TimeInterval = 1.5
     var openTimeout: TimeInterval = 3.0
+    var sameTabKeyDelay: TimeInterval = 0.08
     var launchPollInterval: TimeInterval = 0.03
     /// Re-activate an opened app that isn't frontmost yet this often.
     var launchReactivateInterval: TimeInterval = 0.4
@@ -577,7 +579,8 @@ public final class Skills {
                 throw HandsError.invalidParams("bad url")
             }
             return try openInBrowser(
-                u, extra: ["url": s], browser: a["browser"] as? String)
+                u, extra: ["url": s], browser: a["browser"] as? String,
+                sameTab: a["same_tab"] as? Bool ?? false)
         case "web_search":
             let q = try strArg(a, "query")
             // Strict: "AT&T", "c++", "a=b" stay part of the query value.
@@ -585,7 +588,8 @@ public final class Skills {
                 throw HandsError.invalidParams("bad query")
             }
             return try openInBrowser(
-                u, extra: ["query": q], browser: a["browser"] as? String)
+                u, extra: ["query": q], browser: a["browser"] as? String,
+                sameTab: a["same_tab"] as? Bool ?? false)
 
         // ---- files ----
         case "open_folder":

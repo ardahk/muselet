@@ -174,8 +174,10 @@ cases = [
             {"memory": {"op": "clear"},
              "expect": [{"memory_items": 0}, {"working_turns": 0}, {"workflows": 0}]}]},
 ]
+LANDED = {"uf2"}  # fix lanes merged; their cases must pass
 for c in cases:
-    c["fails_on_main"] = "4150ecb"
+    if c["id"][:3] not in LANDED:
+        c["fails_on_main"] = "4150ecb"
     c["fixed_by"] = FIXED[c["id"][:3]]
 with open("evals/replay/user_2026-10-24.jsonl", "w") as f:
     for c in cases:
