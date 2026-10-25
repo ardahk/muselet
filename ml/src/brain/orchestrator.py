@@ -3166,7 +3166,7 @@ function run() {
                         "_log": f"{dsl_line}-> permission_prompt_gate"}
         if op == "wait":
             self._diff_chain = None
-            await asyncio.sleep(a["ms"] / 1000)
+            await self._wait_ms(a["ms"])
             return {"status": "ok", "_log": f"{dsl_line}-> ok"}
         if op == "skill":
             name = a.get("name")
@@ -3435,6 +3435,12 @@ function run() {
         r = await self._rpc_action("act", params, a)
         if op == "url" and r.get("status") == "ok":
             self._last_ok_url = str(a.get("url") or "")
+        if r.get("status") == "ok" and (
+                op == "url" or op == "press" or
+                (op == "type" and a.get("enter")) or
+                (op == "keys" and
+                 re.fullmatch(r"(?i)return|enter|\\r", str(a.get("combo") or "")))):
+            await self._await_page_load()
         r["_log"] = f"{dsl_line}-> {'ok' if r['status']=='ok' else 'failed: ' + r.get('error','?')}"
         return r
 
@@ -3778,8 +3784,81 @@ function run() {
         is just the browser's name, or a loading/untitled title."""
         if not obs:
             return False
+        # authoritative when the browser exposes AXLoaded: loaded=false means
+        # loading (regardless of title heuristics), busy extends it.
+        if "web_loaded" in obs:
+            return (not obs["web_loaded"]) or bool(obs.get("web_busy"))
         if obs.get("web_ax_pending"):
             return True
+        app = str(obs.get("app") or "")
+        title = str(obs.get("window") or "").strip()
+        if not self._browser_name(app):
+            return False
+        text = str(obs.get("text") or "")
+        bare_title = re.sub(r"^\(\d+\)\s*", "", title)
+        bare_title = re.sub(
+            r"\s+-\s+(?:Google Chrome|Chrome|Safari|Firefox|"
+            r"Microsoft Edge|Edge|Brave|Arc|Zen|Opera)\s*$",
+            "", bare_title, flags=re.IGNORECASE).strip()
+        host = urlsplit(str(obs.get("url") or "")).hostname or ""
+        labels = {re.sub(r"[^a-z0-9]", "", host.split(".")[-2].casefold())
+                  if len(host.split(".")) >= 2 else ""}
+        host_key = host.casefold().removeprefix("www.")
+        labels.update(
+            re.sub(r"[^a-z0-9]", "", name.casefold())
+            for name, site in SITES.items()
+            if (urlsplit(f"https://{site}").hostname or "").casefold()
+            .removeprefix("www.") == host_key)
+        title_key = re.sub(r"[^a-z0-9]", "", bare_title.casefold())
+        site_loading = bool(host and title_key and title_key in labels)
+        return (not title or bool(self._browser_name(title)) or bool(
+            _LOADING_TITLE.search(title)) or bool(
+            re.search(r"Waiting for \S+|Transferring data from", text,
+                      re.IGNORECASE)) or site_loading)
+
+    async def _wait_ms(self, ms: int):
+        """`wait <ms>`: on a browser page that exposes AXLoaded, return as
+        soon as the page reports loaded (min 150 ms); else plain sleep."""
+        try:
+            obs = self._obs_seen[1] if self._obs_seen else None
+            if not (obs and "web_loaded" in obs and
+                    self._browser_name(str(obs.get("app") or ""))):
+                await asyncio.sleep(ms / 1000)
+                return
+            await asyncio.sleep(0.15)
+            t0 = time.perf_counter()
+            while time.perf_counter() - t0 < ms / 1000:
+                obs = await self._observe_once()
+                if obs.get("web_loaded") is True:
+                    return
+                await asyncio.sleep(0.1)
+        except RuntimeError:
+            pass
+
+    async def _await_page_load(self, cap: float = 15.0):
+        """After a navigation-level action in a browser: if the fresh
+        observation says the page is loading, poll every 0.1 s until
+        `web_loaded` or `cap`. Instant loads cost one extra observe."""
+        try:
+            obs = self._obs_seen[1] if self._obs_seen else None
+            if not (obs and "web_loaded" in obs and
+                    self._browser_name(str(obs.get("app") or ""))):
+                return
+            t0 = time.perf_counter()
+            polls = 0
+            loaded = obs.get("web_loaded") is True
+            while not loaded and time.perf_counter() - t0 < cap:
+                await asyncio.sleep(0.1)
+                polls += 1
+                obs = await self._observe_once()
+                loaded = obs.get("web_loaded") is True
+            if polls and self.tracer.current is not None:
+                self.tracer.current.setdefault("page_load_wait", []).append(
+                    {"ms": round((time.perf_counter() - t0) * 1000, 1),
+                     "polls": polls, "loaded": loaded})
+        except RuntimeError:
+            return
+
         app = str(obs.get("app") or "")
         title = str(obs.get("window") or "").strip()
         if not self._browser_name(app):
@@ -3813,8 +3892,10 @@ function run() {
             return vres, False
         started = time.perf_counter()
         polls = 0
-        while time.perf_counter() - started < self.LOAD_WAIT_S:
-            await asyncio.sleep(self.LOAD_POLL_S)
+        cap = 15.0 if "web_loaded" in await self._observe_once() \
+            else self.LOAD_WAIT_S
+        while time.perf_counter() - started < cap:
+            await asyncio.sleep(0.1)
             polls += 1
             try:
                 vres = await self.server.rpc("verify", {"expect": exp},
@@ -3823,6 +3904,10 @@ function run() {
                 vres = {"ok": False, "observed": str(e)}
             if vres.get("ok", False):
                 break
+            obs = vres.get("observed") if isinstance(
+                vres.get("observed"), dict) else None
+            if obs and obs.get("web_loaded") is True:
+                break          # page is done loading; stop waiting
         loading = not vres.get("ok", False) and self._page_loading(
             await self._observe_once())
         if self.tracer.current is not None:
@@ -5094,7 +5179,7 @@ function run() {
             if op == "script":
                 return await self._script(a)
             if op == "wait":
-                await asyncio.sleep(a["ms"] / 1000)
+                await self._wait_ms(a["ms"])
                 continue
             if op in _ACT_OPS and not gate_checked:
                 gate_checked = True

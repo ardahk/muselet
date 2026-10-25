@@ -39,6 +39,8 @@ public struct Observation {
     /// The app's web tree was switched on < ~2.5 s ago and Chrome is still
     /// debouncing: web content will appear on a later observation.
     public var webAXPending = false
+    public var webLoaded: Bool?
+    public var webBusy: Bool?
     /// Which root the walk used: "focused" | "main" | "windows" (frontmost
     /// AXWindows entry: the app has windows but none is focused/main, e.g.
     /// it isn't active) | "app" (window-like app children; no AXWindows) |
@@ -582,6 +584,10 @@ public final class Hands {
         if let webOn { out.webAX = webOn.mode.rawValue }
         if let w = webWait { out.webAXWaitMs = w.ms }
         out.webAXPending = webAXEnabled && webAXRegistry.pending(pid: obs.pid)
+        if let root = roots.first, let area = firstWebArea(root) {
+            if let loaded = webBool(area, "AXLoaded") { out.webLoaded = loaded }
+            if let busy = webBool(area, "AXElementBusy") { out.webBusy = busy }
+        }
         out.windowSource = picked.source
         return out
     }
@@ -811,4 +817,33 @@ public final class Hands {
 
     /// Element handle for a recently minted ref (any session).
     func knownElement(ref: Int) -> Element? { knownElements[ref] }
+}
+
+/// First AXWebArea in a window — BFS, shallow (page-load signal lives on it).
+func firstWebArea(_ root: any Element) -> (any Element)? {
+    func kids(_ el: any Element) -> [any Element] {
+        let v = el.copySingleAttr(kAXChildrenAttribute)
+        if let els = v as? [any Element] { return els }
+        if let els = v as? [AXUIElement] { return els.map { AXNode($0) as any Element } }
+        return []
+    }
+    var queue = kids(root).map { ($0, 1) }
+    var seen = 0
+    while !queue.isEmpty && seen < 400 {
+        let (el, depth) = queue.removeFirst(); seen += 1
+        if (el.copySingleAttr(kAXRoleAttribute) as? String) == "AXWebArea" {
+            return el
+        }
+        if depth < 15 {
+            for child in kids(el) { queue.append((child, depth + 1)) }
+        }
+    }
+    return nil
+}
+
+func webBool(_ el: any Element, _ name: String) -> Bool? {
+    let v = el.copySingleAttr(name)
+    if let b = v as? Bool { return b }
+    if let n = v as? NSNumber { return n.boolValue }
+    return nil
 }

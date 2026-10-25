@@ -111,6 +111,8 @@ public final class RPCHandler {
                 // Chrome is still building its web tree (2 s debounce after
                 // the switch): re-observe shortly instead of screenshotting.
                 if obs.webAXPending { r["web_ax_pending"] = true }
+                if let l = obs.webLoaded { r["web_loaded"] = l }
+                if let b = obs.webBusy { r["web_busy"] = b }
                 return (true, r, nil)
 
             case "act":
