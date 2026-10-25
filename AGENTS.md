@@ -43,11 +43,14 @@ Hackathon deadline: Cal Hacks submission Sun Oct 25 2026, 09:00 PDT. Tinker budg
   Competitor benchmarks (HobbyLM sealed, DeskMind Bench) run ONLY with it2 or a later router whose overlap check is 0
   for that set (it2: HobbyLM r4 and DeskMind Bench 0 real overlaps after the CJK-aware gate). Never run r1/r2
   (main-final data: 12-15 near-duplicates per HobbyLM sealed round) on sealed sets.
-- Planner: base 4B-4bit, greedy, `prompts/planner_fewshot.md` (rules 16-18 + examples), DSL history, line-start op
-  constraint, done-alone, 1 BM25-retrieved example from the v2-tune bank (`RETRIEVAL_K=0|1|2`, default 1), thinking budget
-  512 tokens with the qwen sampler on every step (`THINK`, `THINK_ON`, `THINK_SAMPLER`; holdout mean .642 -> .770, step p50 2.6 s),
-  verified done + bounded recovery (`VERIFY_DONE`), working/long-term memory (`MEMORY`, `LONGTERM` on; `MEMORY_LLM` rewrite off: false-rewrite .078 on holdout). 35B-A3B via `--planner-model` or `ESCALATE=1`. Offline planner bench: `evals/planner_offline.py`
-  (tune / holdout / holdout2 sets; never tune on holdouts).
+- Planner: default LoRA 4B (`models/planner-4b-lora-mlx4`, HF `jonsnov/muselet-planner-4b-lora-mlx4`
+  @ 35a2ea3), greedy, no few-shot, DSL history, line-start op constraint, done-alone, retrieval k=1, THINK=0;
+  holdouts v1-ho/v1-ho2/v2-ho .857/1.000/.692 (mean .850), step p50 ~0.3 s. `PLANNER=base` selects the
+  base 4B with few-shot, retrieval k=1, THINK=512 qwen (.786/.917/.608, mean .770 @ 2.6 s); THINK=512 is
+  the base-planner default only. 35B-A3B escalation remains available via `--planner-model` or `ESCALATE=1`.
+- Planner auxiliary model: base 4B handles non-DSL generation/decide calls so the LoRA only plans; +1 resident
+  4B is ~2.5 GB, and `PLANNER_AUX=planner` reuses the planner. Verified done + bounded recovery (`VERIFY_DONE`);
+  working/long-term memory (`MEMORY`, `LONGTERM`; `MEMORY_LLM` rewrite off).
 - Grounder: eyes-4b, two-stage zoom, 1 MP (`click "<description>"` in the DSL), lazy-loaded; 2 MP / UI-Venus selectable.
 
 ## Repo layout

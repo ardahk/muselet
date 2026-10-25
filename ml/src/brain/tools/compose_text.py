@@ -59,6 +59,7 @@ def _composer_target(orch, obs: dict) -> bool:
 
 async def run(orch, args, utterance) -> str:
     planner = getattr(orch, "planner_escalate", None) or \
+        getattr(orch, "planner_aux", None) or \
         getattr(orch, "planner", None)
     if planner is None:
         await orch.server.say("I can't write that yet")

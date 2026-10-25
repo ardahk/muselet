@@ -375,7 +375,9 @@ async def run(orch, args: dict, utterance: str) -> str:
     if reply and not context.strip():
         return await _fail(orch, "I can't read the email")
 
-    model = orch.planner_escalate or orch.planner
+    model = getattr(orch, "planner_escalate", None) or \
+        getattr(orch, "planner_aux", None) or \
+        getattr(orch, "planner", None)
     if model is None:
         await orch.server.say("Drafting isn't ready yet")
         await orch._end_ui("confused")
