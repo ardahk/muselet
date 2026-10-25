@@ -1,11 +1,12 @@
-# Planner review digest — pass 70 (2026-10-25T05:12Z)
+# Planner review digest — pass 71 (2026-10-25T05:30Z)
 
-Moved: main 82c9810→e425cad (#86, 3678b4f: screen-context gating, open-ended ask guard, Clock wheel keyboard fallback — the same code reviewed on wip c156d18 in pass 69). wip 80c871c is a snapshot on main@82c9810 without those changes.
-- planner-46 (P1): mitigation on main; still above the observation, default-on, no LoRA eval.
-- planner-47 (P2): now on main; recipient asks are still rejected for some/any goals.
-- planner-40/42/45 unchanged. premiere-route-fix (7769c32) not on main.
+Moved: wip/local → 323d274 (snapshot on local main@c711320: planner-blind, finish.py, blind few-shot, _CHAT_IDE). origin/main e425cad unchanged.
+- planner-48 (P1, new): page tasks and open-ended redirects are forced onto base + qwen think 512 with batch cap 2, even with a full AX tree (demo goal 2). No numbers recorded.
+- planner-49 (P1, new): blind few-shot has `done` in the same batch as its checking script, and examples without expects.
+- planner-40: wip partly mitigates it (app-only expects no longer count as DONE evidence except for bare opens). Skill ok is still accepted.
+- OK: "Finish when:" comes from the user's goal (rule-based, dynamic tail); _CHAT_IDE keeps Terminal/IDE/Devin text out of the screen context; trace records which planner ran.
 
-New: 0. Resolved: 0. Open: 0 P0, 9 P1, 9 P2.
+New: 2 P1. Resolved: 0. Open: 0 P0, 11 P1, 9 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
