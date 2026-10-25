@@ -224,3 +224,13 @@ def test_premiere_hint_clip_speed_vs_duration():
     # the stale wording that made the model type 200 into Duration
     assert "first = Speed" not in rendered
     assert '"200" enter' not in rendered
+
+
+def test_numbers_hint_sort_goal_frontmost():
+    """Numbers frontmost + sort goal picks the numbers hint; native-sort
+    tip (never rewrite cells) is inside the rendered cap."""
+    hints = match_hints("sort Amount largest first", app="Numbers")
+    assert any(h.id == "numbers" for h in hints)
+    rendered = render_hints(hints)
+    assert "Sort" in rendered
+    assert "rewriting cell" in rendered or "cell values" in rendered

@@ -162,6 +162,18 @@ _DESTRUCTIVE_REQ = re.compile(
     r"\b(?:erase|wipe|delete|remove|destroy|format|nuke|rm\s+-[rf]+)\b.*"
     r"\b(?:every|all|entire)\b|"
     r"\b(?:every|all)\s+files?\b", re.IGNORECASE | re.DOTALL)
+_NUMBERS_APP = re.compile(
+    r'tell\s+application\s+(?:id\s+)?"(?:Numbers|com\.apple\.Numbers)"',
+    re.IGNORECASE)
+_SORT_GOAL = re.compile(r"\b(?:sort|order)\b", re.IGNORECASE)
+_CELL_REWRITE = re.compile(
+    r"\bset\b\s+(?:the\s+)?(?:value|formula)\s+of|"
+    r"\bset\b\s+(?:every\s+)?(?:cells?|ranges?|rows?|columns?)\b",
+    re.IGNORECASE | re.DOTALL)
+NUMBERS_SORT_ERROR = (
+    "Sorting must preserve cell values and headers; use Numbers native "
+    "Sort Descending/Ascending, not cell rewrites.")
+
 WEB_UI_ERROR = "use the page's search box: type into it and press return"
 _BROWSER_BAR_KEYS = re.compile(r"^\s*(?:cmd|command)\+(?:l|t)\s*$", re.I)
 _URL_SEARCH = re.compile(r"\?|/results\b|/s\?k=|/search\b", re.I)
@@ -3262,6 +3274,10 @@ function run() {
             return r
         if op == "script":
             lang, code = a["lang"], a["code"]
+            guard = self._numbers_sort_script_error(lang, code)
+            if guard:
+                return {"status": "failed", "error": guard,
+                        "_log": f"script -> failed: {guard}"}
             if self.script_needs_confirm(lang, code) and \
                     not self._take_confirm():
                 yes = await self.server.ask_confirm(
@@ -5305,8 +5321,23 @@ function run() {
                 pass
         return keep
 
+    def _numbers_sort_script_error(self, lang: str, code: str) -> str | None:
+        """Integrity guard for sort goals: a Numbers AppleScript that SETS
+        cell values/formulas would overwrite headers/data while 'sorting'.
+        Native sort commands, header reads and local-variable assignments
+        stay allowed. Not a deterministic workflow — a narrow guard."""
+        if lang != "applescript" or not _NUMBERS_APP.search(code):
+            return None
+        goal = self._current_goal or self._utterance or ""
+        if not _SORT_GOAL.search(goal):
+            return None
+        return NUMBERS_SORT_ERROR if _CELL_REWRITE.search(code) else None
+
     async def _script(self, a: dict) -> str:
         lang, code = a["lang"], a["code"]
+        guard = self._numbers_sort_script_error(lang, code)
+        if guard:
+            return await self._fail(guard, "Script failed")
         if self.script_needs_confirm(lang, code):
             yes = await self.server.ask_confirm(
                 await self._confirm_summary(a))
