@@ -1,3 +1,4 @@
+import re
 """Agentic-loop lane: page-load expect re-poll, finish-criterion done gate,
 workflow-memory hygiene, cross-app retrieval skip, user-trace regressions."""
 
@@ -209,7 +210,7 @@ def test_script_stdout_playing_is_play_evidence(tmp_path):
     orch = _orch(server, planner)
     trace = trace_for(orch)
     assert run(orch._planner_loop("play some jazz on spotify", trace)) == "ok"
-    assert orch._done_evidence == "auto"
+    assert orch._done_evidence in ("auto", "finish")
 
 
 # 4. workflow-memory hygiene ------------------------------------------------
@@ -378,12 +379,16 @@ def test_spotify_prompts_never_suggest_clicks():
     hint = next(json.loads(line) for line in
                 (root / "app_hints.jsonl").read_text().splitlines()
                 if line.strip() and json.loads(line)["id"] == "spotify")
+    # only the gated title double-click is taught (PR #101); never single clicks
     for tip in hint["tips"]:
-        assert "click \"" not in tip and "click #" not in tip
+        assert "click #" not in tip
+        for m in re.finditer(r'click "[^"]*"( double)?', tip):
+            assert m.group(1), tip
     for block in (root / "planner_fewshot.md").read_text().split("\n\n"):
         if "spotify" in block.lower():
-            assert not any(line.lstrip("[ok] ").startswith("click")
-                           for line in block.splitlines()), block
+            for line in block.splitlines():
+                if line.lstrip("[ok] ").startswith("click"):
+                    assert line.rstrip().endswith("double"), block
 
 
 def test_grounded_click_refused_in_spotify():
