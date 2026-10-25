@@ -105,6 +105,7 @@ async def serve(port: int = 8765, model: str | None = None,
                 grounder: dict | None = None,
                 memory_enabled: bool = True,
                 memory_llm: bool = True,
+                longterm_enabled: bool = True,
                 verify_done: bool = True):
     server = BrainServer(port=port)
     await server.start()
@@ -122,6 +123,7 @@ async def serve(port: int = 8765, model: str | None = None,
     orch.planner = planner
     orch.memory_enabled = memory_enabled
     orch.memory_llm = memory_llm
+    orch.longterm_enabled = bool(longterm_enabled and memory_enabled)
     orch.verify_done = verify_done
     print(f"[planner] verify_done={'on' if verify_done else 'off'}",
           flush=True)
@@ -150,10 +152,23 @@ async def serve(port: int = 8765, model: str | None = None,
 
     server.on_utterance = on_utt
     async def on_config(msg):
-        return await orch.set_escalation(
-            bool(msg.get("escalate_planner", False)))
+        result = {}
+        if "escalate_planner" in msg:
+            result.update(await orch.set_escalation(
+                bool(msg.get("escalate_planner"))))
+        if "memory" in msg:
+            orch.memory_enabled = bool(msg["memory"])
+            orch.longterm_enabled = bool(
+                msg["memory"] and longterm_enabled)
+            result["memory"] = orch.longterm_enabled
+            result.setdefault("loaded", True)
+        return result
+
+    async def on_memory(msg):
+        return orch.memory_request(msg)
 
     server.on_config = on_config
+    server.on_memory = on_memory
     server.on_partial = lambda t, c=None: orch._speculative_route(t, c)
     print(f"brain listening on ws://127.0.0.1:{server.port}", flush=True)
     print("type an utterance + enter (headless mode)", flush=True)
@@ -305,6 +320,8 @@ def build_parser(argv=None):
                    default=True, help="enable short-term working memory")
     s.add_argument("--memory-llm", action=argparse.BooleanOptionalAction,
                    default=True, help="allow guarded LLM follow-up rewrites")
+    s.add_argument("--longterm", action=argparse.BooleanOptionalAction,
+                   default=True, help="enable on-device long-term memory")
     s.add_argument("--model", default=None,
                    help="model path/repo; 'none' = regex fallback; "
                         "default: 4B-4bit if cached else 0.8B-4bit")
@@ -373,6 +390,8 @@ def run_cmd(args, ap):
             memory_kw["memory_enabled"] = False
         if not args.memory_llm:
             memory_kw["memory_llm"] = False
+        if not args.longterm or not args.memory:
+            memory_kw["longterm_enabled"] = False
         asyncio.run(serve(
             args.port, m, args.planner_model, planner_opts(args),
             args_model=am, escalate_model=em, grounder=grounder_cfg(args),

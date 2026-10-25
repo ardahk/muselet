@@ -22,6 +22,7 @@ final class BrainConnection: NSObject, URLSessionWebSocketDelegate {
     /// confirm_cancel: the confirm timed out or the task was cancelled
     /// (nil id = whatever is pending).
     var onConfirmCancel: ((_ id: String?) -> Void)?
+    var onMemoryItems: (([[String: Any]]) -> Void)?
     var onRPC: ((_ method: String, _ summary: String, _ ms: Double, _ ok: Bool) -> Void)?
     /// A final utterance spoken while offline was dropped (not delivered
     /// within `outboxTTL`); the app shows the "brain offline" bubble.
@@ -93,6 +94,18 @@ final class BrainConnection: NSObject, URLSessionWebSocketDelegate {
     /// `{"t":"config","escalate_planner":true|false}`; dropped while offline
     /// (onOpen sends it again on every connect).
     func sendConfig(_ frame: [String: Any]) { send(frame) }
+
+    func sendMemoryList() { send(["t": "memory", "op": "list"]) }
+
+    func sendMemorySearch(_ query: String) {
+        send(["t": "memory", "op": "search", "q": query])
+    }
+
+    func sendMemoryDelete(_ id: Int) {
+        send(["t": "memory", "op": "delete", "id": id])
+    }
+
+    func sendMemoryClear() { send(["t": "memory", "op": "clear"]) }
 
     func sendConfirmReply(id: String, yes: Bool) {
         send(["t": "confirm_reply", "id": id, "yes": yes])
@@ -271,6 +284,8 @@ final class BrainConnection: NSObject, URLSessionWebSocketDelegate {
             DispatchQueue.main.async { self.onConfirm?(id, summary) }
         case .confirmCancel(let id):
             DispatchQueue.main.async { self.onConfirmCancel?(id) }
+        case .memory(let items):
+            DispatchQueue.main.async { self.onMemoryItems?(items) }
         case .unknown(let t):
             if t == "config_ack", let ack = ConfigAck.parse(s) {
                 DispatchQueue.main.async { self.onConfigAck?(ack) }

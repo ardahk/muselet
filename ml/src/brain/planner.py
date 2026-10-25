@@ -371,13 +371,16 @@ class Planner:
                      hint: str | None = None,
                      script_output: str | None = None,
                      login_page: bool = False,
-                     recent: list[str] | None = None) -> str:
+                     recent: list[str] | None = None,
+                     memory: list[str] | None = None) -> str:
         parts = [f'Goal: "{goal}"']
         if hint:
             parts.append(f"Hint: likely {hint}")
         if recent is not None:
             parts.append("Recent:")
             parts.extend(recent)
+        if memory:
+            parts.extend(memory[:3])
         if login_page:
             parts.append("Login page: ask the user to sign in")
         parts.append(observation)
@@ -403,21 +406,23 @@ class Planner:
                      hint: str | None = None,
                      script_output: str | None = None,
                      login_page: bool = False,
-                     recent: list[str] | None = None) -> str:
+                     recent: list[str] | None = None,
+                     memory: list[str] | None = None) -> str:
         return self.retrieval_block(goal, observation) + self.user_message(
             goal, observation, last_batch, hint, script_output, login_page,
-            recent)
+            recent, memory)
 
     def prompt_tokens(self, goal: str, observation: str, last_batch,
                       hint: str | None = None,
                       script_output: str | None = None,
                       login_page: bool = False,
-                      recent: list[str] | None = None) -> list[int]:
+                      recent: list[str] | None = None,
+                      memory: list[str] | None = None) -> list[int]:
         """Full prompt plan() decodes from (system + user + assistant header with the empty think block)."""
         msgs = [Message(role="system", content=self.system),
                 Message(role="user", content=self.user_content(
                     goal, observation, last_batch, hint, script_output,
-                    login_page, recent)),
+                    login_page, recent, memory)),
                 Message(role="assistant", content=SENTINEL)]
         toks = self._render_msgs(msgs)
         return toks[:self._content_cut(toks, SENTINEL)]
@@ -488,14 +493,15 @@ class Planner:
              hint: str | None = None,
              script_output: str | None = None,
              login_page: bool = False,
-             recent: list[str] | None = None) -> list[str]:
+             recent: list[str] | None = None,
+             memory: list[str] | None = None) -> list[str]:
         """Blocking — submit via worker(). Streams each finished line to
         `lines_out` (call_soon_threadsafe), then a None sentinel. Returns the
         full line list."""
         t0 = time.perf_counter()
         if self._cache is None:
             self._build_cache()
-        toks = self.prompt_tokens(goal, observation, last_batch, hint, script_output, login_page, recent)
+        toks = self.prompt_tokens(goal, observation, last_batch, hint, script_output, login_page, recent, memory)
         acut = len(toks)     # prompt ends here
         cache = copy.deepcopy(self._cache)
         stop_ids = {self.tokenizer.eos_token_id}

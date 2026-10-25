@@ -47,7 +47,8 @@ Output: move the Planning review to the afternoon
 """
 
 
-def dynamic(text: str, wm, ctx: dict, now: float) -> str:
+def dynamic(text: str, wm, ctx: dict, now: float,
+            memory: list[dict] | None = None) -> str:
     focus = wm.focus(now, ctx)
     fields = ("app", "site", "contact", "file", "query")
     focus_line = "Focus: " + " ".join(
@@ -57,13 +58,18 @@ def dynamic(text: str, wm, ctx: dict, now: float) -> str:
     detailed = getattr(wm, "recent_detail_lines", wm.recent_lines)
     lines.extend(f"Recent: {line}"
                  for line in detailed(recent_count, now=now))
+    if memory:
+        from .store import render
+        lines.append("Memory:")
+        lines.extend(render(memory[:3]))
     lines.extend((f"Say: {text}", "Output:"))
     return "\n".join(lines)
 
 
 def llm_rewrite(text: str, wm, ctx: dict, now: float, llm,
-                max_tokens: int = 40) -> Resolution:
-    prompt = STATIC + dynamic(text, wm, ctx, now)
+                max_tokens: int = 40,
+                memory: list[dict] | None = None) -> Resolution:
+    prompt = STATIC + dynamic(text, wm, ctx, now, memory)
     output = str(llm(prompt, min(max_tokens, 40)) or "").strip()
     first = output.splitlines()[0].strip() if output else ""
     if first.casefold() == "unchanged":
