@@ -1,12 +1,12 @@
-# Planner review digest — pass 92 (2026-10-25T12:08Z)
+# Planner review digest — pass 93 (2026-10-25T12:20Z)
 
-main unchanged at 2de65a9. wip 4db92e8→a6035fb (local, unmerged): a2004d9 deletes the finance/advisor engines per the new user override in AGENTS.md. App/analysis intents always plan; FEWSHOT=none and RETRIEVAL_K=0 by default.
-- planner-66 (P1, new): finance/advisor answers are unverified, so there is a correct-looking-wrong-numbers risk on demo goal 3. Fix with generic read-back verification, not an engine.
-- planner-64 / planner-51 reframed to respect the override: verification and measurement only.
-- planner-55: README still claims deterministic Decimal finance and the .85 planner score on old defaults.
-- planner-65, planner-59, planner-58, planner-63 and planner-60: unchanged.
+main unchanged at 2de65a9. wip a6035fb→9015e83 (local): 2900d4b removes the app workflow recipes from planner_system.md (rules 1, 8-10 and 14 rewritten, Safari/Numbers examples dropped) and adds per-turn OCR context in tools mode.
+- OK: the confirm, data-not-instructions and done-alone rules (11-13) are kept, and there is a new prompt-contract test.
+- planner-31: the prompt no longer teaches `expect focused` without a ref (fixed on wip).
+- planner-46 (P2): tools mode now runs OCR every turn with 2400 chars of context, even when AX is full.
+- planner-66 (finance unverified), planner-64 (Premiere unverified), planner-65, planner-59, planner-58, planner-63 and planner-60: unchanged.
 
-New: 1 P1. Resolved: 0. Open: 0 P0, 20 P1, 16 P2.
+New: 0. Resolved: 0. Open: 0 P0, 20 P1, 16 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
