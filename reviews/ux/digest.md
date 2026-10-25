@@ -1,12 +1,11 @@
-# ux digest — pass 64
+# ux digest — pass 65
 
-Heads: main 4150ecb, wip b7b7840, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
+Heads: main b340f24, wip 94f6fe9, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
 
-Counts: 0 P0, 1 P1, 14 P2. New in pass 63: ux-30 (fix-pending: speech that isn't a command during a confirm gets no feedback). ux-26 resolved by design #70 (main 4150ecb); ux-25 and ux-27 still live on main.
+Counts: 0 P0, 1 P1, 13 P2 (ux-29 resolved: the LoRA planner defaults to THINK=0). New in pass 63: ux-30 (fix-pending: speech that isn't a command during a confirm gets no feedback). ux-26 resolved by design #70 (main b340f24); ux-25 and ux-27 still live on main.
 Open P1:
 - ux-28: the failure bubble shows raw "Not finished: expect failed: …" (orchestrator.py:3061, 2065)
 Open P2, ranked:
-- ux-29: 512-token thinking on every planner step means a silent "thinking" face of about 2.6 s per step (serve_brain.sh, orchestrator.py:544)
 - ux-14: a declined or timed-out confirm leaves the mascot thinking
 - ux-25: the poke hint says "click my mic below" before the pill appears (MascotController.swift:210)
 - ux-27: the memory recall dumps raw rows into the bubble (memory/store.py:246)

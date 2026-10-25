@@ -1,9 +1,9 @@
 {
-  "pass": 64,
-  "ts": "2026-10-25T03:52:00Z",
+  "pass": 65,
+  "ts": "2026-10-25T04:08:00Z",
   "last_reviewed": {
-    "main": "4150ecb",
-    "wip/local": "b7b7840",
+    "main": "b340f24",
+    "wip/local": "94f6fe9",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -83,7 +83,9 @@
     "cloud/fix-pending": "dba9094",
     "cloud/hands-clock-verify": "a4d6463",
     "cloud/fix-same-tab": "065e65f",
-    "cloud/test-strategy": "96c96d2"
+    "cloud/test-strategy": "96c96d2",
+    "cloud/open-ended": "fd87f69",
+    "cloud/planner-aux": "387c3b4"
   },
-  "notes": "pass 64: fallback 2ef5805 (3-line tweak), fix-same-tab 065e65f (same-tab browsing routing, no new bubble text), test-strategy 96c96d2 (small orchestrator hook) add no lane copy. main/wip unchanged. Open findings unchanged."
+  "notes": "pass 65: main b340f24 merged fix-apps-notes, fix-email-reply, memory-writes, test-strategy, and the LoRA planner (THINK=0 default, resolving ux-29). New copy ('Which app?', 'Which email? Open it, then ask me again') is fine. open-ended and planner-aux add no bubble copy. ux-25, ux-27 and ux-28 are still on main."
 }
