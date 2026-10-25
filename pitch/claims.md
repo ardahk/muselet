@@ -10,7 +10,7 @@ has not been run, the line stays out of the pitch. Mac = the demo MacBook Pro M5
 |---|---|---|---|---|
 | `{{stt_ms_p50}}` | Right Option release -> final transcript, median | 20 demo utterances; panel row "Last release → text" | `model.lastSTTms`, `app/Sources/MuseletApp/Panel/PanelView.swift:90`; app FileLog | pending live run (screen was locked overnight) |
 | `{{route_ms_p50}}`, `{{route_ms_p95}}` | Router forward pass (cached static prefix + request suffix) | `uv run --project ml python -m brain.cli eval-route --model <router> --cases evals/route_v1.jsonl` | `route_ms`, `ml/src/brain/decision.py:330-350`; `runs/evals/` | p50 52 ms (r2; `runs/router/r2_self_clean.json`); p95 not reported yet |
-| `{{route_acc}}` | Router top-1 accuracy, route_v1 clean subset (103 of 140 cases) | same command, `--cases evals/route_v1_clean.jsonl` | lead (it2); `runs/router/r2_self_clean.json` (r2) | **.913 (it2, serving)**; r2 .864 (§1a); it3 TBD(router it3 on route_v1_clean, Mac; HF `jonsnov/muselet-route-4b-it3-mlx4` @ e057412) |
+| `{{route_acc}}` | Router top-1 accuracy, route_v1 clean subset (103 of 140 cases) | same command, `--cases evals/route_v1_clean.jsonl` | lead; `runs/router/{it2,it3}_{val,route_v1_clean,route_v2}.json` via `evals/router_check.py` | **it3 @ tau .50 (serving) .922**; it2 @ .35 .942 (it2 @ .65 earlier .913); r2 .864 (§1a). Always say it with route_v2: it3 .945 vs it2 .838 |
 | `{{args_ms_p50}}` | ARGS extraction, median | same run / traces | `args_ms`, `decision.py:369-404` | 97 ms (r2; `runs/router/r2_self_clean.json`) |
 | `{{instant_e2e_ms_p50}}` | Release -> first HandsKit action for single-skill commands | traces of the segment-1 commands, 10 takes | `release_to_first_action_ms`, `ml/src/brain/orchestrator.py:295,300` | pending live run (screen was locked overnight) |
 | `{{browser_task_s}}` | "Find flights to Tokyo next Friday": release -> planner `done` | 5 takes, Chrome | trace `total` stage; also shown as the `ui.ms` chip | pending live run (screen was locked overnight) |
@@ -29,7 +29,7 @@ has not been run, the line stays out of the pitch. Mac = the demo MacBook Pro M5
 | `{{act_ms_p50}}` | HandsKit act + settle, median | same traces as `{{instant_e2e_ms_p50}}` | `act_ms` + `settle_ms` in `rpc_result` | pending live run (screen was locked overnight) |
 | `{{stt_budget_ms}}`, `{{args_budget_ms}}`, `{{act_budget_ms}}`, `{{e2e_budget_ms}}` | Latency *targets* (not measurements); label "target" wherever shown | set by the lead from the speed-lab results | `architecture.md` budget table | targets, not set yet |
 | `{{model_disk_gb}}`, `{{peak_ram_gb}}` | Total local weights; peak RSS during the 3:00 demo | `du -sh` on the HF cache snapshots in use; Activity Monitor / `footprint` | Mac | pending live run (screen was locked overnight) |
-| `{{tinker_usd}}` | Tinker spend, month to date | `python3 tools/tinker_spend.py` | Tinker console, as relayed in the lead's lane brief | $136.22 of $150 at 2026-10-24 14:30 PDT (say "about $136"); earlier $34.60 / $64.89 / $77.51 snapshots superseded |
+| `{{tinker_usd}}` | Tinker spend, month to date | `python3 tools/tinker_spend.py` | Tinker console (lead) | TBD(console): $136.22 at 14:30 PDT + planner LoRA ~$0.84 + small sampling; until confirmed say "under the $150 cap" |
 | `{{train_examples}}` | Router training examples after dedup | data-pipeline output stats | PR #2 (`cloud/data-pipeline`) | not reported yet |
 | `{{outbound_conns}}` | Non-loopback sockets opened by brain + app during the Wi-Fi-off take | `lsof -nP -i -a -p <brain pid>,<app pid>` before/after; expect only 127.0.0.1:8765/8766 | Mac | pending live run (screen was locked overnight) |
 
@@ -66,13 +66,25 @@ have a near-duplicate in training (§1b).
 
 Retrieval rows: `cloud/handoff/notes/retrieval_eval.md` (v2-holdout k=0 / 1 / 2: 52 / 60 / 60 of 130). k=2's
 tune 1.000 is not a held-out number; quote held-out sets only. `{{planner_holdout}}` = .714 (10/14, k=1).
-Planner LoRA and think mode: TBD(planner-lora eval), TBD(planner-think eval).
+**Planner thinking** (`cloud/handoff/notes/planner_think_eval.md` @ c9a5cce; shipped prompt + retrieval k=1; held-out
+v1-ho / v1-ho2 / v2-ho):
+
+| Config | v1-ho | v1-ho2 | v2-ho | Mean | Step p50 |
+|---|---|---|---|---|---|
+| no-think (previous default) | .714 | .750 | .462 | .642 | ~0.15 s |
+| **4B think 512, Qwen sampler (serving)** | **.786** | **.917** | **.608** | **.770** | 2.6 s (p95 7.8 s) |
+| 4B think 512, greedy | – | – | – | .763 | 1.7 s |
+| 35B-A3B think 512 (fails 3 s gate) | – | – | – | .807 | 6.0 s |
+| 35B-A3B no-think | – | – | – | .601 | – |
+
+`{{planner_holdout}}` = .786 / .917 / .608 (think, serving). Planner LoRA: HF `jonsnov/muselet-planner-4b-lora-mlx4`
+@ 35a2ea3, TBD(planner-lora eval, Mac).
 
 \* Speed measured on the earlier tuned config (tune .84 / holdout .57); not re-measured for the shipped prompt.
 
 Say holdout alongside tune; the holdout set is the honest number.
 
-**Live suite** (`bench/live/run_live.py` on `evals/live_t1.jsonl`, serving config: router it2 + tuned 4B planner,
+**Live suite** (`bench/live/run_live.py` on `evals/live_t1.jsonl`, earlier serving config: router it2 + no-think 4B planner,
 runner defaults, screen unlocked). Source: `runs/bench/live/20261024T161427Z`. 27 of the 43 cases ran under runner defaults; the other 16 were skipped (manual / pending / online / `requires_user_ok` opt-ins and precondition skips), TBD(per-reason skip counts from that run dir).
 
 | T1 strict | T2 strict | false_done | Confirms asked | First action p50 / p95 | Verified p50 / p95 |
@@ -93,6 +105,31 @@ still pending.
 DeskMind leads here today. Allowed: "On decision benchmarks DeskMind's 4B is ahead of our base model today; our
 generalist decision LoRA is still training." Not allowed: any framing that Muselet wins or ties these.
 
+**Router, tuned vs tuned** (Mac MLX, each at its val-fitted tau; `runs/router/{it2,it3}_{val,route_v1_clean,route_v2}.json` via `evals/router_check.py`):
+
+| | tau | Val acc / F1 | ARGS exact | route_v1_clean (103) | route_v2 (v2-catalog subset) | ECE | Route p50 |
+|---|---|---|---|---|---|---|---|
+| **it3 (serving)** | .50 | .926 / .924 | .855 | .922 | .945 (.940) | .018 | 60.4 ms |
+| it2 | .35 | .929 / .925 | .856 | .942 | .838 (.926) | .104 | 55.9 ms |
+
+it3 serves by the user's call; its pre-registered rule (route_v1_clean >= it2 - 1 pt) was missed (-2.0 pt).
+Disclose that whenever the route_v1_clean number is shown. it3 export parity vs the Tinker sampler: top-1 .983 on
+`parity_300` (HF @ e057412).
+
+**Memory follow-ups** (`runs/memory_eval/20261024T171119-171153`, `evals/memory_eval.py`; frozen holdout half of
+`evals/memory_followups.jsonl`, 97 sequences / 261 turns):
+
+| Mode | Resolution | False-rewrite |
+|---|---|---|
+| none | 0 | 0 |
+| rules (non-long-term categories) | .507 | .0195 |
+| **rules + long-term (serving)** | **.574** (all categories) | **.0195** |
+| rules + LLM rewrite | .634 | .078 |
+| rules + LLM + long-term | .670 | .078 |
+
+Pre-registered ship rule (resolution >= .85, false-rewrite <= .02) not met by any mode. Allowed: "resolves common
+follow-ups like 'search for history' after opening a site". Not allowed: any "remembers everything" framing.
+
 **Grounding** (ScreenSpot-Pro, 200-sample stratified subset, paired; `bench/grounding/run_screenspot.py`, run path
 not given): eyes-4b two-stage zoom 63.5% at 1 MP, 67.5% at 2 MP (no zoom: 36.0% / 50.5%).
 
@@ -100,9 +137,9 @@ not given): eyes-4b two-stage zoom 63.5% at 1 MP, 67.5% at 2 MP (no zoom: 36.0% 
 - Runs gathered with the screen locked (overnight live / HobbyLM attempts): AX is blind, results invalid.
 - The morning HobbyLM / DeskMind replays blocked by a harness bug: no number exists from them.
 - Any r1/r2 number on a sealed external set; the 37 contaminated route_v1 cases.
-- Stale Tinker snapshots ($34.60, $64.89, $77.51): superseded by $136.22 (console, Sat 14:30 PDT).
-- Pending, `TBD(...)`: router it3 eval (HF `jonsnov/muselet-route-4b-it3-mlx4` @ e057412, contamination 0 per lane
-  brief), decisions LoRA, memory eval, live suite re-run, HobbyLM r4, DeskMind diag.
+- Stale Tinker snapshots ($34.60, $64.89, $77.51): superseded; current total TBD(console).
+- Pending, `TBD(...)`: planner LoRA eval, 35B k=1, decisions LoRA, live suite re-run (it3 + thinking), multi-turn,
+  HobbyLM r4, DeskMind diag, Tinker console total.
 
 ## 1b. Contamination disclosures (review decisions-21)
 
@@ -200,7 +237,7 @@ the morning replay was blocked by a harness bug; router it2 only, §1b). The Jev
    with both systems rerun on our Mac.
 5. System One: DeskMind leads on JevBench and typed decisions (§1a); use only the allowed wording there.
 6. Contamination: quote competitor benchmarks only under the §1b rules; never from r1/r2.
-7. Memory beat ("navigate to wikipedia" -> "search for history") needs PR #50 merged; otherwise cut it.
+7. Memory beat ("navigate to wikipedia" -> "search for history"): memory is on main (rules + long-term); still rehearse it, fallback in the script.
 8. Clock beat needs native Clock.app control over AX (hands-clock lane, `hands probe timers` -> `clock_ready`); otherwise Muselet's own timer answers. No Shortcuts indirection.
 9. Messaging beat sends only on a spoken "yes" to a contact who agreed; default answer on stage is "no".
 10. Premiere (dropped from the 3:00 cut): UXP bridge untested; the demo uses default shortcuts, so the demo project must use the default keymap.

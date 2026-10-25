@@ -9,8 +9,8 @@ Mac (M5 Pro, 64 GB, macOS 27). "Lead" = numbers reported by the lead from the Ma
 
 | Role | Serving default | Alternatives (selectable) | Source |
 |---|---|---|---|
-| Router + ARGS (System 1) | it2: Qwen3.5-4B + Tinker LoRA, MLX 4-bit, `jonsnov/muselet-route-4b-main-mlx4` @ 54b2181, tau 0.65 | it3 `jonsnov/muselet-route-4b-it3-mlx4` @ e057412 (export; repo head 6be63a1, eval TBD(router it3 on route_v1_clean)), r2 @ 2e3e7bf (tau .45), r1 (tau .55), base `mlx-community/Qwen3.5-4B-4bit` (tau .20) | `AGENTS.md:37-42`, `tools/serve_brain.sh:3-8` |
-| Planner (System 2) | base Qwen3.5-4B-4bit, greedy, `prompts/planner_fewshot.md` (rules 16-18 + examples), DSL history, line-start op constraint, done-alone, 1 BM25-retrieved example from the v2-tune bank (`RETRIEVAL_K`, default 1) | Qwen3.6-35B-A3B (`--planner-model` / `ESCALATE=1`) | `AGENTS.md:43-45`, `cloud/handoff/notes/retrieval_eval.md` |
+| Router + ARGS (System 1) | it3: Qwen3.5-4B + Tinker LoRA, MLX 4-bit, `jonsnov/muselet-route-4b-it3-mlx4` @ e057412, catalog v3 (43 options), tau .50 (val-fitted) | it2 `jonsnov/muselet-route-4b-main-mlx4` @ 54b2181 (tau .35 tuned; .65 earlier), r2 @ 2e3e7bf (tau .45), r1 (tau .55), base `mlx-community/Qwen3.5-4B-4bit` (tau .20) | lead (user's call, §4); `tools/serve_brain.sh` |
+| Planner (System 2) | base Qwen3.5-4B-4bit, thinking on (512-token budget, Qwen-recommended sampler), `prompts/planner_fewshot.md` (rules 16-18 + examples), DSL history, line-start op constraint, done-alone, 1 BM25-retrieved example from the v2-tune bank (`RETRIEVAL_K`, default 1) | no-think greedy (step p50 ~0.15 s); Qwen3.6-35B-A3B (`--planner-model` / `ESCALATE=1`); planner LoRA HF `jonsnov/muselet-planner-4b-lora-mlx4` @ 35a2ea3 (eval TBD) | `AGENTS.md:43-45`, `cloud/handoff/notes/retrieval_eval.md`, `cloud/handoff/notes/planner_think_eval.md` @ c9a5cce |
 | Grounder | deskmind/eyes-4b, two-stage zoom, 1 MP, lazy-loaded (`click "<description>"`) | 2 MP, UI-Venus | `AGENTS.md:46`, `ml/src/brain/grounder.py` |
 | Decisions (System One) | none yet: base Qwen3.5-4B zero-shot | generalist decisions LoRA in progress (§2.4) | `cloud/builder_decisions.md` |
 | STT | FluidAudio Parakeet TDT v2 on the ANE | Apple SpeechTranscriber | `pitch/claims.md` §2 |
@@ -73,8 +73,8 @@ Mac (M5 Pro, 64 GB, macOS 27). "Lead" = numbers reported by the lead from the Ma
 - **Not yet in the repo:** LoRA settings, a training run, or any eval of the trained adapter.
 
 ### 2.5 Cost
-- **Tinker total: $136.22 of the $150 hard cap** (Tinker console, Sat 2026-10-24 14:30 PDT, as relayed in the
-  lead's lane brief; `tools/tinker_spend.py` lags by hours). Hard stop $148. Earlier snapshots ($34.60, $64.89, $77.51)
+- **Tinker total: TBD(console)** of the $150 hard cap. Known: $136.22 on the console at Sat 2026-10-24 14:30 PDT,
+  plus the planner LoRA (~$0.84 est.) and small sampling since (lead); `tools/tinker_spend.py` lags by hours. Hard stop $148. Earlier snapshots ($34.60, $64.89, $77.51)
   are superseded. The docs lane spent $0. Per-run estimates: pilots
   $1.93 each, `main` $29.45, it2 $30.44 (report config blocks; estimates, not bills).
 - **API generation for decisions** (OpenAI + Anthropic, separate from Tinker): $52.89 cumulative of the $57 cap in
@@ -151,21 +151,26 @@ asked, latency. Safety guards (`bench/live/README.md`, `bench/RUNBOOK.md`):
 
 | Benchmark | Muselet | Comparison | Source |
 |---|---|---|---|
-| Router, route_v1 clean (103): acc / macro-F1 / ARGS / route+ARGS | **it2 .913 / .892 / .947 / .857** | r2 .864 / .866 / 1.000 / .857; base .767 / .825 / .784 / .690 | lead; r2 + base: `runs/router/r2_self_clean.json`, `base_clean.json` |
-| Router val top-1 (it2 val split) | it2 .938 | main .912 | lead; `tools/serve_brain.sh:5` |
-| Router it3, route_v1 clean (103) | TBD(router it3 on route_v1_clean, Mac) | it2 above | HF `jonsnov/muselet-route-4b-it3-mlx4` @ e057412; trained on `jonsnov/muselet-route-datums-it3@4ded9ab`, catalog v3 (43 options); overlap with eval sets 0 (lane brief) |
+| Router, tuned vs tuned (each at its val-fitted tau): val acc / macro-F1 / ARGS exact / route_v1_clean (103) / route_v2 (v2-catalog subset) / ECE / route p50 | **it3 @ .50 (serving): .926 / .924 / .855 / .922 / .945 (.940) / .018 / 60.4 ms** | it2 @ .35: .929 / .925 / .856 / .942 / .838 (.926) / .104 / 55.9 ms | lead, Mac MLX; `runs/router/{it2,it3}_{val,route_v1_clean,route_v2}.json` via `evals/router_check.py` |
+| Router it3 ship decision | it3 serves by the user's call; the pre-registered rule (route_v1_clean >= it2 - 1 pt) was **not met** (-2.0 pt). it3 wins route_v2 (+10.7 pt) and calibration (ECE .018 vs .104) | - | lead |
+| Router it3 export parity vs Tinker sampler | top-1 agreement .983 on `parity_300` | - | lead; HF `jonsnov/muselet-route-4b-it3-mlx4` @ e057412 (`parity_300.jsonl`) |
+| Router, older setting: route_v1 clean acc / macro-F1 / ARGS / route+ARGS | it2 @ tau .65: .913 / .892 / .947 / .857 | r2 .864 / .866 / 1.000 / .857; base .767 / .825 / .784 / .690 | lead; r2 + base: `runs/router/r2_self_clean.json`, `base_clean.json` |
+| Router val top-1 (it2's own val split, earlier run) | it2 .938 | main .912 | lead; `tools/serve_brain.sh:5` |
+| Router it3 provenance | trained on `jonsnov/muselet-route-datums-it3@4ded9ab`, catalog v3 (43 options); overlap with eval sets 0 (lane brief) | - | HF `jonsnov/muselet-route-4b-it3-mlx4` @ e057412 |
 | Router latency p50 (r2) | route 52 ms, ARGS 97 ms | - | `pitch/claims.md` §1a |
 | Planner bench, shipped 4B + retrieval k=1: tune / holdout / holdout2 / v2-holdout | **.880 / .714 / .750 / .462** (22/25, 10/14, 9/12, 60/130) | same prompt k=0: .840 / .643 / .667 / .400 (21/25, 9/14, 8/12, 52/130); k=2 .714 / .750 / .462 on held-out, rejected (v2-holdout TTFT +156 ms > +150 ms gate); base config .68 / .50; 35B-A3B k=0 v1 sets (older run) .84 / .71, k=1 TBD(35B k=1 planner run, Mac) | `cloud/handoff/notes/retrieval_eval.md`; base/35B: lead, `runs/planner_offline/` |
 | Planner TTFT p50 on v2-holdout (k=0 / k=1) | 113.4 / 184.6 ms (prompt 3,284 / 3,477 tokens) | - | `cloud/handoff/notes/retrieval_eval.md` |
-| Planner LoRA / think mode | TBD(planner-lora eval), TBD(planner-think eval) | - | lanes `cloud/planner-lora`, `cloud/planner-think` |
+| Planner thinking, held-out v1-ho / v1-ho2 / v2-ho (mean), all with retrieval k=1 | **4B think 512, Qwen sampler (serving): .786 / .917 / .608 (.770), step p50 2.6 s, p95 7.8 s** | no-think baseline .714 / .750 / .462 (.642), ~0.15 s; 4B think 512 greedy .763 mean @ 1.7 s; 35B think 512 .807 mean @ 6.0 s p50 (fails the 3 s gate); 35B no-think .601 mean | `cloud/handoff/notes/planner_think_eval.md` @ c9a5cce |
+| Planner LoRA (2 epochs, Tinker) | TBD(planner-lora eval, Mac) | - | HF `jonsnov/muselet-planner-4b-lora-mlx4` @ 35a2ea3 |
 | Planner speed (4B, earlier config) | 139 ms per turn p50, TTFT 72 ms, 83 tok/s | 35B ~310 ms, 128 ms, 82 tok/s | `pitch/claims.md` §1a |
 | ScreenSpot-Pro subset (200), eyes-4b two-stage zoom | 63.5% at 1 MP, 67.5% at 2 MP | no zoom 36.0% / 50.5% | lead (run path not given) |
 | JevBench public | base Qwen3.5-4B .719 | DeskMind brain-4b .831, brain-0.8b .723 | `pitch/claims.md` §1a |
 | Typed-decisions test | base .569 | brain-4b .658, brain-0.8b .540 | `pitch/claims.md` §1a |
 | Decisions LoRA: JevBench / typed-decisions | TBD(decisions LoRA eval, Mac) | same as above | `cloud/decisions` |
-| Memory follow-ups (`evals/memory_followups*` holdout) | TBD(memory eval, PR #50) | - | `cloud/handoff/W11_memory.md` |
+| Memory follow-ups, frozen holdout half of `evals/memory_followups.jsonl` (97 sequences, 261 turns): resolution / false-rewrite | **rules + long-term (serving): .574 (all categories) / .0195** | none 0 / 0; rules .507 (non-long-term categories) / .0195; rules + LLM rewrite .634 / .078; rules + LLM + long-term .670 / .078 | `runs/memory_eval/20261024T171119-171153`, `evals/memory_eval.py` |
+| Memory ship rule (pre-registered: resolution >= .85, false-rewrite <= .02) | **not met by any mode**; serving = rules + long-term, LLM rewrite off (lowest false-rewrite) | - | lead |
 | Receipt OCR (Apple Vision, warm) | ~150 ms per receipt | - | `pitch/claims.md` §1 |
-| Live suite (`evals/live_t1.jsonl`), serving config: it2 + tuned 4B planner, runner defaults, screen unlocked; 27 of 43 cases ran | T1 **19/22 (86.4%)**, T2 1/5; files category 2/7 | - | lead; `runs/bench/live/20261024T161427Z` |
+| Live suite (`evals/live_t1.jsonl`), earlier serving config: it2 + no-think 4B planner (before it3 / thinking / memory), runner defaults, screen unlocked; 27 of 43 cases ran | T1 **19/22 (86.4%)**, T2 1/5; files category 2/7 | - | lead; `runs/bench/live/20261024T161427Z` |
 | Live suite: false_done / confirms asked | 4 / 3 | - | same |
 | Live suite latency: first action p50 / p95; verified completion p50 / p95 | 193 / 812 ms; 704 ms / 4.1 s | - | same |
 | HobbyLM sealed-r4 (125 tasks), it2 | TBD(HobbyLM r4 replay, it2, Mac) | HobbyLM-1B published 90/125 (their harness) | `bench/hobbylm/replay.py`; §3.7 |
@@ -189,7 +194,12 @@ the shipped prompt.
   replay, and that run is not quoted. No Muselet number exists on any competitor's own benchmark yet.
 - **Live suite is weak on multi-step and files:** T2 1/5 and files 2/7, with 4 false_done (the agent said done but
   the final-state check failed). Only 27 of the 43 cases ran under runner defaults.
-- **Planner holdouts trail tune** (.643 / .667 vs .88); the holdout numbers are the honest ones. 35B-A3B is better on
+- **Thinking costs time:** the serving planner's step p50 is 2.6 s (p95 7.8 s), up from ~0.15 s, inside the 3 s
+  gate (intelligence over latency, `AGENTS.md`); v2-holdout is still .608.
+- **Router it3 missed its pre-registered rule** on route_v1_clean (.922 vs it2 .942, -2.0 pt; rule allowed -1 pt);
+  it serves by the user's call for route_v2 (.945 vs .838) and calibration.
+- **Memory misses its ship rule** (.574 resolution vs .85 target); follow-ups beyond the rule patterns are often not resolved.
+- **Planner holdouts trail tune** (.643 / .667 vs .88, no-think); the holdout numbers are the honest ones. 35B-A3B is better on
   holdout (.71) but about 2x slower per turn.
 - **Router weak spots** on it2 val: compose_email .720, media_control .800, open_folder .800, set_brightness .808.
 - **Not yet measured:** route p95, memory / disk footprint, grounding on the
