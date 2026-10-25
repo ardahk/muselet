@@ -1,4 +1,4 @@
-# bench digest — pass 83 (2026-10-25T09:00Z, main@4f94e42)
+# bench digest — pass 84 (2026-10-25T09:15Z, main@2445a1d)
 
 P0: 0 | open P1: 14 | open P2: 21
 
@@ -72,3 +72,11 @@ Pass 83: 1 new finding (bench-56, P2, cloud/cool-tasks): summary_note evidence p
 - cool-tasks adds broad app-hint triggers ('place', 'restaurant', 'summarize', 'temperature'): more prompt drift for bench-46.
 - ui-progress is UI only. wip/local 52eb571 has no diff from main.
 - bench-54 (Devpost .850) is unchanged on main.
+
+Pass 84 (no new findings, no status changes): main 4f94e42..2445a1d.
+- New email_open finish evidence needs a Reply control plus the sender's words on screen. Looks reasonable; 'latest' isn't checked.
+- Gmail's 'Ask Gmail' field no longer counts as a send target. Fine.
+- Shopping hint now also triggers on 'target', 'ebay', 'cart' and 'basket', and the Maps hint changed: more bench-46 prompt drift.
+- bench-50 (timer cancel) and bench-54 (Devpost .850) are unchanged.
+- cool-tasks e4def97 is a merge of main; bench-56 is unchanged.
+- wip/local 6e7f50b changes only the shopping hint text.
