@@ -1,3 +1,20 @@
+# Brain lane review: pass 93 (2026-10-25T12:30Z)
+
+Open: P0 0, P1 16, P2 33. New: brain-78 (P2, wip/local).
+
+## Branches
+- main 2de65a9 and cloud/cool-tasks cfbec49: unchanged.
+- wip/local 9015e83: adds 2900d4b (planner system prompt and Numbers hint rewrite) plus snapshot changes (native-tools planner gets OCR screen context every turn; screen context keyed on the frontmost app).
+
+## New
+- brain-78 (P2, wip/local): the system prompt the default LoRA was trained on is rewritten (rules 1/8/9/10/14, new rule 16, two examples removed) with no re-eval.
+
+## Rechecked
+brain-77: suite 107 failed (one more, a stale Muselet-frontmost context test). brain-76 unchanged.
+
+## Tests
+wip/local 107 failed (18 MLX-only + 89), 2198 passed. Review repros 77 / 53.
+
 # Brain lane review: pass 92 (2026-10-25T12:10Z)
 
 Open: P0 0, P1 16, P2 32. New: brain-77 (P2, wip/local).
