@@ -1,9 +1,9 @@
 {
-  "pass": 94,
-  "ts": "2026-10-25T12:50:00Z",
+  "pass": 95,
+  "ts": "2026-10-25T13:22:00Z",
   "last_reviewed": {
-    "main": "d09f4d8",
-    "wip/local": "01a929c",
+    "main": "b00f679",
+    "wip/local": "35aed2d",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -99,5 +99,5 @@
     "cloud/cool-tasks": "cfbec49",
     "cloud/native-tools": "6053e4e"
   },
-  "notes": "pass 94: main d09f4d8 merges page-load (#130): after navigation, the planner polls AXLoaded every 0.1 s for up to 15 s, and `wait` returns early once the page has loaded. That is good for speed. A page that never reports loaded adds up to 15 s per navigation with only the step bubble showing (untimed). README rebranded to lowercase 'muselet'; no copy issues. wip 01a929c (264cc82): exact-label clicks prefer AX refs (as reviewed in pass 93), plus prompt-contract tests. No new findings; ux-34 is still open on main (orchestrator.py:161@d09f4d8)."
+  "notes": "pass 95: main b00f679 adds only a README architecture image (README.md:32's 4B/0.3 s claim, ux-32, is still there). wip 35aed2d: a recursive app resolver (ux-36 new, P2) and brain-side app-name normalisation (strips .app and a year suffix; 'Which app?' if ambiguous: fine). ux-34 is still open on main."
 }
