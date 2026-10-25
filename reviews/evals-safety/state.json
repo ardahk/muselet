@@ -1,9 +1,9 @@
 {
-  "pass": 81,
-  "ts": "2026-10-25T07:30:12Z",
+  "pass": 82,
+  "ts": "2026-10-25T07:45:45Z",
   "last_reviewed": {
-    "main": "cf33215",
-    "wip/local": "11da94c",
+    "main": "cef8797",
+    "wip/local": "c86fec4",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -96,5 +96,5 @@
     "cloud/docs-final": "bf9118d"
   },
   "next_id": 56,
-  "note": "pass 81: main cf33215 merges agentic-evidence, app-knowhow, browser-flow (reviewed pass 80), obs-labels and control-labels (#99, Swift/AX labels and slider typing). -54 widened version now on main. wip/local 11da94c = main."
+  "note": "pass 82: main 5d135d0 brief only; cef8797 (fetched after pulse) routes agentic app/timer tasks to the 35B blind planner (2 lines). docs-final bf9118d: HobbyLM/DeskMind correctly 'no valid comparable score'; -48 and -49 stale numbers carried into final docs."
 }

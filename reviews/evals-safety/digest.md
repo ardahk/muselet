@@ -1,4 +1,7 @@
-# evals-safety digest (pass 81, 2026-10-25T07:30:12Z)
+# evals-safety digest (pass 82, 2026-10-25T07:45:45Z)
+
+docs-final carries -48 ($0.84 vs $5.84) and -49 (.574 labelled serving) into the demo docs.
+
 
 -54 (P0) widened version on main: play_music auto-finish on any Pause button.
 
