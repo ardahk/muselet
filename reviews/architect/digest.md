@@ -1,26 +1,25 @@
-# architect digest - pass 68 (2026-10-25T03:58Z)
-Reviewed: fallback 2ef5805 (the messaging exclusion now applies only to compose/draft_email labels, and other safe skills on messaging text may fall back to the planner, which still goes through the send confirm; 25 tests pass). fix-same-tab 065e65f (same_tab only when the frontmost app is a browser and no new tab was asked for; page tasks are pinned to the current site; 9 Python tests pass, Swift reviewed by reading). test-strategy 96c96d2 (offline trace replay, acceptance suite, held confirms in the proxy; 275 passed, 2 failed, both from architect-43 provenance and also failing on main). main and wip/local are unchanged. No new findings. Open: P0 0, P1 14, P2 8.
+# architect digest - pass 69 (2026-10-25T04:20Z)
+Reviewed: main b340f24 (memory-writes #74, apps-notes #75, email-reply #76, test-strategy #79, LoRA planner + aux model #82, calc provenance disclosed), wip/local 94f6fe9, open-ended fd87f69, planner-aux 387c3b4 (merged as #82). Tests: main 448 passed, 5 skipped, 4 xfailed; open-ended 184 passed.
+Open: P0 0, P1 13, P2 9. Resolved this pass: architect-43 (provenance disclosed) and architect-36 (qwen sampler off the default path). New: architect-45 (P1) and architect-46 (P2).
 
-## Open P1 (ranked)
-00000. architect-44 - Working memory not isolated across benchmark cases - ml/src/brain/orchestrator.py
-0000. architect-43 - Calc checker patch breaks provenance; replay cannot start - bench/hobbylm/upstream/hobby/calc_checker.swift
-000. architect-42 - 13d0486 drops start-state screenshot capture; 20/125 r4 cases crash - bench/hobbylm/replay.py
-00. architect-40 - Sealed r4 failures patched post-hoc; rerun = tuned-on-test - ml/src/brain/orchestrator.py
-1. architect-37 - it3 default router; no it3 sealed overlap check; replay unpinned - tools/serve_brain.sh
-1b. architect-29 - No winning competitor number (TD tie within 1 SE, JevBench loses, HobbyLM r4 missing) - pitch/claims.md
-2. architect-33 - Done verifier default on with unfitted 0.5 threshold (on main) - ml/src/brain/orchestrator.py
-3. architect-36 - Think shipped with sampled qwen (on main), +853 ms/step for 1 net item - cloud/handoff/notes/planner_think_eval.md
-4. architect-32 - HobbyLM replay drops skips from denominator vs /125 claim - bench/hobbylm/replay.py
-5. architect-28 - Holdout paraphrases in bank/demos; think/lora gates include them - ml/src/brain/plan_bank.py
-6. architect-27 - premiere_command doesn't verify; partial fix unmerged (Premiere out of demo) - app/Sources/HandsKit/Skills.swift
-7. architect-26 - Planner prompt teaches cmd+t as Premiere transition - prompts/planner_system.md
-8. architect-13 - System One tinker backend reports as 'muselet' - bench/systemone/cli.py
-9. architect-8 - No Mac parity result for it2 - evals/router_check.py
-(P2: 35, 34, 31, 30, 20, 15, 16)
+## Open P0/P1 (ranked)
+- architect-45 [P1] Shipped LoRA planner's holdout .850 rests on a decontam gate that misses word-order paraphrases of holdout goals
+- architect-44 [P1] Benchmark memory isolation misses working memory: cross-case rewrites in sealed runs, shared working.json
+- architect-42 [P1] 13d0486 drops start-state screenshot capture: 20/125 r4 cases (screenshot+none) crash at final snapshot
+- architect-40 [P1] Sealed HobbyLM r4 failures patched post-hoc; any r4 rerun is tuned-on-test
+- architect-37 [P1] it3 now default router; sealed-set overlap check not recorded for it3
+- architect-33 [P1] Done verifier ships on by default with an unfitted 0.5 threshold
+- architect-32 [P1] HobbyLM replay drops skips from denominator; claim template says /125
+- architect-29 [P1] No competitor benchmark number exists with 11 h left
+- architect-28 [P1] Retrieval bank holds paraphrases of v2-holdout goals; ship gate inflated
+- architect-27 [P1] premiere_command sends shortcuts without Timeline focus, always reports success
+- architect-26 [P1] Planner prompt teaches cmd+t as Premiere default transition (Mac: cmd+d)
+- architect-13 [P1] Cloud Tinker System One backend reports as 'muselet', untagged
+- architect-8 [P1] Phase-1 LoRA likely misses Sat 12:00 PDT; no fallback router measured
 
-## Highest-leverage next moves
-1. HobbyLM r4: quote run 20261025T004223Z (first run; check that it used ROUTER=it2) as passes/125, with skips and harness_timeouts counted as fails. Do not quote a rerun made after the D04-D06 patch as the result (architect-40).
-2. Flip THINK=512 with the greedy sampler, not qwen (same pass rate, -0.85 s/step, deterministic for the stage). 1 line.
-3. Fit VERIFY_P now that verify is on by default. Label v2-tune final states plus live_t1 traces and target false reject <= 5%, else VERIFY_DONE=off for the demo. ~30 min.
-4. Mac decisions run (muselet-decisions-4b-mlx4, T=1) on JevBench + TD through the shim. Quote only against the SE. ~30 min.
-5. Rehearse the 3:00 script with think + verify + memory on (proxy slot recovery landed in 69a9650; architect-39 resolved).
+## Next moves (max 5)
+1. architect-45: re-score the LoRA vs the base planner on holdouts with the J>=.5 near-paraphrase items removed, and quote that number next to .850.
+2. architect-42: restore the screenshot start-state, then smoke-test one calc, one screenshot and one none case on the Mac.
+3. Run HobbyLM r4 with ROUTER=it2 MEMORY=0 LONGTERM=0 (architect-37/44), name the patched calc checker, and report passes/125 with skips, timeouts and ungradable cases counted as failures (architect-32/40).
+4. Rebase open-ended onto b340f24 before merging so it keeps the LoRA default (architect-46).
+5. Fit VERIFY_P on the LoRA planner's traces, or turn VERIFY_DONE off for the demo (architect-33).
