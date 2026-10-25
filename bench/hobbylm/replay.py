@@ -13,6 +13,7 @@ import os
 import re
 import shlex
 import socket
+import tempfile
 import statistics
 import subprocess
 import sys
@@ -378,8 +379,18 @@ store.requestFullAccessToEvents { ok, _ in access.set(ok); semaphore.signal() }
 if semaphore.wait(timeout: .now() + 30) == .timedOut || !access.get() { exit(2) }
 let env = ProcessInfo.processInfo.environment
 let parser = ISO8601DateFormatter()
-guard let start = parser.date(from: env["MUSELET_EVENT_START"] ?? ""),
-      let end = parser.date(from: env["MUSELET_EVENT_END"] ?? "") else { exit(3) }
+let local = DateFormatter()
+local.locale = Locale(identifier: "en_US_POSIX")
+local.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
+local.timeZone = TimeZone.current
+func parseDate(_ s: String) -> Date? {
+    if let d = parser.date(from: s) { return d }
+    if let d = local.date(from: s) { return d }
+    local.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+    return local.date(from: s)
+}
+guard let start = parseDate(env["MUSELET_EVENT_START"] ?? ""),
+      let end = parseDate(env["MUSELET_EVENT_END"] ?? "") else { exit(3) }
 let title = env["MUSELET_EVENT_CALENDAR"] ?? ""
 let calendars = store.calendars(for: .event).filter {
     $0.title == title && $0.source.sourceType == .local
@@ -402,16 +413,27 @@ let events = store.events(matching: predicate).map { event -> [String: Any] in
 let data = try JSONSerialization.data(withJSONObject: events)
 print(String(data: data, encoding: .utf8)!)
 '''
-    result = subprocess.run(
-        ["swift", "-e", script],
-        env={
-            **os.environ,
-            "MUSELET_EVENT_CALENDAR": calendar,
-            "MUSELET_EVENT_START": start.isoformat(),
-            "MUSELET_EVENT_END": end.isoformat(),
-        },
-        capture_output=True, text=True, timeout=60,
-    )
+    # File-based swift invocation (not `swift -e`): the script uses `$0`, and
+    # when this runs inside the harness's shell-script RPC the shell expands
+    # `$0` before swift sees it, producing a silent nonzero exit.
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".swift", delete=False
+    ) as tmp:
+        tmp.write(script)
+        script_path = tmp.name
+    try:
+        result = subprocess.run(
+            ["swift", script_path],
+            env={
+                **os.environ,
+                "MUSELET_EVENT_CALENDAR": calendar,
+                "MUSELET_EVENT_START": start.isoformat(),
+                "MUSELET_EVENT_END": end.isoformat(),
+            },
+            capture_output=True, text=True, timeout=60,
+        )
+    finally:
+        Path(script_path).unlink(missing_ok=True)
     if result.returncode:
         raise RuntimeError(f"EventKit calendar snapshot failed: {result.stderr.strip()}")
     return json.loads(result.stdout)
@@ -758,19 +780,9 @@ if before:
         and set(state["finder_window_ids"]) - set(before["finder_window_ids"])
     ):
         state["finder_path"] = helper.finder_path()
-    if kind in ("event", "none"):
-        start, end = (datetime.fromisoformat(value) for value in before["calendar_window"])
-        state["calendar_events"] = replay._calendar_events(helper, start, end)
-else:
-    if kind in ("screenshot", "none"):
-        location = replay._screenshot_location()
-        state["screenshot_location"] = str(location)
-        state["screenshot_files"] = replay._image_files(location)
-    if kind in ("event", "none"):
-        now, start, end = replay._calendar_window(helper)
-        state["calendar_now"] = now.isoformat()
-        state["calendar_window"] = [start.isoformat(), end.isoformat()]
-        state["calendar_events"] = replay._calendar_events(helper, start, end)
+    # calendar fields are filled by the runner process: EventKit access is
+    # granted to the runner, not to the hands-spawned script child.
+    state["calendar_pending"] = kind in ("event", "none")
 print(json.dumps(state, ensure_ascii=False, default=str))
 """
     python = python.replace(
@@ -842,6 +854,21 @@ class _HobbyRuntime(HandsRuntime):
             allow_inflight=self.proxy.capture.active,
         )
         self.final_state = json.loads(result["output"])
+        if self.final_state.pop("calendar_pending", False):
+            existing_window = (self.start_state or {}).get("calendar_window")
+            if existing_window:
+                window_start, window_end = (
+                    datetime.fromisoformat(value) for value in existing_window
+                )
+            else:
+                now, window_start, window_end = _calendar_window(self.helper)
+                self.final_state["calendar_now"] = now.isoformat()
+                self.final_state["calendar_window"] = [
+                    window_start.isoformat(), window_end.isoformat()
+                ]
+            self.final_state["calendar_events"] = _calendar_events(
+                self.helper, window_start, window_end
+            )
         if self.task["kind"] == "timer" and self.timer_after_snapshot:
             self.final_state["timers"] = [
                 item["minutes"] for item in self.timer_calls
