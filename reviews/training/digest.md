@@ -1,6 +1,6 @@
-# training lane digest — pass 65 (main fa0f040)
+# training lane digest — pass 66 (main 4150ecb)
 
-Open: 1 P0, 15 P1, 17 P2. No new findings; training-54 (sealed-r4 words in argfix.py) still open.
+Open: 1 P0, 15 P1, 17 P2. No new findings; training-54 (sealed-r4 words in argfix.py) still open. New fix branches screened: Notes pre-route has 0 sealed-set matches; fallback defaults change planner config after the quoted .770 holdout.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).

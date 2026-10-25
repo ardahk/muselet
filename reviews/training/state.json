@@ -1,6 +1,6 @@
 {
-  "pass": 65,
-  "ts": "2026-10-25T03:25:00Z",
+  "pass": 66,
+  "ts": "2026-10-25T03:42:00Z",
   "mode": "pulse",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
@@ -48,8 +48,8 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "fa0f040",
-    "wip/local": "973a9b0",
+    "main": "4150ecb",
+    "wip/local": "b7b7840",
     "cloud/memory": "ba3dc0a",
     "cloud/memory-eval": "c05944e",
     "cloud/memory-lt": "cc056af",
@@ -74,7 +74,12 @@
     "cloud/memory-hotfix": "d932320",
     "cloud/memory-rules2": "03c3cd1",
     "cloud/design-polish": "bf4ae64",
-    "cloud/memory-writes": "d04e26c"
+    "cloud/memory-writes": "88ccf06",
+    "cloud/fallback": "6e40c3e",
+    "cloud/fix-apps-notes": "1ccb123",
+    "cloud/fix-email-reply": "805223b",
+    "cloud/fix-pending": "dba9094",
+    "cloud/hands-clock-verify": "a4d6463"
   },
   "next_id": 53,
   "notes_pass39": "main fb2cfd0: evals/live_t1.jsonl changed only precondition/check/teardown/document_apps on 6 cases; all 43 utterances unchanged, so decontam gates and it2/it3cand overlap results stand. No lane findings.",
@@ -100,5 +105,6 @@
   "notes_pass62": "main/wip: bench/hobbylm/replay.py precondition handling only. Re-checked: training-54 argfix.py:7 still has bump|more light; training-49 build.py:206, training-50 tinker_spend.py:27 + REPORT.md '$0.84' unchanged.",
   "notes_pass63": "main: bench/hobbylm/replay.py calendar capture only. Re-checked: training-54 argfix.py 'more light' present; training-49/50 unchanged.",
   "notes_pass64": "main: HobbyLM calc_checker harness only. Re-checked: training-54 argfix 'more light' present; training-49/50 unchanged.",
-  "notes_pass65": "main: design/Clock-timers (#70) + bench memory-store isolation in serve_brain.sh; no router/training/eval change. design-polish Swift-only; memory-writes policy-only. Re-checked training-54 (argfix 'more light'), 49, 50, 53 unchanged."
+  "notes_pass65": "main: design/Clock-timers (#70) + bench memory-store isolation in serve_brain.sh; no router/training/eval change. design-polish Swift-only; memory-writes policy-only. Re-checked training-54 (argfix 'more light'), 49, 50, 53 unchanged.",
+  "notes_pass66": "main 4150ecb: briefs only. fix-apps-notes adds compose_text.parse_request Notes pre-route ahead of the router; screened all 4 HobbyLM sealed TSVs (1688 cells): 0 matches, no sealed-derived wording. fallback flips FALLBACK_PLANNER/PLANNER_CONTEXT default on in serve_brain.sh; quoted planner holdout .770 predates these (planner lane; tuned-vs-tuned rerun needed before quoting). Router tau/catalog unchanged on all new branches. Re-checked training-54/53/50/49 unchanged on main."
 }
