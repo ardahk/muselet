@@ -1,23 +1,24 @@
-# Brain lane digest — pass 72 (2026-10-25T05:55Z)
+# Brain lane digest — pass 73 (2026-10-25T06:08Z)
 
-Open: **P0 0 / P1 10 / P2 16**. New: brain-54 (cloud/agentic-loop). brain-53 moved onto main.
+Open: **P0 0 / P1 10 / P2 18**. New: brain-55, brain-56 (wip/local 422399a = mac/fix-thinking b43270d).
 
 ## Branches
-- **main e8023b8**: merged #87 (blind planner, as reviewed on wip 323d274 in pass 71, plus the test_grounder_wire import fix) and #88 (blind typing; no lane files).
-- **wip/local 20055d1**: snapshot on main@8b15e29; lane identical to main.
-- **cloud/agentic-loop 9b2e512** (new):
-  - Done is accepted on rule-based finish evidence before any expect/model check -> brain-54.
-  - A failed expect re-polls verify for up to 5 s while the page is loading; one loading failure skips a loop-guard strike. Looks right.
-  - Learned workflows are only saved after non-app done evidence and with >=2 real actions; loaded into retrieval once. Looks right.
-  - Retrieval skips demos for a different app/site. Looks right.
+- **main fe2de69**: one commit, tools/serve_brain.sh uses the local eyes-4b MLX grounder when present. No lane changes.
+- **wip/local 422399a**: snapshot on main@b43270d (mac/fix-thinking):
+  - Timer pause/resume/cancel intent ahead of all routing -> brain-55.
+  - Grounded clicks in library apps refused unless the OCR hit contains every goal-subject word -> brain-56.
+  - Grounder prewarm in a daemon thread; clicks wait up to 10 s. Looks right; weights now load off the MLX worker thread (device-only risk).
+  - Chrome-only tree in an app the goal doesn't name no longer starts the blind path. Looks right.
+- **cloud/agentic-loop 9b2e512**: unchanged.
 
 ## New
-- **brain-54 (P1, agentic-loop)**: finish.evidence counts "not playing" stdout as playing, Google Maps' Directions button as a route, and "flights" in the title as done for "search for flights to tokyo and book the cheapest one". Accepted without the verifier. Repro tests/test_brain_pass72.py: 3/3 fail on agentic-loop.
+- **brain-55 (P2)**: "set a 10 minute timer to stop the oven" -> cancel; "start a timer and pause my music" -> pause; within 10 min of a timer, "stop playing this song" / "pause this video" -> timer. Repro tests/test_brain_pass73.py: 4/4 fail on wip.
+- **brain-56 (P2, code reading)**: for "play some jazz on spotify" a click on the search field is refused (hit can't contain "jazz"). The branch test only checks set membership.
 
 ## Rechecks
-- **brain-53 (P2, now main)**: test_brain_pass71.py fails 5/5 on main.
-- All other open findings unchanged on main.
+- brain-53: wip adds timer criteria, "start a 5 minute timer" still "is frontmost"; 5/5 fail on main and wip.
+- brain-54 open on agentic-loop. All other open findings unchanged on main.
 
 ## Tests (MLX stub, Linux)
-- main, wip/local: 18 failed (MLX-only) / 2334 passed. agentic-loop: 18 failed (MLX-only) / 2351 passed.
-- Review repros: main/wip 40 failed / 54 passed; agentic-loop 43 failed.
+- main: 18 failed (MLX-only) / 2334 passed. wip/local: 18 failed (MLX-only) / 2337 passed.
+- Review repros: main 40 failed / 54 passed; wip 44 failed (+4 brain-55).
