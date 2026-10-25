@@ -1,12 +1,12 @@
-# Planner review digest — pass 90 (2026-10-25T11:03Z)
+# Planner review digest — pass 91 (2026-10-25T11:36Z)
 
-Moved: main 298526d→2de65a9 (#129 blocks cmd+L/cmd+T in browser tasks and reads more cart labels; #131 soft expects for agentic apps and a one-batch, no-expect Premiere hint); wip 5b70519 (= main).
-- planner-64 (P1, worse): a Premiere request now has no expects, a soft batch and no finish criterion, so nothing verifies marker, cut or export.
-- planner-59 (P1, wider): soft expects now cover every agentic app task.
-- OK: the address-bar hotkey guard (browser only, the user can still ask for 'new tab'); the cart-count regex has tests and rejects '1 in cart, <product>'.
-- planner-58 (ref numbering per root), planner-63 (refuse regex) and planner-60 (sendgate): unchanged.
+main unchanged at 2de65a9. wip 5b70519→4db92e8 (local, unmerged): page-load signal (AXLoaded/AXElementBusy), keep agentic batches, Premiere clipSpeed hot-text, Numbers sort integrity guard, model picker removed from the panel.
+- planner-65 (P2, new): busy-only pages may wait up to 15 s after each navigation action, with an observe every 100 ms (hypothesis, not measured).
+- planner-59 (P1): soft-expect tasks now strip the fused expect from the act RPC, and a failure still doesn't stop the batch or count toward the loop guard.
+- OK: the Numbers sort guard blocks cell rewrites for sort goals (has tests). Removing the panel model picker leaves ESCALATE/--planner-model selectable by env, so alternatives stay configurable.
+- planner-64 (Premiere unverified), planner-58 (ref numbering), planner-63 (refuse regex) and planner-60 (sendgate): unchanged on main.
 
-New: 0. Resolved: 0. Open: 0 P0, 19 P1, 15 P2.
+New: 1 P2. Resolved: 0. Open: 0 P0, 19 P1, 16 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
