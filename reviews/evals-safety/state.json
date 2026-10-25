@@ -1,9 +1,9 @@
 {
-  "pass": 99,
-  "ts": "2026-10-25T13:14:52Z",
+  "pass": 100,
+  "ts": "2026-10-25T13:45:18Z",
   "last_reviewed": {
     "main": "b00f679",
-    "wip/local": "35aed2d",
+    "wip/local": "aadf777",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -100,5 +100,5 @@
     "cloud/ui-progress": "a66166b"
   },
   "next_id": 61,
-  "note": "pass 99: main b00f679 README architecture image only. wip/local 35aed2d: AppResolver recursive /Applications scan (skips .app/.framework descendants) incl ~/Applications in installed list; orchestrator year-suffix app name match only when unique candidate. No new finding."
+  "note": "pass 100: main unchanged b00f679. wip/local aadf777: CANVAS_APPS prefix 'Adobe Premiere Pro'->'Adobe Premiere' (+grounder-wire test). No new finding."
 }

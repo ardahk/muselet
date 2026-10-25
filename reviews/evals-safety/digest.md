@@ -1,4 +1,4 @@
-# evals-safety digest (pass 99, 2026-10-25T13:14:52Z)
+# evals-safety digest (pass 100, 2026-10-25T13:45:18Z)
 
 Counts: P0 2, P1 14, P2 13.
 
