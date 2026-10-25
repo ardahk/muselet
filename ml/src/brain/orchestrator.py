@@ -2746,6 +2746,9 @@ function run() {
         obs = self._last_obs or {}
         element = self._element_for_ref(
             obs.get("focused_ref") if observed_focus else ref)
+        # a stale ref misses; the typed-into field is the focused one
+        if element is None:
+            element = self._focused_element()
         role = element.get("role") if element else None
         label = element.get("label") if element else None
         if observed_focus and element is None:
@@ -3353,9 +3356,17 @@ function run() {
                 if self.tracer.current is not None:
                     self.tracer.current.setdefault("decisions", []).append(
                         {"web_ui_guard": {"url": a["url"]}})
-                return {"status": "failed", "error": WEB_UI_ERROR,
+                # already on that site's results page -> press a result
+                pages = [self._last_ok_url,
+                         (self._page_task or {}).get("url"),
+                         self._focus_ctx.get("url")]
+                results_open = any(
+                    _URL_SEARCH.search(str(p) or "") for p in pages)
+                err = ("the search results are already open; press a "
+                       "result link" if results_open else WEB_UI_ERROR)
+                return {"status": "failed", "error": err,
                         "_no_strike": True,
-                        "_log": f"{dsl_line}-> failed: {WEB_UI_ERROR}"}
+                        "_log": f"{dsl_line}-> failed: {err}"}
             self._last_url = str(a.get("url") or "")
             in_task = (
                 not self._page_task and self._last_ok_url and
@@ -4084,6 +4095,7 @@ function run() {
         self._evidence_base = False
         self._confirm_asked = False
         self._auto_evidence = False
+        self._done_summary = None
         from . import dsl
         from .planner import worker
         goal = text

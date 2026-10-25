@@ -71,8 +71,13 @@ def is_browser(app: str | None) -> bool:
     return bool(_BROWSER_RE.search(str(app or "")))
 
 
+_SEARCH_FIELD_RE = re.compile(r"\b(search|find)\b", re.IGNORECASE)
+
+
 def enter_sends(app, window_title, focused_role, focused_label) -> bool:
     """Whether Enter in the current app/focused element could send a message."""
+    if _SEARCH_FIELD_RE.search(str(focused_label or "")):
+        return False   # a find/search field can't send anything
     if is_composer_app(app, window_title):
         return True
     role = str(focused_role or "").strip().casefold()
