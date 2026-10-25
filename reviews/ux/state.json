@@ -1,9 +1,9 @@
 {
-  "pass": 55,
-  "ts": "2026-10-25T01:18:00Z",
+  "pass": 56,
+  "ts": "2026-10-25T01:33:00Z",
   "last_reviewed": {
     "main": "9be963d",
-    "wip/local": "4d22445",
+    "wip/local": "7728b98",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -71,10 +71,10 @@
     "cloud/safety-planner28": "e3abc5e",
     "cloud/design": "b93bb50",
     "cloud/panel-hook-fix": "ef35421",
-    "cloud/memory-llm-gate": "6864386",
+    "cloud/memory-llm-gate": "f6229d7",
     "cloud/docs-demo-3": "c615c37",
     "cloud/memory-hotfix": "d932320",
     "cloud/memory-rules2": "03c3cd1"
   },
-  "notes": "pass 55: main 9be963d merged memory rules #71/#72 (classification labels only, no new copy), docs-demo-3 #68 (docs), and a proxy stale-connection displacement (hands lane; should reduce stuck 'busy' after a dead client). wip/local has no lane changes. Open findings unchanged."
+  "notes": "pass 56: wip/local 7728b98 sends vague 'brighten it' requests down the relative-delta path (ux-16 surface grows; updated). memory-llm-gate f6229d7 is rebased onto the memory rules with no new copy. main unchanged at 9be963d."
 }
