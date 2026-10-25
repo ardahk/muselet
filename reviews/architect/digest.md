@@ -1,8 +1,8 @@
-# architect digest - pass 58 (2026-10-25T01:08Z)
-Reviewed: main e4594d9 (harness slot-free wait, live skip_reason fix, mem-wiki-search Zen check), wip/local fc5d595, new memory-hotfix d932320, memory-rules2 03c3cd1. New: architect-38 (P1): memory rules on by default on main site-scope explicit searches/questions into Wikipedia; fix is on memory-hotfix/rules2, unmerged. rules2: 52/52 tests, holdout rewrite_acc .5745 -> .617, false_rewrite .0195 both (holdout blind to this class). Other open findings unchanged.
+# architect digest - pass 59 (2026-10-25T01:24Z)
+Reviewed: main 9be963d (memory #71/#72 merged, docs-demo-3 #68, proxy stale-client displace 517e056), wip/local 4d22445. architect-38 resolved (main holdout .617/.0195, tune .97/0). New: architect-39 (P1): the proxy displacement branch is unreachable (the lock is held across _forward_pair), so a stale client still wedges cases, and their harness_timeouts drop out of the replay n (architect-32). claims.md still quotes memory .574; the holdout is now .617. Other open findings unchanged.
 
 ## Open P1 (ranked)
-0. architect-38 - Memory rules (default on) rewrite explicit searches into Wikipedia; hotfix unmerged - ml/src/brain/memory/rules.py
+0. architect-39 - Proxy stale-client displacement unreachable; wedged cases shrink replay n - bench/harness/proxy.py
 1. architect-37 - it3 default router; no it3 sealed overlap check; replay unpinned - tools/serve_brain.sh
 1b. architect-29 - No winning competitor number (TD tie within 1 SE, JevBench loses, HobbyLM r4 missing) - pitch/claims.md
 2. architect-33 - Done verifier default on with unfitted 0.5 threshold (on main) - ml/src/brain/orchestrator.py
@@ -20,4 +20,4 @@ Reviewed: main e4594d9 (harness slot-free wait, live skip_reason fix, mem-wiki-s
 2. Flip THINK=512 with the greedy sampler, not qwen (same pass rate, -0.85 s/step, deterministic for the stage). 1 line.
 3. Fit VERIFY_P now that verify is on by default. Label v2-tune final states plus live_t1 traces and target false reject <= 5%, else VERIFY_DONE=off for the demo. ~30 min.
 4. Mac decisions run (muselet-decisions-4b-mlx4, T=1) on JevBench + TD through the shim. Quote only against the SE. ~30 min.
-5. Merge memory-hotfix d932320 (or rules2 03c3cd1) before the rehearsal, or serve MEMORY=0 (architect-38). Then rehearse the 3:00 script with think + verify + memory on and record per-beat latency.
+5. Fix the proxy lock scope (architect-39) before the HobbyLM r4 run. Run reviews/architect/tests/repro_proxy_displace.py, which must pair client B. Then rehearse the 3:00 script with think + verify + memory on.
