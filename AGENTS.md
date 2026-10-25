@@ -36,24 +36,49 @@ Hackathon deadline: Cal Hacks submission Sun Oct 25 2026, 09:00 PDT. Tinker budg
 - Nothing destructive, nothing outside this project; commit to GitHub often so any step can be reverted.
 
 ## Current serving configuration (`tools/serve_brain.sh`; every alternative selectable by env)
-- Router + ARGS: Tinker-trained 4B iteration 3 (`models/route-4b-it3-mlx4`, HF `jonsnov/muselet-route-4b-it3-mlx4`
-  @ 6be63a1, catalog v3), tau 0.50 (val-fitted). User's call over the pre-registered rule: route_v2 .945 vs it2 .838,
-  route_v1_clean .922 vs .942, ARGS .855 vs .856. it2 (`ROUTER=it2`, `jonsnov/muselet-route-4b-main-mlx4` @ 54b2181, tau .35) Alternatives: r2 @ 2e3e7bf, base `mlx-community/Qwen3.5-4B-4bit`.
-  Quote router numbers on `evals/route_v1_clean.jsonl` (103 cases without near-duplicates in training data).
-  Competitor benchmarks (HobbyLM sealed, DeskMind Bench) run ONLY with it2 or a later router whose overlap check is 0
-  for that set (it2: HobbyLM r4 and DeskMind Bench 0 real overlaps after the CJK-aware gate). Never run r1/r2
-  (main-final data: 12-15 near-duplicates per HobbyLM sealed round) on sealed sets.
-- Planner: default LoRA 4B (`models/planner-4b-lora-mlx4`, HF `jonsnov/muselet-planner-4b-lora-mlx4`
+- System 1 router + ARGS: Tinker-trained 4B iteration 3 (`models/route-4b-it3-mlx4`, HF `jonsnov/muselet-route-4b-it3-mlx4`
+  @ e057412, catalog v3 via `MUSELET_ROUTE_CATALOG`), tau 0.50 (val-fitted). It acts directly only for OS-level skills
+  (`kind: system` in `skills/catalog.json`, 26 skills: volume, brightness, dark mode, Wi-Fi, apps, files, URLs, ...).
+  User's call over the pre-registered rule: route_v2 .945 vs it2 .838, route_v1_clean .922 vs .942, ARGS .855 vs .856.
+  it2 (`ROUTER=it2`, `jonsnov/muselet-route-4b-main-mlx4` @ 54b2181, tau .35); alternatives r2 @ 2e3e7bf, base
+  `mlx-community/Qwen3.5-4B-4bit`. Quote router numbers on `evals/route_v1_clean.jsonl` (103 cases without
+  near-duplicates in training data). Competitor benchmarks (HobbyLM sealed, DeskMind Bench) run ONLY with it2 or a
+  later router whose overlap check is 0 for that set (it2: HobbyLM r4 and DeskMind Bench 0 real overlaps after the
+  CJK-aware gate). Never run r1/r2 (main-final data: 12-15 near-duplicates per HobbyLM sealed round) on sealed sets.
+- Agentic apps (`AGENTIC_APPS=1`, default; `--agentic-apps on`): a routed `kind: app` skill (start_timer,
+  create_reminder, create_event, todays_agenda, new_note, compose_text, play_music, send_message, compose_email,
+  draft_email, premiere_command, premiere_edit) is not executed natively; `Orchestrator._agentic_route` hands the goal
+  to the planner with an app hint (`ml/src/brain/agentic.py`) and a rule-based "Finish when" criterion
+  (`finish.app_finish` / `finish.criterion`, no model call). The planner operates the app over Accessibility
+  (observe -> act -> verify); app skills are refused inside the planner ("operate the app's UI"). Programmatic
+  evidence (`finish.evidence` / `progress_kind`) ends the task as soon as the goal is visible: a Pause button for
+  media, cart count +1 over the baseline, a live Clock row (Pause/Resume), the draft text in the reply box.
+  `AGENTIC_APPS=0` restores native app skills.
+- Planners: default LoRA 4B (`models/planner-4b-lora-mlx4`, HF `jonsnov/muselet-planner-4b-lora-mlx4`
   @ 35a2ea3), greedy, no few-shot, DSL history, line-start op constraint, done-alone, retrieval k=1, THINK=0;
-  holdouts v1-ho/v1-ho2/v2-ho .857/1.000/.692 (mean .850), step p50 ~0.3 s. `PLANNER=base` selects the
-  base 4B with few-shot, retrieval k=1, THINK=512 qwen (.786/.917/.608, mean .770 @ 2.6 s); THINK=512 is
-  the base-planner default only. 35B-A3B escalation remains available via `--planner-model` or `ESCALATE=1`.
-  Offline planner bench: `evals/planner_offline.py` (tune / holdout / holdout2 sets; never tune on holdouts).
+  holdouts v1-ho/v1-ho2/v2-ho .857/1.000/.692 (mean .850), step p50 ~0.3 s. Blind planner (`BLIND_PLANNER`,
+  default `escalate` when `mlx-community/Qwen3.6-35B-A3B-4bit` is in the HF cache, else `base`): Qwen3.6-35B-A3B
+  (MoE, ~3B active), retrieval k=1, app hints, think 512 (qwen sampler), batch cap 2. It takes over for page/browser
+  tasks, open-ended redirects, recoverable-failure fallbacks, and from the first turn whose AX observation is blind
+  (canvas apps, Electron windows with no AX); other agentic-app turns stay on the LoRA. `BLIND_PLANNER=base` = base 4B
+  with few-shot + think 512; `planner` = the LoRA. `PLANNER=base` selects the base 4B as main planner (.786/.917/.608,
+  mean .770 @ 2.6 s). Offline planner bench: `evals/planner_offline.py` (never tune on holdouts).
+- Browser: planner tasks stay in the same tab; the site's own search box is used (`_hand_built_search` rejects
+  hand-built same-site search URLs, `_address_bar_query` rejects typing a query into the address bar); the default
+  browser comes from LaunchServices (`default_browser()`); expects on a loading page re-poll (`LOAD_POLL_S` .25 s, up
+  to `LOAD_WAIT_S` 5 s) instead of failing.
+- Safety: confirm before send/delete/buy/post (risky labels, Enter in chat composers, `risk: confirm` skills).
+  Grounded (pixel) clicks: refused in Spotify; in apps holding user data (Music, Photos, Mail, Messages, Finder,
+  System Settings, Notes, Calendar, Reminders, Contacts) refused unless OCR at the target contains the goal subject
+  and no destructive word (`_NO_BLIND_CLICK_APPS`, `blind_click_blocked`). Planner AppleScript/JXA with UI scripting
+  (`click`, `perform action`, `AXPress`, `keystroke`, ...) needs confirmation (`_SCRIPT_BLOCK`); shell always does.
 - Planner auxiliary model: base 4B handles non-DSL generation/decide calls so the LoRA only plans; +1 resident
   4B is ~2.5 GB, and `PLANNER_AUX=planner` reuses the planner. Verified done + bounded recovery (`VERIFY_DONE`);
-  working/long-term memory (`MEMORY`, `LONGTERM`; `MEMORY_LLM` rewrite off). Serving enables recoverable-failure handoff and first-turn planner
-  context by default (`FALLBACK_PLANNER`, `PLANNER_CONTEXT`).
-- Grounder: eyes-4b, two-stage zoom, 1 MP (`click "<description>"` in the DSL), lazy-loaded; 2 MP / UI-Venus selectable.
+  working/long-term memory (`MEMORY`, `LONGTERM`; `MEMORY_LLM` rewrite off). Serving enables recoverable-failure
+  handoff, first-turn planner context, app hints and open-ended routing by default (`FALLBACK_PLANNER`,
+  `PLANNER_CONTEXT`, `APP_HINTS`, `OPEN_ENDED`).
+- Grounder: eyes-4b from the local MLX copy (`models/grounding/eyes-4b-mlx`), two-stage zoom, 1 MP
+  (`click "<description>"` in the DSL); `GROUNDER=name[=path]|none` overrides; 2 MP / UI-Venus selectable.
 
 ## Repo layout
 - `app/`    Swift package: menu-bar app (voice, mascot, ghost cursor overlay) + `HandsKit` (AX observe/act, native skills, screenshots)

@@ -13,25 +13,28 @@ wanted an agent that **actually does the work**, **as fast as a keyboard shortcu
 ## What it does
 Hold Right Option and talk. A small mascot answers in a speech bubble, a ghost cursor flies to each target before
 it acts, and the Mac does the thing.
-- **Instant commands** ("volume 30", "dark mode", "turn off Wi-Fi"): one on-device forward pass picks the skill (60 ms p50
-  for our serving router); first action p50 193 ms in our live suite.
-- **Anything else** ("open Safari, search flights to Tokyo"): a local planner reads the macOS accessibility tree,
-  streams small action batches, and starts acting before it finishes thinking. For chained tasks we choose
-  intelligence over latency: a step may take a few seconds (ship gate: per-step p50 <= 3 s) if that raises the pass rate. Steps carry `expect` checks against
-  the live accessibility tree.
-- **Messages and Gmail**: "text Sam I'll be there in ten" fills the message and waits for a spoken yes; "draft a
-  reply in Gmail" reads the open email and leaves a draft.
-- **Follow-ups**: after "navigate to Wikipedia", "search for history" searches Wikipedia, not Google. TBD(PR #50 merge)
-- **Timers in Clock**: "set a timer for ten minutes" starts it in the Clock app.
+- **Instant commands** ("volume 30", "dark mode", "turn off Wi-Fi"): one on-device forward pass of our trained
+  router picks the OS-level skill (60 ms route p50); first action p50 193 ms in our live suite (earlier config).
+- **Apps, operated like a person would**: "set a timer for two minutes", "remind me to call mom at 5", "open Notes and
+  write a template about my day". The router hands app tasks to a local planner that reads the macOS accessibility
+  tree, acts, and checks the result each step. A rule-based "finish when" check stops the task as soon as the goal is
+  on screen: the Clock countdown is running, the reminder is in the list.
+- **The web, in your own browser**: "play some jazz on YouTube" types into YouTube's own search box in the same tab of
+  your default browser and stops once the Pause button shows. "Add some chicken to my cart" adds exactly one item and
+  never checks out. With a Gmail email open, "reply saying I can do Thursday at three" writes the draft and leaves it
+  unsent.
+- **Two local planners**: a 4B model we fine-tuned plans normal tasks at ~0.3 s per step; Qwen3.6-35B-A3B (a mixture of
+  experts with ~3B active) takes over for websites, open-ended asks, and screens the accessibility tree can't see.
 - **Finance, offline.** "Prep me for my meeting with the Hendersons" reads Calendar, the client folder, the
   portfolio in Numbers and last meeting's notes, then writes a brief to Notes and highlights the sheet: $118,151.60
   to rebalance, $30,825.00 harvestable losses (VXUS blocked by a wash sale until 2026-11-11), $61,400.00 Roth
   room. "Reconcile my receipts" OCRs 8 receipts on-device (Apple Vision, in
   parallel), matches 6, flags a transposed-digit total and one receipt with no
   transaction. Every number comes from deterministic code with evidence; the model never does arithmetic.
-- **Premiere Pro** shortcuts: "cut here", "add a marker", "export".
-- It **asks** when a request is ambiguous, hands low-confidence picks to the planner instead of acting, and
-  **confirms** before sending, deleting, buying or running shell scripts.
+- **Premiere Pro**: "cut here", "add a marker", "export" (keyboard shortcuts; the timeline is not in the accessibility tree).
+- It **asks** when a request is ambiguous, **confirms** before sending, deleting, buying or posting (and before
+  shell scripts or AppleScript that clicks UI), and **refuses** requests like "erase every file in my Documents
+  folder".
 
 ## How we built it
 - **App (Swift)**: menu-bar app, push-to-talk CGEventTap, FluidAudio Parakeet TDT v2 on the Neural Engine,
@@ -41,9 +44,11 @@ it acts, and the Mac does the thing.
   (about 38k route + 25k argument examples for iteration 2, soft labels from Qwen3.6-35B-A3B; all training under the $150 Tinker cap,
   TBD(console total)). The option list lives
   in a cached static prefix, so each request costs only its own tokens; we read the answer distribution after a
-  `choice#` prefill from one forward pass. **Planner** (local Qwen3.5-4B, greedy): AX text in, a 5-action DSL out, plus one BM25-retrieved solved example, and a
-  512-token thinking budget: held-out pass rates went from .643 / .667 / .400 (neither) to .786 / .917 / .608, at
-  2.6 s per step p50.
+  `choice#` prefill from one forward pass. **Planner**: AX text in, a 5-action DSL out, plus one BM25-retrieved solved example. A Qwen3.5-4B LoRA we
+  fine-tuned on Tinker scores .857 / 1.000 / .692 on our three held-out planner sets (mean .850, vs .770 for the base
+  4B with thinking) at ~0.3 s per step. Qwen3.6-35B-A3B with a 512-token thinking budget is the planner for web,
+  open-ended and AX-blind tasks. **Finish rules** (`finish.py`) turn each goal into an observable end state, so the
+  agent stops as soon as it can see the goal (Pause button, cart count +1, Clock countdown).
 - **Brain tools**: whole workflows (`finance_review`, `advisor_prep`) are catalog skills the router picks in one
   pass; stdlib `Decimal` engines compute, AppleScript writes to Numbers and Notes in one call each. Tests match
   fixture truth files to the cent.
@@ -58,14 +63,16 @@ it acts, and the Mac does the thing.
   quote only the 103 clean ones, and run competitor benchmarks only with a router that has 0 overlap with them.
 - Live testing safely on a real machine: the runner checks each case's precondition mechanically and skips if the
   screen is locked or a user document is open.
+- A real mistake: a mis-aimed pixel click removed a Spotify playlist from the user's library during testing. Pixel
+  clicks are now refused in Spotify and gated in every app that holds user data; UI-scripting AppleScript needs a yes.
 
 ## Accomplishments that we're proud of
 - Our trained router (it3) picks the right action for .945 of route_v2 and .922 of 103 clean route_v1 requests
   (base model untrained: .767 on route_v1), with calibrated confidence (ECE .018).
 - Live on the Mac, graded by final state: 19/22 single-command tasks and 1/5 multi-step tasks (27 of 43 cases
   ran), first action p50 193 ms. TBD(live suite re-run)
-- TBD(HobbyLM r4 replay)/125 on HobbyLM's sealed live set vs their published 90/125.
-- TBD(DeskMind diag)/39 on DeskMind Bench, same Mac.
+- Competitor benchmarks, honestly: we have no valid comparable HobbyLM score yet, and on DeskMind's decision
+  benchmarks their 4B is ahead of our decisions LoRA (JevBench .831 vs .779, typed-decisions .658 vs .622).
 - A full advisor meeting prep with Wi-Fi off in TBD(rehearsal) s.
 
 ## What we learned

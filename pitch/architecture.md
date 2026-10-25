@@ -1,43 +1,49 @@
-# Architecture
+# Architecture (what ships Sun Oct 25)
 
-Code paths for every box are in `claims.md` §2. Numbers are placeholders from `claims.md` §1.
+Code paths for every box are in `claims.md` §2 and §2b. Serving flags: `tools/serve_brain.sh`, `AGENTS.md`
+"Current serving configuration".
 
 ```mermaid
 flowchart LR
   V["Hold Right Option<br/>PushToTalkMonitor"] --> S["STT on ANE<br/>FluidAudio Parakeet TDT v2"]
-  S -->|utterance + ctx<br/>ws://127.0.0.1:8765| R{"Router<br/>Qwen3.5-4B LoRA (MLX)<br/>one forward pass"}
-  R -->|skill, p >= tau| N["Native skill<br/>skills/catalog.json"]
-  R -->|executor: brain| B["Brain tool<br/>finance_review / advisor_prep<br/>Decimal engines + evidence"]
-  R -->|MULTI_STEP| P["Planner<br/>AX tree -> DSL batches (<= 5)<br/>streams, acts while decoding"]
-  R -->|p < tau: hint 'A or B'| P
-  R -->|ASK / missing arg| Q["Ask in bubble"]
-  N -->|risk: confirm| C["Confirm in bubble<br/>risky skills, send/delete/buy,<br/>shell + non-allowlisted scripts"]
-  P -->|risky action| C
-  N -->|safe| H["HandsKit<br/>native skill > AX action > keys > pixel click"]
+  S -->|utterance + ctx<br/>ws://127.0.0.1:8765| R{"System 1 router it3<br/>Qwen3.5-4B LoRA (MLX 4-bit)<br/>one forward pass, tau .50"}
+  R -->|"kind: system skill"| N["Native skill<br/>volume, dark mode, Wi-Fi, apps, files"]
+  R -->|"kind: analysis"| B["Brain tool<br/>finance_review / advisor_prep<br/>Decimal engines + evidence"]
+  R -->|"kind: app skill<br/>(AGENTIC_APPS=1)"| A["Agentic route<br/>app hint + 'Finish when'<br/>(finish.py, rules)"]
+  R -->|MULTI_STEP / low p| P
+  A --> P["Planner loop: observe -> act -> verify<br/>LoRA 4B (normal tasks)<br/>35B-A3B MoE (browser, open-ended, blind)"]
+  R -->|ASK| Q["Ask in bubble"]
+  R -->|REFUSE| Z["Refuse"]
+  P -->|"send / delete / buy / post,<br/>UI-scripting AppleScript, shell"| C["Confirm in bubble"]
+  N -->|risk: confirm| C
+  N --> H["HandsKit<br/>native skill > AX action > keys > pixel click"]
   B --> H
   P --> H
   C --> H
-  H --> X["Verify (actions with expect)<br/>predicate on live AX state"]
-  X -->|fail| P
-  X -->|ok| M["Mascot bubble (<= 12 words)<br/>+ latency chip (ui.ms) + trace"]
-  H -.screenshot only when AX is blind<br/>(<= 1 MP, own windows excluded).-> P
+  H --> X["Verify: expect predicate on live AX<br/>+ programmatic evidence<br/>(Pause button, cart +1, Clock row)"]
+  X -->|goal visible| M["Mascot bubble (<= 12 words)<br/>+ latency chip + trace"]
+  X -->|not yet / failed| P
+  H -.screenshot + eyes-4b grounder only when AX is blind;<br/>pixel clicks gated in user-data apps.-> P
 ```
 
-Everything above runs on the Mac. The only sockets are loopback (brain `:8765`, Premiere bridge `:8766`).
-Models load with `local_files_only=True`.
-Gates are scoped, not universal: `verify` runs only for actions with an `expect`; planner `done` is accepted
-only after a passing `expect` or a fresh observation (no harness-side goal check); confirm covers the cases in `claims.md` §2.
+Everything above runs on the Mac. The only sockets are loopback (brain `:8765`, Premiere bridge `:8766`); models load
+with `local_files_only=True`. The internet is used only by tasks that need a website (YouTube, Gmail, Amazon).
 
-## Latency budget (instant command, release -> first action)
+Gates are scoped, not universal: `verify` runs for actions with an `expect`; planner `done` is accepted only after a
+passing `expect`, a fresh observation, or the goal's programmatic evidence; confirm covers the cases in `claims.md` §2.
 
-| Stage | Budget | Measured (p50 / p95) | Source |
-|---|---|---|---|
-| STT final transcript | target TBD(lead) | TBD(live latency run) | panel "Last release → text" |
-| Router (cached prefix + suffix) | ~55 ms (target) | 52 ms (r2) / TBD(route p95, it2) | `route_ms` |
-| ARGS extraction | target TBD(lead) | 97 ms (r2) | `args_ms` |
-| Ghost cursor lead | 120-220 ms (code constant) | n/a | `GhostCursor.swift:69` |
-| HandsKit act + settle | target TBD(lead) | TBD(live latency run) | `act_ms`, `settle_ms` in traces |
-| **Release -> first action** | target TBD(lead) | 193 ms p50 / 812 ms p95 (live suite, `runs/bench/live/20261024T161427Z`) | `release_to_first_action_ms` |
+## Latency (measured values only; sources in `claims.md`)
 
-Multi-step (intelligence over latency: ship gate per-step p50 <= 3 s, `AGENTS.md`): planner Qwen3.5-4B-4bit at 83 tok/s (earlier tuned config; TTFT 184.6 ms p50 on v2-holdout with k=1 retrieval, `cloud/handoff/notes/retrieval_eval.md`); first action is executed as soon as its
-line is decoded, so release -> first action is STT + route + planner prefill + one line, not a whole batch.
+| Stage | Measured | Source |
+|---|---|---|
+| Router it3 route p50 | 60.4 ms | `runs/router/it3_*.json` via `evals/router_check.py` (lead) |
+| ARGS extraction p50 | 97 ms (r2, earlier router) | `runs/router/r2_self_clean.json` |
+| Ghost cursor lead | 120-220 ms (code constant) | `GhostCursor.swift:69` |
+| Release -> first action (System 1) | 193 ms p50 / 812 ms p95 (live suite, earlier config) | `runs/bench/live/20261024T161427Z` |
+| Planner step, LoRA 4B | ~0.3 s p50 | `tools/serve_brain.sh` header (lead) |
+| Planner step, 35B-A3B think 512 | 6.0 s p50 (offline bench, earlier prompt) | `cloud/handoff/notes/planner_think_eval.md` @ c9a5cce |
+| STT, act + settle, agentic task totals | TBD(live latency run) | traces |
+
+Multi-step work chooses intelligence over latency (ship gate per-step p50 <= 3 s for the normal planner,
+`AGENTS.md`); the 35B planner is used only where the small one is blind or the task is open-ended, and the first
+action executes as soon as its line is decoded.
