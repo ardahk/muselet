@@ -1,3 +1,15 @@
+# Brain lane review: pass 99 (2026-10-25T15:45Z)
+
+Open: P0 0, P1 16, P2 33. No new findings; brain-79 resolved.
+
+## Branches
+- main 32c0ad4: merges the full wip line (finance/advisor removal, planner prompt rewrite, AX clicks, Premiere focus guard). brain-77, brain-78, brain-76 now on main. Swift app resolver walks app folders recursively.
+- wip/local 69261f5: empty snapshot, identical to main in the lane.
+- cloud/cool-tasks cfbec49: unchanged.
+
+## Tests
+main and wip 106 failed (18 MLX + 88 brain-77), 2295 passed. Review repros 77 / 53.
+
 # Brain lane review: pass 98 (2026-10-25T15:00Z)
 
 Open: P0 0, P1 16, P2 34. No new findings.
