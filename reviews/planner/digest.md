@@ -1,11 +1,12 @@
-# Planner review digest — pass 73 (2026-10-25T06:00Z)
+# Planner review digest — pass 74 (2026-10-25T06:16Z)
 
-Moved: main e8023b8→fe2de69 (serve_brain uses the local eyes-4b MLX grounder; no lazy multi-GB download mid-request: good), wip 422399a (snapshot on local main@b43270d).
-- planner-50 (P1, new, wip): the Spotify flow is now url spotify:search + bare AppleScript `play`, which resumes the previous context. The play finish check accepts any 'playing', so 'play some jazz' can be done on the wrong track.
-- wip otherwise OK: the blind-click gate refuses grounded clicks in library apps (Spotify/Music/Photos/Mail/Finder...) unless the OCR hit has the goal subject and no destructive word, and doesn't count as a strike. _blind_is_target ignores an unrelated blind frontmost app. Timer pause/resume/cancel go to the planner with a Clock hint (finish_when timers). The grounder prewarms off-thread with a 10 s wait.
-- planner-48 (P1) unchanged on main; planner-40/45/46/47 unchanged.
+Moved: main fe2de69→e2f7e5e (agentic-loop + fix-thinking + premiere-route-fix + timer controls merged), wip 3f8e2f8 (= main), agentic-loop dc7a063 (on main), new cloud/agentic-apps 523d2c1.
+- planner-51 (P1, new, agentic-apps): default-on routing of app skills (timer/calendar/reminder/notes/messages/email/premiere) through the planner, with native skills hidden from it. One-shot System-1 commands become multi-turn GUI flows; no numbers.
+- planner-50 (P1) now on main: bare Spotify `play` + subject-blind play evidence.
+- planner-45 (P1) on main: workflow gate excludes app-only but still accepts 'skill' evidence.
+- planner-48 (page tasks forced to base+qwen think) unchanged at orchestrator.py:994/1591. premiere-route-fix is merged (draft_email→premiere_edit bug fixed on main).
 
-New: 1 P1. Resolved: 0. Open: 0 P0, 11 P1, 9 P2.
+New: 1 P1. Resolved: 0. Open: 0 P0, 12 P1, 9 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
