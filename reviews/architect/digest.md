@@ -1,10 +1,10 @@
-# architect digest - pass 82 (2026-10-25T07:55Z)
-Reviewed: main 5d135d0 (adds only the agentic-fixes2 brief, which merges without review by the user's call). wip/local c86fec4 sets _force_blind in _agentic_route and the timer-control route, so app tasks plan on the 35B. docs-final bf9118d updates REPORT, pitch, claims and AGENTS. Its competitor claims are honest: no valid HobbyLM score, and DeskMind leads on decisions. It still quotes the LoRA's .850 without a caveat.
-Tests (Linux): wip agentic/evidence/loop/fallback/same-tab: 138 passed. Main code is unchanged since cf33215 (347 passed last pass).
-Open: P0 0, P1 16, P2 10. No new IDs. architect-51 is now backed by recorded numbers, and wip makes it worse.
+# architect digest - pass 83 (2026-10-25T08:20Z)
+Reviewed: main 3e323a9 (cef8797: agentic-app and timer-control tasks force the 35B blind planner; #101 Spotify play with an accent-insensitive gate, a gated title double-click and AppleScript player-state evidence; PLANNER=35b option). wip/local b8eeec4 is the same tree as main. agentic-fixes2 b9cd089 makes the hint state the exact text, guards asks for text already given, drops invalid expects, adds YouTube watch-url play evidence and the bare-site-title loading check.
+Tests (Linux): main agentic/evidence/finish/loop/fallback/same-tab/app-hints/planner-loop 206 passed; agentic-fixes2 206 passed on the same files (its new test_agentic_fixes2.py is not in that set). Spotify Swift/AppleScript paths were reviewed by reading only.
+Open: P0 0, P1 16, P2 10. No new IDs. architect-51 is now on main; architect-48 is still present on main and agentic-fixes2.
 
 ## Open P0/P1 (ranked)
-- architect-51 [P1] 35B blind planner is 5.95 s p50 (FAIL > 3 s), .807 < LoRA .850 on our bench; wip forces it on all agentic-app + timer tasks
+- architect-51 [P1] Main now plans every agentic-app + timer task on the 35B (5.95 s p50 on our bench, > 3 s gate; .807 < LoRA .850); switch based on qualitative live failures
 - architect-48 [P1] Timer-control pre-route hijacks 'set a timer ... to stop the oven' into a cancel (main de1070d)
 - architect-49 [P1] agentic-apps on by default on main: start_timer/create_event and 10 more go through the planner, unmeasured (38/125 r4)
 - architect-45 [P1] Shipped LoRA planner's holdout .850 rests on a decontam gate that misses word-order paraphrases of holdout goals
@@ -21,11 +21,11 @@ Open: P0 0, P1 16, P2 10. No new IDs. architect-51 is now backed by recorded num
 - architect-13 [P1] Cloud Tinker System One backend reports as 'muselet', untagged
 - architect-8 [P1] Phase-1 LoRA likely misses Sat 12:00 PDT; no fallback router measured
 
-Watch (not filed): the agentic-fixes2 brief merges without review by the user's call. I'll review it after the merge. REPORT.md:184@bf9118d still labels the base-4B k=1 row "shipped 4B" although the LoRA serves.
+Watch (not filed): agentic-fixes2 _drop_invalid_expect runs the action without its expect when the predicate doesn't parse. For consequential actions this goes against 'every consequential action carries an expect'. Send/buy still have the confirm gate, but verification for that step is lost. Consider rejecting the line (no strike) instead of dropping only the expect for risky actions.
 
 ## Next moves (max 5)
-1. architect-51: don't merge the wip _force_blind lines until a live LoRA-vs-35B run on app tasks exists. The 35B fails the 3 s gate on our own bench (5954 ms) and scores lower (.807 vs .850). Keep BLIND_PLANNER explicit.
-2. architect-48: add the timer-control match to agentic-fixes2; 'set a timer for 10 minutes to stop the oven' must start a timer.
+1. architect-51: run the live app cases on LoRA + agentic-fixes2 vs the 35B (pass count and step p50), and keep the winner. The 35B fails the 3 s gate offline.
+2. architect-48: fix the timer-control match; 'set a timer for 10 minutes to stop the oven' still cancels, now on the 35B.
 3. architect-45: re-score the LoRA holdout without the near-paraphrase items, or caveat .850 in devpost/REPORT before submission.
-4. architect-42: restore the screenshot start-state, then run HobbyLM r4 with ROUTER=it2 MEMORY=0 LONGTERM=0 and AGENTIC_APPS/BLIND_PLANNER pinned; report passes/125 with skips and timeouts counted as failures (32/37/40/44).
-5. architect-49: decide AGENTIC_APPS from on-vs-off timer/event slice numbers, not by default.
+4. architect-42: restore the screenshot start-state, then run HobbyLM r4 with ROUTER=it2 MEMORY=0 LONGTERM=0 and AGENTIC_APPS/BLIND_PLANNER/PLANNER pinned; report passes/125 with skips and timeouts counted as failures (32/37/40/44).
+5. architect-49: decide AGENTIC_APPS from on-vs-off timer/event slice numbers.
