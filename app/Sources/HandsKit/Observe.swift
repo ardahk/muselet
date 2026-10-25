@@ -103,6 +103,26 @@ public enum Walker {
         return active.isNull ? union(CGGetOnlineDisplayList) : active
     }
 
+    /// Nearest AXStaticText sibling directly above or left within ~60pt
+    /// (unlabeled wheels/pickers pick up their column heading).
+    static func nearbyStaticLabel(_ el: Element, _ siblings: [Element]) -> String? {
+        let me = el.copyAttrs().frame
+        guard me.width > 0 else { return nil }
+        var best: (String, CGFloat)?
+        for sib in siblings {
+            let sa = sib.copyAttrs()
+            guard sa.role == "AXStaticText", sa.frame.width > 0 else { continue }
+            guard let txt = sa.value as? String ?? sa.title, !txt.isEmpty else { continue }
+            let above = abs(sa.frame.midX - me.midX) < 30 && me.minY - sa.frame.maxY >= 0 && me.minY - sa.frame.maxY < 60
+            let left = abs(sa.frame.midY - me.midY) < 30 && me.minX - sa.frame.maxX >= 0 && me.minX - sa.frame.maxX < 60
+            if above || left {
+                let dist = above ? me.minY - sa.frame.maxY : me.minX - sa.frame.maxX
+                if best == nil || dist < best!.1 { best = (txt, dist) }
+            }
+        }
+        return best?.0
+    }
+
     static func label(of a: ElAttrs, role: String) -> String {
         if let t = a.title, !t.isEmpty { return t }
         if let d = a.desc, !d.isEmpty { return d }
@@ -176,15 +196,15 @@ public enum Walker {
         var truncated = false
         // (element, depth, clip rect, inWebArea)
         let rootAttrs = root.copyAttrs()
-        var queue: [(Element, Int, CGRect, Bool)] =
-            [(root, 0, rootAttrs.frame.isEmpty ? screens : rootAttrs.frame, false)]
+        var queue: [(Element, Int, CGRect, Bool, [Element])] =
+            [(root, 0, rootAttrs.frame.isEmpty ? screens : rootAttrs.frame, false, [])]
         var qi = 0
         while qi < queue.count {
             if Date() > deadline || interactive.count >= interactiveCap {
                 truncated = true
                 break
             }
-            let (el, depth, clip, web) = queue[qi]; qi += 1
+            let (el, depth, clip, web, siblings) = queue[qi]; qi += 1
             if depth > maxDepth { continue }
             let a = el.copyAttrs()
             let axRole = a.role ?? ""
@@ -201,6 +221,18 @@ public enum Walker {
                     if label.isEmpty && !clipped {
                         label = fallbackLabel(for: el, role: role, attrs: a)
                     }
+                    // unlabeled/generic labels get a real one: title element,
+                    // placeholder, or the nearest sibling static text just
+                    // above/left (clock wheels, custom controls)
+                    if label.isEmpty || label.lowercased() == role {
+                        if let t = el.copySingleAttr("AXTitleUIElement") as? Element {
+                            if let tl = t.copyAttrs().title, !tl.isEmpty { label = tl }
+                        }
+                    }
+                    if label.isEmpty || label.lowercased() == role {
+                        label = Self.nearbyStaticLabel(el, siblings) ?? label
+                    }
+
                     let emit = kLabelOnlyRoles.contains(role) ? !label.isEmpty : true
                     if emit {
                         var checked: Bool? = nil
@@ -227,10 +259,30 @@ public enum Walker {
                 childClip = clip.isEmpty ? frame : clip.intersection(frame)
             }
             if isContainer || !(zeroSize || offscreen || clipped) {
-                for c in a.children { queue.append((c, depth + 1, childClip, isWeb)) }
+                for c in a.children { queue.append((c, depth + 1, childClip, isWeb, a.children)) }
             }
         }
         var all = interactive + labeled
+        // unlabeled controls pick the nearest static text directly above
+        // (x-centre inside its width, gap <= 80pt) or directly left
+        // (y-centre inside its height, gap <= 120pt)
+        let statics = all.filter { $0.role == "text" && !$0.label.isEmpty }
+        for i in all.indices where all[i].label.isEmpty ||
+            all[i].label.lowercased() == all[i].role {
+            let f = all[i].frame
+            var best: (String, CGFloat)?
+            for t in statics where t.ref != all[i].ref {
+                let tf = t.frame
+                let above = tf.midX >= f.minX - 2 && tf.midX <= f.maxX + 2 &&
+                    f.minY - tf.maxY >= 0 && f.minY - tf.maxY <= 80
+                let left = tf.midY >= f.minY - 2 && tf.midY <= f.maxY + 2 &&
+                    f.minX - tf.maxX >= 0 && f.minX - tf.maxX <= 120
+                guard above || left else { continue }
+                let d = above ? f.minY - tf.maxY : f.minX - tf.maxX
+                if best == nil || d < best!.1 { best = (t.label, d) }
+            }
+            if let b = best { all[i].label = b.0 }
+        }
         for i in all.indices { all[i].ref = i + 1 }   // provisional; Hands reassigns
         return (all, truncated)
     }
@@ -247,6 +299,12 @@ public enum Serializer {
         var s = "#\(e.ref) \(e.role) \"\(esc(e.label))\""
         if let v = e.value as? String, (e.role == "textfield" || e.role == "textarea" || e.role == "combobox") {
             s += " value=\"\(esc(v))\""
+        } else if ["slider", "stepper", "incrementor", "picker"].contains(e.role) {
+            if let n = e.value as? NSNumber {
+                s += " value=\"\(n)\""
+            } else if let v = e.value as? String, !v.isEmpty {
+                s += " value=\"\(esc(v))\""
+            }
         }
         if let c = e.checked { s += c ? " checked" : " unchecked" }
         if e.selected { s += " selected" }

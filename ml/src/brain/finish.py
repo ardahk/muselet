@@ -32,6 +32,13 @@ def _subject(goal: str, end: int) -> str:
 
 
 _TIMER = re.compile(r"\b(?:timer|countdown)\b", re.IGNORECASE)
+_TIMER_PAUSE = re.compile(r"\bpause\b", re.IGNORECASE)
+_TIMER_RESUME = re.compile(r"\b(?:resume|unpause|continue)\b", re.IGNORECASE)
+_TIMER_CANCEL = re.compile(
+    r"\b(?:cancel|stop|kill|delete)\b", re.IGNORECASE)
+_DURATION = re.compile(
+    r"(\d+(?:\.\d+)?)\s*(hours?|hrs?|minutes?|mins?|seconds?|secs?)",
+    re.IGNORECASE)
 
 
 def criterion(goal: str) -> tuple[str, str, str] | None:
@@ -81,31 +88,239 @@ def finish_when(goal: str) -> str | None:
 
 
 EVIDENCE_KINDS = ("play", "cart", "search", "directions")
+APP_KINDS = {
+    "start_timer": "timer_start", "create_reminder": "reminder",
+    "new_note": "note", "compose_text": "note", "create_event": "event",
+    "send_message": "message", "compose_email": "email",
+    "draft_email": "email", "play_music": "play",
+}
 _PAUSE = re.compile(r"(?i)^pause\b")
-_BUTTON = re.compile(r'^\s*#\d+\s+button\s+"([^"]*)"', re.MULTILINE)
+_BUTTON = re.compile(
+    r'^\s*[+~]?\s*#\d+\s+button\s+"([^"]*)"', re.MULTILINE)
 _CART_DONE = re.compile(r"(?i)added to (?:your )?cart|cart subtotal|\b1 item")
 _ROUTE = re.compile(r"(?i)\b(?:directions|route)\b")
+_COUNTDOWN = re.compile(r'(?:(\d{1,2}):)?(\d{1,2}):(\d{2})')
+_COUNTDOWN_EDITABLE = re.compile(
+    r"^\s*[+~]?\s*#\d+\s+"
+    r"(?:textfield|textarea|textview|combobox|searchfield|spinbutton|"
+    r"incrementor)\b", re.IGNORECASE)
+_COUNTDOWN_ELEMENT = re.compile(r"^\s*[+~]?\s*#\d+\s+\S+", re.IGNORECASE)
+_KEYWORD_STOP = {
+    "the", "and", "for", "with", "about", "note", "new", "write",
+    "that", "this",
+}
 
 
 def _words(text: str) -> list[str]:
     return re.findall(r"[a-z0-9]+", unquote_plus(str(text or "")).lower())
 
 
-def evidence(kind: str, subject: str, obs: dict | None = None,
-             script_stdout: str = "", ocr: str = "", url: str = "") -> bool:
+def _key_words(text: str) -> list[str]:
+    return [word for word in _words(text)
+            if len(word) >= 3 and word not in _KEYWORD_STOP][:6]
+
+
+def _contains_words(text: str, words: list[str]) -> bool:
+    return bool(words) and all(word in _words(text) for word in words)
+
+
+def _app_headers(text: str) -> list[str]:
+    return re.findall(r"(?m)^\s*app:\s*([^|]+)", text)
+
+
+def _quoted_values(text: str) -> list[str]:
+    values = []
+    for line in text.splitlines():
+        if re.match(r"^\s*[+~]?\s*#\d+\b", line):
+            values.extend(re.findall(r'"([^"]*)"', line))
+    return values
+
+
+def _focused_ref(obs: dict, text: str) -> str | None:
+    ref = obs.get("focused_ref")
+    if ref is not None:
+        return str(ref)
+    matches = re.findall(r"(?m)^\s*app:.*?\bfocused:\s*#(\d+)", text)
+    return matches[-1] if matches else None
+
+
+def _latest_value(text: str, ref: str) -> str | None:
+    matches = re.findall(
+        rf'(?m)^[+~]?\s*#{re.escape(ref)}\b.*?\bvalue="([^"]*)"', text)
+    return matches[-1] if matches else None
+
+
+def _composer_value(obs: dict, text: str) -> str:
+    ref = _focused_ref(obs, text)
+    if ref is not None:
+        value = _latest_value(text, ref)
+        if value is not None:
+            return value
+    matches = re.findall(
+        r'(?m)^[+~]?\s*#\d+\s+(?:textarea|textview|textfield)\b'
+        r'.*?\bvalue="([^"]*)"', text, re.IGNORECASE)
+    return matches[-1] if matches else ""
+
+
+def _seconds(duration) -> float | None:
+    if isinstance(duration, bool) or duration is None:
+        return None
+    if isinstance(duration, (int, float)):
+        return float(duration)
+    value = str(duration).strip().lower()
+    if value.isdigit():
+        return float(value)
+    matches = list(_DURATION.finditer(value))
+    if not matches or re.sub(_DURATION, "", value).strip(" ,and") != "":
+        return None
+    seconds = 0.0
+    for match in matches:
+        amount = float(match.group(1))
+        unit = match.group(2)
+        if unit.startswith(("hour", "hr")):
+            seconds += amount * 3600
+        elif unit.startswith(("minute", "min")):
+            seconds += amount * 60
+        else:
+            seconds += amount
+    return seconds
+
+
+def progress_kind(
+        goal: str, agentic: dict | None = None) -> tuple[str, str, dict] | None:
+    """Return the observable progress criterion for a goal or app skill."""
+    clean_goal = str(goal or "").split("\nUser answer:")[0]
+    agentic = agentic or {}
+    skill = agentic.get("skill")
+    args = dict(agentic.get("args") or {})
+    if skill in APP_KINDS:
+        kind = APP_KINDS[skill]
+        if kind in ("reminder", "event"):
+            subject = str(args.get("title") or "")
+        elif kind == "note":
+            subject = str(args.get("topic") or args.get("title") or
+                          args.get("body") or "")
+        elif kind == "message":
+            subject = str(args.get("body") or "")
+        elif kind == "email":
+            subject = str(args.get("body") or args.get("about") or "")
+        elif kind == "play":
+            subject = str(args.get("query") or "")
+        else:
+            subject = ""
+        return kind, subject, args
+    if "timer" in clean_goal.lower():
+        if (_TIMER_PAUSE.search(clean_goal) or
+                _TIMER_RESUME.search(clean_goal) or
+                _TIMER_CANCEL.search(clean_goal)):
+            return "timer", "", {}
+        durations = [match.group(0)
+                     for match in _DURATION.finditer(clean_goal)]
+        args = {"duration": " ".join(durations)} if durations else {}
+        return "timer_start", "", args
+    if "cart" in clean_goal.lower() or "basket" in clean_goal.lower():
+        return "cart", "", {}
+    crit = criterion(clean_goal)
+    if crit and crit[0] == "play":
+        return "play", crit[1], {}
+    match = _DIRECTIONS.search(clean_goal)
+    if match:
+        criterion_value = criterion(clean_goal)
+        return "directions", criterion_value[1] if criterion_value else "", {}
+    return None
+
+
+def evidence(kind: str, subject: str = "", obs: dict | str | None = None,
+             script_stdout: str = "", ocr: str = "", url: str = "", *,
+             goal: str = "", args: dict | None = None,
+             baseline: int | None = None, confirmed: bool = False,
+             progress: bool = False) -> bool:
     """Is the end state of `kind` visible? play: a Pause button in the AX
     tree or a script reported "playing"; search: the window title or URL
     contains the subject; cart: a cart confirmation in AX/OCR text;
     directions: "Directions"/"Route" in the title or observation."""
+    if isinstance(obs, str):
+        obs = {"text": obs}
     obs = obs or {}
     text = str(obs.get("text") or "")
     title = str(obs.get("window") or "")
+    args = args or {}
     if kind == "play":
         labels = [str(e.get("label") or "") for e in obs.get("elements") or []
                   if str(e.get("role") or "").lower() == "button"]
         labels += _BUTTON.findall(text)
         return any(_PAUSE.match(label.strip()) for label in labels) or \
             "playing" in str(script_stdout or "").lower()
+    if kind == "timer":
+        return _timer_evidence(goal, text)
+    if kind == "timer_start":
+        if not re.search(
+                r'(?im)^\s*[+~]?\s*#\d+\s+button\s+"Pause"', text):
+            return False
+        countdowns = []
+        for line in text.splitlines():
+            if (not _COUNTDOWN_ELEMENT.match(line) or
+                    _COUNTDOWN_EDITABLE.match(line)):
+                continue
+            for value in _quoted_values(line):
+                for match in _COUNTDOWN.finditer(value):
+                    hours, minutes, seconds = match.groups()
+                    total = (int(hours or 0) * 3600 +
+                             int(minutes) * 60 + int(seconds))
+                    countdowns.append(total)
+        if not countdowns:
+            return False
+        requested = _seconds(args.get("duration"))
+        if requested is None:
+            return True
+        tolerance = max(requested * 0.1, 2)
+        return any(abs(value - requested) <= tolerance
+                   for value in countdowns)
+    if kind == "reminder":
+        headers = _app_headers(text)
+        if headers and headers[-1].strip().casefold() != "reminders":
+            return False
+        wanted = _words(subject)
+        if not wanted:
+            return False
+        for line in text.splitlines():
+            if re.match(r'^\s*[+~]?\s*#\d+\s+(?:row|checkbox|cell)\b',
+                        line, re.IGNORECASE):
+                if any(_contains_words(value, wanted)
+                       for value in _quoted_values(line)):
+                    return True
+        return False
+    if kind == "event":
+        headers = _app_headers(text)
+        if headers and headers[-1].strip().casefold() != "calendar":
+            return False
+        wanted = _words(subject)
+        return any(_contains_words(value, wanted)
+                   for value in _quoted_values(text))
+    if kind == "note":
+        wanted = _key_words(subject)
+        if not wanted:
+            return False
+        value = _composer_value(obs, text)
+        return _contains_words(value, wanted)
+    if kind == "message":
+        if not confirmed:
+            return False
+        value = _composer_value(obs, text)
+        return _contains_words(value, _key_words(subject))
+    if kind == "email":
+        value = _composer_value(obs, text)
+        wanted = _key_words(subject)
+        return bool(value.strip()) if not wanted else _contains_words(
+            value, wanted)
+    if kind == "cart" and progress:
+        current = cart_count(text)
+        if current is None:
+            return False
+        return current > baseline if baseline is not None else current >= 1
+    if kind == "directions" and progress:
+        return bool((_ROUTE.search(title) or _ROUTE.search(text)) and
+                    re.search(r"\b\d+\s*min\b", text, re.IGNORECASE))
     if kind == "search":
         want = [w for w in _words(subject) if w not in ("some", "a", "the")]
         if not want:
@@ -117,7 +332,7 @@ def evidence(kind: str, subject: str, obs: dict | None = None,
         return bool(_CART_DONE.search(text) or _CART_DONE.search(ocr or ""))
     if kind == "directions":
         return bool(_ROUTE.search(title) or _ROUTE.search(text))
-    return True
+    return not progress
 
 _LIVE_ROW = re.compile(r'button "(?:Resume|Pause)"', re.IGNORECASE)
 _CART_COUNT = re.compile(r"(\d+)\s+items?\s+in\s+cart", re.IGNORECASE)
@@ -127,31 +342,18 @@ def _timer_evidence(goal: str, obs_text: str) -> bool:
     """Clock Timers tab state proves the pause/resume/cancel happened."""
     has_resume = bool(re.search(r'button "Resume"', obs_text))
     has_pause = bool(re.search(r'button "Pause"', obs_text))
-    if re.search(r"\bpause\b", goal, re.IGNORECASE):
+    if _TIMER_PAUSE.search(goal):
         return has_resume
-    if re.search(r"\b(?:resume|unpause|continue)\b", goal, re.IGNORECASE):
+    if _TIMER_RESUME.search(goal):
         return has_pause
-    if re.search(r"\b(?:cancel|stop|kill|delete)\b", goal, re.IGNORECASE):
+    if _TIMER_CANCEL.search(goal):
         return not (has_resume or has_pause)
     return False
 
 
 def cart_count(obs_text: str) -> int | None:
-    m = _CART_COUNT.search(obs_text)
-    return int(m.group(1)) if m else None
-
-
-def progress_evidence(goal: str, obs_text: str, baseline: int | None = None) -> bool:
-    """Programmatic done-check: goal reached per the post-action obs text."""
-    g = goal.lower()
-    if "timer" in g:
-        return _timer_evidence(goal, obs_text)
-    if "cart" in g or "basket" in g:
-        cur = cart_count(obs_text)
-        if cur is None:
-            return False
-        return cur > baseline if baseline is not None else cur >= 1
-    return False
+    matches = _CART_COUNT.findall(obs_text)
+    return int(matches[-1]) if matches else None
 
 
 def app_finish(skill: str, args: dict) -> str | None:

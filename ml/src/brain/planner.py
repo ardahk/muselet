@@ -479,7 +479,8 @@ class Planner:
                            if line.strip().startswith("app:")), "")
             app_match = re.search(r"\bapp:\s*(.*?)\s*\|", header)
             matched = match_hints(
-                goal, app_match.group(1) if app_match else "")
+                goal, app_match.group(1) if app_match else "",
+                route_hint=hint or "")
             self.last_hint_ids = [item.id for item in matched]
             rendered = render_hints(matched)
             if rendered:
