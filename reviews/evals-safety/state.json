@@ -1,9 +1,9 @@
 {
-  "pass": 91,
-  "ts": "2026-10-25T10:26:55Z",
+  "pass": 92,
+  "ts": "2026-10-25T10:42:10Z",
   "last_reviewed": {
-    "main": "430e59e",
-    "wip/local": "9f6aa0d",
+    "main": "298526d",
+    "wip/local": "d409a32",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -95,10 +95,10 @@
     "cloud/browser-flow": "485763f",
     "cloud/docs-final": "bf9118d",
     "cloud/agentic-fixes2": "104a411",
-    "cloud/cool-tasks": "2fafa9e",
+    "cloud/cool-tasks": "cfbec49",
     "cloud/native-tools": "6053e4e",
     "cloud/ui-progress": "a66166b"
   },
   "next_id": 59,
-  "note": "pass 91: main 430e59e \u2014 #122 PLANNER=35b now RETRIEVAL_K=0, THINK=1024 (2x think budget, unmeasured latency); premiere_edit agentic route drops parsed args (planner reads goal); #123 style-'about' email replies composed by model (send still confirm-gated); #124 observation keeps focused element/inputs when truncated; #125 Premiere HotText typing in Act.swift. -56/-57/-58 unchanged. cool-tasks 2fafa9e = merge of main."
+  "note": "pass 92: main 298526d \u2014 #126 Observe always includes focused text input; #127 think sampler top-k on GPU then temp/top-p on survivors (same distribution as sample_logits top-k->top-p), logs prefill_ms/prompt_tokens (useful for per-stage latency); #128 MUSELET_NO_ESCALATE ignores app 35B toggle. -56/-57/-58 unchanged. cool-tasks cfbec49 = merge of main."
 }
