@@ -53,6 +53,8 @@ def resolve(text: str, wm: WorkingMemory, ctx: dict, now: float,
     if result.reason == "guard":
         return Resolution("none", source_text, False, "guard")
     if result.changed and not allowed(text, result.text):
+        if reason not in {"again", "correction"}:
+            return Resolution("none", source_text, False, "guard")
         prior = wm.last(now)
         prior_text = (f"{str(prior.skill or '').replace('_', ' ')} "
                       f"{prior.resolved} "

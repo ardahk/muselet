@@ -274,6 +274,8 @@ def detect(text: str, wm, ctx: dict | None, now: float,
     search_match = SITE_SEARCH_RE.fullmatch(text)
     try_match = re.fullmatch(r"try\s+(.+?)[.!]?", text, re.IGNORECASE)
     if try_match and turn and _search_turn(turn):
+        if _EXPLICIT_TARGET.search(text) or _QUESTION.search(text):
+            return None
         name = try_match.group(1).casefold().strip()
         requested = _ALIAS.get(name, name if "." in name else None)
         previous = site_for_url(str((turn.args or {}).get("url") or

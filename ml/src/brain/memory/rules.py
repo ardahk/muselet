@@ -7,6 +7,7 @@ import unicodedata
 from dataclasses import dataclass
 from urllib.parse import parse_qs, quote, quote_plus, unquote, urlsplit
 
+from .guard import IRREVERSIBLE
 from .working import _COMMS, site_for_url
 
 
@@ -328,6 +329,9 @@ _REPLAYABLE = {
     "change_volume", "set_volume", "set_brightness", "take_screenshot",
     "media_control", "dark_mode", "mute", "open_url", "open_app",
     "web_search", "window_layout", "premiere_command",
+}
+_UNDO_FALLBACK_SKILLS = {
+    "set_volume", "change_volume", "set_brightness", "window_layout",
 }
 
 
@@ -970,6 +974,8 @@ def apply(text: str, reason: str, wm, ctx: dict, now: float,
             previous = next((
                 prior for prior in reversed(wm.turns)
                 if prior is not turn and prior.ok and
+                prior.skill in _UNDO_FALLBACK_SKILLS and
+                not IRREVERSIBLE.search(str(prior.resolved or "")) and
                 prior.skill == turn.skill and
                 0 <= now - prior.t <= wm.ttl_s and prior.resolved
             ), None)

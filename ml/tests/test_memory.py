@@ -2,6 +2,7 @@ import json
 import statistics
 import time
 
+import brain.memory as memory_module
 from brain.memory import WorkingMemory, detect, eval_adapter, resolve
 from brain.memory.rewrite import STATIC
 from brain.memory.rules import SEARCH_URLS
@@ -316,6 +317,51 @@ def test_undo_replays_earlier_same_skill_without_inverse():
         "tile this window left"
 
 
+def test_undo_does_not_replay_prior_delete():
+    wm = WorkingMemory()
+    wm.record("delete the file report.pdf", "delete the file report.pdf",
+              "delete_file", {"path": "report.pdf"}, True,
+              {"app": "Finder"}, t=1)
+    wm.record("delete the file notes.txt", "delete the file notes.txt",
+              "delete_file", {"path": "notes.txt"}, True,
+              {"app": "Finder"}, t=2)
+    result = resolve("undo", wm, {}, 3)
+    assert result.path == "ask" or not result.changed
+    assert "delete the file" not in result.text.casefold()
+
+
+def test_undo_does_not_replay_irreversible_text_from_setter():
+    wm = WorkingMemory()
+    wm.record("send the schedule and put the window left",
+              "send the schedule and put the window left",
+              "window_layout", {"layout": "left"}, True,
+              {"app": "Finder"}, t=1)
+    wm.record("send the schedule and put the window right",
+              "send the schedule and put the window right",
+              "window_layout", {"layout": "right"}, True,
+              {"app": "Finder"}, t=2)
+    result = resolve("undo", wm, {}, 3)
+    assert result.path == "ask" or not result.changed
+
+
+def test_non_replay_reason_cannot_inherit_irreversible_guard(monkeypatch):
+    wm = _memory(
+        "send_message", {"to": "Dana", "body": "send the schedule"},
+        resolved="text Dana saying send the schedule")
+    monkeypatch.setattr(
+        memory_module, "detect",
+        lambda *_args, **_kwargs: "refinement")
+    monkeypatch.setattr(
+        memory_module, "apply",
+        lambda text, reason, *_args, **_kwargs:
+            memory_module.Resolution("rule", "send the schedule", True,
+                                     reason))
+    result = memory_module.resolve("make it louder", wm, {}, 11)
+    assert result.path == "none"
+    assert result.reason == "guard"
+    assert not result.changed
+
+
 def test_layout_refinement_rewrites_prior_direction_after_app_switch():
     layout = _memory(
         "window_layout", {"layout": "left"},
@@ -352,6 +398,10 @@ def test_try_known_site_reuses_prior_query_but_unknown_target_does_not():
     assert "camping" in result.text
     assert "stoves" in result.text
     assert not resolve("now try lakeside", search, {"app": "Safari"}, 11).changed
+    assert not resolve("try amazon.com", search,
+                       {"app": "Safari"}, 11).changed
+    assert not resolve("try when did it open", search,
+                       {"app": "Safari"}, 11).changed
 
 
 def test_person_selection_uses_all_turns_and_gender_hints():
