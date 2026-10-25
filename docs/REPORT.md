@@ -8,13 +8,16 @@ Mac (M5 Pro, 64 GB, macOS 27). "Lead" = numbers reported by the lead from the Ma
 ## 0. What ships (Sun 2026-10-25; `tools/serve_brain.sh`, `AGENTS.md` "Current serving configuration")
 - **System 1** = router it3 (catalog v3, tau .50), one forward pass, acts directly only for OS-level skills
   (`kind: system` in `skills/catalog.json`: 26 skills such as volume, brightness, dark mode, Wi-Fi, apps, files, URLs).
-  `kind: analysis` skills (`finance_review`, `advisor_prep`) run as brain tools.
+  `kind: analysis` skills (`finance_review`, `advisor_prep`) are AI-planned through generic live-state
+  tools like other app intents; the deterministic `executor: brain` finance/advisor workflow engines were
+  deleted (a2004d9) and `AGENTIC_APPS=0` does not restore them.
 - **Agentic apps** (`AGENTIC_APPS=1`, default): the 12 `kind: app` skills (Clock timers, Reminders, Calendar, Notes,
   Messages, Mail/Gmail drafts and replies, Music, Premiere) are operated by the planner over Accessibility
   (observe -> act -> verify) via `Orchestrator._agentic_route`, with a rule-based "Finish when" criterion
   (`ml/src/brain/finish.py`, no model call). Programmatic evidence ends the task as soon as the goal is visible
   (Pause button for media, cart count +1 over the baseline, Clock live row, draft text in the reply box).
-- **Planners**: fine-tuned LoRA 4B for normal multi-step tasks (holdout mean .850, ~0.3 s per step); Qwen3.6-35B-A3B
+- **Planners** (script defaults — the deployed Mac overrides them; see below): fine-tuned LoRA 4B for normal
+  multi-step tasks (holdout mean .850, ~0.3 s per step); Qwen3.6-35B-A3B
   (MoE, ~3B active, think 512, retrieval k=1, app hints) as the blind planner (`BLIND_PLANNER=escalate`, default when
   the weights are cached) for page/browser tasks, open-ended asks, recoverable-failure fallbacks and any turn whose
   AX observation is blind. `BLIND_PLANNER=base|planner` keep the base 4B or the LoRA selectable. The offline planner
@@ -26,6 +29,37 @@ Mac (M5 Pro, 64 GB, macOS 27). "Lead" = numbers reported by the lead from the Ma
   needs confirmation; shell scripts always do.
 - **Not measured on this build yet**: no live-suite, HobbyLM or DeskMind Bench run exists for the agentic-apps /
   35B-blind configuration. Every number below was measured on the configuration named in its row.
+- **Deployed override vs script defaults**: the Mac's live brain runs `tools/serve_brain.sh` with env overrides —
+  `PLANNER=base` in native-tools mode (`--planner-mode tools`), `BLIND_PLANNER=planner`, `PLANNER_AUX=planner`,
+  `THINK=1024` qwen sampler, `FEWSHOT=none`, `RETRIEVAL_K=0`, escalation off (`MUSELET_NO_ESCALATE=1`,
+  `ESCALATE=0`), `APP_HINTS`/`OPEN_ENDED`/`AGENTIC_APPS`/`VERIFY_DONE`/`FALLBACK_PLANNER`/`PLANNER_CONTEXT` on
+  (exact env in `AGENTS.md` "Deployed runtime override"). The LoRA/35B timings in this report are measurements of
+  those named configs, not of this deployment.
+
+## 0a. Reliability coverage (2026-10-25)
+
+Regression evidence for the app-discovery + Premiere focus/observation fixes — hermetic test suites, not a
+benchmark and not a claim of live editing success:
+- `uv run --project ml python -m pytest ml/tests/test_obsdiff.py ml/tests/test_premiere_focus_progress.py
+  ml/tests/test_app_hints.py -q` → 63 passed (plus `test_first_use_fixes.py
+  -k identical_noop_presses_trip_loop_guard`).
+- `xcodebuildmcp swift-package test --package-path app --filter 'AppResolverTests|TruthfulLaunchTests'` →
+  31 passed.
+- `uv run --project ml python -m pytest ml/tests/test_apps_notes_regressions.py ml/tests/test_native_site_rewrite.py -q`
+  → 173 passed (`runs/appresolver_after_pytest.log`: spoken-name resolution incl. versioned/alias cases).
+- `uv run --project ml python -m pytest ml/tests/test_grounder_wire.py
+  -k 'observation_blind or planner_user_message_gets_blind_hint' -q` → 19 passed
+  (`runs/premiere_identification_checks.log`: real "Adobe Premiere" localized name recognized as canvas/blind).
+Covers: shared recursive installed-app enumeration (nested vendor bundles such as `Adobe Premiere Pro 2026`),
+unique year-suffix name resolution, the real `Adobe Premiere` canvas-app name, the consecutive `shift+3`
+focus guard with model feedback, fresh AX observation for UI-only turns, and numeric/HotText value
+preservation in diff-chained observations. No live Premiere editing pass is claimed; live E2E still needs a
+guarded runner measurement.
+
+The final full-suite attempt (`uv run --project ml python -m pytest ml/tests -q`) did not complete.
+Its local log (`runs/github_final_python.log`) stopped at 65% with failure markers and no final summary.
+Those wider failures remain untriaged; there is no baseline establishing that they predate these changes.
+The targeted passes above must not be presented as a green full-suite result.
 
 ## 1. Models
 

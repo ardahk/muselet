@@ -1,5 +1,15 @@
 # Muselet: handoff for a new Devin org
 
+> **Supersession notice (2026-10-25):** this file is a dated snapshot; read
+> `AGENTS.md` and `docs/native-ui-planner.md` first for what runs now.
+> Historical below: the finance-review / advisor-prep `executor: brain`
+> workflow engines were deleted — analysis intents are AI-planned through
+> generic live-state tools, and `AGENTIC_APPS=0` no longer restores them.
+> The planner section's LoRA/DSL setup is the script default, not the
+> deployed override (a base-4B native-tools planner; exact env in AGENTS.md
+> "Deployed runtime override"). Older `executor: brain` and settings
+> instructions below are historical; status and numbers stay as recorded.
+
 Written Sat Oct 24 2026, ~14:00 PDT, by the lead agent. **Deadline: Cal Hacks submission Sun Oct 25 2026, 09:00 PDT.**
 Repo: `github.com/ardahk/muselet` (branch `main`). Local Mac checkout: `/Users/arda/cal13.0`.
 Read this file, then `AGENTS.md` (the project contract), then the workstream you are assigned in §7.
