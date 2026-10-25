@@ -491,8 +491,9 @@ def test_turn_obs_from_act_diff_without_observe(tmp_path):
     # unverified done -> one fresh observe, then accepted (planner-13)
     assert o.server.methods() == ["observe", "act", "act", "observe"]
     obs2 = o.planner.user_msgs[1]["obs"]
-    assert obs2 == ('app: Finder | window: "Recents" | focused: #4\n'
+    assert obs2.startswith('app: Finder | window: "Recents" | focused: #4\n'
                     '#4 textfield "Search" value="hel"\n#31 button "Export"')
+    assert "Finish when:" in obs2
     assert {"obs_from_diff": 1, "n_diffs": 2} in tr["decisions"]
 
 

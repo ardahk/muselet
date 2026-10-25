@@ -545,6 +545,17 @@ extension Skills {
 
     private func setClockWheel(_ wheel: Element, target: Int, name: String, steps: inout [String])
         -> (method: String?, reason: String?) {
+        let (method, reason) = setClockWheelAX(wheel, target: target, name: name, steps: &steps)
+        if method != nil || reason == "wheel_\(name)_unreadable" {
+            return (method, reason)
+        }
+        // AX set/step didn't stick: drive it like a user — click the wheel to
+        // focus it, type the digits, then arrow-key step, re-reading after each.
+        return setClockWheelKeys(wheel, target: target, name: name, steps: &steps)
+    }
+
+    private func setClockWheelAX(_ wheel: Element, target: Int, name: String, steps: inout [String])
+        -> (method: String?, reason: String?) {
         let rawValue = wheel.copyAttrs().value
         let raw = String(describing: rawValue).prefix(40)
         recordClockAXStep("\(name) raw=\(raw) -> \(target)", to: &steps)
@@ -622,6 +633,77 @@ extension Skills {
         let actual = ClockAX.wheelValue(wheel.copyAttrs().value)
         recordClockAXStep("\(name) stuck at \(actual.map { String($0) } ?? "?")", to: &steps)
         return (nil, "wheel_\(name)_mismatch")
+    }
+
+    private func setClockWheelKeys(_ wheel: Element, target: Int, name: String, steps: inout [String])
+        -> (method: String?, reason: String?) {
+        guard let initial = ClockAX.wheelValue(wheel.copyAttrs().value) else {
+            recordClockAXStep("\(name) unreadable", to: &steps)
+            return (nil, "wheel_\(name)_unreadable")
+        }
+        if initial == target, stableClockWheel(wheel, target: target) {
+            recordClockAXStep("\(name) \(initial)->\(target) none", to: &steps)
+            return ("none", nil)
+        }
+        let frame = wheel.copyAttrs().frame
+        Events.click(at: CGPoint(x: frame.midX, y: frame.midY))
+        usleep(120_000)
+        Events.typeKeystrokes(String(target))
+        if stableClockWheel(wheel, target: target) {
+            recordClockAXStep("\(name) \(initial)->\(target) type", to: &steps)
+            return ("type", nil)
+        }
+        // Digits didn't take: arrow-key stepping on the focused wheel.
+        var arrows = 0
+        let arrowBudget = min(70, abs(target - initial) + 5)
+        while arrows < arrowBudget {
+            guard let before = ClockAX.wheelValue(wheel.copyAttrs().value) else {
+                recordClockAXStep("\(name) unreadable", to: &steps)
+                return (nil, "wheel_\(name)_unreadable")
+            }
+            if before == target {
+                if stableClockWheel(wheel, target: target) {
+                    recordClockAXStep("\(name) \(initial)->\(target) arrows x\(arrows)", to: &steps)
+                    return ("arrows", nil)
+                }
+                recordClockAXStep("\(name) stuck at \(before)", to: &steps)
+                return (nil, "wheel_\(name)_stuck")
+            }
+            postKey(before < target ? 126 : 125)  // up / down arrow
+            let end = Date().addingTimeInterval(clockAXStepWait)
+            var moved = false
+            while Date() < end {
+                if let after = ClockAX.wheelValue(wheel.copyAttrs().value), after != before {
+                    moved = true
+                    break
+                }
+                Hands.pollWait(clockAXPoll)
+            }
+            guard moved else {
+                recordClockAXStep("\(name) arrows stuck at \(before)", to: &steps)
+                return (nil, "wheel_\(name)_stuck")
+            }
+            arrows += 1
+        }
+        if stableClockWheel(wheel, target: target) {
+            recordClockAXStep("\(name) \(initial)->\(target) arrows x\(arrows)", to: &steps)
+            return ("arrows", nil)
+        }
+        let actual = ClockAX.wheelValue(wheel.copyAttrs().value)
+        recordClockAXStep("\(name) stuck at \(actual.map { String($0) } ?? "?")", to: &steps)
+        return (nil, "wheel_\(name)_mismatch")
+    }
+
+    /// Posts one virtual-key press to the focused app (Clock's wheel accepts
+    /// up/down arrows once focused).
+    private func postKey(_ code: CGKeyCode) {
+        let src = CGEventSource(stateID: .hidSystemState)
+        for down in [true, false] {
+            if let e = CGEvent(keyboardEventSource: src, virtualKey: code, keyDown: down) {
+                SyntheticEvent.post(e)
+            }
+        }
+        usleep(30_000)
     }
 
     private func stableClockWheel(_ wheel: Element, target: Int) -> Bool {

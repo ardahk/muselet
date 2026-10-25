@@ -151,7 +151,7 @@ def test_planner_waits_for_launch_ax(monkeypatch, launch):
     orch = Orchestrator(server)
     orch.planner = FakePlanner([[launch], ['ask "What next?"']])
     asyncio.run(orch._planner_loop("open Notes", {"decisions": []}))
-    assert orch.planner.user_msgs[1]["obs"] == "READY"
+    assert orch.planner.user_msgs[1]["obs"].startswith("READY")
     assert len(polls) == 3
 
 

@@ -283,7 +283,8 @@ def test_serve_aux_shares_or_constructs_separate_model(
     monkeypatch.setattr(cli, "_stdin_lines", inputs)
 
     _run(cli.serve(
-        planner_model="main", planner_aux_model=aux_value))
+        planner_model="main", planner_aux_model=aux_value,
+            planner_blind="planner"))
 
     orch = captured["orch"]
     assert len(made) == expected_count

@@ -56,3 +56,22 @@ app: Finder | window: "Documents" | focused: none
 #3 radiobutton "as Icons" selected
 Reply:
 skill new_folder parent=~/Documents name="taxes"
+
+Goal: play some jazz on Spotify
+app: Spotify | window: "Spotify"
+(blind: the accessibility tree is empty or window-chrome only)
+url "spotify:search:jazz"
+click "green Play button of the top result"
+
+Goal: trim this clip in Premiere
+app: Adobe Premiere Pro | window: "Project"
+(blind: the accessibility tree is empty or window-chrome only)
+click "timeline clip near the playhead"
+keys d
+
+Goal: play some jazz on Spotify
+app: Spotify | window: "Spotify"
+(blind: the accessibility tree is empty or window-chrome only)
+Finish when: jazz is playing
+script applescript """tell application "Spotify" to get player state"""
+done "Playing jazz on Spotify"
