@@ -1,9 +1,10 @@
-# finance digest (Pass 65, 2026-10-25; main b340f24; new: finance-33 on cloud/open-ended)
-Open P0: none.
+# finance digest (Pass 66, 2026-10-25; main dc6f2f5; finance-33 now P0 on main, finance-31 on main)
+Open P0:
+- finance-33 (main dc6f2f5): open-ended routing (OPEN_ENDED=1 default) sends demo beat 9 'Prep me for my meeting with the Hendersons.' from advisor_prep to the planner, because the calendar hint matches 'meeting'. Also finance_review whenever the user says 'file' or 'folder'. Workaround: OPEN_ENDED=0. Fix: skip executor=brain labels in open_ended_redirect (app_hints.py:104-122).
 Open P1:
-- finance-33 (cloud/open-ended fd87f69, not on main): with OPEN_ENDED=1 by default, the calendar hint's 'meeting' match sends advisor_prep's demo beat 9 ('Prep me for my meeting with the Hendersons.') to the planner. The finder_files hint does the same to finance_review when the user says 'folder' or 'file' (app_hints.py:104-122, orchestrator.py:1131-1137).
+- (finance-33 moved to P0, see above; previously cloud/open-ended fd87f69): with OPEN_ENDED=1 by default, the calendar hint's 'meeting' match sends advisor_prep's demo beat 9 ('Prep me for my meeting with the Hendersons.') to the planner. The finder_files hint does the same to finance_review when the user says 'folder' or 'file' (app_hints.py:104-122, orchestrator.py:1131-1137).
 
-- finance-31 (cloud/fallback 6e40c3e, not on main): finance_review is risk=safe, so _with_fallback hands every recoverable failure ("Couldn't open the bank statement", including the 4 s cold-open poll from finance-25; "Couldn't read the receipts"; "Couldn't write to Numbers" after a partial write) to the planner with FALLBACK_PLANNER=1 by default. proxy.drop() removes the escalation bubble, and the 4B planner then does the categorize/duplicate/receipt math itself (ml/src/brain/orchestrator.py:98-115,1150-1190; tools/finance_review.py:322-326; tools/serve_brain.sh:53).
+- finance-31 (now on main dc6f2f5 via ccea212; first found on cloud/fallback 6e40c3e): finance_review is risk=safe, so _with_fallback hands every recoverable failure ("Couldn't open the bank statement", including the 4 s cold-open poll from finance-25; "Couldn't read the receipts"; "Couldn't write to Numbers" after a partial write) to the planner with FALLBACK_PLANNER=1 by default. proxy.drop() removes the escalation bubble, and the 4B planner then does the categorize/duplicate/receipt math itself (ml/src/brain/orchestrator.py:98-115,1150-1190; tools/finance_review.py:322-326; tools/serve_brain.sh:53).
 
 - finance-27: by default, planner retrieval now puts rule-8-violating Numbers demos (per-cell loops, `tell application "Numbers"`, cell press/type) into every Numbers planner prompt (ml/src/brain/plan_bank.py, tools/serve_brain.sh:31, evals/planner_scenarios_v2.jsonl:193,217,239).
 
@@ -12,6 +13,7 @@ Open P1:
 Open P2: finance-32 (the new acceptance gate on cloud/test-strategy has no 'Reconcile my receipts.' case, so the OCR/receipt beat is ungated), finance-29 (W9 script gate confirms the prompt's SUMIF recipe, 'Duplicate' cell text and `set n to row count`), finance-28 (the 'all' summary drops the unmatched receipt and need-review count at the 12-word cap), finance-26 (both finance demo live cases skipped by default as 'pending'), finance-23 (advisor doc-by-path), finance-25 (4 s Numbers table poll on cold open), finance-24 (merchant prefix over-match), finance-15 (single filers / 401k-HSA-checking taxed), finance-17 (numbers written as words pass the phrasing filter).
 
 Next moves:
+- Before recording on main dc6f2f5: OPEN_ENDED=0 (finance-33) and FALLBACK_PLANNER=0 (finance-31), or exempt executor=brain skills from both paths, then run acc-demo-advisor-prep and acc-demo-finance-dupes.
 - finance-33: before merging cloud/open-ended, exempt executor=brain skills from open_ended_redirect and add the demo phrases as tests.
 - finance-27 now matters more: the LoRA planner ships without few-shot, so the retrieved v2-numbers-* example is the only Numbers example in the prompt.
 - finance-32: add acc-demo-finance-receipts (checks for 6 matched, 1 mismatch, PHILZ unmatched) to build_acceptance.py.
