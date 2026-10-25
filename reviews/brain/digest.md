@@ -1,6 +1,6 @@
-# brain lane digest — pass 53 (2026-10-25T00:35:00Z)
+# brain lane digest — pass 54 (2026-10-25T00:50:00Z)
 
-Open: P0 0 / P1 8 / P2 8. main e9fb42d merged brain-9 (#61, carries brain-44), it3 as default router, LLM memory rewrite off, decisions LoRA export (#39), hands-clock (#55). New catalog `browser` args are `hidden` and skipped by DecisionEngine ARGS signatures (decision.py:419), so ARGS render parity holds; it3 routes over catalog_v3 (no browser arg). Planner warm-up runs at serve start. Suite on main: 18 failed / 2018 passed / 108 skipped (same 18 MLX-stub failures). wip/local bf98333 = main in lane.
+Open: P0 0 / P1 8 / P2 8. main eb3e945 = e9fb42d in lane (design brief only); wip/local 3f21dc6 = main in lane. New: cloud/memory-llm-gate 6864386 gates the LLM memory rewrite (no Focus/Recent context, site_search or IRREVERSIBLE text -> no rewrite; output words must come from utterance/context) - reviewed, no issue found; suite 18F/2024P (same MLX-stub 18). cloud/design b93bb50 removes the Clock-shortcut hint and Shortcuts timer backend (no dangling CLOCK_HINT/_hint_task refs; hands probe uses ClockAX.backend(axReady:)); suite 18F/2010P (same 18). Review repros unchanged (20F/52P) on all three. brain-42 still applies on memory-llm-gate.
 
 ## Open P0/P1 (ranked)
 - brain-16 [P1] abs_level misreads times, durations, percentages and unrelated words — `ml/src/brain/orchestrator.py` (main@fb2cfd0@003d1bb)
