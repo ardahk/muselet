@@ -1,4 +1,4 @@
-# bench digest — pass 97 (2026-10-25T13:46Z, main@b00f679)
+# bench digest — pass 98 (2026-10-25T14:50Z, main@b00f679)
 
 P0: 0 | open P1: 15 | open P2: 25
 
@@ -147,3 +147,10 @@ Pass 95 (no new findings): main 2de65a9..d09f4d8; wip/local 7b8f421..01a929c.
 Pass 96 (no new findings, no status changes): main d09f4d8..b00f679 only adds an architecture image to the README. README claims are unchanged (bench-54/58). wip/local 01a929c..35aed2d: the HandsKit app resolver now looks inside subfolders of the app directories, with a Notes regression test. A reliability fix with no bench impact.
 
 Pass 97 (no new findings, no status changes): main is unchanged. wip/local 35aed2d..aadf777 widens CANVAS_APPS from "Adobe Premiere Pro" to "Adobe Premiere" (ml/src/brain/orchestrator.py:647@aadf777), with tests. An app named exactly "Adobe Premiere" now counts as blind: the planner gets BLIND_HINT, and the brain takes the blind-planner path. Earlier Premiere planner runs on an install with that app name went through the non-blind path, so they aren't comparable. Record the observed Premiere app name and BLIND_PLANNER in Premiere result rows (bench-52/bench-55/bench-60). Read from the code; not run on a Mac.
+
+Pass 98 (no new findings, no status changes): main is unchanged. wip/local aadf777..73f8136:
+- obsdiff.render_line now shows slider/stepper/picker values and Premiere HotText/clipSpeed values (ml/src/brain/obsdiff.py:50-57@73f8136). This matches the Swift serializer (app/Sources/HandsKit/Observe.swift:310@73f8136), so observations rebuilt from diffs now read the same as a fresh observe.
+- The planner now sees the Premiere Speed value. A model-side Speed check is now possible, but nothing in code checks the result yet (bench-55 stays open).
+- A second Shift+3 for the same Premiere window is now refused (orchestrator.py:4416-4446@73f8136), and the Premiere tips were rewritten (prompts/app_hints.jsonl:18@73f8136). This is a live-failure guard, but it is one more prompt change that hasn't been re-run (bench-60).
+- Native-tool (ui_only) planners no longer rebuild the observation from diffs, so they re-observe after every batch (orchestrator.py:4816@73f8136). Native-tool step latency isn't comparable with earlier runs.
+- The Numbers app hint still lists the deleted `finance_review`/`advisor_prep` skills (prompts/app_hints.jsonl:20@73f8136). Added as evidence on bench-61.
