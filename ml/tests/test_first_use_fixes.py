@@ -386,8 +386,8 @@ def test_planner_open_site_rewrites_to_url():
         orch._current_goal = "navigate to gmail"
         result = await orch._exec_action({"op": "open", "name": "gmail"})
         assert result["status"] == "ok"
-        assert server.rpcs[-1] == (
-            "act", {"url": "https://mail.google.com", "op": "url"})
+        # the navigation wait check may observe once after the url act
+        assert ("act", {"url": "https://mail.google.com", "op": "url"}) in server.rpcs
         assert orch._last_url == "https://mail.google.com"
     asyncio.run(go())
 

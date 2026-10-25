@@ -162,6 +162,18 @@ _DESTRUCTIVE_REQ = re.compile(
     r"\b(?:erase|wipe|delete|remove|destroy|format|nuke|rm\s+-[rf]+)\b.*"
     r"\b(?:every|all|entire)\b|"
     r"\b(?:every|all)\s+files?\b", re.IGNORECASE | re.DOTALL)
+_NUMBERS_APP = re.compile(
+    r'tell\s+application\s+(?:id\s+)?"(?:Numbers|com\.apple\.Numbers)"',
+    re.IGNORECASE)
+_SORT_GOAL = re.compile(r"\b(?:sort|order)\b", re.IGNORECASE)
+_CELL_REWRITE = re.compile(
+    r"\bset\b\s+(?:the\s+)?(?:value|formula)\s+of|"
+    r"\bset\b\s+(?:every\s+)?(?:cells?|ranges?|rows?|columns?)\b",
+    re.IGNORECASE | re.DOTALL)
+NUMBERS_SORT_ERROR = (
+    "Sorting must preserve cell values and headers; use Numbers native "
+    "Sort Descending/Ascending, not cell rewrites.")
+
 WEB_UI_ERROR = "use the page's search box: type into it and press return"
 _BROWSER_BAR_KEYS = re.compile(r"^\s*(?:cmd|command)\+(?:l|t)\s*$", re.I)
 _URL_SEARCH = re.compile(r"\?|/results\b|/s\?k=|/search\b", re.I)
@@ -663,7 +675,7 @@ def observation_blind(obs: dict | None) -> bool:
 
 class Orchestrator:
     WEB_AX_WINDOW_S = 2.2     # Chrome's web AX tree lands ~2 s after a switch
-    LOAD_POLL_S = 0.25        # re-verify cadence while a page is loading
+    LOAD_POLL_S = 0.1         # re-verify cadence while a page is loading
     LOAD_WAIT_S = 5.0         # max re-verify window for a loading page
     WEB_PAGE_CAP_S = 3.0
     WEB_PAGE_POLL_S = 0.25
@@ -3166,7 +3178,7 @@ function run() {
                         "_log": f"{dsl_line}-> permission_prompt_gate"}
         if op == "wait":
             self._diff_chain = None
-            await asyncio.sleep(a["ms"] / 1000)
+            await self._wait_ms(a["ms"])
             return {"status": "ok", "_log": f"{dsl_line}-> ok"}
         if op == "skill":
             name = a.get("name")
@@ -3262,6 +3274,10 @@ function run() {
             return r
         if op == "script":
             lang, code = a["lang"], a["code"]
+            guard = self._numbers_sort_script_error(lang, code)
+            if guard:
+                return {"status": "failed", "error": guard,
+                        "_log": f"script -> failed: {guard}"}
             if self.script_needs_confirm(lang, code) and \
                     not self._take_confirm():
                 yes = await self.server.ask_confirm(
@@ -3699,6 +3715,14 @@ function run() {
         params = await self._resolve_open(method, params)
         if params is None:
             return {"status": "awaiting_user"}
+        # a task with finish evidence (or any agentic app task) verifies
+        # expects separately — the act RPC must not carry a fused expect,
+        # or a mismatch aborts the action inside HandsKit (e.g. keys are
+        # posted but the fused expect failure returns ok:false)
+        soft_expect = (getattr(self, "_progress", None) not in (None, "unset")
+                       or bool(getattr(self, "_agentic", None)))
+        if method == "act" and soft_expect and "expect" in params:
+            params = {k: v for k, v in params.items() if k != "expect"}
         if self._first_action_ms is None:
             self._first_action_ms = (time.perf_counter() - self._t_final) * 1000
         t = time.perf_counter()
@@ -3737,6 +3761,21 @@ function run() {
             return {"status": "failed",
                     "error": res.get("error", "?"), "res": res}
         self._last_action_error = None
+        # navigation-level actions: if the fresh observation reports the
+        # page loading, wait for the real load signal before verify
+        op = str(action.get("op") or "")
+        nav = (method == "act" and (
+                op == "url" or op == "press" or
+                (op == "type" and action.get("enter")) or
+                (op == "keys" and re.fullmatch(
+                    r"(?i)return|enter|\\r",
+                    str(action.get("combo") or ""))))) or (
+            method == "skill" and params.get("name") in
+            ("open_url", "web_search"))
+        if nav and (method == "skill" or op == "url" or
+                (self._obs_seen and self._browser_name(
+                    str(self._obs_seen[1].get("app") or "")))):
+            await self._await_page_load()
         # expect passthrough for every action type (incl. skill/script)
         exp = action.get("expect")
         if exp:
@@ -3760,8 +3799,7 @@ function run() {
                 # expects — evidence verification decides done, and a
                 # model-written predicate that can't match shouldn't
                 # abort the batch the action already ran in
-                if self._progress not in (None, "unset") or getattr(
-                        self, "_agentic", None):
+                if soft_expect:
                     trace_d = self.tracer.current if self.tracer else None
                     if trace_d is not None:
                         trace_d.setdefault("decisions", []).append(
@@ -3778,6 +3816,13 @@ function run() {
         is just the browser's name, or a loading/untitled title."""
         if not obs:
             return False
+        # AXElementBusy extends loading even without AXLoaded
+        if obs.get("web_busy") is True:
+            return True
+        # explicit AXLoaded is authoritative; missing/null falls through
+        # to the title/text heuristics
+        if isinstance(obs.get("web_loaded"), bool):
+            return not obs["web_loaded"]
         if obs.get("web_ax_pending"):
             return True
         app = str(obs.get("app") or "")
@@ -3806,14 +3851,86 @@ function run() {
             re.search(r"Waiting for \S+|Transferring data from", text,
                       re.IGNORECASE)) or site_loading)
 
+    async def _wait_ms(self, ms: int):
+        """`wait <ms>`: on a browser page with an explicit load signal,
+        return once the page is loaded (150 ms floor inside the requested
+        wait, not on top of it); else a plain sleep."""
+        obs = self._obs_seen[1] if self._obs_seen else None
+        if not (obs and self._browser_name(str(obs.get("app") or "")) and
+                (isinstance(obs.get("web_loaded"), bool) or
+                 obs.get("web_busy") is not None)):
+            await asyncio.sleep(ms / 1000)
+            return
+        deadline = ms / 1000
+        t0 = time.perf_counter()
+        await asyncio.sleep(min(0.15, deadline))
+        try:
+            while True:
+                remaining = deadline - (time.perf_counter() - t0)
+                if remaining <= 0:
+                    return
+                obs = await self._observe_once()
+                self._diff_chain = None
+                if not obs or not (
+                        self._browser_name(str(obs.get("app") or "")) and
+                        (isinstance(obs.get("web_loaded"), bool) or
+                         obs.get("web_busy") is not None)):
+                    return          # window changed / signal lost
+                if not self._page_loading(obs):
+                    return          # loaded (busy-only clear counts)
+                await asyncio.sleep(min(self.LOAD_POLL_S, remaining))
+        except RuntimeError:
+            pass
+
+    async def _await_page_load(self, cap: float = 15.0):
+        """After a navigation-level action: a FRESH observation carrying an
+        explicit load signal (web_loaded/web_busy) that says the page is
+        loading -> poll until loaded or cap. Title/text heuristics stay in
+        _repoll_loading; instant loads cost exactly one observe."""
+        try:
+            obs = await self._observe_once()
+            self._diff_chain = None   # fresh epoch consumed; drop stale diffs
+        except RuntimeError:
+            return
+        if not obs or not (
+                self._browser_name(str(obs.get("app") or "")) and
+                (isinstance(obs.get("web_loaded"), bool) or
+                 obs.get("web_busy") is not None)):
+            return
+        t0 = time.perf_counter()
+        polls = 0
+        loaded = not self._page_loading(obs)
+        try:
+            while not loaded and time.perf_counter() - t0 < cap:
+                await asyncio.sleep(self.LOAD_POLL_S)
+                polls += 1
+                obs = await self._observe_once()
+                self._diff_chain = None
+                if not obs or not (
+                        self._browser_name(str(obs.get("app") or "")) and
+                        (isinstance(obs.get("web_loaded"), bool) or
+                         obs.get("web_busy") is not None)):
+                    break      # window changed / signal lost -> stop
+                loaded = not self._page_loading(obs)
+        except RuntimeError:
+            pass
+        if polls and self.tracer.current is not None:
+            self.tracer.current.setdefault("page_load_wait", []).append(
+                {"ms": round((time.perf_counter() - t0) * 1000, 1),
+                 "polls": polls, "loaded": loaded})
+
     async def _repoll_loading(self, exp: str, vres: dict) -> tuple[dict, bool]:
         """Failed expect while the page loads: re-verify every LOAD_POLL_S
         for up to LOAD_WAIT_S. Returns (verify result, still loading)."""
-        if not self._page_loading(await self._observe_once()):
+        obs0 = await self._observe_once() or {}
+        if not self._page_loading(obs0):
             return vres, False
         started = time.perf_counter()
         polls = 0
-        while time.perf_counter() - started < self.LOAD_WAIT_S:
+        signal = (isinstance(obs0.get("web_loaded"), bool) or
+                  obs0.get("web_busy") is not None)
+        cap = 15.0 if signal else self.LOAD_WAIT_S
+        while time.perf_counter() - started < cap:
             await asyncio.sleep(self.LOAD_POLL_S)
             polls += 1
             try:
@@ -3823,6 +3940,19 @@ function run() {
                 vres = {"ok": False, "observed": str(e)}
             if vres.get("ok", False):
                 break
+            if signal:
+                o = await self._observe_once()
+                self._diff_chain = None
+                if not o or not (
+                        self._browser_name(str(o.get("app") or "")) and
+                        (isinstance(o.get("web_loaded"), bool) or
+                         o.get("web_busy") is not None)):
+                    break      # window changed / signal lost -> stop
+                if o.get("web_loaded") is True and not o.get("web_busy"):
+                    break      # page is done loading; stop waiting
+                if o.get("web_loaded") is None and \
+                        o.get("web_busy") is False:
+                    break      # busy-only signal cleared
         loading = not vres.get("ok", False) and self._page_loading(
             await self._observe_once())
         if self.tracer.current is not None:
@@ -5010,6 +5140,8 @@ function run() {
                 "observe", {"scope": "focused_window",
                             "max_nodes": int(os.environ.get("MUSELET_OBS_NODES", "150")),
                             "diff": True}, timeout=10)
+            if res is None:
+                return None
             self._last_epoch = res.get("epoch")
             if res:
                 self._obs_seen = (time.perf_counter(), res)
@@ -5094,7 +5226,7 @@ function run() {
             if op == "script":
                 return await self._script(a)
             if op == "wait":
-                await asyncio.sleep(a["ms"] / 1000)
+                await self._wait_ms(a["ms"])
                 continue
             if op in _ACT_OPS and not gate_checked:
                 gate_checked = True
@@ -5189,8 +5321,23 @@ function run() {
                 pass
         return keep
 
+    def _numbers_sort_script_error(self, lang: str, code: str) -> str | None:
+        """Integrity guard for sort goals: a Numbers AppleScript that SETS
+        cell values/formulas would overwrite headers/data while 'sorting'.
+        Native sort commands, header reads and local-variable assignments
+        stay allowed. Not a deterministic workflow — a narrow guard."""
+        if lang != "applescript" or not _NUMBERS_APP.search(code):
+            return None
+        goal = self._current_goal or self._utterance or ""
+        if not _SORT_GOAL.search(goal):
+            return None
+        return NUMBERS_SORT_ERROR if _CELL_REWRITE.search(code) else None
+
     async def _script(self, a: dict) -> str:
         lang, code = a["lang"], a["code"]
+        guard = self._numbers_sort_script_error(lang, code)
+        if guard:
+            return await self._fail(guard, "Script failed")
         if self.script_needs_confirm(lang, code):
             yes = await self.server.ask_confirm(
                 await self._confirm_summary(a))

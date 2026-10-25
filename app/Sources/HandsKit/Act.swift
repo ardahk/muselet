@@ -386,7 +386,7 @@ extension Hands {
                 }
                 // Adobe "hot text" number fields (Premiere's Speed/Duration)
                 // are AX buttons: click into edit mode, replace, key presses.
-                if rec.role == "button" && rec.label.contains("HotText") {
+                if rec.isHotTextButton {
                     Events.click(at: CGPoint(x: rec.frame.midX, y: rec.frame.midY))
                     usleep(200_000)
                     Combo.post(try Combo.parse("cmd+a"))

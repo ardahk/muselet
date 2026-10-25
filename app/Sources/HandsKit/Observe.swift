@@ -7,6 +7,12 @@ public struct ElementRecord {
     public var ref: Int
     public var role: String          // short role name
     public var label: String
+    /// Adobe "hot text" numeric controls surface as AX buttons whose label
+    /// holds the widget name; clipSpeed is Premiere's Speed/Duration field.
+    /// These render their value in the observation and accept typed digits.
+    var isHotTextButton: Bool {
+        role == "button" && (label.contains("HotText") || label == "clipSpeed")
+    }
     public var value: Any?
     public var enabled: Bool
     public var selected: Bool
@@ -39,6 +45,8 @@ public struct Observation {
     /// The app's web tree was switched on < ~2.5 s ago and Chrome is still
     /// debouncing: web content will appear on a later observation.
     public var webAXPending = false
+    public var webLoaded: Bool?
+    public var webBusy: Bool?
     /// Which root the walk used: "focused" | "main" | "windows" (frontmost
     /// AXWindows entry: the app has windows but none is focused/main, e.g.
     /// it isn't active) | "app" (window-like app children; no AXWindows) |
@@ -299,7 +307,8 @@ public enum Serializer {
         var s = "#\(e.ref) \(e.role) \"\(esc(e.label))\""
         if let v = e.value as? String, (e.role == "textfield" || e.role == "textarea" || e.role == "combobox") {
             s += " value=\"\(esc(v))\""
-        } else if ["slider", "stepper", "incrementor", "picker"].contains(e.role) {
+        } else if ["slider", "stepper", "incrementor", "picker"].contains(e.role)
+                || e.isHotTextButton {
             if let n = e.value as? NSNumber {
                 s += " value=\"\(n)\""
             } else if let v = e.value as? String, !v.isEmpty {
@@ -582,6 +591,10 @@ public final class Hands {
         if let webOn { out.webAX = webOn.mode.rawValue }
         if let w = webWait { out.webAXWaitMs = w.ms }
         out.webAXPending = webAXEnabled && webAXRegistry.pending(pid: obs.pid)
+        if let root = roots.first, let area = firstWebArea(root) {
+            if let loaded = webBool(area, "AXLoaded") { out.webLoaded = loaded }
+            if let busy = webBool(area, "AXElementBusy") { out.webBusy = busy }
+        }
         out.windowSource = picked.source
         return out
     }
@@ -811,4 +824,33 @@ public final class Hands {
 
     /// Element handle for a recently minted ref (any session).
     func knownElement(ref: Int) -> Element? { knownElements[ref] }
+}
+
+/// First AXWebArea in a window — BFS, shallow (page-load signal lives on it).
+func firstWebArea(_ root: any Element) -> (any Element)? {
+    func kids(_ el: any Element) -> [any Element] {
+        let v = el.copySingleAttr(kAXChildrenAttribute)
+        if let els = v as? [any Element] { return els }
+        if let els = v as? [AXUIElement] { return els.map { AXNode($0) as any Element } }
+        return []
+    }
+    var queue = kids(root).map { ($0, 1) }
+    var seen = 0
+    while !queue.isEmpty && seen < 400 {
+        let (el, depth) = queue.removeFirst(); seen += 1
+        if (el.copySingleAttr(kAXRoleAttribute) as? String) == "AXWebArea" {
+            return el
+        }
+        if depth < 15 {
+            for child in kids(el) { queue.append((child, depth + 1)) }
+        }
+    }
+    return nil
+}
+
+func webBool(_ el: any Element, _ name: String) -> Bool? {
+    let v = el.copySingleAttr(name)
+    if let b = v as? Bool { return b }
+    if let n = v as? NSNumber { return n.boolValue }
+    return nil
 }

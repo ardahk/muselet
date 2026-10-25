@@ -402,3 +402,81 @@ def test_grounded_click_refused_in_spotify():
                                "target": "green Play button of the top result"}))
     assert r["status"] == "failed" and "Spotify" in r["error"]
     assert not [c for c in server.rpcs if c[0] in ("screenshot", "act")]
+
+
+# 8. soft expect -> no fused expect inside the act rpc -------------------------
+
+def _premiere_obs():
+    return {"epoch": 1, "app": "Adobe Premiere Pro",
+            "window": "/Users/x/museless.prproj *", "focused_ref": None,
+            "elements": [], "ax_ms": 1,
+            "text": 'app: Adobe Premiere Pro | window: "/Users/x/museless.prproj *"'}
+
+
+def _swift_act(params):
+    """HandsKit fused-expect behaviour: ok:false + expect_failed if the
+    act params carry 'expect'; the action itself always posts."""
+    if "expect" in params:
+        return {"ok": False, "expect_ok": False,
+                "error": 'expect_failed: window="/Users/x/museless.prproj *"'}
+    return {"ok": True, "act_ms": 1, "epoch": 2}
+
+
+def test_agentic_soft_expect_strips_fused_expect(tmp_path):
+    """keys shift+3 / d / cmd+r with literal title expects: the fused
+    expect must never reach HandsKit, so the batch executes in order and
+    the advisory soft failure doesn't abort or count as done evidence."""
+    planner = FakePlanner([
+        ["keys shift+3", 'expect title~"Timeline"', "keys d",
+         "keys cmd+r", 'expect title~"Clip speed / duration"'],
+        ['done "trimmed"']])
+    server = FakeServer(act=_swift_act, observe=_premiere_obs,
+                        handlers={"verify": lambda p: {"ok": False,
+                                                     "observed": {}}})
+    orch = _orch(server, planner)
+    orch._agentic = {"skill": "premiere_edit", "args": {}}
+    trace = trace_for(orch)
+    out = run(orch._planner_loop("Double the speed of this video", trace))
+    combos = [p.get("combo") for m, p in server.rpcs if m == "act"]
+    assert combos == ["shift+3", "d", "cmd+r"]
+    assert all("expect" not in p for m, p in server.rpcs if m == "act")
+    # the soft expect failures must not trigger planner recovery
+    assert not any(d.get("planner.recover", {}).get("reason")
+                   in ("action_error", "expect")
+                   for d in trace["decisions"])
+
+
+def test_agentic_soft_expect_direct_rpc_action(tmp_path):
+    server = FakeServer(act=_swift_act, observe=_premiere_obs,
+                        handlers={"verify": lambda p: {"ok": False,
+                                                     "observed": {}}})
+    orch = _orch(server, FakePlanner([['done "x"']]))
+    # _progress set (finish criterion) without _agentic is also soft
+    orch._agentic = None
+    orch._progress = ("play", "x", {})
+    r = run(orch._rpc_action("act",
+            {"op": "keys", "combo": "d", "expect": 'title~"Timeline"'},
+            {"op": "keys", "combo": "d", "expect": 'title~"Timeline"'}))
+    acts = [p for m, p in server.rpcs if m == "act"]
+    assert r["status"] == "ok" and "expect" not in acts[-1]
+    assert r.get("expect_soft") and not r.get("expect_ok")
+    # strict mode: fused expect goes through and fails the action
+    orch._progress, orch._agentic = None, None
+    r = run(orch._rpc_action("act",
+            {"op": "keys", "combo": "d", "expect": 'title~"Timeline"'},
+            {"op": "keys", "combo": "d", "expect": 'title~"Timeline"'}))
+    acts = [p for m, p in server.rpcs if m == "act"]
+    assert r["status"] == "failed" and "expect" in acts[-1]
+@pytest.mark.parametrize("error", ["stale_ref #9",
+                                   "focus_changed",
+                                   "permission_denied"])
+def test_agentic_soft_expect_genuine_errors_still_fail(tmp_path, error):
+    server = FakeServer(
+        act=lambda p: {"ok": False, "error": error},
+        observe=_premiere_obs)
+    orch = _orch(server, FakePlanner([['done "x"']]))
+    orch._progress = ("play", "x", {})
+    r = run(orch._rpc_action(
+        "act", {"op": "press", "ref": 9, "expect": 'title~"x"'},
+        {"op": "press", "ref": 9, "expect": 'title~"x"'}))
+    assert r["status"] == "failed" and error.split()[0] in r["error"]

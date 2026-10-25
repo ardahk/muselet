@@ -413,7 +413,7 @@ final class VoiceController {
             model.busy = false
             model.log(.system, "cancel sent (Esc)")
             model.mood = .idle
-            mascot?.showBubble("Stopped.", style: .hint)
+            mascot?.hideBubble()
         }
     }
 

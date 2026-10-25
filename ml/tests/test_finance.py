@@ -624,7 +624,8 @@ tell application id "com.apple.Numbers"
 		repeat with s in sheets of d
 			repeat with t in tables of s
 				set hdr to {}
-				repeat with v in (formatted value of every cell of row 1 of t)
+				set headerValues to get formatted value of every cell of row 1 of t
+				repeat with v in headerValues
 					set v to contents of v
 					if v is missing value then set v to ""
 					set end of hdr to (v as text)
