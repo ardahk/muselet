@@ -1367,6 +1367,33 @@ class Orchestrator:
                 out.add(key)
         return out
 
+    async def _resolve_open(self, method: str, params: dict) -> dict | None:
+        skill = method == "skill" and params.get("name") == "open_app"
+        if not skill and not (method == "act" and params.get("op") == "open"):
+            return params
+        args = params.get("args", {}) if skill else params
+        name = str(args.get("app") or args.get("name") or args.get("target") or "")
+        names = await self._app_names()
+        if not names or self._apps is None:
+            return params
+        def key(value):
+            return re.sub(r"[\W_]+", "", re.sub(
+                r"\.app$", "", value, flags=re.IGNORECASE).lower())
+        by_key = {key(n): n for n in names}
+        resolved = name if name in names else by_key.get(key(name))
+        aliases = {"vscode": "Visual Studio Code", "chrome": "Google Chrome",
+                   "settings": "System Settings", "preferences": "System Settings"}
+        if resolved is None:
+            targets = self._NATIVE_APP_ALIASES.get(key(name), set())
+            resolved = by_key.get(key(aliases.get(key(name), "")))
+            resolved = resolved or next((n for n in names if key(n) in targets), None)
+        if resolved is None:
+            await self.server.say("Which app?")
+            await self.server.ui("listening")
+            return None
+        args = dict(args, app=resolved)
+        return dict(params, args=args) if skill else args
+
     _NATIVE_APP_ALIASES = {
         "zoom": {"zoom.us"},
         "teams": {"microsoftteams", "microsoftteamsclassic"},
@@ -2667,6 +2694,9 @@ function run() {
     async def _rpc_action(self, method: str, params: dict,
                           action: dict) -> dict:
         """send act/skill rpc; verify expect afterwards."""
+        params = await self._resolve_open(method, params)
+        if params is None:
+            return {"status": "awaiting_user"}
         if self._first_action_ms is None:
             self._first_action_ms = (time.perf_counter() - self._t_final) * 1000
         t = time.perf_counter()
@@ -3587,6 +3617,9 @@ function run() {
                 params["epoch"] = self._last_epoch
             t = time.perf_counter()
             try:
+                params = await self._resolve_open("act", params)
+                if params is None:
+                    return "awaiting_user"
                 res = await self.server.rpc("act", params, timeout=15)
             except RuntimeError as e:
                 self.tracer.rpc("act", params, {"error": str(e)},
@@ -3733,6 +3766,10 @@ function run() {
                 (time.perf_counter() - self._t_final) * 1000
         t = time.perf_counter()
         try:
+            params = await self._resolve_open("skill", {"name": name, "args": args})
+            if params is None:
+                return "awaiting_user"
+            args = params["args"]
             res = await self.server.rpc(
                 "skill", {"name": name, "args": args}, timeout=45)
         except RuntimeError as e:
