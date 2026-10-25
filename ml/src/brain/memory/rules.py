@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
-from urllib.parse import quote, quote_plus
+from urllib.parse import parse_qs, quote, quote_plus, unquote, urlsplit
 
+from .guard import IRREVERSIBLE
 from .working import _COMMS, site_for_url
 
 
@@ -43,6 +45,92 @@ SEARCH_URLS: dict[str, str] = {
 }
 _WEB_ENGINES = {"google.com", "bing.com", "duckduckgo.com"}
 _PATH_SEARCH = {"maps.google.com", "spotify.com"}
+_QUERY_KEYS = (
+    "q", "query", "search", "search_query", "_nkw", "keywords", "term",
+    "searchTerm", "find_desc", "st",
+)
+_QUERY_STOPWORDS = {
+    "a", "an", "and", "at", "best", "for", "from", "good", "in", "long",
+    "me", "my", "of", "on", "or", "the", "to", "top", "with",
+}
+
+
+def _query_from_url(url: str) -> str | None:
+    try:
+        parsed = urlsplit(str(url or ""))
+        values = parse_qs(parsed.query)
+    except ValueError:
+        return None
+    for key in _QUERY_KEYS:
+        found = values.get(key)
+        if found and found[0].strip():
+            return found[0].strip()
+    match = re.search(r"/(?:search|find)/([^/?#]+)", parsed.path,
+                      re.IGNORECASE)
+    return unquote(match.group(1)).replace("+", " ").strip() if match else None
+
+
+def _search_details(turn) -> tuple[str, str | None, str] | None:
+    if not turn or not turn.ok:
+        return None
+    args = turn.args or {}
+    query = str(args.get("query") or "").strip()
+    urls = [str(args.get("url") or ""), str(turn.url or "")]
+    urls.extend(re.findall(r"https?://\S+", str(turn.resolved or "")))
+    site = None
+    for url in urls:
+        if not url:
+            continue
+        parsed_query = _query_from_url(url)
+        if parsed_query and not query:
+            query = parsed_query
+        if parsed_query and not site:
+            site = site_for_url(url)
+    mode = "play" if turn.skill == "play_music" else \
+        ("site" if site else "search")
+    if not query:
+        match = re.search(
+            r"\bsearch(?:\s+[\w.-]+)?\s+for\s+(.+)$",
+            str(turn.resolved or ""), re.IGNORECASE)
+        if match:
+            query = match.group(1).strip()
+        elif turn.skill == "play_music":
+            match = re.search(r"\bplay(?:\s+some)?\s+(.+)$",
+                              str(turn.resolved or ""), re.IGNORECASE)
+            if match:
+                query = match.group(1).strip()
+    if not query or turn.skill not in {
+            "web_search", "open_url", "play_music", "planner"}:
+        return None
+    return query, site, mode
+
+
+def _search_url(site: str, query: str) -> str | None:
+    template = SEARCH_URLS.get(site)
+    if template is None:
+        return None
+    encoded = quote(query, safe="") if site in _PATH_SEARCH \
+        else quote_plus(query)
+    return template.format(q=encoded)
+
+
+def _render_search(text: str, turn, query: str, reason: str,
+                   site: str | None = None):
+    details = _search_details(turn)
+    if details is None:
+        return None
+    _, prior_site, mode = details
+    site = site or prior_site
+    if mode == "play":
+        return _resolution(text, f"play {query}", reason)
+    if site:
+        url = _search_url(site, query)
+        if url:
+            return _resolution(
+                text, f"open {url}", reason,
+                direct={"skill": "open_url", "args": {"url": url}})
+        return _resolution(text, f"search {site} for {query}", reason)
+    return _resolution(text, f"search for {query}", reason)
 
 
 @dataclass
@@ -61,10 +149,22 @@ def _resolution(text, new_text, reason, direct=None):
 
 
 def _site_search(text: str, wm, ctx: dict, now: float):
-    from .detect import SITE_SEARCH_RE, _bare_search
+    from .detect import SITE_SEARCH_RE, _ALIAS, _bare_search
 
-    match = SITE_SEARCH_RE.match(text.strip())
     turn = wm.last(now)
+    try_match = re.fullmatch(r"try\s+(.+?)[.!]?", text.strip(),
+                             re.IGNORECASE)
+    if try_match:
+        name = try_match.group(1).casefold().strip()
+        requested_site = _ALIAS.get(name, name if "." in name else None)
+        details = _search_details(turn)
+        if requested_site in SEARCH_URLS and details is not None and \
+                details[1] != requested_site:
+            return _render_search(
+                text, turn, details[0], "site_search", requested_site)
+        if not re.search(r"\binstead\b", name):
+            return None
+    match = SITE_SEARCH_RE.match(text.strip())
     if match:
         query = match.group(1).strip()
     elif turn and _bare_search(text.strip(), turn, ctx, now):
@@ -230,9 +330,33 @@ _REPLAYABLE = {
     "media_control", "dark_mode", "mute", "open_url", "open_app",
     "web_search", "window_layout", "premiere_command",
 }
+_UNDO_FALLBACK_SKILLS = {
+    "set_volume", "change_volume", "set_brightness", "window_layout",
+}
 
 
 def _again(text: str, turn, catalog):
+    same = re.fullmatch(
+        r"same(?:\s+thing)?\s+but\s+(?:for|with)\s+([^\s.!?]+)[.!]?",
+        text, re.IGNORECASE)
+    if same:
+        details = _search_details(turn)
+        replacement = same.group(1)
+        if details is None or len(replacement) < 4 or \
+                not replacement.casefold().endswith("s"):
+            return None
+        words = re.findall(r"[^\W_]+", details[0], re.UNICODE)
+        candidates = [
+            word for word in words
+            if len(word) >= 4 and word.casefold().endswith("s") and
+            word.casefold() not in _QUERY_STOPWORDS
+        ]
+        if len(candidates) != 1:
+            return None
+        query = re.sub(
+            rf"\b{re.escape(candidates[0])}\b", replacement, details[0],
+            count=1, flags=re.IGNORECASE)
+        return _render_search(text, turn, query, "again")
     if turn.skill in _COMMS or turn.skill == "type_text" or \
             "redacted" in turn.resolved.casefold():
         return Resolution(
@@ -414,6 +538,31 @@ def _item(text: str, wm, ctx: dict, now: float):
                 rewritten = re.sub(r"\bthere\b", destination, text,
                                    count=1, flags=re.IGNORECASE)
                 return _resolution(text, rewritten, "item")
+    created = []
+    for prior in reversed(wm.turns):
+        if not 0 <= now - prior.t <= wm.ttl_s or not prior.ok or \
+                prior.skill not in {"new_note", "create_reminder",
+                                    "create_event"}:
+            continue
+        title = str((prior.args or {}).get("title") or "").strip()
+        if title:
+            created.append((prior.skill, title))
+    if created:
+        if re.search(r"\b(?:add|put|write|append)\b.+\bto\s+"
+                     r"(?:it|that|this)\b", text, re.IGNORECASE):
+            selected = next(
+                (row for row in created if row[0] == "new_note"),
+                created[0])
+        else:
+            selected = created[0]
+        target = selected[1]
+        if selected[0] == "new_note" and re.search(
+                r"\bto\s+(?:it|that|this)\b", text, re.IGNORECASE):
+            target = f"the {target} note"
+        rewritten = re.sub(r"\b(?:it|that|this)\b", target, text, count=1,
+                           flags=re.IGNORECASE)
+        if rewritten != text:
+            return _resolution(text, rewritten, "item")
     folder_only = bool(re.search(r"\bfolder\b", text, re.IGNORECASE))
     refs = _file_referents(wm, now, folder_only=folder_only)
     if not refs:
@@ -436,10 +585,183 @@ def _item(text: str, wm, ctx: dict, now: float):
     return _resolution(text, rewritten, "item")
 
 
+_DAYS = "monday|tuesday|wednesday|thursday|friday|saturday|sunday|today|tomorrow"
+_ONES = {
+    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+    "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
+    "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18,
+    "nineteen": 19,
+}
+_TENS = {
+    "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50,
+    "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
+}
+
+
+def _words_number(value: str) -> int | None:
+    value = value.casefold().strip()
+    if value.isdigit():
+        return int(value)
+    words = re.findall(r"[a-z]+", value)
+    if not words or any(word not in _ONES and word not in _TENS
+                        for word in words):
+        return None
+    return sum(_ONES.get(word, _TENS.get(word, 0)) for word in words)
+
+
+def _clock(value: str) -> tuple[str, str | None] | None:
+    value = value.strip().casefold()
+    period_match = re.search(r"\b([ap])\.?m\.?$", value)
+    period = f"{period_match.group(1)}m" if period_match else None
+    if period_match:
+        value = value[:period_match.start()].strip()
+    match = re.fullmatch(r"(\d{1,2})(?:[:.\s](\d{2}))?", value)
+    if match:
+        hour, minute = int(match.group(1)), int(match.group(2) or 0)
+    else:
+        words = re.findall(r"[a-z]+", value)
+        if not words:
+            return None
+        hour = _words_number(words[0])
+        minute = _words_number(" ".join(words[1:])) if len(words) > 1 else 0
+    if hour is None or minute is None or not 0 <= minute < 60:
+        return None
+    return (f"{hour}:{minute:02d}" if minute else str(hour), period)
+
+
+def _change_value(text: str, turn):
+    if not turn.ok:
+        return None
+    match = re.search(r"\bmake\s+it\s+(.+?)(?:\s+instead)?[.!]?$",
+                      text, re.IGNORECASE)
+    if not match:
+        match = re.fullmatch(
+            r"(?:and\s+)?(.+?)(?:\s+not\s+.+?)?(?:\s+instead)?[.!]?",
+            text, re.IGNORECASE)
+    if not match:
+        return None
+    value = match.group(1).strip()
+    prior = str(turn.resolved or "")
+    day = re.fullmatch(_DAYS, value, re.IGNORECASE)
+    if day:
+        rewritten, count = re.subn(
+            rf"\b(?:{_DAYS})\b", value, prior, count=1,
+            flags=re.IGNORECASE)
+        if not count:
+            rewritten = f"{prior.rstrip()} on {value}"
+        return _resolution(text, rewritten, "refinement")
+    is_timer = turn.skill == "start_timer" or (
+        turn.skill == "planner" and
+        re.search(r"\btimer\b", prior, re.IGNORECASE))
+    number = _words_number(value)
+    if is_timer and number is not None:
+        rewritten, count = re.subn(
+            r"\b(?:\d+|(?:zero|one|two|three|four|five|six|seven|eight|nine|"
+            r"ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|"
+            r"eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|"
+            r"eighty|ninety)(?:[-\s]+(?:one|two|three|four|five|six|seven|"
+            r"eight|nine))?)\s+(?=(?:minute|hour|second)s?\b)",
+            f"{number} ", prior, count=1, flags=re.IGNORECASE)
+        return _resolution(text, rewritten, "refinement") if count else None
+    clock = _clock(value)
+    if clock:
+        changed = False
+
+        def replace_time(found):
+            nonlocal changed
+            if changed or _clock(" ".join(
+                    part for part in (found.group(2), found.group(3))
+                    if part)) is None:
+                return found.group(0)
+            old_period = found.group(3)
+            period = clock[1] or old_period
+            changed = True
+            return found.group(1) + clock[0] + (
+                f" {period}" if period else "")
+        rewritten = re.sub(
+            r"(\bat\s+)(\d{1,2}(?::\d{2})?|[a-z]+(?:\s+[a-z]+)?)"
+            r"(?:\s+([ap]\.?m\.?))?", replace_time, prior,
+            flags=re.IGNORECASE)
+        return _resolution(text, rewritten, "refinement") if changed else None
+    return None
+
+
+def _folded_text(value: str) -> tuple[str, list[int]]:
+    folded = []
+    offsets = []
+    for index, char in enumerate(value):
+        for part in unicodedata.normalize(
+                "NFKD", char.casefold()):
+            if not unicodedata.combining(part):
+                folded.append(part)
+                offsets.append(index)
+    return "".join(folded), offsets
+
+
+def _replace_folded(text: str, old: str, new: str) -> str | None:
+    needle, _ = _folded_text(old)
+    haystack, offsets = _folded_text(text)
+    if not needle:
+        return None
+    index = haystack.find(needle)
+    while index >= 0:
+        end = index + len(needle)
+        start_char, end_char = offsets[index], offsets[end - 1] + 1
+        if (start_char == 0 or not text[start_char - 1].isalnum()) and \
+                (end_char == len(text) or not text[end_char].isalnum()):
+            return text[:start_char] + new + text[end_char:]
+        index = haystack.find(needle, index + 1)
+    return None
+
+
+def _distance_one(left: str, right: str) -> bool:
+    if left == right:
+        return True
+    if min(len(left), len(right)) < 5 or abs(len(left) - len(right)) > 1:
+        return False
+    if len(left) > len(right):
+        left, right = right, left
+    row = list(range(len(left) + 1))
+    for index, char in enumerate(right, 1):
+        next_row = [index]
+        for offset, other in enumerate(left, 1):
+            next_row.append(min(
+                next_row[-1] + 1, row[offset] + 1,
+                row[offset - 1] + (char != other)))
+        row = next_row
+    return row[-1] <= 1
+
+
 def _refinement(text: str, turn):
     skill = turn.skill
     if not turn.ok:
         return None
+    details = _search_details(turn)
+    search = re.fullmatch(
+        r"(?:just|only)(?:\s+(?:for|from|the|in|on))*\s+(.+)|"
+        r"something\s+(?:more\s+|less\s+)?(.+)",
+        text, re.IGNORECASE)
+    if search and details:
+        constraint = next(group for group in search.groups() if group)
+        query = (f"{constraint} {details[0]}" if search.group(2)
+                 else f"{details[0]} {constraint}")
+        return _render_search(text, turn, query, "refinement")
+    changed = _change_value(text, turn)
+    if changed:
+        return changed
+    if skill == "window_layout":
+        direction = re.search(
+            r"\b(left|right|top|bottom|full\s*screen)\b", text,
+            re.IGNORECASE)
+        if direction:
+            prior = str(turn.resolved or _render_action(turn))
+            rewritten, count = re.subn(
+                r"\b(?:left|right|top|bottom|full\s*screen|full)\b",
+                direction.group(1), prior, count=1, flags=re.IGNORECASE)
+            return _resolution(
+                text, rewritten if count else
+                f"{prior.rstrip()} {direction.group(1)}", "refinement")
     normalized = text.casefold()
     maximum = bool(re.search(r"\bcrank\s+it\s+(?:all\s+the\s+way\s+)?up\b",
                              normalized))
@@ -497,7 +819,7 @@ def _other_option(turn, wm, now):
                     value.casefold() == old.casefold()
                     for value in candidates):
                 return next(value for value in candidates
-                            if value.casefold() != old.casefold())
+                            if value.casefold() != old.casefold()), old
     selected = " ".join(str(v) for v in (turn.args or {}).values()
                         if isinstance(v, str))
     selected += " " + str(turn.resolved or "")
@@ -507,19 +829,32 @@ def _other_option(turn, wm, now):
         for source in ((prior.args or {}).get("body"),
                        (prior.args or {}).get("title"),
                        prior.utterance):
-            if not isinstance(source, str) or not re.search(r"\s+or\s+", source,
-                                                             re.IGNORECASE):
+            if not isinstance(source, str) or not re.search(
+                    r"\s+(?:and|or)\s+", source, re.IGNORECASE):
                 continue
-            left, right = re.split(r"\s+or\s+", source, maxsplit=1,
+            left, right = re.split(r"\s+(?:and|or)\s+", source, maxsplit=1,
                                    flags=re.IGNORECASE)
             left = re.sub(r"^(?:the|a|an)\s+", "", left.strip(),
                           flags=re.IGNORECASE)
             right = re.sub(r"^(?:the|a|an)\s+", "", right.strip(),
                            flags=re.IGNORECASE)
-            if left and right and left.casefold() in selected.casefold():
-                return right
-            if left and right and right.casefold() in selected.casefold():
-                return left
+            selected_words = set(re.findall(r"[^\W_]+", selected.casefold()))
+            left_words = [word for word in re.findall(
+                r"[^\W_]+", left.casefold()) if word not in _QUERY_STOPWORDS]
+            right_words = [word for word in re.findall(
+                r"[^\W_]+", right.casefold()) if word not in _QUERY_STOPWORDS]
+            left_matches = [word for word in left_words
+                            if word in selected_words and
+                            re.search(rf"\b{re.escape(word)}\b",
+                                      turn.resolved, re.IGNORECASE)]
+            right_matches = [word for word in right_words
+                             if word in selected_words and
+                             re.search(rf"\b{re.escape(word)}\b",
+                                       turn.resolved, re.IGNORECASE)]
+            if left_matches and not right_matches:
+                return right, max(left_matches, key=len)
+            if right_matches and not left_matches:
+                return left, max(right_matches, key=len)
     return None
 
 
@@ -527,15 +862,15 @@ def _correction(text: str, turn, wm, now):
     if not turn.ok:
         return None
     if re.search(r"\bthe other one\b", text, re.IGNORECASE):
-        replacement = _other_option(turn, wm, now)
-        if not replacement:
+        option = _other_option(turn, wm, now)
+        if not option:
             return None
+        replacement, old = option
         if turn.skill in _COMMS:
             body = (turn.args or {}).get("body") or ""
             return _resolution(
                 text, f"text {replacement} saying {body}".strip(),
                 "correction")
-        old = (turn.args or {}).get("to")
         if old:
             resolved = re.sub(re.escape(str(old)), replacement,
                               turn.resolved, count=1, flags=re.IGNORECASE)
@@ -544,24 +879,20 @@ def _correction(text: str, turn, wm, now):
 
     replacement = old_override = None
     match = re.match(
-        r"^(?:(?:no,?\s+)?actually,?\s+)?(?:no,?\s+)?i meant\s+"
+        r"^(?:(?:no,?\s+)?actually,?\s+)?(?:sorry,?\s+)?"
+        r"(?:no,?\s+)?i\s+(?:said|meant)\s+"
         r"(.+?)\s*[.!?]*$",
         text, re.IGNORECASE)
     if match:
         replacement = match.group(1).strip()
     if replacement is None:
         match = re.match(
-            r"^(?:no,?\s+)?(.+?)\s*,\s*not\s+(.+?)[.!?]*$",
+            r"^(?:no,?\s+)?(.+?)\s*,?\s*not\s+(.+?)[.!?]*$",
             text, re.IGNORECASE)
         if match:
             replacement, old_override = match.group(1), match.group(2)
             replacement = re.sub(r"^not\s+", "", replacement,
                                  flags=re.IGNORECASE).strip()
-    if replacement is None:
-        match = re.match(r"^sorry,?\s+i said\s+(.+?)[.!?]*$",
-                         text, re.IGNORECASE)
-        if match:
-            replacement = match.group(1).strip()
     if replacement is None:
         match = re.match(r"^(?:no,?\s+)?the\s+(.+?)\s+one[.!?]*$",
                          text, re.IGNORECASE)
@@ -598,13 +929,28 @@ def _correction(text: str, turn, wm, now):
             old_head = str(old).split()[0]
             new_head = re.sub(r"^(?:the|that)\s+|\s+(?:one|preset)$", "",
                               str(replacement).strip(), flags=re.IGNORECASE)
-            resolved, count = re.subn(
-                re.escape(old_head), new_head, turn.resolved, count=1,
-                flags=re.IGNORECASE)
+            resolved = _replace_folded(turn.resolved, old_head, new_head)
+            count = resolved is not None
         else:
-            resolved, count = re.subn(re.escape(str(old)), replacement,
-                                      turn.resolved, count=1,
-                                      flags=re.IGNORECASE)
+            resolved = _replace_folded(turn.resolved, str(old), replacement)
+            count = resolved is not None
+            if not count:
+                old_word = re.findall(r"[^\W_]+", str(old), re.UNICODE)
+                if old_word:
+                    target, _ = _folded_text(old_word[0])
+                    for word in re.finditer(r"[^\W_]+", turn.resolved,
+                                            re.UNICODE):
+                        candidate, _ = _folded_text(word.group())
+                        if candidate == target or (
+                                min(len(candidate), len(target)) >= 4 and
+                                (candidate.startswith(target) or
+                                 target.startswith(candidate))) or \
+                                _distance_one(candidate, target):
+                            resolved = (
+                                turn.resolved[:word.start()] + replacement +
+                                turn.resolved[word.end():])
+                            count = 1
+                            break
         if count:
             return _resolution(text, resolved, "correction")
     if turn.skill == "open_app":
@@ -624,6 +970,17 @@ def apply(text: str, reason: str, wm, ctx: dict, now: float,
         return _again(text, turn, catalog)
     if reason == "undo":
         rewritten = _undo(text, turn, wm)
+        if rewritten in {None, ""}:
+            previous = next((
+                prior for prior in reversed(wm.turns)
+                if prior is not turn and prior.ok and
+                prior.skill in _UNDO_FALLBACK_SKILLS and
+                not IRREVERSIBLE.search(str(prior.resolved or "")) and
+                prior.skill == turn.skill and
+                0 <= now - prior.t <= wm.ttl_s and prior.resolved
+            ), None)
+            if previous is not None:
+                return _resolution(text, previous.resolved, "undo")
         if rewritten == "":
             return Resolution("ask", text, False, "undo",
                               ask="I can't undo that. What should I do?")

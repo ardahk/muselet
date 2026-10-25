@@ -28,6 +28,10 @@ def normalize_utterance(text: str) -> str:
                        flags=re.IGNORECASE)
     value = re.sub(r"\bclothes(?=\s+(?:it|that|this)\b)", "close",
                    value, flags=re.IGNORECASE)
+    value = re.sub(r"\bhyde(?=\s+(?:it|that|this)\b)", "hide",
+                   value, flags=re.IGNORECASE)
+    value = re.sub(r"\btras(?=\s+(?:it|that|this)\b)", "trash",
+                   value, flags=re.IGNORECASE)
     return value
 
 
@@ -60,7 +64,8 @@ _ITEM = re.compile(
 _CORRECTION = re.compile(
     r"^(?:actually,?\s+)?i meant\s+.+$|"
     r"^(?:no,?\s+)?[^,!.?]+\s*,?\s+not\s+[^,!.?]+[.!?]*$|"
-    r"^(?:sorry,?\s+i said|wrong\s+\w+,\s+put\s+it\s+in)\b.*$|"
+    r"^(?:(?:sorry,?\s+)?i\s+(?:said|meant)|"
+    r"wrong\s+\w+,\s+put\s+it\s+in)\b.*$|"
     r"\bno,?\s+(?:i meant\b|the other one\b)|\bnot that one\b|"
     r"\bthe other one\b",
     re.IGNORECASE)
@@ -80,6 +85,30 @@ _REFINEMENT = re.compile(
     r"(?:louder|quieter|softer|brighter|dimmer|darker|higher|lower|more|"
     r"less|up|down)(?:\s+(?:a\s+(?:little\s+|tiny\s+)?bit|a\s+lot|please|still|"
     r"again|more|less))*)[.!]?$",
+    re.IGNORECASE)
+_SEARCH_REFINEMENT = re.compile(
+    r"^(?:just|only)(?:\s+(?:for|from|the|in|on))*\s+(.+)$|"
+    r"^something\s+(?:more\s+|less\s+)?(.+)$",
+    re.IGNORECASE)
+_SAME_QUERY = re.compile(
+    r"^same(?:\s+thing)?\s+but\s+(?:for|with)\s+([^\s.!?]+)[.!?]?$",
+    re.IGNORECASE)
+_VALUE_ATOM = (
+    r"(?:\d{1,4}(?::\d{2})?|zero|one|two|three|four|five|six|seven|eight|"
+    r"nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|"
+    r"eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|"
+    r"ninety|hundred|monday|tuesday|wednesday|thursday|friday|saturday|"
+    r"sunday|today|tomorrow|am|pm|minutes?|hours?|seconds?)"
+)
+_VALUE_REFINEMENT = re.compile(
+    r"\bmake\s+it\s+.+?(?:\s+instead)?[.!]?$|"
+    rf"^(?:and\s+)?{_VALUE_ATOM}(?:\s+{_VALUE_ATOM}){{0,2}}"
+    rf"(?:\s+not\s+{_VALUE_ATOM})?[.!]?$|"
+    rf"^{_VALUE_ATOM}(?:\s+{_VALUE_ATOM}){{0,2}}\s+instead[.!]?$",
+    re.IGNORECASE)
+_LAYOUT_REFINEMENT = re.compile(
+    r"^(?=.{0,60}$)(?=.*\b(?:this\s+one|it|now)\b)"
+    r"(?=.*\b(?:left|right|top|bottom|full\s*screen)\b).+$",
     re.IGNORECASE)
 _NONPRONOUN_THIS = re.compile(
     r"\bthis\s+(?:week|weekend|morning|afternoon|evening|month|year|time)\b",
@@ -185,6 +214,29 @@ def _is_search_url(url: str) -> bool:
                   re.IGNORECASE) is not None)
 
 
+def _search_turn(turn) -> bool:
+    if turn is None or not turn.ok:
+        return False
+    if turn.skill in {"web_search", "play_music"}:
+        return bool((turn.args or {}).get("query"))
+    if turn.skill == "open_url":
+        return _is_search_url(str((turn.args or {}).get("url") or turn.url or ""))
+    return turn.skill == "planner" and re.search(
+        r"\b(?:search|play)\b|https?://\S+(?:search|[?&]q=)",
+        str(turn.resolved or ""), re.IGNORECASE) is not None
+
+
+def _value_turn(turn) -> bool:
+    if turn is None or not turn.ok:
+        return False
+    if turn.skill in {"create_event", "create_reminder", "start_timer"}:
+        return True
+    return turn.skill == "planner" and re.search(
+        r"\b(?:event|remind|reminder|timer)\b|"
+        r"\b(?:add|create|schedule)\b.+\bat\b",
+        str(turn.resolved or ""), re.IGNORECASE) is not None
+
+
 def _bare_search(text: str, turn, ctx: dict, now: float,
                  catalog=None) -> bool:
     words = re.findall(r"[\w'-]+", text, re.UNICODE)
@@ -206,6 +258,9 @@ def _has_pronoun(text: str) -> bool:
     cleaned = _THAT_CONJUNCTION.sub(
         lambda match: match.group(0)[:match.start("that") - match.start()],
         cleaned)
+    cleaned = re.sub(r"\bif\s+it\s+\w+", " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\b(?:just\s+)?do\s+it\b", " ", cleaned,
+                     flags=re.IGNORECASE)
     return _PRONOUN.search(cleaned) is not None
 
 
@@ -217,6 +272,16 @@ def detect(text: str, wm, ctx: dict | None, now: float,
     turn = wm.last(now)
     focus = wm.focus(now, ctx or {})
     search_match = SITE_SEARCH_RE.fullmatch(text)
+    try_match = re.fullmatch(r"try\s+(.+?)[.!]?", text, re.IGNORECASE)
+    if try_match and turn and _search_turn(turn):
+        if _EXPLICIT_TARGET.search(text) or _QUESTION.search(text):
+            return None
+        name = try_match.group(1).casefold().strip()
+        requested = _ALIAS.get(name, name if "." in name else None)
+        previous = site_for_url(str((turn.args or {}).get("url") or
+                                    turn.url or ""))
+        if requested in SEARCH_URLS and requested != previous:
+            return "site_search"
     if search_match and re.match(
             r"^find\s+(?:the\s+)?(?:pdf|file|document|folder|picture|image)\b",
             text, re.IGNORECASE):
@@ -231,12 +296,18 @@ def detect(text: str, wm, ctx: dict | None, now: float,
             return "site_search"
     if turn is None:
         return None
+    if _SAME_QUERY.fullmatch(text) and _search_turn(turn):
+        return "again"
     if _AGAIN.fullmatch(text):
         return "again"
     if _UNDO.search(text):
         return "undo"
-    if _PERSON.search(text):
-        return "person"
+    if _SEARCH_REFINEMENT.fullmatch(text) and _search_turn(turn):
+        return "refinement"
+    if _VALUE_REFINEMENT.search(text) and _value_turn(turn):
+        return "refinement"
+    if turn.skill == "window_layout" and _LAYOUT_REFINEMENT.fullmatch(text):
+        return "refinement"
     if _REFINEMENT.fullmatch(text) or re.search(
             r"\bcrank\s+it\s+(?:all\s+the\s+way\s+)?up\b", text,
             re.IGNORECASE):
@@ -249,6 +320,11 @@ def detect(text: str, wm, ctx: dict | None, now: float,
         return None
     if _CORRECTION.search(text):
         return "correction"
+    if re.fullmatch(r"(?:no,?\s+)?the\s+.+?\s+one[.!?]?", text,
+                    re.IGNORECASE):
+        return "correction"
+    if _PERSON.search(text):
+        return "person"
     if _ORDINAL.search(text):
         return "ordinal"
     if _ITEM.search(text):
