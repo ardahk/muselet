@@ -1,6 +1,6 @@
-# hands — digest (pass 54)
+# hands — digest (Pass 55)
 
-Pass 54:
+Pass 55:
 - NEW P1 hands-32: cloud/design b93bb50 deletes main's ClockTimers.swift, SettingsView, PanelComponents, KittenAvatar and TimerSettings. Do not merge as-is.
 - main eb3e945 and wip/local 3f21dc6 have no app/ changes.
 - panel-hook-fix ef35421 only touches DebugHooks, which are UI-only. docs-demo-3 and memory-llm-gate have no app/ changes.
