@@ -1,6 +1,6 @@
-# decisions — digest (pass 75)
+# decisions — digest (pass 76)
 
-Heads: main b92677f (inline() temps fixed in c37f6ee, so -37 drops P0->P2 pending an inline test + Mac p_yes check; README added with route_v2-only router claim and 'stops when goal visible' (-38/-41)), wip f1e504c (= main). Counts: 0 P0, 14 P1, 16 P2. Budget: about $142.06 MTD estimated.
+Heads: main 430e59e (35B planner defaults k=0/think 1024 unmeasured (-44); premiere agentic route; style replies; -38/-40/-41/-43 P1 live), wip 9f6aa0d (= main), cool-tasks 2fafa9e (CORRECTION: its planner_system.md `note` op changes the LoRA static prefix + op constraint; parity samples not regenerated (-42) — block merge until re-rendered + LoRA holdout rerun). Counts: 0 P0, 14 P1, 16 P2. Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
