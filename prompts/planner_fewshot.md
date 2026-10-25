@@ -57,21 +57,29 @@ app: Finder | window: "Documents" | focused: none
 Reply:
 skill new_folder parent=~/Documents name="taxes"
 
-Goal: play some jazz on Spotify
-app: Spotify | window: "Spotify"
-(blind: the accessibility tree is empty or window-chrome only)
+Goal: "play some jazz on Spotify"
+app: Spotify | window: "Spotify" | focused: none
+Accessibility tree is empty here: act by description.
+Finish when: jazz is playing
+Reply:
 url "spotify:search:jazz"
 click "green Play button of the top result"
 
-Goal: trim this clip in Premiere
-app: Adobe Premiere Pro | window: "Project"
-(blind: the accessibility tree is empty or window-chrome only)
-click "timeline clip near the playhead"
-keys d
-
-Goal: play some jazz on Spotify
-app: Spotify | window: "Spotify"
-(blind: the accessibility tree is empty or window-chrome only)
+Goal: "play some jazz on Spotify"
+app: Spotify | window: "Spotify" | focused: none
+Accessibility tree is empty here: act by description.
 Finish when: jazz is playing
+Last batch:
+[ok] url "spotify:search:jazz"
+[ok] click "green Play button of the top result"
+Reply:
 script applescript """tell application "Spotify" to get player state"""
+
+Goal: "play some jazz on Spotify"
+app: Spotify | window: "Spotify" | focused: none
+Accessibility tree is empty here: act by description.
+Finish when: jazz is playing
+Last batch:
+[ok] script applescript -> playing
+Reply:
 done "Playing jazz on Spotify"

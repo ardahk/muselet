@@ -378,3 +378,68 @@ final class ClockAXDriverTests: XCTestCase {
         XCTAssertEqual(Set(backend.keys), ["clock_ax_ready", "backend"])
     }
 }
+
+final class BlindTypingTests: XCTestCase {
+    private func fakeApp(window: ClockAXFakeElement) -> ClockAXFakeElement {
+        let app = ClockAXFakeElement("AXApplication")
+        app.singles[kAXFocusedWindowAttribute as String] = window
+        return app
+    }
+
+    private func chromeWindow() -> ClockAXFakeElement {
+        ClockAXFakeElement("AXWindow", "Spotify", children: [
+            ClockAXFakeElement("AXButton", "Close"),
+            ClockAXFakeElement("AXButton", "Minimize"),
+            ClockAXFakeElement("AXButton", "this button also has an action to zoom the window"),
+        ])
+    }
+
+    func testBlindTreeIsChromeOnly() {
+        XCTAssertTrue(TextTarget.blindTree(chromeWindow()))
+    }
+
+    func testBlindTreeEmptyWindowIsBlind() {
+        XCTAssertTrue(TextTarget.blindTree(
+            ClockAXFakeElement("AXWindow", "Empty", children: [])))
+    }
+
+    func testBlindTreeRejectsContent() {
+        let win = ClockAXFakeElement("AXWindow", "Notes", children: [
+            ClockAXFakeElement("AXButton", "Close"),
+            ClockAXFakeElement("AXTextArea", "Note body"),
+        ])
+        XCTAssertFalse(TextTarget.blindTree(win))
+    }
+
+    func testCheckFallsBackToKeystrokeOnBlindWindow() {
+        // no focused element, no text area, blind tree -> keystroke_app
+        let app = fakeApp(window: chromeWindow())
+        let chk = TextTarget.check(app: app, appName: "Spotify",
+                                   bundleId: "com.spotify.client",
+                                   windowFallback: false)
+        XCTAssertTrue(chk.ok)
+        XCTAssertEqual(chk.via, TextTarget.keystrokeVia)
+    }
+
+    func testCheckNeverKeystrokesIntoMuselet() {
+        let app = fakeApp(window: chromeWindow())
+        let chk = TextTarget.check(app: app, appName: "Muselet",
+                                   bundleId: "com.muselet.app",
+                                   windowFallback: false)
+        XCTAssertFalse(chk.ok)
+    }
+
+    func testCheckNormalTreeStillNoTextTarget() {
+        let win = ClockAXFakeElement("AXWindow", "Notes", children: [
+            ClockAXFakeElement("AXGroup", children: [
+                ClockAXFakeElement("AXStaticText", "Hello"),
+            ]),
+        ])
+        let app = fakeApp(window: win)
+        let chk = TextTarget.check(app: app, appName: "Notes",
+                                   bundleId: "com.apple.Notes",
+                                   windowFallback: false)
+        XCTAssertFalse(chk.ok)
+        XCTAssertNil(chk.via)
+    }
+}

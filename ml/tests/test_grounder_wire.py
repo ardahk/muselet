@@ -93,7 +93,7 @@ def test_planner_user_message_gets_blind_hint(tmp_path, app, elements, hinted):
     assert (BLIND_HINT in obs) is hinted
     assert obs.startswith(f"app: {app}")
     if hinted:
-        assert obs.endswith("\n" + orchestrator.BLIND_HINT)
+        assert obs.endswith("\n" + BLIND_HINT)
         assert {"blind_observation": 0} in tr["decisions"]
 
 
