@@ -68,7 +68,6 @@ def resolve(text: str, wm: WorkingMemory, ctx: dict, now: float,
                       if prior is not None else "")
         if prior is None or not allowed(prior_text, result.text):
             return Resolution("none", source_text, False, "guard")
-    result.reason = reason
     if memory_changed and not result.changed and result.path == "none":
         return Resolution("rule", text, True, "longterm")
     if result.reason not in {"llm-invalid", "llm-gated"}:
