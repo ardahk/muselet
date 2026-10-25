@@ -1,4 +1,4 @@
-# bench digest — pass 93 (2026-10-25T12:15Z, main@2de65a9)
+# bench digest — pass 94 (2026-10-25T12:30Z, main@2de65a9)
 
 P0: 0 | open P1: 15 | open P2: 25
 
@@ -133,3 +133,8 @@ Pass 93 (no new findings): main unchanged; wip/local a6035fb..9015e83 (2900d4b).
 - bench-60 widened: the planner system prompt was rewritten (rules 1, 8-10, 14, new 16; Safari and Numbers examples deleted) for every planner. That adds to bench-49 for the LoRA. Holdout gold such as h-numbers-sort (`script applescript`) now goes against the new inspect-first rule.
 - Tools-mode planner: an OCR context on every turn, which adds step latency.
 - The Numbers tips now give the AppleScript sort signature instead of a recipe. Fine under the override.
+
+Pass 94 (no new findings, no status changes): main unchanged; wip/local 9015e83..7b8f421 (e781dc1).
+- A `click "<target>"` that exactly matches one enabled AX control is now pressed by ref, skipping the grounder (ambiguous -> grounder). It's safe, but served clicks use the grounder less than in the grounder benchmarks. Record click_ax counts if grounder numbers are quoted for the agent.
+- Tools-mode verify-done also uses a forced OCR context, which adds latency.
+- The Numbers tips were rewritten again (Organize > Sort): more prompt drift (bench-60/46).
