@@ -1,9 +1,9 @@
 {
-  "pass": 57,
-  "ts": "2026-10-25T01:49:00Z",
+  "pass": 58,
+  "ts": "2026-10-25T02:19:00Z",
   "last_reviewed": {
-    "main": "19d57fb",
-    "wip/local": "8a197f8",
+    "main": "f5b4606",
+    "wip/local": "c49bf0e",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -76,5 +76,5 @@
     "cloud/memory-hotfix": "d932320",
     "cloud/memory-rules2": "03c3cd1"
   },
-  "notes": "pass 57: main 19d57fb merged memory-llm-gate #69 (reviewed in pass 53, no copy) and a1fd57f (relative brightness delta; ux-16 now live on main). wip/local 8a197f8 has only memory-rule classification changes. No new findings."
+  "notes": "pass 58: main f5b4606 has a one-line orchestrator comment paraphrase plus harness changes; wip/local c49bf0e carries the memory-llm-gate code already on main. No lane copy changes; open findings unchanged."
 }
