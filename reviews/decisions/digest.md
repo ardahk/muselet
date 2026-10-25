@@ -1,6 +1,6 @@
-# decisions — digest (pass 41)
+# decisions — digest (pass 42)
 
-Heads: main e9fb42d (PR #39 merged as ba9f29a; it3 default router tau .50), wip bf98333 (== main), cloud/decisions ae36620 (merged). Budget: about $142.06 MTD estimated, $5.9 under the $148 stop.
+Heads: main eb3e945 (brief only; decisions-37 P0 still live), wip 3f21dc6 (== main), docs-demo-3 c615c37 (fixes route claims, but planner LoRA cost written as $0.84 vs $5.84). Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
