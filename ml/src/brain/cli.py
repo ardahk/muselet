@@ -110,7 +110,9 @@ async def serve(port: int = 8765, model: str | None = None,
                 memory_llm: bool = True,
                 longterm_enabled: bool = True,
                 verify_done: bool = True,
-                planner_aux_model: str | None = "planner"):
+                planner_aux_model: str | None = "planner",
+                fallback_planner: bool = False,
+                planner_context: bool = False):
     server = BrainServer(port=port)
     await server.start()
     engine = None
@@ -148,7 +150,11 @@ async def serve(port: int = 8765, model: str | None = None,
     orch.memory_llm = memory_llm
     orch.longterm_enabled = bool(longterm_enabled and memory_enabled)
     orch.verify_done = verify_done
-    print(f"[planner] verify_done={'on' if verify_done else 'off'}",
+    orch.fallback_planner = fallback_planner
+    orch.planner_context = planner_context
+    print(f"[planner] verify_done={'on' if verify_done else 'off'} "
+          f"fallback={'on' if fallback_planner else 'off'} "
+          f"context={'on' if planner_context else 'off'}",
           flush=True)
     esc = {**ESCALATE_OPTS, **{k: v for k, v in (planner_kw or {}).items()
                                if k.startswith("think_")}}
@@ -365,6 +371,10 @@ def build_parser(argv=None):
                          "the planner model"))
     s.add_argument("--verify-done", choices=("on", "off"), default="on",
                    help="verify planner done (expect or model check) + bounded recovery; off = old behaviour")
+    s.add_argument("--fallback-planner", choices=("on", "off"), default="off",
+                   help="hand recoverable safe skill/tool failures to the planner once")
+    s.add_argument("--planner-context", choices=("on", "off"), default="off",
+                   help="include request ctx and a compact screen summary on the planner's first turn")
     s.add_argument("--planner-constrain", action=argparse.BooleanOptionalAction,
                    default=None, help="line-start DSL op constraint "
                    "(default: planner.PLANNER_CONSTRAIN_DEFAULT)")
@@ -429,7 +439,9 @@ def run_cmd(args, ap):
             args.port, m, args.planner_model, planner_opts(args),
             args_model=am, escalate_model=em, grounder=grounder_cfg(args),
             verify_done=args.verify_done == "on",
-            planner_aux_model=args.planner_aux_model, **memory_kw))
+            planner_aux_model=args.planner_aux_model,
+            fallback_planner=args.fallback_planner == "on",
+            planner_context=args.planner_context == "on", **memory_kw))
     elif args.cmd == "eval-route":
         eval_route(args.model, args.cases, args.out,
                    tau=getattr(args, "tau", 0.55), args_model=args.args_model)

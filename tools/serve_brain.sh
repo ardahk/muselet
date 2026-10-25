@@ -30,7 +30,8 @@
 #             (evals/memory_eval.py): rules+lt resolution .574, false-rewrite .0195; +LLM .670 but false-rewrite .078
 #             (ship rule .85 / .02 not met by any mode)
 #   verify-done = done needs a passing expect or a model check on a fresh observation; VERIFY_DONE=off restores the old rule
-# Usage: PORT=... ROUTER=... ARGS_MODEL=... PLANNER=... FEWSHOT=... PLANNER_AUX=... TAU=... RETRIEVAL_K=... THINK=... THINK_ON=... THINK_SAMPLER=... ESCALATE=... VERIFY_DONE=... MEMORY=... MEMORY_LLM=... LONGTERM=... tools/serve_brain.sh [extra brain serve flags]
+#   fallback = a recoverable skill/brain-tool failure hands the goal once to the planner with the failure as Last batch (FALLBACK_PLANNER=0 restores the error bubble); PLANNER_CONTEXT=1 adds ctx app/window/url + a screen summary (OCR when AX is thin) to the planner's first turn
+# Usage: PORT=... ROUTER=... ARGS_MODEL=... PLANNER=... FEWSHOT=... PLANNER_AUX=... TAU=... RETRIEVAL_K=... THINK=... THINK_ON=... THINK_SAMPLER=... ESCALATE=... VERIFY_DONE=... FALLBACK_PLANNER=... PLANNER_CONTEXT=... MEMORY=... MEMORY_LLM=... LONGTERM=... tools/serve_brain.sh [extra brain serve flags]
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 # Brains on any port but the app's :8765 (benchmarks) get a fresh memory store per start, so test utterances never
@@ -64,13 +65,19 @@ case "$ROUTER" in
   "$R1") TAU=${TAU:-0.55}; ARGS_MODEL=${ARGS_MODEL:-$BASE} ;;
   *)     TAU=${TAU:-0.20}; ARGS_MODEL=${ARGS_MODEL:-$BASE} ;;
 esac
+fallback_planner=${FALLBACK_PLANNER:-1}
+case "$fallback_planner" in 1|on) fallback_planner=on ;; 0|off) fallback_planner=off ;; esac
+planner_context=${PLANNER_CONTEXT:-1}
+case "$planner_context" in 1|on) planner_context=on ;; 0|off) planner_context=off ;; esac
 args=(--port "${PORT:-8765}" --model "$ROUTER" --tau "$TAU" --args-model "$ARGS_MODEL"
       --planner-model "$PLANNER" --planner-fewshot "$FEWSHOT"
       --planner-aux-model "${PLANNER_AUX:-$BASE}"
       --planner-retrieval-k "${RETRIEVAL_K:-1}"
       --planner-think "$THINK" --planner-think-on "${THINK_ON:-all}"
       --planner-think-sampler "${THINK_SAMPLER:-qwen}"
-      --verify-done "${VERIFY_DONE:-on}")
+      --verify-done "${VERIFY_DONE:-on}"
+      --fallback-planner "$fallback_planner"
+      --planner-context "$planner_context")
 if [ "${ESCALATE:-0}" = "1" ]; then args+=(--planner-escalate-model mlx-community/Qwen3.6-35B-A3B-4bit); fi
 if [ "${MEMORY:-1}" = "0" ]; then args+=(--no-memory); fi
 if [ "${MEMORY_LLM:-0}" = "0" ]; then args+=(--no-memory-llm); fi
