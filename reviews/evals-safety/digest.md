@@ -1,9 +1,9 @@
-# evals-safety digest — pass 55 (main@8fb465c)
+# evals-safety digest — pass 56 (main@e9fb42d)
 
 Open: P0 0, P1 9, P2 11.
 
 ## Open P0/P1 (ranked)
-0. **-46 (P1):** new live_t2 cases are missing from every decontam gate; the gates hard-code live_t1. (on main 8fb465c, still unfixed)
+0. **-46 (P1):** new live_t2 cases are missing from every decontam gate; the gates hard-code live_t1. (on main e9fb42d, still unfixed)
 1. **-39 (P1):** the finance rules miss BERKELEY BOWL, so Groceries comes out 203.61 vs the key's 298.70 without the model. (`ml/src/brain/finance/categorize.py`)
 2. **-43 (P1):** the decisions trainers have no month-to-date gate. Month-to-date is ~$142 against the $148 stop. (`training/decisions/*.py`)
 3. **-36 (P1):** v2 clobbering accept rules can be retrieved at k=1, and the offline eval runs at k=0. (`evals/planner_scenarios_v2.jsonl`)

@@ -1,9 +1,9 @@
 {
-  "pass": 55,
-  "ts": "2026-10-25T00:13:02Z",
+  "pass": 56,
+  "ts": "2026-10-25T00:28:27Z",
   "last_reviewed": {
-    "main": "8fb465c",
-    "wip/local": "fe6c209",
+    "main": "e9fb42d",
+    "wip/local": "bf98333",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -71,5 +71,5 @@
     "cloud/safety-planner28": "e3abc5e"
   },
   "next_id": 48,
-  "note": "pass 55: main merged memory p1/p2, architect-27, ui-polish; serves THINK=512 qwen. The server memory frame is still behind origins=[None]. -46 is still unfixed."
+  "note": "pass 56: main makes it3 the default router (user's call), merges the decisions LoRA, brain-9 and hands-clock. LLM rewrite is off."
 }
