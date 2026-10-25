@@ -1,6 +1,6 @@
-# decisions — digest (pass 42)
+# decisions — digest (pass 43)
 
-Heads: main eb3e945 (brief only; decisions-37 P0 still live), wip 3f21dc6 (== main), docs-demo-3 c615c37 (fixes route claims, but planner LoRA cost written as $0.84 vs $5.84). Budget: about $142.06 MTD estimated.
+Heads: main e4594d9 (harness/live only; decisions-37 P0 still live), wip fc5d595 (== main), docs-demo-3 c615c37 (unchanged; $0.84 vs $5.84). Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
