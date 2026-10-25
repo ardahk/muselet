@@ -1,11 +1,11 @@
-# decisions — digest (pass 55)
+# decisions — digest (pass 56)
 
-Heads: main dc6f2f5 (merged fallback, open-ended, fix-pending, fix-same-tab, premiere-demo; decisions-37 P0 still live), wip 6a1f942 (= main). decisions-40 and decisions-39 are now on main. Budget: about $142.06 MTD estimated.
+Heads: main 82c9810 (blind-AX for CEF apps; decisions-37 P0 still live; decisions-40 redirect still ungated, 3/103 + 46/955), wip 5b656ef (= main). Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
 1. decisions-37 P0 LIVE on main: inline() lacks temperature attrs -> planner done-verifier always errors, verify silently off — ml/src/brain/generic_decide.py:177-190@e9fb42d
-2. decisions-40 P1 open_ended_redirect overrides correct routes (route_v1_clean 4/103, route_v2 64/955 with gold labels) LIVE on main (now 3/103, 46/955) — ml/src/brain/orchestrator.py:1488-1494@dc6f2f5
+2. decisions-40 P1 open_ended_redirect overrides correct routes (route_v1_clean 4/103, route_v2 64/955 with gold labels) LIVE on main (now 3/103, 46/955) — ml/src/brain/orchestrator.py:1497-1503@82c9810
 3. decisions-38 P1 route claims fixed by #68 except claims.md:200 'default tau 0.55' — pitch/claims.md
 4. decisions-32 P1 Full run fails its gate; TD +.0065 vs DeskMind is within noise, test-selected — training/decisions/HANDOFF.md:7-8,82-89
 5. decisions-5 P1 4-bit MLX export has no logit parity check vs Tinker; Tinker numbers can't be carried over — training/decisions/export.py
