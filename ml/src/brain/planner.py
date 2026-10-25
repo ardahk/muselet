@@ -281,6 +281,7 @@ class Planner:
             self.plan_bank = PlanBank(load_bank(retrieval_bank))
         self.last_retrieval = {"ids": [], "ms": 0.0}
         self._constraint = None
+        self._decider = None
         if engine is not None and engine.model_path == model_path:
             self.model, self.tokenizer = engine.model, engine.tokenizer
             self.body, self.lm_head = engine.body, engine.lm_head
@@ -296,6 +297,8 @@ class Planner:
         self._prefix_tokens = None
         self._cut = None
         self._cache = None
+        self._rewrite_cut = None
+        self._rewrite_cache = None
         self.system = planner_prompt(
             catalog_desc(catalog, self._arg_sig_for))
         if (fs := few_shot_text(few_shot)):
@@ -326,6 +329,13 @@ class Planner:
         eng = self.engine or DecisionEngine.__new__(DecisionEngine)
         eng.catalog = self.catalog
         return DecisionEngine.arg_signature(eng, name)
+
+    def decide(self, state: str, question: dict) -> dict[str, float]:
+        """One System-1 decision (decision API) on the planner's weights; run via worker()."""
+        if self._decider is None:
+            from .generic_decide import GenericMLXDecider
+            self._decider = GenericMLXDecider.inline(self.model, self.model_path)
+        return self._decider.decide(state, question)
 
     # ---------- rendering ----------
 
@@ -360,10 +370,17 @@ class Planner:
                      last_batch: list[str] | None,
                      hint: str | None = None,
                      script_output: str | None = None,
-                     login_page: bool = False) -> str:
+                     login_page: bool = False,
+                     recent: list[str] | None = None,
+                     memory: list[str] | None = None) -> str:
         parts = [f'Goal: "{goal}"']
         if hint:
             parts.append(f"Hint: likely {hint}")
+        if recent is not None:
+            parts.append("Recent:")
+            parts.extend(recent)
+        if memory:
+            parts.extend(memory[:3])
         if login_page:
             parts.append("Login page: ask the user to sign in")
         parts.append(observation)
@@ -388,19 +405,24 @@ class Planner:
                      last_batch: list[str] | None,
                      hint: str | None = None,
                      script_output: str | None = None,
-                     login_page: bool = False) -> str:
+                     login_page: bool = False,
+                     recent: list[str] | None = None,
+                     memory: list[str] | None = None) -> str:
         return self.retrieval_block(goal, observation) + self.user_message(
-            goal, observation, last_batch, hint, script_output, login_page)
+            goal, observation, last_batch, hint, script_output, login_page,
+            recent, memory)
 
     def prompt_tokens(self, goal: str, observation: str, last_batch,
                       hint: str | None = None,
                       script_output: str | None = None,
-                      login_page: bool = False) -> list[int]:
+                      login_page: bool = False,
+                      recent: list[str] | None = None,
+                      memory: list[str] | None = None) -> list[int]:
         """Full prompt plan() decodes from (system + user + assistant header with the empty think block)."""
         msgs = [Message(role="system", content=self.system),
                 Message(role="user", content=self.user_content(
                     goal, observation, last_batch, hint, script_output,
-                    login_page)),
+                    login_page, recent, memory)),
                 Message(role="assistant", content=SENTINEL)]
         toks = self._render_msgs(msgs)
         return toks[:self._content_cut(toks, SENTINEL)]
@@ -470,14 +492,16 @@ class Planner:
              lines_out: asyncio.Queue, loop, cancel: threading.Event,
              hint: str | None = None,
              script_output: str | None = None,
-             login_page: bool = False) -> list[str]:
+             login_page: bool = False,
+             recent: list[str] | None = None,
+             memory: list[str] | None = None) -> list[str]:
         """Blocking — submit via worker(). Streams each finished line to
         `lines_out` (call_soon_threadsafe), then a None sentinel. Returns the
         full line list."""
         t0 = time.perf_counter()
         if self._cache is None:
             self._build_cache()
-        toks = self.prompt_tokens(goal, observation, last_batch, hint, script_output, login_page)
+        toks = self.prompt_tokens(goal, observation, last_batch, hint, script_output, login_page, recent, memory)
         acut = len(toks)     # prompt ends here
         cache = copy.deepcopy(self._cache)
         stop_ids = {self.tokenizer.eos_token_id}
@@ -562,6 +586,49 @@ class Planner:
                 "retrieved": self.last_retrieval["ids"], "prompt_tokens": acut,
                 "dynamic_tokens": acut - self._cut, "think": think,
                 "think_tokens": think["tokens"] if think else 0}
+
+    def _build_rewrite_cache(self):
+        from .memory.rewrite import STATIC
+
+        msgs = [Message(role="system", content=STATIC),
+                Message(role="user", content=SENTINEL)]
+        toks = self._render_msgs(msgs)
+        self._rewrite_cut = self._content_cut(toks, SENTINEL)
+        self._rewrite_cache = self._prefill(
+            mx.array([toks[:self._rewrite_cut]]))
+
+    def complete(self, prompt: str, max_tokens: int = 40) -> str:
+        """Greedy, newline-bounded follow-up completion on the MLX worker."""
+        from .memory.rewrite import STATIC
+
+        if self._rewrite_cache is None:
+            self._build_rewrite_cache()
+        dynamic = prompt[len(STATIC):] if prompt.startswith(STATIC) else prompt
+        msgs = [Message(role="system", content=STATIC),
+                Message(role="user", content=dynamic),
+                Message(role="assistant", content=SENTINEL)]
+        toks = self._render_msgs(msgs)
+        cut = self._content_cut(toks, SENTINEL)
+        cache = copy.deepcopy(self._rewrite_cache)
+        cur = mx.array([toks[self._rewrite_cut:cut]])
+        decoded = ""
+        stop_ids = {self.tokenizer.eos_token_id}
+        im_end = self.tokenizer.encode("<|im_end|>", add_special_tokens=False)
+        if len(im_end) == 1:
+            stop_ids.add(im_end[0])
+        for _ in range(min(max(0, int(max_tokens)), 40)):
+            out = self.body(cur, cache=cache)
+            logits = self.lm_head(out[:, -1:, :]).astype(mx.float32)
+            nxt = int(np.argmax(np.array(logits[0, 0])))
+            if nxt in stop_ids:
+                break
+            chunk = self.tokenizer.decode([nxt])
+            if "\n" in chunk:
+                decoded += chunk.split("\n", 1)[0]
+                break
+            decoded += chunk
+            cur = mx.array([[nxt]])
+        return decoded.strip()
 
     def generate(self, system: str, user: str, max_tokens: int = 48,
                  stop_at_newline: bool = True) -> str:

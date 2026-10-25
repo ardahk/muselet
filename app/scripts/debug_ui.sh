@@ -14,6 +14,9 @@
 #   debug_ui.sh hud dark on|off | hud wifi on|off | hud bluetooth on|off
 #   HUD_STYLE=vibrancy debug_ui.sh hud volume 40       # glass (default) | vibrancy
 #   debug_ui.sh timer ["Tea"]                          # "Timer done" bubble (no timer runs)
+#   debug_ui.sh pill-hover [on|off]
+#   debug_ui.sh pill-typing open ["draft"] | close
+#   debug_ui.sh panel [home|settings]
 set -euo pipefail
 cmd="${1:?cmd}"; shift || true
 json() { python3 -c 'import json,sys; print(json.dumps(dict(zip(sys.argv[1::2], sys.argv[2::2]))))' "$@"; }
@@ -39,6 +42,26 @@ case "$cmd" in
       *) info=$(json cmd hud kind "$kind" on "${arg:-on}" style "${HUD_STYLE:-}") ;;
     esac ;;
   timer)    info=$(json cmd timer label "${1:-}") ;;
+  pill-hover)
+    state="${1:-on}"
+    case "$state" in
+      on)  info=$(json cmd pill_hover on true) ;;
+      off) info=$(json cmd pill_hover on false) ;;
+      *) echo "usage: debug_ui.sh pill-hover [on|off]" >&2; exit 2 ;;
+    esac ;;
+  pill-typing)
+    state="${1:-open}"
+    case "$state" in
+      open)  info=$(json cmd pill_typing state open text "${2:-}") ;;
+      close) info=$(json cmd pill_typing state close) ;;
+      *) echo "usage: debug_ui.sh pill-typing open [draft] | close" >&2; exit 2 ;;
+    esac ;;
+  panel)
+    page="${1:-home}"
+    case "$page" in
+      home|settings) info=$(json cmd panel page "$page") ;;
+      *) echo "usage: debug_ui.sh panel [home|settings]" >&2; exit 2 ;;
+    esac ;;
   *) echo "unknown cmd $cmd" >&2; exit 2 ;;
 esac
 osascript -l JavaScript - "$info" <<'JXA'

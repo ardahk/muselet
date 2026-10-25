@@ -5,7 +5,9 @@ import Network
 /// Capture the context sent on an utterance frame (AGENTS.md):
 /// frontmost app name, focused element as `<role> "<label>"` (HandsKit's
 /// role map), selection (non-empty selected text), online (NWPathMonitor's
-/// latest status — never a blocking probe).
+/// latest status — never a blocking probe), window_title (focused window's
+/// AXTitle) and url (browsers only: AXDocument of the window or AXURL of the
+/// first AXWebArea; AX only, never Apple Events; "" when unknown).
 ///
 /// AX calls use a 0.15 s messaging timeout (a hung frontmost app must not
 /// stall push-to-talk). The app captures asynchronously via `begin()`.
@@ -135,6 +137,50 @@ public enum UtteranceCtx {
         return false
     }
 
+    /// Browsers whose page URL is read for `ctx.url` (localized names).
+    public static let browsers: Set<String> = ["Safari", "Google Chrome", "Chrome", "Zen", "Zen Browser",
+                                               "Arc", "Firefox", "Brave Browser", "Microsoft Edge"]
+
+    /// Focused window title and (browsers only) page URL of `pid`.
+    public static func pageInfo(pid: pid_t, appName: String) -> (url: String, title: String) {
+        guard pid > 0 else { return ("", "") }
+        return pageInfo(app: AXNode(AXUIElementCreateApplication(pid)), browser: browsers.contains(appName))
+    }
+
+    /// Testable core: window AXTitle; URL from window AXDocument (Safari), else
+    /// AXURL of the first AXWebArea (Chrome, Zen/Firefox), breadth-first,
+    /// <= 80 nodes, bounded by `budget`.
+    static func pageInfo(app: Element, browser: Bool,
+                         budget: TimeInterval = 0.15) -> (url: String, title: String) {
+        let deadline = Date().addingTimeInterval(budget)
+        app.setMessagingTimeout(axTimeout)
+        guard let win = node(app.copySingleAttr(kAXFocusedWindowAttribute as String))
+                ?? node(app.copySingleAttr(kAXMainWindowAttribute as String)) else { return ("", "") }
+        let title = (win.copySingleAttr(kAXTitleAttribute as String) as? String) ?? ""
+        guard browser else { return ("", title) }
+        if let u = urlString(win.copySingleAttr(kAXDocumentAttribute as String)) { return (u, title) }
+        var queue: [Element] = win.copyAttrs().children
+        var qi = 0
+        while qi < queue.count && qi < 80 && Date() < deadline {
+            let c = queue[qi]; qi += 1
+            c.setMessagingTimeout(axTimeout)
+            let ca = c.copyAttrs()
+            if ca.role == "AXWebArea" {
+                if let u = urlString(c.copySingleAttr("AXURL")) { return (u, title) }
+                continue
+            }
+            queue.append(contentsOf: ca.children)
+        }
+        return ("", title)
+    }
+
+    static func urlString(_ v: Any?) -> String? {
+        let s: String?
+        if let u = v as? URL { s = u.absoluteString } else { s = v as? String }
+        guard let s, s.hasPrefix("http") else { return nil }
+        return s
+    }
+
     /// Backwards-compatible: focused summary only.
     public static func focusedSummary(pid: pid_t) -> String { focusedInfo(pid: pid).focused }
 
@@ -143,8 +189,10 @@ public enum UtteranceCtx {
         let app = NSWorkspace.shared.frontmostApplication
         let pid = app?.processIdentifier ?? 0
         let (focused, sel) = focusedInfo(pid: pid)
-        return ["app": app?.localizedName ?? "none", "focused": focused,
-                "selection": sel, "online": online()]
+        let name = app?.localizedName ?? "none"
+        let page = pageInfo(pid: pid, appName: name)
+        return ["app": name, "focused": focused, "selection": sel, "online": online(),
+                "url": page.url, "window_title": page.title]
     }
 
     /// Start an asynchronous capture at push-to-talk key-down. The app name
@@ -155,12 +203,15 @@ public enum UtteranceCtx {
         let pid = app?.processIdentifier ?? 0
         let name = app?.localizedName ?? "none"
         let base: [String: Any] = ["app": name, "focused": "none", "selection": false,
-                                   "online": online()]
+                                   "online": online(), "url": "", "window_title": ""]
         return PendingCtx(fallback: base, queue: queue) {
             let (focused, sel) = focusedInfo(pid: pid)
+            let page = pageInfo(pid: pid, appName: name)
             var d = base
             d["focused"] = focused
             d["selection"] = sel
+            d["url"] = page.url
+            d["window_title"] = page.title
             return d
         }
     }

@@ -18,6 +18,30 @@ enum Brand {
     static var tintColor: Color { Color(nsColor: tint) }
 }
 
+enum PanelPalette {
+    static let ginger = Color(nsColor: MascotPalette.ginger)
+    static let accent = dynamic(light: NSColor(srgbRed: 0.80, green: 0.42, blue: 0.14, alpha: 1),
+                                dark: MascotPalette.ginger)
+    static let ink = dynamic(light: NSColor(srgbRed: 0.30, green: 0.19, blue: 0.13, alpha: 1),
+                             dark: MascotPalette.creamLight)
+    static let card = dynamic(light: MascotPalette.creamLight.withAlphaComponent(0.62),
+                              dark: MascotPalette.cream.withAlphaComponent(0.07))
+    static let cardStroke = dynamic(light: MascotPalette.ginger.withAlphaComponent(0.22),
+                                   dark: MascotPalette.cream.withAlphaComponent(0.10))
+    static let hover = dynamic(light: MascotPalette.ginger.withAlphaComponent(0.14),
+                               dark: MascotPalette.ginger.withAlphaComponent(0.16))
+    static let wash = dynamic(light: MascotPalette.ginger.withAlphaComponent(0.10),
+                              dark: MascotPalette.ginger.withAlphaComponent(0.07))
+    static let avatarBack = dynamic(light: MascotPalette.cream.withAlphaComponent(0.9),
+                                    dark: MascotPalette.cream.withAlphaComponent(0.16))
+
+    private static func dynamic(light: NSColor, dark: NSColor) -> Color {
+        Color(nsColor: NSColor(name: nil) { a in
+            a.bestMatch(from: [.darkAqua, .vibrantDark]) != nil ? dark : light
+        })
+    }
+}
+
 /// Template menu-bar glyph: the cork-creature silhouette with eye cut-outs.
 enum MenuBarIcon {
     static func make(recording: Bool) -> NSImage {

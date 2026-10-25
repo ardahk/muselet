@@ -72,6 +72,26 @@ struct PendingConfirm: Equatable {
     let summary: String
 }
 
+struct MemoryItem: Identifiable, Equatable {
+    let id: Int
+    let type: String
+    let key: String
+    let value: String
+    let created: Double
+
+    init?(_ raw: [String: Any]) {
+        guard let id = raw["id"] as? Int,
+              let type = raw["type"] as? String,
+              let key = raw["key"] as? String,
+              let value = raw["value"] as? String else { return nil }
+        self.id = id
+        self.type = type
+        self.key = key
+        self.value = value
+        self.created = raw["created"] as? Double ?? 0
+    }
+}
+
 enum BubbleStyle: Equatable {
     case say          // brain reply
     case transcript   // live transcript while the user talks
@@ -132,6 +152,8 @@ final class AppModel: ObservableObject {
     /// Settings › Timers (persisted by TimerSettings) and the last `timer_backend` result.
     @Published var useClockTimers = TimerSettings.useClock
     @Published var clockTimers: ClockTimerStatus?
+    @Published var longtermMemoryEnabled = MemorySettings.enabled
+    @Published var memoryItems: [MemoryItem] = []
 
     func noteRequest(_ text: String) {
         lastRequest = text

@@ -2,17 +2,20 @@ import AppKit
 import HandsKit
 import SwiftUI
 
-/// Settings page (behind the gear): Permissions, Models, Voice, Timers, Debug.
+/// Settings page (behind the gear): Permissions, Models, Memory, Voice, Timers, Debug.
 struct SettingsView: View {
     @ObservedObject var model: AppModel
     private let actions = AppActions.shared
     @State private var showTimerSetup = false
+    @State private var memoryQuery = ""
+    @State private var confirmForgetAll = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 permissions
                 if PlannerSettings.supported { models }
+                memory
                 voice
                 timers
                 debug
@@ -56,6 +59,70 @@ struct SettingsView: View {
         }
     }
 
+    private var memory: some View {
+        Card(title: "Memory") {
+            VStack(alignment: .leading, spacing: 7) {
+                Toggle(isOn: Binding(
+                    get: { model.longtermMemoryEnabled },
+                    set: { actions.setLongtermMemory($0) })) {
+                        Text("Remember things").font(.system(size: 12.5))
+                    }
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                HStack(spacing: 6) {
+                    TextField("Search memory", text: $memoryQuery)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit { searchMemory() }
+                    Button("Search") { searchMemory() }.controlSize(.small)
+                    Button("List") { actions.listMemory() }.controlSize(.small)
+                }
+                if model.memoryItems.isEmpty {
+                    Text("No saved memories.")
+                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                } else {
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 5) {
+                            ForEach(model.memoryItems) { item in
+                                HStack(alignment: .top, spacing: 7) {
+                                    Text("\(item.type) · \(item.key) = \(item.value)")
+                                        .font(.system(size: 11))
+                                        .textSelection(.enabled)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    Button {
+                                        actions.deleteMemory(item.id)
+                                    } label: {
+                                        Image(systemName: "trash")
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Forget this memory")
+                                }
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 100)
+                }
+                Button("Forget everything", role: .destructive) {
+                    confirmForgetAll = true
+                }
+                .controlSize(.small)
+                .confirmationDialog("Forget everything?", isPresented: $confirmForgetAll,
+                                    titleVisibility: .visible) {
+                    Button("Forget everything", role: .destructive) {
+                        actions.clearMemory()
+                    }
+                    Button("Cancel", role: .cancel) {}
+                }
+                .onAppear { actions.listMemory() }
+            }
+        }
+    }
+
+    private func searchMemory() {
+        let query = memoryQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        if query.isEmpty { actions.listMemory() }
+        else { actions.searchMemory(query) }
+    }
+
     private var ackText: String {
         if let a = model.configAck { return "Brain: \(a.summary)" }
         return model.brainStatus == .connected ? "Brain: waiting for reply…" : "Sent when the brain connects"
@@ -89,7 +156,7 @@ struct SettingsView: View {
                 }
                 if case .downloading(let f, let phase) = model.sttState {
                     VStack(alignment: .leading, spacing: 3) {
-                        ProgressView(value: f).progressViewStyle(.linear).tint(Brand.tintColor)
+                        ProgressView(value: f).progressViewStyle(.linear).tint(PanelPalette.ginger)
                         Text("\(phase) · \(Int(f * 100))%").font(.system(size: 10.5))
                             .foregroundStyle(.secondary).monospacedDigit()
                     }

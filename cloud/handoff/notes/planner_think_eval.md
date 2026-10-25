@@ -30,3 +30,8 @@ runs/planner_offline/think-4b-t512-greedy-retry-v2holdout.json:
 Counter({None: 114, 'model': 16})
 runs/planner_offline/think-4b-t512-qwen-all-v2holdout.json:
 Counter({'model': 126, 'loop': 4})
+
+## Extras (requested in PR #56)
+- think_closed, v2-holdout rows: 4b-t512-greedy {model:126, loop:3, budget:1}; 4b-t512-qwen {model:126, loop:4}; 4b-t1024-greedy {model:127, loop:3}; 4b-t512-retry {model:16, none:114}; 35b-t512 {model:51, budget:41, loop:38}; 35b-t0 {none:130}. 4B self-closes ~97% (mean 152-173 think tokens — t1024 is identical to t512 because the model never uses the extra budget); 35B fails to self-close on 79/130, which is where its 6 s p50 comes from.
+- Sample failure think_text (4b-t512-greedy): v2-premiere-start — reasons "use premiere_command go_to_start" then emits wrong first action; v2-reminders-no-enter — notices value already present but re-types. (35b-t512) v2-calendar-month, v2-url-not-front — coherent reasoning, action still wrong.
+- Notable: t1024 == t512 scores exactly; retry gate too narrow (mean .619, most cases never think); 35b t0 (.601) is below the 4B baseline (.642).

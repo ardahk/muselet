@@ -137,7 +137,7 @@ public final class BrainClient: NSObject, URLSessionWebSocketDelegate {
             serve.say(text)
         case .confirm(_, let summary):
             serve.confirm(summary)      // headless: never answered (no auto-yes)
-        case .confirmCancel, .unknown:
+        case .confirmCancel, .memory, .unknown:
             break
         }
     }

@@ -105,6 +105,20 @@ final class DebugHooks {
                 // Same path as a fired start_timer (bubble + success mood).
                 let label = (info["label"] as? String).flatMap { $0.isEmpty ? nil : $0 }
                 bridge.handsTimerFired(label: label)
+            case "pill_hover":
+                mascot.pill.mascotHover(info["on"] as? String != "false")
+            case "pill_typing":
+                if (info["state"] as? String ?? "open") == "close" {
+                    mascot.pill.endTyping()
+                } else {
+                    mascot.pill.beginTyping(prefill: info["text"] as? String ?? "")
+                }
+            case "panel":
+                Self.openPanel()
+                let page = info["page"] as? String ?? "home"
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    NotificationCenter.default.post(name: .museletPanelPage, object: page)
+                }
             case "automation_status":
                 // Automation consent per target, read without prompting
                 // (targets that aren't running read not_running = unknown).
@@ -120,6 +134,30 @@ final class DebugHooks {
                 break
             }
         }
+    }
+
+    static func openPanel() {
+        let panelIsVisible = NSApp.windows.contains {
+            $0.className.contains("MenuBarExtraWindow") && $0.isVisible
+        }
+        guard !panelIsVisible else { return }
+        guard let button = NSApp.windows
+            .filter({ $0.className.contains("NSStatusBarWindow") })
+            .compactMap({ statusBarButton(in: $0.contentView) })
+            .first else {
+            FileLog.shared.raw("debug panel: status bar button not found")
+            return
+        }
+        button.performClick(nil)
+    }
+
+    private static func statusBarButton(in view: NSView?) -> NSStatusBarButton? {
+        guard let view else { return nil }
+        if let button = view as? NSStatusBarButton { return button }
+        for subview in view.subviews {
+            if let button = statusBarButton(in: subview) { return button }
+        }
+        return nil
     }
 
     /// Same call sequence HandsKit uses around an act: willAct -> wait -> didAct.

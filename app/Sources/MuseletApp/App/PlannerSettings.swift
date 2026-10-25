@@ -30,6 +30,7 @@ enum PlannerSettings {
 struct ConfigAck: Equatable {
     var ok: Bool
     var escalatePlanner: Bool?
+    var memoryEnabled: Bool?
     var reason: String?
 
     static func parse(_ text: String) -> ConfigAck? {
@@ -42,6 +43,7 @@ struct ConfigAck: Equatable {
         let ok = enabled ? loaded : (obj["reason"] == nil || loaded)
         return ConfigAck(ok: ok,
                          escalatePlanner: obj["escalate_planner"] as? Bool,
+                         memoryEnabled: obj["memory"] as? Bool,
                          reason: obj["reason"] as? String)
     }
 

@@ -7,6 +7,7 @@ Everything is traced and the app gets ui/say messages.
 import asyncio
 import gc
 import inspect
+import json
 import logging
 import math
 import os
@@ -14,9 +15,11 @@ import re
 import subprocess
 import threading
 import time
+from pathlib import Path
 import unicodedata
 
 from . import argfix, calc, dsl, obsdiff, pathfind, replies, sendgate, slots
+from .memory import MemoryStore, Resolution, WorkingMemory, resolve
 from .catalog import Catalog, CatalogError
 from .sites import SITES, fix_url, match_name, normalize_name
 from .traces import Tracer
@@ -252,6 +255,9 @@ WEB_ANSWER_SYSTEM = (
     "doesn't say, reply exactly NOT_FOUND.")
 WEB_ANSWER_FALLBACK = ("I opened the results; I couldn't confirm it on the "
                        "page.")
+VERIFY_MISSING_SYSTEM = (
+    "You check a computer task. In at most 10 words, say what part of the "
+    "goal is not finished yet, based on the screen. No preamble.")
 _ACT_OPS = {"press", "type", "keys", "click", "scroll", "drag", "select",
             "hover", "focus"}
 
@@ -384,14 +390,25 @@ def observation_blind(obs: dict | None) -> bool:
 class Orchestrator:
     WEB_AX_WINDOW_S = 2.2     # Chrome's web AX tree lands ~2 s after a switch
     COMPOUND_P = 0.75         # every clause must route this confidently
+    VERIFY_P = 0.5
+    MAX_RECOVERY = 2
 
     def __init__(self, server, catalog: Catalog | None = None,
-                 tracer: Tracer | None = None, engine=None, tau: float = 0.55):
+                 tracer: Tracer | None = None, engine=None, tau: float = 0.55,
+                 longterm_store: MemoryStore | None = None):
         self.server = server
         self.catalog = catalog or Catalog.load()
         self.tracer = tracer or Tracer()
         self.engine = engine
         self.tau = tau
+        self.memory_enabled = True
+        self.memory_llm = True
+        self.memory = WorkingMemory(path=Path("runs/memory/working.json"))
+        self.longterm_enabled = True
+        self.longterm = longterm_store or MemoryStore()
+        self._last_memory_ids: list[int] = []
+        self._focus_ctx = {}
+        self._planner_ran = False
         self.planner = None
         self.planner_escalate = None    # opt-in bigger planner (loop guard)
         self.escalate_opts = None
@@ -437,6 +454,7 @@ class Orchestrator:
         self.grounder_cfg: dict | None = dict(DEFAULT_GROUNDER)   # None = off
         self.grounder = None        # brain.grounder.Grounder, built on first use
         self.screens: list | None = None    # app `hello` screens (backing scale)
+        self.verify_done = True
 
     # ---------- v0 router ----------
 
@@ -498,21 +516,53 @@ class Orchestrator:
     # ---------- utterance ----------
 
     async def handle_utterance(self, text: str, ctx: dict | None = None) -> dict:
+        original_text = text
         t0 = time.perf_counter()
+        said_items = getattr(self.server, "said", None)
+        said_before = len(said_items) if isinstance(said_items, list) else 0
         self._t_final = t0
         self._first_action_ms = None
         self._web_ax_t0 = None
         self._ms_kind = None
+        self._last_skill = None
+        self._planner_ran = False
+        previous_turn = self.memory.last(time.time()) if self.memory_enabled else None
+        previous_memory_ids = list(self._last_memory_ids)
+        self._last_memory_ids = []
         trace = self.tracer.begin(text)
         # utterance-frame ctx wins (app/focused/selection/online)
         if ctx:
             for k in ("app", "focused", "selection", "online"):
                 if k in ctx:
                     self._ctx[k] = ctx[k]
+            for k in ("url", "window_title"):
+                if k in ctx:
+                    self._focus_ctx[k] = ctx[k]
+        self._utterance = text
         outcome = "ok"
         try:
             await self.server.ui("thinking")
             self._utterance = text
+            if self._longterm_active:
+                from .memory.policy import forget_command, memory_command
+                request = forget_command(text)
+                command = memory_command(text)
+                if request or command:
+                    self._comms = None
+                    self._draft = None
+                    self._slot = None
+                    self._pending_task = None
+                    if request:
+                        outcome = await self._handle_memory_request(
+                            request, previous_memory_ids)
+                    else:
+                        await self.server.say(command.reply)
+                        await self._end_ui("success")
+                        self._last_skill = ("remember", {}, {})
+                        outcome = "ok"
+                    trace["release_to_first_action_ms"] = self._first_action_ms
+                    self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
+                    return {"outcome": outcome}
             from . import comms
             if not self._pending_task or \
                     time.time() - self._pending_task["t"] >= 90:
@@ -571,46 +621,74 @@ class Orchestrator:
                     self._answer_history.append(text)
                     outcome = await self._planner_loop(
                         goal, trace, answer=text)
-            elif (msg := comms.parse_message(text)) is not None and \
-                    msg.get("channel") in (None, "messages"):
-                trace["decisions"].append({"message_redirect": msg})
-                outcome = await comms.start(self, msg, text)
-            elif (calc_result := calc.result(text)) is not None and \
-                    calc_result.value is not None and (
-                    str(self._ctx.get("app", "")).casefold() == "calculator"
-                    or re.search(r"\bcalculator\b", text, re.IGNORECASE) is not None
-                    ):
-                outcome = await self._deliver_calc(
-                    calc_result, trace, calculator=True)
-            elif self.engine is not None:
-                outcome = await self._engine_route(text, trace)
             else:
-                plan = self.route(text)
-                trace["decisions"].append({"router": plan})
-                if plan["kind"] == "skill":
+                memory_result = None
+                if self.memory_enabled:
+                    memory_result = await self._memory_followup(text, trace)
+                if memory_result and memory_result.ask:
+                    await self.server.say(memory_result.ask)
+                    await self.server.ui("listening")
+                    outcome = "awaiting_user"
+                elif (memory_result and memory_result.direct and
+                      memory_result.path in {"rule", "llm"} and
+                      self.catalog.risk(
+                          memory_result.direct.get("skill", "")) == "safe"):
+                    direct = memory_result.direct
+                    name = direct["skill"]
+                    args = dict(direct.get("args") or {})
+                    self._utterance = memory_result.text
                     outcome = await self.execute_actions(
-                        [{"op": "skill", "name": plan["name"],
-                          "args": plan["args"]}])
-                elif plan["kind"] == "batch":
-                    outcome = await self.execute_actions(plan["actions"])
-                elif (parsed := calc.result(text)) is not None:
-                    outcome = await self._deliver_calc(
-                        parsed, trace, calculator=False)
+                        [{"op": "skill", "name": name, "args": args}])
+                    if outcome == "ok":
+                        parts = " ".join(
+                            f'{k}="{v}"' if isinstance(v, str) and " " in v
+                            else f"{k}={v}" for k, v in args.items())
+                        self._ctx["last_action"] = f"{name} {parts}".strip()
+                        if self.engine is not None:
+                            self.engine.last_action = self._ctx["last_action"]
                 else:
-                    from .tools import draft_email
-                    from . import comms
-                    dargs = None if comms.is_messaging(text) else \
-                        draft_email.parse_request(text, self._ctx)
-                    if dargs is not None:
-                        trace["decisions"].append(
-                            {"draft_redirect": dargs})
-                        outcome = await self._brain_tool(
-                            "draft_email", dargs, text)
+                    if memory_result and memory_result.changed:
+                        text = memory_result.text
+                        self._utterance = text
+                    if (msg := comms.parse_message(text)) is not None and \
+                            msg.get("channel") in (None, "messages"):
+                        trace["decisions"].append({"message_redirect": msg})
+                        outcome = await comms.start(self, msg, text)
+                    elif (calc_result := calc.result(text)) is not None and \
+                            calc_result.value is not None and (
+                            str(self._ctx.get("app", "")).casefold() == "calculator"
+                            or re.search(r"\bcalculator\b", text,
+                                         re.IGNORECASE) is not None):
+                        outcome = await self._deliver_calc(
+                            calc_result, trace, calculator=True)
+                    elif self.engine is not None:
+                        outcome = await self._engine_route(text, trace)
                     else:
-                        await self._observe()
-                        await self.server.say("I can't do that yet")
-                        await self._end_ui("confused")
-                        outcome = "fallback"
+                        plan = self.route(text)
+                        trace["decisions"].append({"router": plan})
+                        if plan["kind"] == "skill":
+                            outcome = await self.execute_actions(
+                                [{"op": "skill", "name": plan["name"],
+                                  "args": plan["args"]}])
+                        elif plan["kind"] == "batch":
+                            outcome = await self.execute_actions(plan["actions"])
+                        elif (parsed := calc.result(text)) is not None:
+                            outcome = await self._deliver_calc(
+                                parsed, trace, calculator=False)
+                        else:
+                            from .tools import draft_email
+                            dargs = None if comms.is_messaging(text) else \
+                                draft_email.parse_request(text, self._ctx)
+                            if dargs is not None:
+                                trace["decisions"].append(
+                                    {"draft_redirect": dargs})
+                                outcome = await self._brain_tool(
+                                    "draft_email", dargs, text)
+                            else:
+                                await self._observe()
+                                await self.server.say("I can't do that yet")
+                                await self._end_ui("confused")
+                                outcome = "fallback"
             trace["release_to_first_action_ms"] = self._first_action_ms
             self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
             return {"outcome": outcome}
@@ -631,7 +709,278 @@ class Orchestrator:
                 pass
             return {"outcome": outcome}
         finally:
+            if self.memory_enabled:
+                try:
+                    memory_ctx = dict(self._focus_ctx)
+                    memory_ctx.setdefault("app", self._ctx.get("app"))
+                    if not memory_ctx.get("url") and self._last_url:
+                        memory_ctx["url"] = self._last_url
+                    if self._last_skill:
+                        skill, args, result = self._last_skill
+                    elif self._planner_ran:
+                        skill, args, result = "planner", {}, {}
+                    else:
+                        skill, args, result = None, {}, {}
+                    said = (said_items[-1] if isinstance(said_items, list) and
+                            len(said_items) > said_before else None)
+                    self.memory.record(
+                        original_text, self._utterance, skill, args,
+                        outcome == "ok", memory_ctx, said=said,
+                        result=result)
+                except Exception:
+                    log.exception("working-memory record failed")
+            if self._longterm_active:
+                try:
+                    from . import comms
+                    from .memory.policy import extract_writes
+                    skill, args = (self._last_skill[0], self._last_skill[1]) \
+                        if self._last_skill else (
+                            ("planner", {}) if self._planner_ran else (None, {}))
+                    safe_text = original_text
+                    if skill in {"send_message", "compose_email",
+                                 "draft_email", "compose_text", "type_text"} \
+                            or comms.is_messaging(original_text):
+                        safe_text = ""
+                    writes = extract_writes(
+                        safe_text, skill=skill, args=args, outcome=outcome,
+                        previous_turn=previous_turn,
+                        app=self._ctx.get("app"))
+                    if skill == "planner" and outcome == "ok" and safe_text:
+                        writes.extend(self._planner_memory_writes(
+                            safe_text, trace))
+                    self._persist_memory_writes(writes)
+                except Exception:
+                    log.exception("long-term memory write failed")
             self.tracer.finish(outcome)
+
+    async def _memory_followup(self, text: str, trace: dict) -> Resolution:
+        now = time.time()
+        focus_ctx = dict(self._focus_ctx)
+        focus_ctx.setdefault("app", self._ctx.get("app"))
+        if not focus_ctx.get("url") and self._last_url:
+            focus_ctx["url"] = self._last_url
+        started = time.perf_counter()
+        try:
+            rows = self.longterm.search(text, k=3) \
+                if self._longterm_active else None
+            result = resolve(
+                text, self.memory, focus_ctx, now, catalog=self.catalog,
+                longterm=rows)
+        except Exception:
+            log.exception("working-memory resolution failed")
+            return Resolution("none", text, False, None)
+
+        reason = result.reason
+        if (reason and result.path == "none" and self.memory_llm and
+                self.planner is not None):
+            try:
+                from .memory.rewrite import STATIC, dynamic, llm_rewrite
+                from .planner import worker
+                prompt = STATIC + dynamic(
+                    text, self.memory, focus_ctx, now, rows)
+                output = await worker().submit_async(
+                    self.planner.complete, prompt, 40)
+                result = llm_rewrite(
+                    text, self.memory, focus_ctx, now,
+                    lambda _prompt, _tokens: output, 40, memory=rows)
+                if result.reason != "guard":
+                    result.reason = reason
+            except Exception:
+                log.exception("working-memory LLM fallback failed")
+                result = Resolution("none", text, False, reason)
+
+        if reason:
+            trace["decisions"].append({
+                "memory.followup": {
+                    "path": result.path, "reason": result.reason,
+                    "before": text, "after": result.text,
+                    "ms": (time.perf_counter() - started) * 1000,
+                }})
+        return result
+
+    @property
+    def _longterm_active(self) -> bool:
+        return bool(self.memory_enabled and self.longterm_enabled)
+
+    def _memory_person(self, query: str) -> str | None:
+        if not self._longterm_active:
+            return None
+        key = " ".join(str(query or "").casefold().split())
+        return next((row["value"] for row in self.longterm.list("person")
+                     if row["key"] == key), None)
+
+    def _memory_note_person(self, query: str, name: str):
+        if not self._longterm_active:
+            return None
+        from .memory.policy import allowed_value
+        query = " ".join(str(query or "").casefold().split())
+        name = " ".join(str(name or "").split())
+        if not query or not name or query == name.casefold() or \
+                not allowed_value(query) or not allowed_value(name):
+            return None
+        row = self.longterm.upsert("person", query, name)
+        if row.get("id") not in self._last_memory_ids:
+            self._last_memory_ids.append(row["id"])
+        return row
+
+    def _persist_memory_writes(self, writes: list[dict]) -> None:
+        for write in writes:
+            row = self.longterm.upsert(
+                write["type"], write["key"], write["value"])
+            if row.get("id") not in self._last_memory_ids:
+                self._last_memory_ids.append(row["id"])
+
+    def _planner_memory_writes(self, goal: str, trace: dict) -> list[dict]:
+        from . import comms
+        from .memory.policy import allowed_value, planner_writes
+        from .plan_bank import Demo, PlanBank, _filter_demos, normalize
+
+        if not allowed_value(goal) or comms.is_messaging(goal):
+            return []
+        planner_turns = [item for item in trace.get("decisions", [])
+                         if "planner_turn" in item]
+        if not planner_turns:
+            return []
+        lines = [line for item in planner_turns
+                 for line in item.get("lines") or []
+                 if not re.match(r"^\s*done\b", str(line), re.IGNORECASE)]
+        unsafe = re.compile(
+            r"\b(?:type(?:_text)?|script|url|text|body|message|content|"
+            r"password|passcode|pin|code)\b|"
+            r"\b(?:name|path|query|value|title)\s*=",
+            re.IGNORECASE)
+        if unsafe.search(goal) or any(unsafe.search(str(line)) for line in lines):
+            return []
+        actions = [str(line).strip() for line in lines
+                   if self.catalog and
+                   dsl.action_line(str(line), self.catalog.skills)]
+        if not actions:
+            return [row for row in planner_writes(
+                goal, self._ctx.get("app") or "unknown", 0)
+                    if row["type"] == "episode"]
+        observation = (self._last_obs or {}).get("text", "")
+        header = observation.splitlines()[0] if observation else ""
+        app = (self._last_obs or {}).get("app") or self._ctx.get("app") or ""
+        demo = Demo(goal=goal, app=str(app), category="user",
+                    obs_header=header, batch=actions, source="memory")
+        try:
+            filtered, _ = _filter_demos([demo])
+        except Exception:
+            log.exception("workflow denylist unavailable")
+            filtered = []
+        writes = planner_writes(goal, str(app or "unknown"), len(actions))
+        if not filtered:
+            return [row for row in writes if row["type"] == "episode"]
+        path = Path.home() / "Library/Application Support/Muselet/workflows.jsonl"
+        normalized = normalize(goal)
+        try:
+            existing = [json.loads(line) for line in
+                        path.read_text(encoding="utf-8").splitlines()
+                        if line.strip()] if path.exists() else []
+        except (OSError, ValueError):
+            existing = []
+        duplicate = any(normalize(row.get("goal", "")) == normalized
+                        for row in existing)
+        planner = self.planner
+        bank = getattr(planner, "plan_bank", None) if planner else None
+        bank_demos = list(bank.demos) if bank else []
+        in_bank = any(normalize(item.goal) == normalized for item in bank_demos)
+        if not duplicate:
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with path.open("a", encoding="utf-8") as f:
+                    f.write(json.dumps({
+                        "goal": demo.goal, "app": demo.app,
+                        "category": demo.category,
+                        "obs_header": demo.obs_header,
+                        "batch": demo.batch, "source": demo.source},
+                        ensure_ascii=False) + "\n")
+            except OSError:
+                log.exception("workflow persistence failed")
+        if planner and not in_bank:
+            planner.plan_bank = PlanBank(bank_demos + [demo])
+        return writes
+
+    async def _handle_memory_request(self, request, last_ids: list[int]) -> str:
+        kind, query = request
+        if kind == "remember":
+            rows = self.longterm.search(query, k=3) if query else \
+                self.longterm.list(limit=3)
+            if not rows:
+                await self.server.say("I don't remember anything yet.")
+                await self._end_ui("success")
+                return "ok"
+            from .memory.store import render
+            await self.server.say("\n".join(render(rows)))
+            await self._end_ui("success")
+            self._last_skill = ("memory", {}, {})
+            return "ok"
+        if kind == "clear":
+            if not self.longterm.list(limit=1):
+                await self.server.say("I don't have anything about that.")
+                await self._end_ui("success")
+                return "ok"
+            confirmed = await self._confirm_memory("Forget everything?")
+            if confirmed:
+                self.longterm.clear()
+                await self.server.say("Forgotten.")
+                self._last_memory_ids.clear()
+                await self._end_ui("success")
+            else:
+                await self.server.say("Okay, I won't forget everything.")
+                await self._end_ui("idle")
+            self._last_skill = ("memory", {}, {})
+            return "ok" if confirmed else "cancelled"
+        if kind == "that":
+            wanted = set(last_ids)
+            rows = [row for row in self.longterm.list(limit=10000)
+                    if row["id"] in wanted]
+        else:
+            rows = self.longterm.forget(query or "", k=3)
+        if not rows:
+            await self.server.say("I don't have anything about that.")
+            await self._end_ui("success")
+            return "ok"
+        changed = False
+        for row in rows:
+            summary = f"Forget {row['value']}?"
+            if await self._confirm_memory(summary):
+                self.longterm.delete(row["id"])
+                changed = True
+                await self.server.say("Forgotten.")
+            else:
+                await self.server.say("Okay, I won't forget it.")
+        await self._end_ui("success" if changed else "idle")
+        self._last_skill = ("memory", {}, {})
+        return "ok" if changed else "cancelled"
+
+    async def _confirm_memory(self, summary: str) -> bool:
+        await self.server.ui("thinking", summary)
+        try:
+            return bool(await self.server.ask_confirm(summary))
+        except RuntimeError:
+            return False
+
+    def memory_request(self, msg: dict) -> dict:
+        op = msg.get("op")
+        if op == "list":
+            rows = self.longterm.list(limit=100)
+        elif op == "search":
+            rows = self.longterm.search(str(msg.get("q") or ""), k=20)
+        elif op == "delete":
+            try:
+                self.longterm.delete(int(msg.get("id")))
+            except (TypeError, ValueError):
+                pass
+            rows = self.longterm.list(limit=100)
+        elif op == "clear":
+            self.longterm.clear()
+            rows = []
+        else:
+            rows = []
+        return {"items": [
+            {key: row[key] for key in ("id", "type", "key", "value", "created")}
+            for row in rows]}
 
     # ---------- engine path ----------
 
@@ -1537,6 +1886,14 @@ function run() {
         return (self._last_obs or {}).get("app") or self._ctx.get("app") \
             or "this app"
 
+    def _skill_risk(self, name: str, args: dict) -> str:
+        risk = self.catalog.risk(name)
+        if name == "premiere_command" and risk == "safe" and \
+                args.get("command") not in (
+                    "play_toggle", "go_to_start", "go_to_end"):
+            return "confirm"
+        return risk
+
     async def _confirm_summary(self, a: dict) -> str:
         """Short summary naming the object, preserving full trash paths."""
         op = a["op"]
@@ -1544,6 +1901,9 @@ function run() {
             return _cap12(str(a.get("summary") or "Continue?").strip('"'))
         if op == "skill":
             n, ar = a["name"], a.get("args", {})
+            if n == "premiere_command":
+                command = str(ar.get("command") or "unknown command")
+                return _cap12(f"Premiere: {command.replace('_', ' ')}?")
             if n in ("send_message", "compose_email"):
                 to = str(ar.get("to") or "them")
                 verb = "Text" if n == "send_message" else "Email"
@@ -1597,6 +1957,115 @@ function run() {
         if fmt == "dsl":
             return f"{act} -> {res}"
         return f"[{res}] {act}"
+
+    async def _missing_text(self, goal: str, actions_log: list[str],
+                            obs_text: str) -> str:
+        fallback = "the goal isn't visible on screen yet"
+        planner = self._active_planner or self.planner
+        if not callable(getattr(planner, "generate", None)):
+            return fallback
+        action_lines = [line[:160] for line in actions_log[-12:]]
+        user = (f'Goal: "{goal}"\nActions taken:\n'
+                f'{"\n".join(action_lines) if action_lines else "(none)"}\n'
+                f"Fresh observation:\n{_headtail(obs_text, 1500)}")
+        try:
+            from .planner import worker
+            answer = await worker().submit_async(
+                planner.generate, VERIFY_MISSING_SYSTEM, user, 24)
+        except Exception as e:  # noqa: BLE001 - missing-text model is optional
+            log.warning("verification missing-text generation failed: %s", e)
+            return fallback
+        lines = str(answer or "").splitlines()
+        answer = lines[0].strip() if lines else ""
+        answer = answer.strip(" \t\r\n\"'`.,!?;:()[]{}")
+        if not answer or re.search(
+                r"\b(done|success(?:ful)?|completed?)\b", answer,
+                re.IGNORECASE):
+            return fallback
+        return " ".join(answer.split()[:12])
+
+    async def _verify_done(self, goal: str, actions_log: list[str],
+                           trace: dict) -> tuple[bool, float | None,
+                                                 dict | None, str]:
+        obs = await self._observe()
+        if obs:
+            self._last_obs = obs
+        if await self._permission_gate(obs, goal):
+            return False, None, obs, "permission prompt"
+        obs_text = str((obs or {}).get("text") or "(no observation available)")
+        ocr_text = ""
+        if len(obs_text.strip()) < 200:
+            ocr_text = await self._window_ocr_text()
+
+        action_lines = [line[:160] for line in actions_log[-12:]]
+        state = (f'Goal: "{goal}"\nActions taken:\n'
+                 f'{"\n".join(action_lines) if action_lines else "(none)"}\n'
+                 f"Fresh observation:\n{_headtail(obs_text, 1500)}")
+        if ocr_text:
+            state += f"\nScreen text (OCR):\n{_headtail(ocr_text, 1500)}"
+        question = {
+            "type": "bool",
+            "instructions": (
+                "Is the goal achieved? Judge only from the fresh observation "
+                "and the actions taken; if any part of the goal is not visibly "
+                "complete, answer No."),
+        }
+        planner = self._active_planner or self.planner
+        started = time.perf_counter()
+        try:
+            from .planner import worker
+            probs = await worker().submit_async(planner.decide, state, question)
+            p_yes = float(probs.get("true", 0.0))
+        except Exception as e:  # noqa: BLE001 - verifier unavailable
+            ms = (time.perf_counter() - started) * 1000
+            log.warning("planner done verifier unavailable: %s", e)
+            trace["decisions"].append({"planner.verify": {
+                "method": "model", "p_yes": None,
+                "threshold": self.VERIFY_P, "ms": round(ms, 1),
+                "result": None, "error": str(e)}})
+            self.tracer.stage("planner.verify", ms)
+            return False, None, obs, ""
+
+        ms = (time.perf_counter() - started) * 1000
+        ok = p_yes >= self.VERIFY_P
+        trace["decisions"].append({"planner.verify": {
+            "method": "model", "p_yes": round(p_yes, 3),
+            "threshold": self.VERIFY_P, "ms": round(ms, 1),
+            "result": ok}})
+        self.tracer.stage("planner.verify", ms)
+        missing = "" if ok else await self._missing_text(
+            goal, actions_log, obs_text)
+        return ok, p_yes, obs, missing
+
+    async def _recover(self, trace: dict, reason: str, detail: str) -> bool:
+        self._recover_round += 1
+        round_no = self._recover_round
+        trace["decisions"].append({"planner.recover": {
+            "round": round_no, "reason": reason}})
+        log.info("planner recovery %s: %s", reason, detail)
+        return round_no <= self.MAX_RECOVERY
+
+    async def _honest_failure(self, text: str, goal: str, trace: dict,
+                              actions_log: list[str], obs_text: str,
+                              detail: str, reason: str,
+                              missing: str | None = None) -> str:
+        if missing and re.search(
+                r"\b(done|success(?:ful)?|completed?)\b", missing,
+                re.IGNORECASE):
+            missing = None
+        if not missing:
+            actions = list(actions_log)
+            if detail:
+                actions.append(f"Last error: {detail}")
+            missing = await self._missing_text(goal, actions, obs_text)
+        trace["decisions"].append({"planner.recover": {
+            "round": self._recover_round, "reason": reason,
+            "exhausted": True}})
+        self._pending_task = {"goal": text, "t": time.time()}
+        bubble = " ".join(f"Not finished: {missing}".split()[:12])
+        await self.server.say(bubble)
+        await self._end_ui("confused")
+        return "failed"
 
     async def _exec_one(self, a: dict) -> dict:
         """Execute one DSL action; `_log` is its Last-batch line."""
@@ -1774,10 +2243,11 @@ function run() {
                 st_label = st if st != "ok" else "ok"
                 return {"status": st,
                         "_log": f"{dsl_line}-> {st_label}"}
-            risk = spec.get("risk")
+            risk = self._skill_risk(a["name"], a.get("args", {}))
             if risk in ("confirm", "confirm_if_unsaved"):
                 # if we can't tell the unsaved state, confirm (spec rule)
-                if not self._take_confirm():
+                confirmed = self._take_confirm()
+                if a["name"] == "premiere_command" or not confirmed:
                     yes = await self.server.ask_confirm(
                         await self._confirm_summary(a))
                     if not yes:
@@ -2139,7 +2609,10 @@ function run() {
                 return {"status": "failed",
                         "error": f"expect failed: {vres.get('observed', '?')}",
                         "res": res}
-        return {"status": "ok", "res": res, "expect_ok": bool(exp)}
+        return {
+            "status": "ok", "res": res, "expect_ok": bool(exp),
+            "self_verified": method == "skill" and res.get("ok") is True
+            and not res.get("error")}
 
     # script confirmation policy (evals-safety-2)
     _SCRIPT_BLOCK = re.compile(
@@ -2273,6 +2746,7 @@ function run() {
             await self.server.say("Planning isn't ready yet")
             await self._end_ui("confused")
             return "fallback"
+        self._planner_ran = True
         from . import dsl
         from .planner import worker
         goal = text
@@ -2289,14 +2763,45 @@ function run() {
         prev_expect_ok = False
         obs_text = ""
         diffs: list[str] | None = None
+        next_obs = None
+        actions_log: list[str] = []
+        self._recover_round = 0
+        last_failure_detail = ""
         fail_streak, prev_fail_key = 0, None
         noop_press_key, noop_press_count = None, 0
+        last_exp_ok = False
+        last_exp_source = None
         planner, escalated = self.planner, False
         self._active_planner = planner
+
+        def update_last_evidence(action, result, verify_mode):
+            nonlocal last_exp_ok, last_exp_source
+            if not verify_mode:
+                last_exp_ok = bool(result.get("expect_ok"))
+                last_exp_source = "expect" if last_exp_ok else None
+            elif action["op"] not in ("wait", "confirm", "ask"):
+                expect_ok = bool(result.get("expect_ok"))
+                skill_ok = bool(result.get("self_verified"))
+                last_exp_ok = expect_ok or skill_ok
+                last_exp_source = (
+                    "expect" if expect_ok else "skill" if skill_ok else None)
+
         for turn in range(12):
             if time.perf_counter() - t_start > 60:
                 break
-            if diffs is not None and self._last_obs:
+            verify_mode = bool(
+                getattr(self, "verify_done", True) and
+                callable(getattr(planner, "decide", None)))
+            if not verify_mode:
+                last_exp_ok = False
+                last_exp_source = None
+            if next_obs is not None:
+                obs = next_obs
+                next_obs = None
+                obs_fresh = True
+                obs_text = str(obs.get("text") or "")
+                self._last_obs = obs
+            elif diffs is not None and self._last_obs:
                 # last batch's act diffs describe the UI: skip the observe RPC
                 for d in diffs:
                     obs_text = obsdiff.apply_diff(obs_text, d)
@@ -2331,6 +2836,22 @@ function run() {
                 f"{self._last_obs.get('window', '') if self._last_obs else ''}\n"
                 f"{obs_text}", re.IGNORECASE))
             plan_kwargs = {"hint": hint, "script_output": self._script_output}
+            if self.memory_enabled:
+                try:
+                    params = inspect.signature(planner.plan).parameters
+                    accepts_kwargs = any(
+                        p.kind == inspect.Parameter.VAR_KEYWORD
+                        for p in params.values())
+                    if "recent" in params or accepts_kwargs:
+                        plan_kwargs["recent"] = self.memory.recent_lines(5)
+                    if self._longterm_active and (
+                            "memory" in params or accepts_kwargs):
+                        from .memory.store import render
+                        rows = self.longterm.search(goal, k=3)
+                        if rows:
+                            plan_kwargs["memory"] = render(rows)
+                except (TypeError, ValueError):
+                    pass
             if login_page:
                 try:
                     params = inspect.signature(planner.plan).parameters
@@ -2354,11 +2875,12 @@ function run() {
             self._batch_confirmed = False
             res_status = "ok"
             done_seen = False
+            done_action = None
             n_executed = 0
-            last_exp_ok = False
             skipped: list[str] = []      # prose / tags / fences, not actions
             n_actions = 0
             fail_key = None              # normalized action line that failed
+            failure_detail = ""
             script_buf: list[str] | None = None   # multi-line """ block
             try:
                 while True:
@@ -2410,10 +2932,11 @@ function run() {
                             noop_press_key, noop_press_count = None, 0
                         if r["status"] == "done":
                             done_seen = True
+                            done_action = a
                             cancel.set()      # done ends the batch's execution
                         else:
                             n_executed += 1
-                            last_exp_ok = bool(r.get("expect_ok"))
+                            update_last_evidence(a, r, verify_mode)
                             if r["status"] != "ok":
                                 failed = True
                                 cancel.set()
@@ -2421,6 +2944,8 @@ function run() {
                                               if r.get("_terminal_failure")
                                               else r["status"])
                                 fail_key = _action_key(a)
+                                failure_detail = str(
+                                    r.get("error") or res_status)
                     try:
                         acts = dsl.parse(line)
                         pending.extend(acts)
@@ -2430,6 +2955,7 @@ function run() {
                         fail_key = " ".join(line.lower().split())
                         batch_log.append(self._batch_line(
                             line, f"failed: {e}", f"{line} -> failed: {e}"))
+                        failure_detail = str(e)
                         cancel.set()
             except asyncio.CancelledError:
                 cancel.set()   # stop the decode
@@ -2457,15 +2983,17 @@ function run() {
                     noop_press_key, noop_press_count = None, 0
                 if r["status"] == "done":
                     done_seen = True
+                    done_action = a
                 else:
                     n_executed += 1
-                    last_exp_ok = bool(r.get("expect_ok"))
+                    update_last_evidence(a, r, verify_mode)
                     if r["status"] != "ok":
                         failed = True
                         res_status = ("terminal_failure"
                                       if r.get("_terminal_failure")
                                       else r["status"])
                         fail_key = _action_key(a)
+                        failure_detail = str(r.get("error") or res_status)
                         cancel.set()
             info = await asyncio.wrap_future(fut)
             trace["decisions"].append({
@@ -2479,6 +3007,7 @@ function run() {
             if skipped:
                 trace["decisions"].append({"skipped_lines": skipped})
                 batch_log.append(f"ignored {len(skipped)} non-action lines")
+            actions_log.extend(batch_log)
             last_batch = batch_log or None
             lo = self._last_obs or {}
             # capped/truncated observations can't be rebuilt from diffs: an
@@ -2495,13 +3024,77 @@ function run() {
                 return "failed"
             if res_status == "fallback":
                 return "fallback"     # brain tool not ready: one bubble (planner-18)
-            # done is verified, never trusted (planner-13): alone in its batch
-            # and either the previous batch's last expect passed, or the
-            # planner saw a fresh observe (not a diff rebuild); after a
-            # failure, done is rejected once
+            # done is verified, never trusted (planner-13)
             if done_seen and not failed:
-                if n_executed == 0 and (prev_expect_ok or obs_fresh and (
-                        not prev_had_failure or done_rejected)):
+                accepted = False
+                verification_missing = ""
+                verification_obs = None
+                verifier_unavailable = False
+                if verify_mode:
+                    if last_exp_ok:
+                        trace["decisions"].append({"planner.verify": {
+                            "method": "expect",
+                            "source": last_exp_source or "expect",
+                            "p_yes": None, "ms": 0.0, "result": True}})
+                        accepted = True
+                    elif n_executed == 0 and done_action and \
+                            done_action.get("expect"):
+                        exp = done_action["expect"]
+                        params = {"expect": exp}
+                        verify_started = time.perf_counter()
+                        try:
+                            vres = await self.server.rpc(
+                                "verify", params, timeout=15)
+                        except RuntimeError as e:
+                            vres = {"ok": False, "observed": str(e)}
+                        verify_ms = (time.perf_counter() -
+                                     verify_started) * 1000
+                        self.tracer.rpc("verify", params, vres, verify_ms)
+                        accepted = bool(vres.get("ok", False))
+                        observed = vres.get("observed", "?")
+                        trace["decisions"].append({"planner.verify": {
+                            "method": "expect", "source": "done_expect",
+                            "p_yes": None, "ms": round(verify_ms, 1),
+                            "result": accepted}})
+                        self.tracer.stage("planner.verify", verify_ms)
+                        if not accepted:
+                            verification_missing = f"expect failed: {observed}"
+                    else:
+                        accepted, p_yes, verification_obs, \
+                            verification_missing = await self._verify_done(
+                                goal, actions_log, trace)
+                        if permission_prompt(verification_obs):
+                            return "awaiting_user"
+                        if p_yes is None:
+                            verifier_unavailable = True
+                            accepted = n_executed == 0 and obs_fresh and (
+                                not prev_had_failure or done_rejected)
+                    if not accepted and not verifier_unavailable:
+                        why = (
+                            f"verification failed: {verification_missing}")
+                        batch_log.append(self._batch_line(
+                            "done", why, f"done -> {why}"))
+                        actions_log.append(batch_log[-1])
+                        last_batch = batch_log
+                        last_failure_detail = verification_missing
+                        spent = not await self._recover(
+                            trace, "verify", verification_missing)
+                        last_exp_ok = False
+                        last_exp_source = None
+                        if spent:
+                            return await self._honest_failure(
+                                text, goal, trace, actions_log, obs_text,
+                                verification_missing, "verify",
+                                missing=verification_missing)
+                        prev_had_failure = True
+                        diffs = None
+                        next_obs = verification_obs
+                        continue
+                else:
+                    accepted = n_executed == 0 and (
+                        prev_expect_ok or obs_fresh and (
+                            not prev_had_failure or done_rejected))
+                if accepted:
                     summary = self._done_summary or "Done"
                     await self.server.say(summary[:60])
                     await self._end_ui("success")
@@ -2511,20 +3104,36 @@ function run() {
                 why = "failed: not verified; check the fresh observation"
                 batch_log.append(self._batch_line("done", why,
                                                   f"done -> {why}"))
+                actions_log.append(batch_log[-1])
+                last_batch = batch_log
                 failed = True
                 diffs = None          # force a fresh observe next turn
             prev_expect_ok = n_executed > 0 and not failed and last_exp_ok
             if harness_reject and res_status != "failed":
                 # the harness's own done rejection isn't a planner failure
                 # for the loop guard (planner-20)
+                last_exp_ok = False
+                last_exp_source = None
                 prev_had_failure = True
                 continue
             if res_status == "failed" or failed or not n_actions:
+                last_exp_ok = False
+                last_exp_source = None
                 # loop guard: same action failing twice in a row, or three
                 # failed turns -> ask the user instead of burning turns
                 fail_streak += 1
                 same = fail_key is not None and fail_key == prev_fail_key
-                if self.planner_escalate is not None and fail_streak >= 2:
+                recovery_reason = (
+                    "no_action" if not n_actions else
+                    "expect" if failure_detail.startswith("expect failed")
+                    else "action_error")
+                last_failure_detail = failure_detail
+                spent = False
+                if verify_mode:
+                    spent = not await self._recover(
+                        trace, recovery_reason, failure_detail)
+                if self.planner_escalate is not None and fail_streak >= 2 \
+                        and not spent:
                     if not escalated:
                         # opt-in: the escalation planner takes the remaining
                         # turns instead of stopping
@@ -2544,12 +3153,22 @@ function run() {
                     await self.server.say("I'm stuck on that, can you help?")
                     await self._end_ui("confused")
                     return "awaiting_user"
+                if spent:
+                    return await self._honest_failure(
+                        text, goal, trace, actions_log, obs_text,
+                        failure_detail, recovery_reason)
                 prev_fail_key = fail_key
                 prev_had_failure = True
                 continue          # replan with fresh observation
             fail_streak, prev_fail_key = 0, None
             # batch fully executed without a terminal op -> keep going
             prev_had_failure = False
+        if getattr(self, "verify_done", True) and callable(
+                getattr(planner, "decide", None)):
+            return await self._honest_failure(
+                text, goal, trace, actions_log,
+                str((self._last_obs or {}).get("text") or obs_text),
+                last_failure_detail, "turn_limit")
         await self.server.say("That didn't work")
         await self._end_ui("confused")
         return "failed"
@@ -2985,8 +3604,8 @@ function run() {
             await self.server.ui("listening")
             return "awaiting_user"
         validated_args = dict(args)
-        spec = self.catalog.get(name) or {}
-        if spec.get("risk") == "confirm" and not args.get("confirmed"):
+        if self._skill_risk(name, args) == "confirm" and \
+                (name == "premiere_command" or not args.get("confirmed")):
             summary = await self._confirm_summary(
                 {"op": "skill", "name": name, "args": args})
             await self.server.ui("thinking", summary)
@@ -3097,6 +3716,28 @@ function run() {
         return bool(text) and self.planner is not None and \
             self._ctx.get("online") is True and question_like(text)
 
+    async def _window_ocr_text(self) -> str:
+        try:
+            shot = await self.server.rpc(
+                "screenshot", {"window": True, "max_pixels": 1_000_000},
+                timeout=15)
+            if not isinstance(shot, dict) or shot.get("ok") is False:
+                return ""
+            shot_data = (shot or {}).get("result") or shot or {}
+            if not isinstance(shot_data, dict) or \
+                    not shot_data.get("path") or shot_data.get("ok") is False:
+                return ""
+            ocr = await self.server.rpc(
+                "ocr", {"path": shot_data["path"]}, timeout=30)
+            if not isinstance(ocr, dict) or ocr.get("ok") is False:
+                return ""
+            ocr_data = (ocr or {}).get("result") or ocr or {}
+            if not isinstance(ocr_data, dict) or ocr_data.get("ok") is False:
+                return ""
+            return str(ocr_data.get("text") or "")
+        except RuntimeError:
+            return ""
+
     async def _web_answer(self, question: str, trace: dict) -> str:
         """Answer a question from the search results page (brain-8): web
         AX text (OCR only when it's thin) -> planner model, page = data."""
@@ -3108,21 +3749,9 @@ function run() {
             page = str(obs.get("text") or "")
         ocr_used = False
         if len(page.strip()) < 200:
-            try:
-                shot = await self.server.rpc(
-                    "screenshot", {"window": True, "max_pixels": 1_000_000},
-                    timeout=15)
-                if shot and shot.get("ok", True) and \
-                        (shot.get("result") or shot).get("path"):
-                    path = (shot.get("result") or shot)["path"]
-                    ocr = await self.server.rpc("ocr", {"path": path},
-                                                timeout=30)
-                    text = str(((ocr or {}).get("result") or ocr or {})
-                               .get("text") or "")
-                    if len(text.strip()) > len(page.strip()):
-                        page, ocr_used = text, True
-            except RuntimeError:
-                pass
+            text = await self._window_ocr_text()
+            if len(text.strip()) > len(page.strip()):
+                page, ocr_used = text, True
         excerpt = _page_excerpt(page, question)
         self.tracer.stage("web_answer.observe",
                           (time.perf_counter() - t) * 1000)
