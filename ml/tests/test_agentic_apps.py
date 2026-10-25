@@ -190,3 +190,47 @@ def test_agentic_message_is_not_used_for_longterm_memory(
     _run(orch.handle_utterance(goal))
 
     assert seen == [""]
+
+
+def test_agentic_message_auto_done_waits_before_sending(tmp_path):
+    state = dict(_MESSAGE_OBS)
+
+    def act(params):
+        if params.get("op") == "type":
+            state["text"] = (
+                'app: Messages | window: "New Message" | focused: #2\n'
+                '#2 textfield "Message" value="hi there caleb"\n'
+                '#3 button "Send"')
+            return {
+                "ok": True, "act_ms": 1, "epoch": 2,
+                "diff_text": '~ #2 value="hi there caleb"',
+                "observed": state["text"],
+            }
+        return {"ok": True, "act_ms": 1, "epoch": 2}
+
+    planner = FakePlanner([[
+        'type #2 "hi there caleb"',
+        'confirm "Text Caleb: hi there caleb?"',
+        "press #3",
+    ]])
+    server = FakeServer(act=act, observe=lambda: state)
+    orch = Orchestrator(server, Catalog.load(), Tracer(tmp_path / "traces"),
+                        engine=FakeEngine())
+    orch.agentic_apps = True
+    orch.planner = planner
+    trace = {"decisions": []}
+
+    result = _run(orch._agentic_route(
+        "send_message", {"to": "Caleb", "body": "hi there caleb"},
+        "text Caleb that hi there caleb", trace))
+
+    assert result == "awaiting_user"
+    assert not [params for method, params in server.rpcs
+                if method == "act" and params.get("op") == "press"]
+    auto_done = [d for d in trace["decisions"] if "auto_done" in d]
+    assert auto_done == [{
+        "auto_done": "confirm summary=Text Caleb: hi there caleb?",
+        "turn": 0,
+        "kind": "message",
+    }]
+    assert server.said == ["Message is ready; press Send when you want"]

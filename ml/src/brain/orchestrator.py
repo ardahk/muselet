@@ -3808,6 +3808,32 @@ function run() {
             "kind": kind, "visible": ok}})
         return ok, what
 
+    def _auto_done(self, goal: str, action: dict, post: str) -> str | None:
+        """Return done/awaiting_user when progress evidence proves completion."""
+        from .finish import cart_count, evidence
+
+        if action.get("op") == "confirm":
+            self._confirm_asked = True
+        progress = self._progress
+        if not progress:
+            return None
+        kind, subject, args = progress
+        baseline = self._cart_baseline
+        if kind == "cart" and isinstance(baseline, int):
+            current = cart_count(post)
+            if current is not None and current > baseline:
+                self._cart_added = True
+        visible = evidence(
+            kind, subject,
+            obs={"text": post,
+                 "focused_ref": (self._last_obs or {}).get("focused_ref")},
+            script_stdout=self._last_script_stdout, goal=goal, args=args,
+            baseline=baseline if isinstance(baseline, int) else None,
+            confirmed=self._confirm_asked, progress=True)
+        if visible and (kind == "cart" or not self._evidence_base):
+            return "awaiting_user" if kind == "message" else "done"
+        return None
+
     async def _planner_loop(self, text: str, trace: dict,
                             hint: str | None = None,
                             answer: str | None = None,
@@ -3822,6 +3848,10 @@ function run() {
         self._planner_ran = True
         self._cart_baseline = "unset"
         self._cart_added = False
+        self._progress = "unset"
+        self._evidence_base = False
+        self._confirm_asked = False
+        self._auto_evidence = False
         from . import dsl
         from .planner import worker
         goal = text
@@ -3928,8 +3958,18 @@ function run() {
             cancel = threading.Event()
             loop = asyncio.get_running_loop()
             if getattr(self, "_cart_baseline", "unset") == "unset":
-                from .finish import cart_count as _cc
-                self._cart_baseline = _cc(obs_text)
+                from .finish import cart_count, evidence, progress_kind
+                self._cart_baseline = cart_count(obs_text)
+                self._progress = progress_kind(goal, self._agentic)
+                if self._progress and self._progress[0] != "cart":
+                    kind, subject, args = self._progress
+                    self._evidence_base = evidence(
+                        kind, subject,
+                        obs={"text": obs_text,
+                             "focused_ref": (self._last_obs or {}).get(
+                                 "focused_ref")},
+                        script_stdout=self._last_script_stdout,
+                        goal=goal, args=args, progress=True)
             blind_obs = observation_blind(self._last_obs)
             untargeted = blind_obs and not self._blind_is_target(
                 goal, self._last_obs)
@@ -4013,6 +4053,8 @@ function run() {
             done_seen = False
             done_action = None
             n_executed = 0
+            post_acc = obs_text
+            auto_awaiting_user = False
             skipped: list[str] = []      # prose / tags / fences, not actions
             n_actions = 0
             fail_key = None              # normalized action line that failed
@@ -4047,6 +4089,7 @@ function run() {
                     n_actions += 1
                     # a new action line: flush the previous pending action
                     if pending and not failed and not done_seen and \
+                            res_status != "awaiting_user" and \
                             n_executed < batch_cap:
                         a = pending.pop(0)
                         r = await self._exec_one(a)
@@ -4076,24 +4119,23 @@ function run() {
                             update_last_evidence(a, r, verify_mode)
                             if r["status"] == "ok" and not done_seen:
                                 _res = r.get("res") or {}
-                                _post = (obs_text + "\n" + str(_res.get(
-                                    "diff_text") or "") + "\n" +
-                                    str(_res.get("observed") or ""))
-                                from .finish import progress_evidence as _fe, \
-                                    cart_count as _cc2
-                                _cur = _cc2(_post)
-                                if isinstance(self._cart_baseline, int) \
-                                        and _cur is not None \
-                                        and _cur > self._cart_baseline:
-                                    self._cart_added = True
-                                if _fe(goal, _post, self._cart_baseline
-                                        if isinstance(self._cart_baseline, int)
-                                        else None):
-                                    done_seen = True
+                                post_acc += "\n" + str(_res.get(
+                                    "diff_text") or "") + "\n" + str(
+                                        _res.get("observed") or "")
+                                auto_result = self._auto_done(
+                                    goal, a, post_acc)
+                                if auto_result:
+                                    kind = self._progress[0]
                                     cancel.set()
                                     trace["decisions"].append(
                                         {"auto_done": _repr_line(a),
-                                         "turn": turn})
+                                         "turn": turn, "kind": kind})
+                                    if auto_result == "done":
+                                        done_seen = True
+                                        self._auto_evidence = True
+                                    else:
+                                        res_status = "awaiting_user"
+                                        auto_awaiting_user = True
                             if r["status"] != "ok":
                                 failed = True
                                 cancel.set()
@@ -4120,6 +4162,7 @@ function run() {
                 raise
             # flush tail action(s)
             while pending and not failed and not done_seen and \
+                    res_status != "awaiting_user" and \
                     n_executed < batch_cap:
                 a = pending.pop(0)
                 r = await self._exec_one(a)
@@ -4148,23 +4191,23 @@ function run() {
                     update_last_evidence(a, r, verify_mode)
                     if r["status"] == "ok" and not done_seen:
                         _res = r.get("res") or {}
-                        _post = (obs_text + "\n" + str(_res.get(
-                            "diff_text") or "") + "\n" +
-                            str(_res.get("observed") or ""))
-                        from .finish import progress_evidence as _fe, \
-                            cart_count as _cc2
-                        _cur = _cc2(_post)
-                        if isinstance(self._cart_baseline, int) \
-                                and _cur is not None \
-                                and _cur > self._cart_baseline:
-                            self._cart_added = True
-                        if _fe(goal, _post, self._cart_baseline
-                                if isinstance(self._cart_baseline, int)
-                                else None):
-                            done_seen = True
+                        post_acc += "\n" + str(_res.get(
+                            "diff_text") or "") + "\n" + str(
+                                _res.get("observed") or "")
+                        auto_result = self._auto_done(
+                            goal, a, post_acc)
+                        if auto_result:
+                            kind = self._progress[0]
                             cancel.set()
                             trace["decisions"].append(
-                                {"auto_done": _repr_line(a), "turn": turn})
+                                {"auto_done": _repr_line(a), "turn": turn,
+                                 "kind": kind})
+                            if auto_result == "done":
+                                done_seen = True
+                                self._auto_evidence = True
+                            else:
+                                res_status = "awaiting_user"
+                                auto_awaiting_user = True
                     if r["status"] != "ok":
                         failed = True
                         res_status = ("terminal_failure"
@@ -4208,6 +4251,10 @@ function run() {
             self._diff_chain = None
             if res_status == "awaiting_user":
                 self._pending_task = {"goal": text, "t": time.time()}
+                if auto_awaiting_user:
+                    await self.server.say(
+                        "Message is ready; press Send when you want")
+                    await self._end_ui("idle")
                 return "awaiting_user"
             if res_status == "cancelled":
                 return "cancelled"
@@ -4221,7 +4268,13 @@ function run() {
                 verification_missing = ""
                 verification_obs = None
                 verifier_unavailable = False
-                if verify_mode:
+                if self._auto_evidence:
+                    trace["decisions"].append({"planner.verify": {
+                        "method": "auto", "source": "auto",
+                        "p_yes": None, "ms": 0.0, "result": True}})
+                    accepted = True
+                    self._done_evidence = "auto"
+                elif verify_mode:
                     app_only_exp = bool(last_exp_ok) and bool(
                         getattr(self, "_last_expect_app_only", False))
                     try:
