@@ -929,7 +929,9 @@ class Orchestrator:
         writes = planner_writes(goal, str(app or "unknown"), len(actions))
         if not filtered:
             return [row for row in writes if row["type"] == "episode"]
-        path = Path.home() / "Library/Application Support/Muselet/workflows.jsonl"
+        db = os.environ.get("MUSELET_MEMORY_DB")   # benchmark brains keep their memory out of the user's store
+        path = Path(db).with_name("workflows.jsonl") if db else \
+            Path.home() / "Library/Application Support/Muselet/workflows.jsonl"
         normalized = normalize(goal)
         try:
             existing = [json.loads(line) for line in
