@@ -2952,8 +2952,14 @@ function run() {
         if await self._permission_gate(obs, goal):
             return False, None, obs, "permission prompt"
         obs_text = str((obs or {}).get("text") or "(no observation available)")
+        planner = self._active_planner or self.planner
         ocr_text = ""
-        if len(obs_text.strip()) < 200:
+        if bool(getattr(planner, 'ui_only', False)):
+            block, used_ocr = await self._planner_context_block(
+                obs, goal, force_ocr=True)
+            if used_ocr:
+                ocr_text = block
+        elif len(obs_text.strip()) < 200:
             ocr_text = await self._window_ocr_text()
 
         action_lines = [line[:160] for line in actions_log[-12:]]
@@ -2969,7 +2975,6 @@ function run() {
                 "and the actions taken; if any part of the goal is not visibly "
                 "complete, answer No."),
         }
-        planner = self._active_planner or self.planner
         started = time.perf_counter()
         try:
             from .planner import worker
@@ -3105,6 +3110,51 @@ function run() {
         if window:
             post["window"] = window.group(1)
         return post
+
+    _CLICK_ROLES = {
+        "button": ("button",),
+        "radio": ("radio", "radio button"),
+        "checkbox": ("checkbox", "check box"),
+        "popup": ("popup", "pop up", "popup button", "pop up button",
+                  "dropdown", "drop down", "dropdown menu"),
+        "menuitem": ("menu item", "menuitem"),
+        "link": ("link",),
+        "tab": ("tab",),
+        "row": ("row",),
+    }
+
+    @staticmethod
+    def _norm_target(text) -> str:
+        return re.sub(r"\W+", " ", str(text).casefold()).strip()
+
+    def _ax_ref_for_click(self, action: dict) -> int | None:
+        """Exact AX control match for a grounded `click "<target>"`. Returns
+        the unique eligible element's ref, or None to fall back to the
+        grounder. No fuzzy/substring matching — ambiguity is None."""
+        if action.get("right") or action.get("double"):
+            return None
+        target = self._norm_target(action.get("target") or "")
+        if not target:
+            return None
+        obs = self._last_obs or {}
+        hits: set[int] = set()
+        for el in obs.get("elements") or []:
+            role = str(el.get("role") or "")
+            phrases = self._CLICK_ROLES.get(role)
+            if not phrases or not el.get("enabled", True):
+                continue
+            ref = el.get("ref")
+            if not isinstance(ref, int) or isinstance(ref, bool) or ref <= 0:
+                continue
+            label = self._norm_target(el.get("label") or "")
+            if not label:
+                continue
+            if target != label and \
+                    not any(target == f"{label} {p}" or
+                            target == f"{p} {label}" for p in phrases):
+                continue
+            hits.add(ref)
+        return hits.pop() if len(hits) == 1 else None
 
     async def _exec_action(self, a: dict) -> dict:
         """Execute one DSL action. Returns
@@ -3298,6 +3348,17 @@ function run() {
                     self._script_output = _headtail(str(text_out))
                     self._last_script_stdout = str(text_out)
             return r
+        if op == "click" and a.get("target"):
+            ref = self._ax_ref_for_click(a)
+            if ref is not None:
+                trace = self.tracer.current
+                if trace is not None:
+                    trace.setdefault("decisions", []).append(
+                        {"click_ax": {"target": a["target"], "ref": ref}})
+                press = {k: v for k, v in a.items()
+                         if k not in ("target", "right", "double")}
+                press["op"], press["ref"] = "press", ref
+                return await self._exec_action(press)
         if op == "click" and normalize_name(str(
                 (self._last_obs or {}).get("app") or "")) == "spotify":
             if a.get("double"):
@@ -4168,7 +4229,8 @@ function run() {
         # app — the user may have switched targets since push-to-talk.
         obs_app = str((obs or {}).get("app") or "").strip()
         screen_app = obs_app or app
-        if screen_app.casefold() == "muselet":
+        if "muselet" in {screen_app.casefold(), app.casefold()} or \
+                normalize_name(screen_app) in _CHAT_IDE:
             return "\n".join(context), used_ocr
         if not self._goal_screen_relevant(goal, screen_app):
             return "\n".join(context), used_ocr
