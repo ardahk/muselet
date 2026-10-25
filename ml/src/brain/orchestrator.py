@@ -7,6 +7,7 @@ Everything is traced and the app gets ui/say messages.
 import asyncio
 import gc
 import inspect
+import json
 import logging
 import math
 import os
@@ -18,7 +19,7 @@ from pathlib import Path
 import unicodedata
 
 from . import argfix, calc, dsl, obsdiff, pathfind, replies, sendgate, slots
-from .memory import Resolution, WorkingMemory, resolve
+from .memory import MemoryStore, Resolution, WorkingMemory, resolve
 from .catalog import Catalog, CatalogError
 from .sites import SITES, fix_url, match_name, normalize_name
 from .traces import Tracer
@@ -393,7 +394,8 @@ class Orchestrator:
     MAX_RECOVERY = 2
 
     def __init__(self, server, catalog: Catalog | None = None,
-                 tracer: Tracer | None = None, engine=None, tau: float = 0.55):
+                 tracer: Tracer | None = None, engine=None, tau: float = 0.55,
+                 longterm_store: MemoryStore | None = None):
         self.server = server
         self.catalog = catalog or Catalog.load()
         self.tracer = tracer or Tracer()
@@ -402,6 +404,9 @@ class Orchestrator:
         self.memory_enabled = True
         self.memory_llm = True
         self.memory = WorkingMemory(path=Path("runs/memory/working.json"))
+        self.longterm_enabled = True
+        self.longterm = longterm_store or MemoryStore()
+        self._last_memory_ids: list[int] = []
         self._focus_ctx = {}
         self._planner_ran = False
         self.planner = None
@@ -521,6 +526,9 @@ class Orchestrator:
         self._ms_kind = None
         self._last_skill = None
         self._planner_ran = False
+        previous_turn = self.memory.last(time.time()) if self.memory_enabled else None
+        previous_memory_ids = list(self._last_memory_ids)
+        self._last_memory_ids = []
         trace = self.tracer.begin(text)
         # utterance-frame ctx wins (app/focused/selection/online)
         if ctx:
@@ -535,6 +543,26 @@ class Orchestrator:
         try:
             await self.server.ui("thinking")
             self._utterance = text
+            if self._longterm_active:
+                from .memory.policy import forget_command, memory_command
+                request = forget_command(text)
+                command = memory_command(text)
+                if request or command:
+                    self._comms = None
+                    self._draft = None
+                    self._slot = None
+                    self._pending_task = None
+                    if request:
+                        outcome = await self._handle_memory_request(
+                            request, previous_memory_ids)
+                    else:
+                        await self.server.say(command.reply)
+                        await self._end_ui("success")
+                        self._last_skill = ("remember", {}, {})
+                        outcome = "ok"
+                    trace["release_to_first_action_ms"] = self._first_action_ms
+                    self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
+                    return {"outcome": outcome}
             from . import comms
             if not self._pending_task or \
                     time.time() - self._pending_task["t"] >= 90:
@@ -701,6 +729,28 @@ class Orchestrator:
                         result=result)
                 except Exception:
                     log.exception("working-memory record failed")
+            if self._longterm_active:
+                try:
+                    from . import comms
+                    from .memory.policy import extract_writes
+                    skill, args = (self._last_skill[0], self._last_skill[1]) \
+                        if self._last_skill else (
+                            ("planner", {}) if self._planner_ran else (None, {}))
+                    safe_text = original_text
+                    if skill in {"send_message", "compose_email",
+                                 "draft_email", "compose_text", "type_text"} \
+                            or comms.is_messaging(original_text):
+                        safe_text = ""
+                    writes = extract_writes(
+                        safe_text, skill=skill, args=args, outcome=outcome,
+                        previous_turn=previous_turn,
+                        app=self._ctx.get("app"))
+                    if skill == "planner" and outcome == "ok" and safe_text:
+                        writes.extend(self._planner_memory_writes(
+                            safe_text, trace))
+                    self._persist_memory_writes(writes)
+                except Exception:
+                    log.exception("long-term memory write failed")
             self.tracer.finish(outcome)
 
     async def _memory_followup(self, text: str, trace: dict) -> Resolution:
@@ -711,8 +761,11 @@ class Orchestrator:
             focus_ctx["url"] = self._last_url
         started = time.perf_counter()
         try:
+            rows = self.longterm.search(text, k=3) \
+                if self._longterm_active else None
             result = resolve(
-                text, self.memory, focus_ctx, now, catalog=self.catalog)
+                text, self.memory, focus_ctx, now, catalog=self.catalog,
+                longterm=rows)
         except Exception:
             log.exception("working-memory resolution failed")
             return Resolution("none", text, False, None)
@@ -723,12 +776,13 @@ class Orchestrator:
             try:
                 from .memory.rewrite import STATIC, dynamic, llm_rewrite
                 from .planner import worker
-                prompt = STATIC + dynamic(text, self.memory, focus_ctx, now)
+                prompt = STATIC + dynamic(
+                    text, self.memory, focus_ctx, now, rows)
                 output = await worker().submit_async(
                     self.planner.complete, prompt, 40)
                 result = llm_rewrite(
                     text, self.memory, focus_ctx, now,
-                    lambda _prompt, _tokens: output, 40)
+                    lambda _prompt, _tokens: output, 40, memory=rows)
                 if result.reason != "guard":
                     result.reason = reason
             except Exception:
@@ -743,6 +797,190 @@ class Orchestrator:
                     "ms": (time.perf_counter() - started) * 1000,
                 }})
         return result
+
+    @property
+    def _longterm_active(self) -> bool:
+        return bool(self.memory_enabled and self.longterm_enabled)
+
+    def _memory_person(self, query: str) -> str | None:
+        if not self._longterm_active:
+            return None
+        key = " ".join(str(query or "").casefold().split())
+        return next((row["value"] for row in self.longterm.list("person")
+                     if row["key"] == key), None)
+
+    def _memory_note_person(self, query: str, name: str):
+        if not self._longterm_active:
+            return None
+        from .memory.policy import allowed_value
+        query = " ".join(str(query or "").casefold().split())
+        name = " ".join(str(name or "").split())
+        if not query or not name or query == name.casefold() or \
+                not allowed_value(query) or not allowed_value(name):
+            return None
+        row = self.longterm.upsert("person", query, name)
+        if row.get("id") not in self._last_memory_ids:
+            self._last_memory_ids.append(row["id"])
+        return row
+
+    def _persist_memory_writes(self, writes: list[dict]) -> None:
+        for write in writes:
+            row = self.longterm.upsert(
+                write["type"], write["key"], write["value"])
+            if row.get("id") not in self._last_memory_ids:
+                self._last_memory_ids.append(row["id"])
+
+    def _planner_memory_writes(self, goal: str, trace: dict) -> list[dict]:
+        from . import comms
+        from .memory.policy import allowed_value, planner_writes
+        from .plan_bank import Demo, PlanBank, _filter_demos, normalize
+
+        if not allowed_value(goal) or comms.is_messaging(goal):
+            return []
+        planner_turns = [item for item in trace.get("decisions", [])
+                         if "planner_turn" in item]
+        if not planner_turns:
+            return []
+        lines = [line for item in planner_turns
+                 for line in item.get("lines") or []
+                 if not re.match(r"^\s*done\b", str(line), re.IGNORECASE)]
+        unsafe = re.compile(
+            r"\b(?:type(?:_text)?|script|url|text|body|message|content|"
+            r"password|passcode|pin|code)\b|"
+            r"\b(?:name|path|query|value|title)\s*=",
+            re.IGNORECASE)
+        if unsafe.search(goal) or any(unsafe.search(str(line)) for line in lines):
+            return []
+        actions = [str(line).strip() for line in lines
+                   if self.catalog and
+                   dsl.action_line(str(line), self.catalog.skills)]
+        if not actions:
+            return [row for row in planner_writes(
+                goal, self._ctx.get("app") or "unknown", 0)
+                    if row["type"] == "episode"]
+        observation = (self._last_obs or {}).get("text", "")
+        header = observation.splitlines()[0] if observation else ""
+        app = (self._last_obs or {}).get("app") or self._ctx.get("app") or ""
+        demo = Demo(goal=goal, app=str(app), category="user",
+                    obs_header=header, batch=actions, source="memory")
+        try:
+            filtered, _ = _filter_demos([demo])
+        except Exception:
+            log.exception("workflow denylist unavailable")
+            filtered = []
+        writes = planner_writes(goal, str(app or "unknown"), len(actions))
+        if not filtered:
+            return [row for row in writes if row["type"] == "episode"]
+        path = Path.home() / "Library/Application Support/Muselet/workflows.jsonl"
+        normalized = normalize(goal)
+        try:
+            existing = [json.loads(line) for line in
+                        path.read_text(encoding="utf-8").splitlines()
+                        if line.strip()] if path.exists() else []
+        except (OSError, ValueError):
+            existing = []
+        duplicate = any(normalize(row.get("goal", "")) == normalized
+                        for row in existing)
+        planner = self.planner
+        bank = getattr(planner, "plan_bank", None) if planner else None
+        bank_demos = list(bank.demos) if bank else []
+        in_bank = any(normalize(item.goal) == normalized for item in bank_demos)
+        if not duplicate:
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with path.open("a", encoding="utf-8") as f:
+                    f.write(json.dumps({
+                        "goal": demo.goal, "app": demo.app,
+                        "category": demo.category,
+                        "obs_header": demo.obs_header,
+                        "batch": demo.batch, "source": demo.source},
+                        ensure_ascii=False) + "\n")
+            except OSError:
+                log.exception("workflow persistence failed")
+        if planner and not in_bank:
+            planner.plan_bank = PlanBank(bank_demos + [demo])
+        return writes
+
+    async def _handle_memory_request(self, request, last_ids: list[int]) -> str:
+        kind, query = request
+        if kind == "remember":
+            rows = self.longterm.search(query, k=3) if query else \
+                self.longterm.list(limit=3)
+            if not rows:
+                await self.server.say("I don't remember anything yet.")
+                await self._end_ui("success")
+                return "ok"
+            from .memory.store import render
+            await self.server.say("\n".join(render(rows)))
+            await self._end_ui("success")
+            self._last_skill = ("memory", {}, {})
+            return "ok"
+        if kind == "clear":
+            if not self.longterm.list(limit=1):
+                await self.server.say("I don't have anything about that.")
+                await self._end_ui("success")
+                return "ok"
+            confirmed = await self._confirm_memory("Forget everything?")
+            if confirmed:
+                self.longterm.clear()
+                await self.server.say("Forgotten.")
+                self._last_memory_ids.clear()
+                await self._end_ui("success")
+            else:
+                await self.server.say("Okay, I won't forget everything.")
+                await self._end_ui("idle")
+            self._last_skill = ("memory", {}, {})
+            return "ok" if confirmed else "cancelled"
+        if kind == "that":
+            wanted = set(last_ids)
+            rows = [row for row in self.longterm.list(limit=10000)
+                    if row["id"] in wanted]
+        else:
+            rows = self.longterm.forget(query or "", k=3)
+        if not rows:
+            await self.server.say("I don't have anything about that.")
+            await self._end_ui("success")
+            return "ok"
+        changed = False
+        for row in rows:
+            summary = f"Forget {row['value']}?"
+            if await self._confirm_memory(summary):
+                self.longterm.delete(row["id"])
+                changed = True
+                await self.server.say("Forgotten.")
+            else:
+                await self.server.say("Okay, I won't forget it.")
+        await self._end_ui("success" if changed else "idle")
+        self._last_skill = ("memory", {}, {})
+        return "ok" if changed else "cancelled"
+
+    async def _confirm_memory(self, summary: str) -> bool:
+        await self.server.ui("thinking", summary)
+        try:
+            return bool(await self.server.ask_confirm(summary))
+        except RuntimeError:
+            return False
+
+    def memory_request(self, msg: dict) -> dict:
+        op = msg.get("op")
+        if op == "list":
+            rows = self.longterm.list(limit=100)
+        elif op == "search":
+            rows = self.longterm.search(str(msg.get("q") or ""), k=20)
+        elif op == "delete":
+            try:
+                self.longterm.delete(int(msg.get("id")))
+            except (TypeError, ValueError):
+                pass
+            rows = self.longterm.list(limit=100)
+        elif op == "clear":
+            self.longterm.clear()
+            rows = []
+        else:
+            rows = []
+        return {"items": [
+            {key: row[key] for key in ("id", "type", "key", "value", "created")}
+            for row in rows]}
 
     # ---------- engine path ----------
 
@@ -2601,10 +2839,17 @@ function run() {
             if self.memory_enabled:
                 try:
                     params = inspect.signature(planner.plan).parameters
-                    if "recent" in params or any(
-                            p.kind == inspect.Parameter.VAR_KEYWORD
-                            for p in params.values()):
+                    accepts_kwargs = any(
+                        p.kind == inspect.Parameter.VAR_KEYWORD
+                        for p in params.values())
+                    if "recent" in params or accepts_kwargs:
                         plan_kwargs["recent"] = self.memory.recent_lines(5)
+                    if self._longterm_active and (
+                            "memory" in params or accepts_kwargs):
+                        from .memory.store import render
+                        rows = self.longterm.search(goal, k=3)
+                        if rows:
+                            plan_kwargs["memory"] = render(rows)
                 except (TypeError, ValueError):
                     pass
             if login_page:

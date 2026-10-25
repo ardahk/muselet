@@ -103,8 +103,11 @@ App -> brain:
 - `{"t":"cancel"}`
 - `{"t":"rpc_result","id":"r1","ok":true,"result":{...}}` or `{"t":"rpc_result","id":"r1","ok":false,"error":"..."}`
 - `{"t":"confirm_reply","id":"c1","yes":true}`
-- `{"t":"config","escalate_planner":true}` (Settings › Models; sent on change and after every hello). The brain
-  replies `{"t":"config_ack","escalate_planner":true,"loaded":true,"reason":"..."}` (`reason` when not loaded).
+- `{"t":"config","escalate_planner":true,"memory":true}` (Settings › Models and Memory; sent on change and after
+  every hello). `memory` toggles long-term memory at runtime. The brain replies
+  `{"t":"config_ack","escalate_planner":true,"memory":true,"loaded":true,"reason":"..."}` (`reason` when not loaded).
+- Memory management: `{"t":"memory","op":"list"}`; search uses `{"t":"memory","op":"search","q":"..."}`;
+  delete uses `{"t":"memory","op":"delete","id":1}`; clear uses `{"t":"memory","op":"clear"}`.
 
 Brain -> app:
 - `{"t":"rpc","id":"r1","method":"<observe|act|skill|screenshot|verify|apps>","params":{...}}`
@@ -112,6 +115,7 @@ Brain -> app:
 - `{"t":"say","text":"..."}` (shown in the mascot's speech bubble; no audio)
 - `{"t":"confirm","id":"c1","summary":"Send the message to Mom?"}`
 - `{"t":"confirm_cancel","id":"c1"}` (the confirm timed out or the task was cancelled; the app leaves confirm mode)
+- Memory responses are `{"t":"memory","items":[{"id":1,"type":"fact","key":"...","value":"...","created":0.0}]}`
 - `ui` may carry `"ms": 212` on the final message of a request: release-to-first-action for skills, total for
   planner/brain-tool tasks. The app shows it as a small latency chip next to the bubble for ~2 s.
 

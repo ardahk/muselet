@@ -18,7 +18,7 @@
 #             until the Mac val fit (evals/router_check.py --router it3 --set val). ROUTER also takes it2|r2|r1|base.
 #   ESCALATE=1 adds Qwen3.6-35B-A3B as the escalation planner (~19 GB resident; off by default)
 #   verify-done = done needs a passing expect or a model check on a fresh observation; VERIFY_DONE=off restores the old rule
-# Usage: PORT=... ROUTER=... ARGS_MODEL=... PLANNER=... TAU=... RETRIEVAL_K=... THINK=... THINK_ON=... THINK_SAMPLER=... ESCALATE=... VERIFY_DONE=... MEMORY=... MEMORY_LLM=... tools/serve_brain.sh [extra brain serve flags]
+# Usage: PORT=... ROUTER=... ARGS_MODEL=... PLANNER=... TAU=... RETRIEVAL_K=... THINK=... THINK_ON=... THINK_SAMPLER=... ESCALATE=... VERIFY_DONE=... MEMORY=... MEMORY_LLM=... LONGTERM=... tools/serve_brain.sh [extra brain serve flags]
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 BASE=mlx-community/Qwen3.5-4B-4bit
@@ -45,4 +45,5 @@ args=(--port "${PORT:-8765}" --model "$ROUTER" --tau "$TAU" --args-model "$ARGS_
 if [ "${ESCALATE:-0}" = "1" ]; then args+=(--planner-escalate-model mlx-community/Qwen3.6-35B-A3B-4bit); fi
 if [ "${MEMORY:-1}" = "0" ]; then args+=(--no-memory); fi
 if [ "${MEMORY_LLM:-1}" = "0" ]; then args+=(--no-memory-llm); fi
+if [ "${LONGTERM:-1}" = "0" ]; then args+=(--no-longterm); fi
 exec uv run --project ml brain serve "${args[@]}" "$@"

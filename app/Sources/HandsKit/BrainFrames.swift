@@ -12,6 +12,7 @@ public enum BrainInbound {
     /// The confirm timed out or the task was cancelled: leave confirm mode.
     /// A missing id cancels whatever confirm is pending.
     case confirmCancel(id: String?)
+    case memory([[String: Any]])
     case unknown(String)
 
     /// nil for non-JSON / frames without `t` / incomplete rpc or confirm.
@@ -37,6 +38,8 @@ public enum BrainInbound {
         case "confirm_cancel":
             let id = (obj["id"] as? String).flatMap { $0.isEmpty ? nil : $0 }
             return .confirmCancel(id: id)
+        case "memory":
+            return .memory(obj["items"] as? [[String: Any]] ?? [])
         default:
             return .unknown(t)
         }

@@ -164,10 +164,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // restored without the confirm afterwards (pendingConfirm is nil).
             if !self.model.isRecording { self.mascot.clearConfirmBubble() }
         }
+        brain.onMemoryItems = { [weak self] items in
+            self?.model.memoryItems = items.compactMap(MemoryItem.init)
+        }
         brain.onOpen = { [weak self] in self?.sendPlannerConfig() }
         brain.onConfigAck = { [weak self] ack in
             guard let self else { return }
             self.model.configAck = ack
+            if let enabled = ack.memoryEnabled {
+                self.model.longtermMemoryEnabled = enabled
+            }
             self.model.log(.system, "config_ack: 35B planner fallback \(ack.summary)", ok: ack.ok)
         }
         brain.onRPC = { [weak self] method, summary, ms, ok in
@@ -185,7 +191,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Settings › Models: sent on change and on every (re)connect.
     private func sendPlannerConfig() {
         model.configAck = nil
-        brain.sendConfig(PlannerSettings.frame)
+        var frame = PlannerSettings.frame
+        frame["memory"] = MemorySettings.enabled
+        brain.sendConfig(frame)
     }
 
     // MARK: timers
@@ -281,6 +289,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.model.escalatePlanner = PlannerSettings.escalate
             self.sendPlannerConfig()
         }
+        a.setLongtermMemory = { [weak self] on in
+            guard let self else { return }
+            MemorySettings.enabled = on
+            self.model.longtermMemoryEnabled = on
+            self.sendPlannerConfig()
+        }
+        a.listMemory = { [weak self] in self?.brain.sendMemoryList() }
+        a.searchMemory = { [weak self] query in self?.brain.sendMemorySearch(query) }
+        a.deleteMemory = { [weak self] id in self?.brain.sendMemoryDelete(id) }
+        a.clearMemory = { [weak self] in self?.brain.sendMemoryClear() }
         a.resetMascot = { [weak self] in self?.mascot.resetPosition() }
         a.setUseClockTimers = { [weak self] on in
             guard let self else { return }

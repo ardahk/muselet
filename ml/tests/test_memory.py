@@ -229,9 +229,15 @@ def test_person_pronouns_use_to_for_each_comms_skill_and_unknown_gender():
         wm.record("message Xinyi", "message Xinyi", skill,
                   {"to": "Xinyi", "body": "The report is ready"},
                   True, {"app": "Messages"}, t=1)
-        result = resolve("please email her the report", wm, {}, 2)
+        wm.record("open the budget file", "open ~/Documents/Budget.xlsx",
+                  "open_file", {"path": "~/Documents/Budget.xlsx"}, True,
+                  {"app": "Finder"}, t=2)
+        result = resolve("please email her the report", wm, {}, 3)
         assert result.changed
         assert "Xinyi" in result.text
+        meeting = resolve("schedule a meeting with her", wm, {}, 3)
+        assert meeting.changed
+        assert "with Xinyi" in meeting.text
 
 
 def test_person_pronoun_after_event_can_resolve_event_destination():
