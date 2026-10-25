@@ -1,9 +1,9 @@
 {
-  "pass": 64,
-  "ts": "2026-10-25T02:47:24Z",
+  "pass": 65,
+  "ts": "2026-10-25T03:03:27Z",
   "last_reviewed": {
-    "main": "13d0486",
-    "wip/local": "fd357b3",
+    "main": "6a37d0c",
+    "wip/local": "9571a9e",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -77,5 +77,5 @@
     "cloud/memory-rules2": "03c3cd1"
   },
   "next_id": 51,
-  "note": "pass 64: main 13d0486 moves HobbyLM calendar final-state capture into runner (EventKit TCC). Event-kind cases before this graded without calendar_events. -25 updated."
+  "note": "pass 65: main 6a37d0c patches upstream HobbyLM calc_checker for macOS 27 (same element, OR'd condition). Prior calc results null -> invalid. -25 updated."
 }
