@@ -1,3 +1,21 @@
+# Brain lane review: pass 94 (2026-10-25T12:45Z)
+
+Open: P0 0, P1 16, P2 33. No new findings.
+
+## Branches
+- main 2de65a9 and cloud/cool-tasks cfbec49: unchanged.
+- wip/local 7b8f421: adds e781dc1. A grounded click whose target exactly matches one enabled AX control becomes press #ref (confirm gates still apply; verified). Native-tools done-check now reuses the planner context OCR. Screen context skipped when request or frontmost app is Muselet or a chat/IDE app.
+
+## Notes
+- Native-tools done-check loses the old thin-AX OCR fallback when the goal isn't screen-relevant (code reading).
+- AX click refs come from the last observation and may be stale mid-batch (not reproduced).
+
+## Rechecked
+brain-77: still 107 failed. The Muselet test passes again; the branch's new test_dangerous_resolved_press_still_confirms fails because it expects 'Delete' to match 'Delete Selected Rows', which exact matching rejects. brain-76, brain-78 unchanged.
+
+## Tests
+wip/local 107 failed (18 MLX-only + 89), 2230 passed. Review repros 77 / 53.
+
 # Brain lane review: pass 93 (2026-10-25T12:30Z)
 
 Open: P0 0, P1 16, P2 33. New: brain-78 (P2, wip/local).
