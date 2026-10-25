@@ -1,13 +1,11 @@
-# Planner review digest — pass 88 (2026-10-25T10:36Z)
+# Planner review digest — pass 89 (2026-10-25T10:50Z)
 
-Moved: main b92677f→430e59e (#122 fix-lane: Premiere goes agentic, 35B think 1024 and retrieval off; #123 style replies; #124 truncated observations keep focused/text inputs; #125 Adobe hot-text typing); wip 9f6aa0d (= main); cool-tasks 2fafa9e (merge of main).
-- planner-64 (P1, new): with AGENTIC_APPS on by default, Premiere marker/cut/export requests go to the 35B GUI loop with args {}. There is no finish criterion, no export file check, and the deterministic tool is skipped.
-- planner-48 (P1): 35B think budget doubled to 1024, with no latency numbers.
-- planner-57 (P2): the style check also catches content words like 'short' and 'nice'.
-- OK: pinning focused/text inputs past the node cap; hot-text typing (Swift, not compiled here).
-- planner-63, planner-59, planner-60 and planner-56 unchanged.
+Moved: main 430e59e→298526d (#126 always include a focused text input; #127 GPU top-k think sampler and prefill timing; #128 MUSELET_NO_ESCALATE); wip d409a32 (= main); cool-tasks cfbec49 (merge of main).
+- planner-58 (P1): likely root cause found. Provisional refs restart at 1 for each root, so multi-root observations (scope app, windowless fallback) collide in Differ.match and give two elements the same ref. Fix: renumber across roots before matching.
+- OK: sample_row matches sample_logits (top-k on raw logits equals top-k on logits/temp); the focused input is appended after the cap with a unique provisional ref; NO_ESCALATE only ignores the app toggle.
+- planner-64 (Premiere agentic, args dropped), planner-63 (refuse regex), planner-59 (soft expects) and planner-60 (sendgate): unchanged.
 
-New: 1 P1. Resolved: 0. Open: 0 P0, 19 P1, 15 P2.
+New: 0. Resolved: 0. Open: 0 P0, 19 P1, 15 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
