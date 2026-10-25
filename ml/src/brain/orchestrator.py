@@ -3120,6 +3120,12 @@ function run() {
         if op in ("press", "type", "keys"):
             # injection + danger guard: destructive labels need a confirm
             needs = False
+            if op == "press" and getattr(self, "_cart_added", False):
+                _lbl = self._label_of(a.get("ref")).lower()
+                if "add" in _lbl and ("cart" in _lbl or "basket" in _lbl):
+                    return {"status": "failed", "error": "already added",
+                            "_no_strike": True,
+                            "_log": f"{dsl_line}-> refused: already added"}
             if op == "press":
                 needs = bool(self._DANGEROUS_LABEL.search(
                     self._label_of(a.get("ref"))))
@@ -3532,8 +3538,11 @@ function run() {
         title = str(obs.get("window") or "").strip()
         if not self._browser_name(app):
             return False
-        return not title or bool(self._browser_name(title)) or bool(
-            _LOADING_TITLE.search(title))
+        text = str(obs.get("text") or "")
+        return (not title or bool(self._browser_name(title)) or bool(
+            _LOADING_TITLE.search(title)) or bool(
+            re.search(r"Waiting for \S+|Transferring data from", text,
+                      re.IGNORECASE)))
 
     async def _repoll_loading(self, exp: str, vres: dict) -> tuple[dict, bool]:
         """Failed expect while the page loads: re-verify every LOAD_POLL_S
@@ -3811,6 +3820,8 @@ function run() {
             await self._end_ui("confused")
             return "fallback"
         self._planner_ran = True
+        self._cart_baseline = "unset"
+        self._cart_added = False
         from . import dsl
         from .planner import worker
         goal = text
@@ -3916,6 +3927,9 @@ function run() {
             q: asyncio.Queue = asyncio.Queue()
             cancel = threading.Event()
             loop = asyncio.get_running_loop()
+            if getattr(self, "_cart_baseline", "unset") == "unset":
+                from .finish import cart_count as _cc
+                self._cart_baseline = _cc(obs_text)
             blind_obs = observation_blind(self._last_obs)
             untargeted = blind_obs and not self._blind_is_target(
                 goal, self._last_obs)
@@ -4060,6 +4074,26 @@ function run() {
                         else:
                             n_executed += 1
                             update_last_evidence(a, r, verify_mode)
+                            if r["status"] == "ok" and not done_seen:
+                                _res = r.get("res") or {}
+                                _post = (obs_text + "\n" + str(_res.get(
+                                    "diff_text") or "") + "\n" +
+                                    str(_res.get("observed") or ""))
+                                from .finish import progress_evidence as _fe, \
+                                    cart_count as _cc2
+                                _cur = _cc2(_post)
+                                if isinstance(self._cart_baseline, int) \
+                                        and _cur is not None \
+                                        and _cur > self._cart_baseline:
+                                    self._cart_added = True
+                                if _fe(goal, _post, self._cart_baseline
+                                        if isinstance(self._cart_baseline, int)
+                                        else None):
+                                    done_seen = True
+                                    cancel.set()
+                                    trace["decisions"].append(
+                                        {"auto_done": _repr_line(a),
+                                         "turn": turn})
                             if r["status"] != "ok":
                                 failed = True
                                 cancel.set()
@@ -4112,6 +4146,25 @@ function run() {
                 else:
                     n_executed += 1
                     update_last_evidence(a, r, verify_mode)
+                    if r["status"] == "ok" and not done_seen:
+                        _res = r.get("res") or {}
+                        _post = (obs_text + "\n" + str(_res.get(
+                            "diff_text") or "") + "\n" +
+                            str(_res.get("observed") or ""))
+                        from .finish import progress_evidence as _fe, \
+                            cart_count as _cc2
+                        _cur = _cc2(_post)
+                        if isinstance(self._cart_baseline, int) \
+                                and _cur is not None \
+                                and _cur > self._cart_baseline:
+                            self._cart_added = True
+                        if _fe(goal, _post, self._cart_baseline
+                                if isinstance(self._cart_baseline, int)
+                                else None):
+                            done_seen = True
+                            cancel.set()
+                            trace["decisions"].append(
+                                {"auto_done": _repr_line(a), "turn": turn})
                     if r["status"] != "ok":
                         failed = True
                         res_status = ("terminal_failure"
