@@ -824,7 +824,10 @@ class Orchestrator:
                         outcome = await comms.start(self, msg, text)
                     elif (nargs := compose_text.parse_request(text)) is not None:
                         trace["decisions"].append({"compose_redirect": nargs})
-                        outcome = await self._brain_tool("compose_text", nargs, text)
+                        outcome = await self._with_fallback(
+                            "compose_text", nargs, text, trace,
+                            lambda: self._brain_tool(
+                                "compose_text", nargs, text))
                     elif (calc_result := calc.result(text)) is not None and \
                             calc_result.value is not None and (
                             str(self._ctx.get("app", "")).casefold() == "calculator"
@@ -835,7 +838,10 @@ class Orchestrator:
                     elif not comms.is_messaging(text) and (dargs :=
                             draft_email.parse_request(
                                 text, {**self._ctx, **self._focus_ctx})) is not None:
-                        outcome = await self._brain_tool("draft_email", dargs, text)
+                        outcome = await self._with_fallback(
+                            "draft_email", dargs, text, trace,
+                            lambda: self._brain_tool(
+                                "draft_email", dargs, text))
                     elif self.engine is not None:
                         outcome = await self._engine_route(text, trace)
                     else:
