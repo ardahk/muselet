@@ -1,4 +1,9 @@
-# hands — digest (pass 53)
+# hands — digest (pass 54)
+
+Pass 54:
+- NEW P1 hands-32: cloud/design b93bb50 deletes main's ClockTimers.swift, SettingsView, PanelComponents, KittenAvatar and TimerSettings. Do not merge as-is.
+- main eb3e945 and wip/local 3f21dc6 have no app/ changes.
+- panel-hook-fix ef35421 only touches DebugHooks, which are UI-only. docs-demo-3 and memory-llm-gate have no app/ changes.
 
 Pass 53:
 - main e9fb42d merged hands-clock (#55) and brain-9's named browsers. hands-28, hands-29 and hands-30 are now on main, unchanged (ClockAX.swift:409, :318/:424, :479). The #55 title says 'Clock in front', so hands-29 needs a lead decision: deliberate or not.
@@ -37,9 +42,10 @@ Pass 46 reviewed:
 
 Static analysis only.
 
-Open: 0 P0, 3 P1, 7 P2.
+Open: 0 P0, 4 P1, 7 P2.
 
 Open P0/P1, ranked:
+- P1 hands-32: cloud/design deletes merged main features (ClockTimers, Settings, KittenAvatar) (app/Sources/HandsKit/ClockTimers.swift et al.)
 - P1 hands-28: an unverified Clock AX start is reported as a set timer that never fires (main app/Sources/HandsKit/ClockAX.swift:409)
 - P1 hands-29: Clock AX start and cancel steal focus and never restore the prior app (main app/Sources/HandsKit/ClockAX.swift:318,424)
 - P1 hands-26: the brain strips `expect` from act, so HandsKit's expect polling never runs (ml/src/brain/orchestrator.py:1896; app/Sources/HandsKit/RPC.swift:173)
