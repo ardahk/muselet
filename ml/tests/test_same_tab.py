@@ -6,6 +6,7 @@ import time
 from brain.catalog import Catalog
 from brain.memory import WorkingMemory
 from brain.orchestrator import Orchestrator
+from brain.orchestrator import default_browser as real_default_browser
 from brain.traces import Tracer
 from fakes import FakeEngine, FakeServer
 
@@ -241,3 +242,97 @@ def test_compound_collection_disables_same_tab(tmp_path):
         "open_url", args, "open wikipedia", {"decisions": []})
     assert result is args
     assert "same_tab" not in result
+
+
+def _browser_task_orch(tmp_path, turns):
+    server = FakeServer()
+
+    def observe():
+        navigated = any(m == "act" and p.get("op") == "url"
+                        for m, p in server.rpcs)
+        app = "Zen" if navigated else "Finder"
+        return {"epoch": 1, "app": app, "window": "w", "focused_ref": None,
+                "elements": [], "text": f'app: {app} | window: "w"',
+                "ax_ms": 1}
+
+    server.observe = observe
+    engine = FakeEngine(default=("MULTI_STEP", 0.95))
+    planner = FakePlanner(turns)
+    orch = _orch(tmp_path, server=server, engine=engine, planner=planner)
+    orch.verify_done = False
+    orch.memory_enabled = False
+    orch.longterm_enabled = False
+    return server, orch
+
+
+def test_second_planner_url_in_task_reuses_front_browser_tab(tmp_path):
+    async def go():
+        server, orch = _browser_task_orch(tmp_path, [
+            ['url "https://www.youtube.com"'],
+            ['url "https://www.youtube.com/results?search_query=jazz"'],
+            ['done "Playing jazz"'],
+        ])
+        await orch.handle_utterance("play some jazz on youtube",
+                                    {"app": "Finder"})
+        acts = [p for m, p in server.rpcs if m == "act" and p.get("op") == "url"]
+        assert [p["url"] for p in acts] == ["https://www.youtube.com"]
+        skills = _skills(server)
+        assert len(skills) == 1 and skills[0][1]["name"] == "open_url"
+        assert skills[0][1]["args"] == {
+            "url": "https://www.youtube.com/results?search_query=jazz",
+            "browser": "Zen", "same_tab": True}
+
+    _run(go())
+
+
+def test_new_tab_goal_keeps_planner_urls_as_new_opens(tmp_path):
+    async def go():
+        server, orch = _browser_task_orch(tmp_path, [
+            ['url "https://www.youtube.com"'],
+            ['url "https://www.google.com"'],
+            ['done "Opened"'],
+        ])
+        await orch.handle_utterance(
+            "open youtube and google in a new tab", {"app": "Finder"})
+        acts = [p for m, p in server.rpcs if m == "act" and p.get("op") == "url"]
+        assert len(acts) == 2
+        assert _skills(server) == []
+
+    _run(go())
+
+
+def test_planner_open_other_browser_rewrites_to_default(tmp_path, monkeypatch):
+    monkeypatch.setattr("brain.orchestrator.default_browser", lambda: "Zen")
+
+    async def go():
+        server, orch = _browser_task_orch(tmp_path, [
+            ['open "Safari"'], ['done "Opened"']])
+        await orch.handle_utterance("play some jazz on youtube",
+                                    {"app": "Finder"})
+        acts = [p for m, p in server.rpcs if m == "act" and p.get("op") == "url"]
+        assert acts and acts[0]["browser"] == "Zen"
+        assert not any(m == "act" and p.get("op") == "open"
+                       for m, p in server.rpcs)
+
+    _run(go())
+
+
+def test_default_browser_reads_launchservices_plist(tmp_path, monkeypatch):
+    import plistlib
+    path = tmp_path / "Library/Preferences/com.apple.LaunchServices"
+    path.mkdir(parents=True)
+    with open(path / "com.apple.launchservices.secure.plist", "wb") as f:
+        plistlib.dump({"LSHandlers": [
+            {"LSHandlerURLScheme": "mailto",
+             "LSHandlerRoleAll": "com.apple.mail"},
+            {"LSHandlerURLScheme": "https",
+             "LSHandlerRoleAll": "app.zen-browser.zen"}]}, f)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    real_default_browser.cache_clear()
+    try:
+        assert real_default_browser() == "Zen"
+        real_default_browser.cache_clear()
+        monkeypatch.setenv("HOME", str(tmp_path / "missing"))
+        assert real_default_browser() is None
+    finally:
+        real_default_browser.cache_clear()

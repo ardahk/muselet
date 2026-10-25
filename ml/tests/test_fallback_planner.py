@@ -602,3 +602,45 @@ def test_untargeted_blind_app_gets_no_blind_hint(tmp_path):
     assert "act by description" not in first["obs"]
     decisions = tracer.rows[-1]["decisions"]
     assert any("blind_untargeted" in d for d in decisions)
+
+
+def test_compound_recoverable_step_failure_hands_whole_utterance_to_planner(
+        tmp_path):
+    utterance = "open text edit and write hello"
+    planner = FakePlanner([['done "Typed hello"']])
+
+    def skill(params):
+        if params["name"] == "type_text":
+            return {"ok": False, "error": "no_text_target"}
+        return {"ok": True, "result": {"app": "TextEdit"}, "ms": 1}
+
+    server, tracer, orch = _setup(
+        tmp_path, {"open text edit": ("open_app", 0.99),
+                   "write hello": ("type_text", 0.99)},
+        {("open_app", "open text edit"): {"app": "TextEdit"},
+         ("type_text", "write hello"): {"text": "hello"}},
+        handlers={"skill": skill}, planner=planner)
+
+    result = _run(orch.handle_utterance(utterance))
+
+    assert planner.calls >= 1
+    assert planner.user_msgs[0]["goal"] == utterance
+    assert "no_text_target" in planner.user_msgs[0]["last_batch"][0]
+    trace = tracer.rows[-1]
+    assert trace["fallback.planner"]["from"] == "type_text"
+    assert {"compound_fallback": {"step": 1, "skill": "type_text"}} in \
+        trace["decisions"]
+    assert result["outcome"] == "ok"
+
+
+def test_planner_context_names_default_browser(tmp_path, monkeypatch):
+    monkeypatch.setattr("brain.orchestrator.default_browser", lambda: "Zen")
+    planner = FakePlanner([['done "Finished"']])
+    server, tracer, orch = _setup(
+        tmp_path, {"do context task": ("MULTI_STEP", 0.9)}, planner=planner)
+    orch.planner_context = True
+
+    _run(orch.handle_utterance("do context task", {"app": "Finder"}))
+
+    assert ("Default browser: Zen (use it unless the user names another "
+            "browser)") in planner.user_msgs[0]["context"]
