@@ -17,51 +17,56 @@ final class AppActions {
     var clearMemory: () -> Void = {}
 }
 
-/// Menu-bar panel = Settings, in the System Settings style: grouped Form, system
-/// materials, fonts and controls. Sections: missing permissions (hidden when all are
-/// granted), Models (>= 48 GB Macs), Memory, Quit. A warning row only when the brain is down.
+/// Menu-bar panel = Settings, in the System Settings style: cards on system
+/// materials with native fonts and controls. Sections: missing permissions
+/// (hidden when all are granted), Memory, Quit. A warning row only when the
+/// brain is down.
 struct PanelView: View {
     @ObservedObject var model: AppModel
     @State private var memoryQuery = ""
     @State private var confirmForgetAll = false
-    @State private var contentHeight: CGFloat = 360
+    @State private var contentHeight: CGFloat = 260
     private let actions = AppActions.shared
     static let width: CGFloat = 340
     static let maxHeight: CGFloat = 560
 
     var body: some View {
-        Form {
-            if let warning = Self.brainWarning(model.brainStatus) {
-                Label(warning, systemImage: "exclamationmark.triangle.fill")
-                    .symbolRenderingMode(.multicolor)
-                    .foregroundStyle(.secondary)
-            }
-            let missing = Self.missingPermissions(model.permissions)
-            let automation = Self.missingAutomation(model.automation)
-            if !missing.isEmpty || !automation.isEmpty {
-                Section("Permissions") {
-                    ForEach(missing) { k in
-                        PermissionRow(title: k.title, detail: k.purpose, symbol: k.symbol) {
-                            actions.requestPermission(k)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                if let warning = Self.brainWarning(model.brainStatus) {
+                    Label(warning, systemImage: "exclamationmark.triangle.fill")
+                        .symbolRenderingMode(.multicolor)
+                        .foregroundStyle(.secondary)
+                }
+                let missing = Self.missingPermissions(model.permissions)
+                let automation = Self.missingAutomation(model.automation)
+                if !missing.isEmpty || !automation.isEmpty {
+                    SettingsGroup("Permissions") {
+                        ForEach(missing) { k in
+                            PermissionRow(title: k.title, detail: k.purpose, symbol: k.symbol) {
+                                actions.requestPermission(k)
+                            }
+                        }
+                        ForEach(automation) { t in
+                            PermissionRow(title: "Automation: \(t.name)", detail: "let skills script \(t.name)",
+                                          symbol: "applescript") { actions.requestAutomation(t) }
                         }
                     }
-                    ForEach(automation) { t in
-                        PermissionRow(title: "Automation: \(t.name)", detail: "let skills script \(t.name)",
-                                      symbol: "applescript") { actions.requestAutomation(t) }
-                    }
                 }
+                SettingsGroup("Memory") { memory }
+                Button { NSApp.terminate(nil) } label: {
+                    Text("Quit Muselet")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
+                .buttonStyle(.plain)
+                .background(Color.primary.opacity(0.04),
+                            in: RoundedRectangle(cornerRadius: 12))
+                .keyboardShortcut("q")
             }
-            if PlannerSettings.supported { models }
-            memory
-            Section {
-                Button("Quit Muselet") { NSApp.terminate(nil) }
-                    .keyboardShortcut("q")
-            }
+            .padding(12)
         }
-        .formStyle(.grouped)
         .controlSize(.small)
-        .contentMargins(.horizontal, 10, for: .scrollContent)
-        .contentMargins(.vertical, 6, for: .scrollContent)
         .onScrollGeometryChange(for: CGFloat.self) {
             $0.contentSize.height + $0.contentInsets.top + $0.contentInsets.bottom
         } action: { _, h in
@@ -77,25 +82,16 @@ struct PanelView: View {
 
     // MARK: sections
 
-    private var models: some View {
-        Section {
-            Toggle(isOn: Binding(get: { model.escalatePlanner },
-                                 set: { actions.setEscalatePlanner($0) })) {
-                Text("35B planner fallback")
-                Text(ackText)           // second Text = the native inline subtitle
-            }
-        } header: {
-            Text("Models")
-        }
-    }
-
     private var memory: some View {
-        Section("Memory") {
+        VStack(alignment: .leading, spacing: 10) {
             Toggle("Remember things", isOn: Binding(get: { model.longtermMemoryEnabled },
                                                     set: { actions.setLongtermMemory($0) }))
+                .toggleStyle(.switch)
+            Divider()
             TextField("Search", text: $memoryQuery, prompt: Text("Search memories"))
                 .labelsHidden()
                 .onSubmit { searchMemory() }
+            Divider()
             let memories = Self.userMemories(model.memoryItems)
             if memories.isEmpty {
                 Text("No saved memories").foregroundStyle(.secondary)
@@ -113,6 +109,7 @@ struct PanelView: View {
                             .accessibilityLabel("Forget \(item.key)")
                     }
                 }
+                Divider()
                 Button("Forget Everything…", role: .destructive) { confirmForgetAll = true }
                     .confirmationDialog("Forget everything Muselet remembers?", isPresented: $confirmForgetAll) {
                         Button("Forget Everything", role: .destructive) { actions.clearMemory() }
@@ -125,11 +122,6 @@ struct PanelView: View {
     private func searchMemory() {
         let query = memoryQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         if query.isEmpty { actions.listMemory() } else { actions.searchMemory(query) }
-    }
-
-    private var ackText: String {
-        if let a = model.configAck { return "\(a.summary) · \(PlannerSettings.memoryGB) GB memory" }
-        return "Used when the 4B planner is unsure · \(PlannerSettings.memoryGB) GB memory"
     }
 
     // MARK: pure helpers (unit-testable)
@@ -188,6 +180,28 @@ private struct PermissionRow: View {
                 Spacer()
                 Button("Open System Settings", action: action)
             }
+        }
+    }
+}
+
+/// One settings section: small header over a leading-aligned rounded card.
+private struct SettingsGroup<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
+
+    init(_ title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.headline)
+            VStack(alignment: .leading, spacing: 10) { content }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(Color.primary.opacity(0.04),
+                            in: RoundedRectangle(cornerRadius: 12))
         }
     }
 }
