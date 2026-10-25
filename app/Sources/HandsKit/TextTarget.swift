@@ -143,7 +143,7 @@ public enum TextTarget {
                 queue.append(contentsOf: a.children.map { ($0, depth + 1) })
             }
         }
-        return true
+        return qi >= queue.count   // a tree too big to walk is not blind
     }
 
     /// Largest visible AXTextArea in `window` (BFS <= 400 nodes, depth <= 10,
