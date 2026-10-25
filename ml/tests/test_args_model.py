@@ -1,8 +1,12 @@
 """Addendum (d): ROUTE and ARGS on separate models (fakes, no weights)."""
 from types import SimpleNamespace
 
-import mlx.core as mx
 import pytest
+
+try:
+    import mlx.core as mx
+except ImportError as exc:
+    pytest.skip(f"MLX is unavailable on this platform: {exc}", allow_module_level=True)
 
 from brain import cli, decision, planner
 from brain.catalog import Catalog

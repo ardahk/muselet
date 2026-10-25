@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -248,6 +248,14 @@ dependencies = [
     { name = "websockets" },
 ]
 
+[package.optional-dependencies]
+decisions = [
+    { name = "httpx" },
+]
+tinker = [
+    { name = "tinker" },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "pytest" },
@@ -256,15 +264,18 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "dateparser", specifier = "==1.4.3" },
+    { name = "httpx", marker = "extra == 'decisions'", specifier = "==0.28.1" },
     { name = "huggingface-hub", extras = ["hf-xet"], specifier = ">=2.3.0" },
     { name = "mlx", specifier = "==0.32.4" },
     { name = "mlx-lm", specifier = "==0.32.2" },
     { name = "mlx-vlm", specifier = "==0.7.8" },
     { name = "numpy", specifier = ">=2.5.4" },
     { name = "pillow", specifier = ">=13.0.0" },
+    { name = "tinker", marker = "extra == 'tinker'", specifier = "==0.34.0" },
     { name = "tinker-cookbook", specifier = "==0.5.7" },
     { name = "websockets", specifier = "==17.2" },
 ]
+provides-extras = ["decisions", "tinker"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = "==9.1.1" }]
@@ -3031,7 +3042,7 @@ wheels = [
 
 [[package]]
 name = "tinker"
-version = "0.35.0"
+version = "0.34.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -3049,9 +3060,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "zstandard" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/01/3c/ed025be8b087ac443e539129e06310e04178bdc99dbc6fd263a116facbc2/tinker-0.35.0.tar.gz", hash = "sha256:fa3abaa014afc7f2cfa9bd8161c39096d0416a6c1c1ef3d6fe0ea52a0627fae3", size = 309245, upload-time = "2026-10-21T22:45:12.644Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6f/1b/5d4136d92c4fb19ad1dc2fd632d2acc05e41d132349e3df0ef729f7e4669/tinker-0.34.0.tar.gz", hash = "sha256:2fc801882dab940818c7a17efb2e89fad626d4c965470c1a69f8c2d7d996e905", size = 308816, upload-time = "2026-10-17T01:13:27.839Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c0/7a/85b8a5601307e97714c3b1e4176dd5672ab2a4c87b81bd5a80f90177c1e0/tinker-0.35.0-py3-none-any.whl", hash = "sha256:9f6844aa4be5ab60ae071ee8363f059934a780dbd238f7367487e488c2fb64ec", size = 295930, upload-time = "2026-10-21T22:45:10.5Z" },
+    { url = "https://files.pythonhosted.org/packages/b7/e9/bf718a52df1f52b1d45d57cd6e74f27affc548e901e66eae5a315a801aca/tinker-0.34.0-py3-none-any.whl", hash = "sha256:72ee08d865ddc5c43b099aad96526795562536a011596498eb13b92921ba6664", size = 295528, upload-time = "2026-10-17T01:13:25.929Z" },
 ]
 
 [[package]]

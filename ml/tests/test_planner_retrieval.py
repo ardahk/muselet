@@ -3,8 +3,12 @@ import sys
 import threading
 from pathlib import Path
 
-import mlx.core as mx
 import pytest
+
+try:
+    import mlx.core as mx
+except ImportError as exc:
+    pytest.skip(f"MLX is unavailable on this platform: {exc}", allow_module_level=True)
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "evals"))

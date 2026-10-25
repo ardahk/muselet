@@ -7,9 +7,14 @@ import threading
 from pathlib import Path
 from types import SimpleNamespace
 
-import mlx.core as mx
 import numpy as np
 import pytest
+
+try:
+    import mlx.core as mx
+except ImportError as exc:
+    pytest.skip(f"MLX is unavailable on this platform: {exc}", allow_module_level=True)
+
 from fakes import FakeEngine, FakeServer
 from test_live_e2e_fixes import _skill_rpcs
 from test_planner_loop import _diff_orch, trace_for

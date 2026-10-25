@@ -12,8 +12,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 import dateparser as _dp
-import mlx.core as mx
-import mlx_lm
+try:
+    import mlx.core as mx
+    import mlx_lm
+except ImportError:  # no MLX runtime (Linux CI); serving always has it
+    mx = mlx_lm = None
 import numpy as np
 from tinker_cookbook import model_info, renderers, tokenizer_utils
 

@@ -19,6 +19,14 @@ dependencies = [
     "websockets==17.2",
 ]
 
+[project.optional-dependencies]
+decisions = [
+    "httpx==0.28.1",
+]
+tinker = [
+    "tinker==0.34.0",
+]
+
 [project.scripts]
 brain = "brain.cli:main"
 
