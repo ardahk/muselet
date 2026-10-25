@@ -1,9 +1,9 @@
 {
-  "pass": 52,
-  "ts": "2026-10-25T00:31:00Z",
+  "pass": 53,
+  "ts": "2026-10-25T00:47:00Z",
   "last_reviewed": {
-    "main": "e9fb42d",
-    "wip/local": "bf98333",
+    "main": "eb3e945",
+    "wip/local": "3f21dc6",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -68,7 +68,11 @@
     "cloud/safety-brain12": "97c5242",
     "cloud/safety-brain18": "9aa2e4c",
     "cloud/safety-brain38": "54ca8f6",
-    "cloud/safety-planner28": "e3abc5e"
+    "cloud/safety-planner28": "e3abc5e",
+    "cloud/design": "b93bb50",
+    "cloud/panel-hook-fix": "ef35421",
+    "cloud/memory-llm-gate": "6864386",
+    "cloud/docs-demo-3": "c615c37"
   },
-  "notes": "pass 52: main e9fb42d merged hands-clock #55 (Clock-over-AX; Settings copy clear, shortcut now optional) and brain-9 #61 (named browser, planner warm at startup, which removes the first-call cold start on the planner path). No new lane issues; all open findings unchanged."
+  "notes": "pass 53: main eb3e945 is a design brief only. cloud/design b93bb50 reviewed: native grouped-Form panel (permission rows show only when something is missing, plus a brain warning row), kitten template icon, kitten clamped to visibleFrame, a shared X/Esc close path, 0.12 s pill fade, Clock-over-AX-only timers (CLOCK_HINT removed). It resolves ux-26; ux-25 is still open. memory-llm-gate has no new copy; panel-hook-fix is debug hooks only; docs-demo-3 has no lane files."
 }
