@@ -1,9 +1,9 @@
 {
-  "pass": 96,
-  "ts": "2026-10-25T13:50:00Z",
+  "pass": 97,
+  "ts": "2026-10-25T14:55:00Z",
   "last_reviewed": {
     "main": "b00f679",
-    "wip/local": "aadf777",
+    "wip/local": "73f8136",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -99,5 +99,5 @@
     "cloud/cool-tasks": "cfbec49",
     "cloud/native-tools": "6053e4e"
   },
-  "notes": "pass 96: only wip moved (aadf777): CANVAS_APPS prefix widened to 'Adobe Premiere' (now also matches e.g. Premiere Rush, which is fine), plus a test. No copy change, no new findings. Open: ux-34/ux-32 on main b00f679; ux-31/ux-35/ux-36 on wip."
+  "notes": "pass 97: only wip moved (73f8136). A repeated Premiere Shift+3 is now blocked with a long planner-facing error (orchestrator.py:4430@73f8136). If it ends the run, it could surface as a raw failure bubble (an instance of ux-28; not traced to the final say). obsdiff now renders slider/stepper and Premiere HotText values, so the planner sees the clipSpeed value. Numbers tips add SORT/SORTBY. The diff chain is disabled in ui_only mode. No new findings. Open: ux-34/ux-32 on main b00f679; ux-31/ux-35/ux-36 on wip."
 }
