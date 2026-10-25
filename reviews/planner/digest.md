@@ -1,14 +1,14 @@
-# Planner review digest — pass 60 (2026-10-25T02:35Z)
+# Planner review digest — pass 61 (2026-10-25T02:50Z)
 
-Branches moved since pass 59: main f5b4606→55e38f9, wip/local c49bf0e→fd357b3 (= main content).
-- main 55e38f9: bench/hobbylm/replay.py calendar precondition fix (ISO8601 parse of naive isoformat). Harness only; no planner/DSL/prompt/catalog/HandsKit/serve change. No finding.
-- Re-checked on main 55e38f9: `self_verified` still DONE evidence (planner-40, 2 hits), THINK_SAMPLER default qwen (planner-44), planner-ok memory writes unchanged (planner-45).
+Branches moved since pass 60: main 55e38f9→13d0486 (wip/local unchanged at fd357b3).
+- main 13d0486: bench/hobbylm/replay.py captures calendar events in the runner process (EventKit TCC). Harness only; no planner/DSL/prompt/catalog/HandsKit/serve change. No finding.
+- Re-checked on main 13d0486: `self_verified` still DONE evidence (planner-40, 2 hits), THINK_SAMPLER default qwen (planner-44), planner-ok memory writes unchanged (planner-45).
 
 New: 0. Resolved: 0. Open: 0 P0, 11 P1, 8 P2.
 Lead decision: greedy think sampler; persist memory/workflows only after verified DONE.
 
 ---
-## Open findings (unchanged from pass 56, re-checked pass 60)
+## Open findings (unchanged from pass 56, re-checked pass 61)
 
 Open P0: none.
 
