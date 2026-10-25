@@ -1,4 +1,4 @@
-# planner lane — pass 52 (main 8fb465c, wip fe6c209)
+# planner lane — pass 53 (main e9fb42d, wip bf98333)
 
 Open P0: none.
 
@@ -23,8 +23,13 @@ Highest-leverage next moves:
 - planner-verify is on main: drop the skill-ok = done-evidence rule (planner-40). Keep the decide-based verify, which also takes care of most of planner-33.
 - Before any LoRA ship call, evaluate the adapter under the exact serve flags (few-shot, RETRIEVAL_K, THINK), or serve it with `--planner-fewshot none` and RETRIEVAL_K=0 (planner-38).
 - W9 is merged (planner-30/24 fixed). Next, narrow `\[` to JXA computed keys and drop `\\`, `set .* to` and `format` for Numbers reads (planner-37, planner-15), or the demo-3 planner path will ask for confirmation on reads.
-- brain-9: pick the browser from 'in/using X' context, not the first mention (planner-41).
+- brain-9 is on main: pick the browser from 'in/using X' context, not the first mention (planner-41).
 - Add `view` to open_folder in catalog.json and to the prompt example (planner-32). Fix rule 14 to say `expect focused #<ref>` (planner-31).
+
+Pass 53 notes:
+- main e9fb42d merged brain-9 (#61: named browser, page wait, planner warm at startup), hands-clock (#55), the System One decisions LoRA (#39) and serve changes: it3 is the default router (user's call) and MEMORY_LLM defaults to 0, which resolves planner-39.
+- planner-41 is now on main; I re-ran the repro and it still fails the same way.
+- None of the other open findings changed: planner-40/42/44/45 are all still on main.
 
 Pass 52 notes:
 - main 8fb465c: THINK=512 qwen is on by default (planner-44 is live), memory phase 1+2 and architect-27 are merged (planner-42 is on main), and the it2 tau dropped from .65 to .35 (router lane).
