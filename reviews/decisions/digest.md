@@ -1,6 +1,6 @@
-# decisions — digest (pass 73)
+# decisions — digest (pass 74)
 
-Heads: main 85958b0 (soft expects whenever a finish criterion exists (a524768), which widens -41; new -46 P2: cart done accepts a pre-existing '1 item'; shopping few-shot affects base/35B prefix only; -37 P0, -38/-40/-41/-43 P1 live), wip 3d21638 (= main), cool-tasks 3937e6b (main merge). Counts: 1 P0, 14 P1, 14 P2. Budget: about $142.06 MTD estimated.
+Heads: main ca73c12 (merged native-tools + ui-progress; new -47 P2: pre-routing destructive regex refuses 4/955 route_v2 empty_trash golds + v2-shell-rm confirm; -37 P0 also covers NativeToolPlanner; -38/-40/-41/-43 P1, -46 P2 live), wip 47f809a (= main). Counts: 1 P0, 14 P1, 15 P2. Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
