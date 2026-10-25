@@ -235,6 +235,8 @@ class NativeToolPlanner(Planner):
     `decode_fn(prompt_text, think_budget, cancel) -> (completion, stats)` replaces MLX decoding (tests)."""
 
     mode = "tools"
+    # UI-only planner: gets a fresh OCR-backed screen context each turn.
+    ui_only = True
 
     def __init__(self, model_path: str, catalog, engine=None, app_hints: bool = False, hidden_skills=(),
                  think_budget: int = THINK_BUDGET, think_seed: int = 0, tokenizer=None, decode_fn=None, **_ignored):
