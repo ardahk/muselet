@@ -1,4 +1,4 @@
-# bench digest — pass 78 (2026-10-25T07:35Z, main@cf33215)
+# bench digest — pass 79 (2026-10-25T07:50Z, main@cef8797)
 
 P0: 0 | open P1: 13 | open P2: 18
 
@@ -46,3 +46,5 @@ Pass 76: main e2f7e5e..de1070d merges agentic-apps (AGENTIC_APPS=1 is now a serv
 Pass 77: main de1070d..3a0860c. bench-51 RESOLVED (symlinks untracked). NEW P2 bench-52: BLIND_PLANNER becomes escalate (35B-A3B, think 512) whenever the 35B is in the HF cache, so the served planner for blind/agentic/app tasks is machine-dependent, unmeasured and unrecorded. bench-50 still open, and the same rule is on agentic-evidence 1918cad. app-knowhow c69dfec changes only app_hints tips (bench-46). browser-flow 485763f is merged-main plus orchestrator same-tab work. wip/local = main.
 
 Pass 78 (no new findings): main 3a0860c..cf33215 merges agentic-evidence, app-knowhow, browser-flow, obs-labels and control-labels. bench-50 is now on main: the unified evidence() still treats 'no Pause/Resume' as a cancelled timer for both auto-done and the done gate. app-knowhow rewrites app_hints tips (another planner-prompt change, bench-46). The Swift obs-labels change adds derived labels for unlabeled controls, which changes observation text for all planners (bench-46/-49: the LoRA SFT render predates it). No bench/eval/serve_brain changes. bench-42, -44 and -36 are still unfixed. wip/local = main.
+
+Pass 79 (no new findings): main cf33215..cef8797 sends agentic app tasks and timer controls to the blind/agentic planner (35B when cached). bench-52 updated: docs-final itself quotes 6.0 s step p50 for that planner, against the 3 s gate. cloud/docs-final bf9118d (unmerged) is largely candid: DeskMind leads System One (.831/.658 vs .779/.622), no valid HobbyLM score, DeskMind Bench not run, agentic build unmeasured. But it still headlines the LoRA as 'holdout mean .850' (unweighted; pooled is .731, and the gain is concentrated on contaminated v2-ho screens: bench-44/-31/-30). Before merge: quote the pooled number, or add the contamination caveat next to .850. wip/local c86fec4 has no changes in my lane.
