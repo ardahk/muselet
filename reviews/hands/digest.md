@@ -1,6 +1,6 @@
-# hands — digest (Pass 81)
+# hands — digest (Pass 82)
 
-Open: 0 P0, 6 P1, 14 P2.
+Open: 0 P0, 6 P1, 15 P2.
 
 Ranked open P0/P1:
 -1. P1 hands-38 (main e2f7e5e via a615f00, ClockAX.swift:523-552): the Clock cancel falls back to `live.first` and presses a stale detail-pane Cancel after a fixed 80 ms. It can cancel a user's own Clock timer and still report success. Fix before the demo.
@@ -15,6 +15,10 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 82:
+- main b7b38f9 merged agentic-fixes2 (hands-42 is now on main) and docs-final. ab850b3: blind/agentic tasks get 30 turns / 300 s, and planner expects there are soft. New P2 hands-44: soft expect failures `continue` before both loop guards, so a repeated side-effectful action whose expect fails is never stopped. b7b38f9: PLANNER=35b sends max_nodes 350; the app takes it as-is (RPC.swift:85), which is fine. No app/ change. hands-43 is still on main.
+- wip/local matches main.
 
 Pass 81:
 - main 73b8031: observe no longer crashes on duplicate refs (uniquingKeysWith first). New P1 hands-43: the duplicates come from Differ.match pass 2, which maps every unmatched new element with the same role+label to the one old candidate. Duplicate refs now act on the first element silently, and `current` (first) disagrees with knownElements (last). That's a wrong-row risk for repeated Delete buttons.
