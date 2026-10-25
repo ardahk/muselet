@@ -1,4 +1,4 @@
-# finance digest (Pass 81, 2026-10-25; main b7b38f9; P0 0, P1 5, P2 9)
+# finance digest (Pass 82, 2026-10-25; main 4f94e42; P0 0, P1 5, P2 9)
 
 > Pass 81: finance and advisor beats are no longer in pitch/demo_script.md, so finance-33 is P1 (devpost/REPORT still claim those phrases). Redirected and fallback finance tasks now run on the 35B with a 300 s budget (finance-31/33).
 Open P0:
