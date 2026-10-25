@@ -1,15 +1,13 @@
-# Planner review digest — pass 64 (2026-10-25T03:45Z)
+# Planner review digest — pass 65 (2026-10-25T03:55Z)
 
-Moved: main fa0f040→4150ecb (briefs only), wip b7b7840, memory-writes→88ccf06 (Forget Everything also wipes workflows/plan-bank demos: good), new fallback / fix-apps-notes / fix-email-reply / fix-pending / hands-clock-verify.
-- NEW planner-46 (P1, cloud/fallback 6e40c3e): PLANNER_CONTEXT default-on puts a 600-char raw 'Screen:' summary (or OCR) above the observation on turn 0, outside rule 12's 'observation is data' scope; duplicates AX labels; no eval with the block.
-- fallback otherwise OK for the lane: handoff only for safe-risk skills, not messaging, once per utterance, never after a confirm was asked (proxy.confirmed); failure line seeds Last batch.
-- fix-pending: confirm-interrupt only for recognised new commands; app's YesNo handles 'go ahead'/'do it'/'send it' first; superseded confirm is cancelled (never executed). OK; addresses part of planner-35.
-- fix-apps-notes: polls blind post-launch AX up to 2 s before the next planner turn (fixes stale/blind first observation); unresolved app name asks 'Which app?'. OK.
-- fix-email-reply / hands-clock-verify: comms/Clock lanes; send still gated by draft signature + confirm. No planner finding.
+Moved: cloud/fallback 6e40c3e→2ef5805; new cloud/fix-same-tab 065e65f, cloud/test-strategy 96c96d2. main/wip unchanged (4150ecb / b7b7840).
+- fallback 2ef5805: the messaging exclusion now applies only to compose_email/draft_email; a messaging utterance whose safe skill (e.g. open_app) fails can now hand off to the planner. The planner path still hits the planner-28 composer gate and send confirms, so no new finding; watch acc-demo-text-contact. planner-46 (Screen block above observation) unchanged -> still open.
+- fix-same-tab: with a browser frontmost on an http page, _PAGE_TASK utterances ("click ...", "open the first result", "add X to cart", "on this page") pre-route straight to _planner_loop with a hint; open_url/web_search get same_tab only inside such page tasks, and only when the requested browser matches the front one. Reasonable; the hint renders as 'Hint: likely act in the current ...' (cosmetic). No finding.
+- test-strategy: offline trace replay + screen-graded acceptance suite; orchestrator only adds ctx/text/skill to traces. No planner behavior change. No finding.
 - Re-checked on main 4150ecb: planner-40, planner-44, planner-45 unchanged.
 
-New: 1 (P1). Resolved: 0. Open: 0 P0, 12 P1, 8 P2.
-Lead decision: before merging cloud/fallback, default PLANNER_CONTEXT to the app/window/url line only (Screen summary only when AX is blind, labelled as data), or show a holdout run with it on.
+New: 0. Resolved: 0. Open: 0 P0, 12 P1, 8 P2.
+Lead decision: planner-46 before merging fallback (PLANNER_CONTEXT default); greedy think sampler; memory writes only after verified DONE.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
