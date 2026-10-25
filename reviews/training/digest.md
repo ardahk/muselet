@@ -1,6 +1,6 @@
-# training lane digest — pass 81 (main 5d135d0, docs-final bf9118d)
+# training lane digest — pass 82 (main 3e323a9)
 
-Open: 1 P0, 15 P1, 19 P2. No new findings. training-50 updated: docs-final still uses planner LoRA ~$0.84 (run report $5.84) so the known spend is ~$142+, not ~$137. training-54 still open.
+Open: 1 P0, 16 P1, 18 P2. training-58 raised to P1: agentic app tasks now plan on the 35B, whose selection still depends on HF-cache presence. training-50: docs spend ~$0.84 vs $5.84. training-54 still open.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).

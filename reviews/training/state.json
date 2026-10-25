@@ -1,6 +1,6 @@
 {
-  "pass": 81,
-  "ts": "2026-10-25T07:52:00Z",
+  "pass": 82,
+  "ts": "2026-10-25T08:15:00Z",
   "mode": "pulse",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
@@ -48,8 +48,8 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "5d135d0",
-    "wip/local": "c86fec4",
+    "main": "3e323a9",
+    "wip/local": "b8eeec4",
     "cloud/memory": "ba3dc0a",
     "cloud/memory-eval": "c05944e",
     "cloud/memory-lt": "cc056af",
@@ -91,7 +91,8 @@
     "cloud/agentic-evidence": "1918cad",
     "cloud/app-knowhow": "c69dfec",
     "cloud/browser-flow": "485763f",
-    "cloud/docs-final": "bf9118d"
+    "cloud/docs-final": "bf9118d",
+    "cloud/agentic-fixes2": "b9cd089"
   },
   "next_id": 53,
   "notes_pass39": "main fb2cfd0: evals/live_t1.jsonl changed only precondition/check/teardown/document_apps on 6 cases; all 43 utterances unchanged, so decontam gates and it2/it3cand overlap results stand. No lane findings.",
@@ -133,5 +134,6 @@
   "notes_pass78": "main merged agentic-apps (training-55 on main) + autodone; new training-57 committed abs symlinks. agentic-evidence/browser-flow orchestrator-only. app-knowhow tips screened clean.",
   "notes_pass79": "main: symlinks untracked (training-57 resolved); BLIND_PLANNER escalate auto-default (training-58). app-knowhow c69dfec Clock/Reminders tip edits only; agentic-evidence/browser-flow orchestrator + main merges. Router unchanged.",
   "notes_pass80": "main merged app-knowhow (tips screened pass 78/79: 0 sealed overlap), agentic-evidence, browser-flow, obs derived labels, control labels (#99), docs-final brief. Router/catalog/tau unchanged. docs brief correctly says HobbyLM has no valid comparable score and DeskMind gap is behind.",
-  "notes_pass81": "main: brief only. docs-final checked for training claims: router it3/it2 numbers match prior reports; HobbyLM 'no valid score' and DeskMind 'behind' are honest; it2-only for sealed sets kept. Spend $0.84 (training-50) and planner '.850 serving' label (training-55) flagged."
+  "notes_pass81": "main: brief only. docs-final checked for training claims: router it3/it2 numbers match prior reports; HobbyLM 'no valid score' and DeskMind 'behind' are honest; it2-only for sealed sets kept. Spend $0.84 (training-50) and planner '.850 serving' label (training-55) flagged.",
+  "notes_pass82": "main: agentic apps/timers -> 35B planner, PLANNER=35b option, Spotify gated double-click + few-shot (non-eval goal). agentic-fixes2: orchestrator/agentic.py/dsl only. Router unchanged."
 }
