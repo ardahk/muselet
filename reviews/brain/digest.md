@@ -1,6 +1,6 @@
-# brain lane digest — pass 58 (2026-10-25T01:52:00Z)
+# brain lane digest — pass 59 (2026-10-25T02:22:00Z)
 
-Open: P0 0 / P1 8 / P2 10. main 19d57fb merged memory-llm-gate (#69, no issue found at f6229d7) and a1fd57f, the argfix/relative-brightness change. That commit carries brain-46 [P2] onto main: 'bump it down' hits both _UP and _DOWN, so vague_delta/degree_delta return None (repro test_brain_pass57.py fails on main). Suite on main: 18 failed / 2046 passed / 108 skipped (same 18 MLX-stub). Review repros 22F/52P: the +1 is brain-46. wip/local 8a197f8 is a snapshot on main@a1fd57f (before #69), so its memory/* differs from main only by that merge.
+Open: P0 0 / P1 8 / P2 10. main f5b4606 changes only a comment (orchestrator.py:1191) and paraphrases 3 test utterances (test_brain8_live_fixes.py) to keep sealed HobbyLM text out of the repo; 69a9650 is harness-only. No behavior change in lane. Suite on main: 18 failed / 2046 passed / 108 skipped (same 18 MLX-stub). Review repros 22F/52P (unchanged; includes brain-45 and brain-46). wip/local c49bf0e is a snapshot on main@f5b4606 and matches main in lane.
 
 ## Open P0/P1 (ranked)
 - brain-16 [P1] abs_level misreads times, durations, percentages and unrelated words — `ml/src/brain/orchestrator.py` (main@fb2cfd0@003d1bb)
