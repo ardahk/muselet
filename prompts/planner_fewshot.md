@@ -63,7 +63,7 @@ Accessibility tree is empty here: act by description.
 Finish when: jazz is playing
 Reply:
 url "spotify:search:jazz"
-click "green Play button of the top result"
+script applescript """tell application "Spotify" to play"""
 
 Goal: "play some jazz on Spotify"
 app: Spotify | window: "Spotify" | focused: none
@@ -71,7 +71,7 @@ Accessibility tree is empty here: act by description.
 Finish when: jazz is playing
 Last batch:
 [ok] url "spotify:search:jazz"
-[ok] click "green Play button of the top result"
+[ok] script applescript """tell application "Spotify" to play"""
 Reply:
 script applescript """tell application "Spotify" to get player state"""
 

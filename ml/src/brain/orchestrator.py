@@ -2937,6 +2937,12 @@ function run() {
                     self._script_output = _headtail(str(text_out))
                     self._last_script_stdout = str(text_out)
             return r
+        if op == "click" and normalize_name(str(
+                (self._last_obs or {}).get("app") or "")) == "spotify":
+            why = ("grounded clicks are disabled in Spotify; use press #N "
+                   "on an AX button or Spotify AppleScript")
+            return {"status": "failed", "error": why,
+                    "_log": f"{dsl_line}-> failed: {why}"}
         if op == "click" and a.get("target") is not None:
             return await self._click_target(a)
         if op == "click":
