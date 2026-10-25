@@ -1,10 +1,11 @@
-# architect digest - pass 54 (2026-10-25T00:08Z)
-Reviewed: main 0b83c3b (planner-verify #54 merged with VERIFY_DONE on, planner-28 #66, the think eval note picking 4b-t512-qwen-all, live harness cleanup), wip/local e4f4331, decisions ae36620 (import guard, router/planner byte-identical), memory/memory-lt, brain-9 and safety-planner28 (merges). New: architect-36. architect-24 resolved; architect-33 is now on main.
+# architect digest - pass 55 (2026-10-25T00:22Z)
+Reviewed: main 8fb465c (serve: THINK=512 qwen on every step; it2 tau .65 -> .35 from val fit; it3 opt-in after failing its rule; memory phase 1+2 #50/#58; architect-27 fix #65; ui-polish #49), wip/local fe6c209, hands-clock 6ab40be (Swift uncompiled), memory a8af560. No new findings. architect-36, 34 and 35 are now live on main.
+Note: with THINK on every step plus VERIFY_DONE on, a 5-step planner task runs about 13 s p50 (5 x 2.6 s) before any recovery. The tau drop to .35 sends more requests straight to System-1 skills. Re-check the instant beats in rehearsal.
 
 ## Open P1 (ranked)
 1. architect-29 - No winning competitor number (TD tie within 1 SE, JevBench loses, HobbyLM r4 missing) - pitch/claims.md
 2. architect-33 - Done verifier default on with unfitted 0.5 threshold (on main) - ml/src/brain/orchestrator.py
-3. architect-36 - Think ship pick: sampled qwen, +853 ms/step for 1 net item - cloud/handoff/notes/planner_think_eval.md
+3. architect-36 - Think shipped with sampled qwen (on main), +853 ms/step for 1 net item - cloud/handoff/notes/planner_think_eval.md
 4. architect-32 - HobbyLM replay drops skips from denominator vs /125 claim - bench/hobbylm/replay.py
 5. architect-28 - Holdout paraphrases in bank/demos; think/lora gates include them - ml/src/brain/plan_bank.py
 6. architect-27 - premiere_command doesn't verify; partial fix unmerged (Premiere out of demo) - app/Sources/HandsKit/Skills.swift
