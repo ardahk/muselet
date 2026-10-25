@@ -1,8 +1,11 @@
-# Planner review digest — pass 75 (2026-10-25T06:30Z)
+# Planner review digest — pass 76 (2026-10-25T06:47Z)
 
-Moved: cloud/agentic-apps 523d2c1→1904638 only (merge of origin/main; timer_control removed upstream on that branch, finish evidence merged). main e2f7e5e unchanged.
-- planner-51 (P1): still default-on (cli.py:413 default "on"; serve_brain.sh:79 AGENTIC_APPS:-1).
-- Re-checked on main e2f7e5e: planner-40/45/46/47/48/50 unchanged.
+Moved: main e2f7e5e→de1070d (agentic-apps merged; auto-done progress_evidence for timer/cart; loading text markers), wip 52e4b94 (= main, minus a .venv link), new agentic-evidence c4703c4, app-knowhow fc92f6b, browser-flow c0421e6.
+- planner-51 (P1) now on main: AGENTIC_APPS defaults on.
+- Auto-done on main uses programmatic evidence (Clock countdown / cart count went up over the baseline) and cancels the remaining actions. That is consistent with 'DONE verified by the harness'. OK.
+- agentic-evidence: one evidence() for done and auto-done, with app kinds (timer_start/reminder/note/event/message/email/play) matched by key words in the observation. The play kind still has no subject check (planner-50).
+- app-knowhow (tips only) and browser-flow (same tab inside planner tasks, default browser, compound fallback) were checked at the stat/commit level only this pass; to be traced in depth next pass.
+- planner-40/45/46/47/48/50 unchanged on main.
 
 New: 0. Resolved: 0. Open: 0 P0, 12 P1, 9 P2.
 
