@@ -1,7 +1,7 @@
 {
   "lane": "finance",
-  "pass": 82,
-  "ts": "2026-10-25T08:54:38Z",
+  "pass": 83,
+  "ts": "2026-10-25T09:09:57Z",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
@@ -48,8 +48,8 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "4f94e42",
-    "wip/local": "52eb571",
+    "main": "2445a1d",
+    "wip/local": "6e7f50b",
     "cloud/memory": "a8af560",
     "cloud/memory-eval": "c05944e",
     "devin/1792872486-data-route-handoff": "seen",
@@ -97,11 +97,11 @@
     "cloud/browser-flow": "485763f",
     "cloud/docs-final": "bf9118d",
     "cloud/agentic-fixes2": "104a411",
-    "cloud/cool-tasks": "4c84adc",
+    "cloud/cool-tasks": "e4def97",
     "cloud/native-tools": "6053e4e",
     "cloud/ui-progress": "a66166b"
   },
   "next_id": 28,
-  "notes": "pass82: main 4f94e42 (demo-loop2-4: done_summary reset per task, YouTube evidence needs a YouTube page, web_ui_guard results-open hint, sendgate search fields can't send, enter_sends focused fallback) - no finance effect. cool-tasks adds notes 'summarize/summary' match and carry_across_apps hint, both redirect=false; static probe of 8 finance/advisor phrases on main and cool-tasks: same redirects as before (calendar for Hendersons, finder_files for 'Finance folder'), no relay/search criterion for them. native-tools: opt-in --planner-mode tools (default dsl). ui-progress: planner-turn step bubbles only. finance-31/33/34 unchanged. wip = main.",
+  "notes": "pass83: main 2445a1d (demo-loop5-9): finish.py email_open criterion ('open the latest email from X'), Gmail 'Ask Gmail' not a send target, maps/shopping hint text. Static probe on main: 8 finance/advisor phrases route as before (calendar/finder_files redirects remain); demo request still gets search criterion (finance-34); email_open only fires for 'open the latest email from ...', not finance_review phrasing. cool-tasks e4def97 merges main. wip differs only in the amazon hint row. finance-31/33/34 unchanged.",
   "timestamp": "2026-10-25T05:37:35Z"
 }
