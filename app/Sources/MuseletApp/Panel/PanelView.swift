@@ -59,7 +59,12 @@ struct PanelView: View {
             }
         }
         .formStyle(.grouped)
-        .onScrollGeometryChange(for: CGFloat.self) { $0.contentSize.height } action: { _, h in
+        .controlSize(.small)
+        .contentMargins(.horizontal, 10, for: .scrollContent)
+        .contentMargins(.vertical, 6, for: .scrollContent)
+        .onScrollGeometryChange(for: CGFloat.self) {
+            $0.contentSize.height + $0.contentInsets.top + $0.contentInsets.bottom
+        } action: { _, h in
             if h > 1 { contentHeight = h }
         }
         .frame(width: Self.width, height: min(contentHeight, Self.maxHeight))
@@ -74,12 +79,13 @@ struct PanelView: View {
 
     private var models: some View {
         Section {
-            Toggle("35B planner fallback", isOn: Binding(get: { model.escalatePlanner },
-                                                         set: { actions.setEscalatePlanner($0) }))
+            Toggle(isOn: Binding(get: { model.escalatePlanner },
+                                 set: { actions.setEscalatePlanner($0) })) {
+                Text("35B planner fallback")
+                Text(ackText)           // second Text = the native inline subtitle
+            }
         } header: {
             Text("Models")
-        } footer: {
-            Text(ackText).foregroundStyle(.secondary)
         }
     }
 
@@ -90,10 +96,11 @@ struct PanelView: View {
             TextField("Search", text: $memoryQuery, prompt: Text("Search memories"))
                 .labelsHidden()
                 .onSubmit { searchMemory() }
-            if model.memoryItems.isEmpty {
+            let memories = Self.userMemories(model.memoryItems)
+            if memories.isEmpty {
                 Text("No saved memories").foregroundStyle(.secondary)
             } else {
-                ForEach(model.memoryItems) { item in
+                ForEach(memories) { item in
                     HStack(alignment: .firstTextBaseline) {
                         VStack(alignment: .leading, spacing: 1) {
                             Text(item.value).lineLimit(2).textSelection(.enabled)
@@ -134,6 +141,13 @@ struct PanelView: View {
         case .busy: return "Another app is using Muselet's brain"
         case .connecting, .connected: return nil
         }
+    }
+
+    /// Memory types a person wrote or would recognise; workflow / episode rows stay internal.
+    static let userMemoryTypes: Set<String> = ["person", "preference", "fact", "correction"]
+
+    static func userMemories(_ items: [MemoryItem]) -> [MemoryItem] {
+        items.filter { userMemoryTypes.contains($0.type) }
     }
 
     static func missingPermissions(_ p: PermissionSnapshot) -> [PermissionKind] {
