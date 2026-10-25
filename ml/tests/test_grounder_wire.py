@@ -59,6 +59,14 @@ def test_click_target_with_expect_and_errors():
     ({"app": "Blender", "elements": [{"ref": 1}]}, True),
     ({"app": "Minecraft", "elements": [{"ref": 1}]}, True),
     ({"app": "Safari", "elements": [{"ref": 1}]}, False),
+    # Spotify (CEF, renderer AX off): only the window controls are visible
+    ({"app": "Spotify", "elements": [
+        {"ref": 1, "role": "button", "label": "close button"},
+        {"ref": 2, "role": "button", "label": "this button also has an action to zoom the window"},
+        {"ref": 3, "role": "button", "label": "minimize button"}]}, True),
+    ({"app": "Spotify", "elements": [
+        {"ref": 1, "role": "button", "label": "close button"},
+        {"ref": 4, "role": "button", "label": "Play Jazz Classics"}]}, False),
     (None, False),
 ])
 def test_observation_blind(obs, blind):
