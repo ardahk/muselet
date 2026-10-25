@@ -1,6 +1,6 @@
-# brain lane digest — pass 56 (2026-10-25T01:20:00Z)
+# brain lane digest — pass 57 (2026-10-25T01:36:00Z)
 
-Open: P0 0 / P1 8 / P2 9. main 9be963d merged memory-hotfix (#71) and memory-rules2 (#72; carries brain-45: undo fallback replays another window's layout), docs-demo-3 (#68) and a bench proxy fix (outside lane). Suite on main: 18 failed / 2036 passed / 108 skipped (same 18 MLX-stub). Review repros 21F/52P: the +1 is the brain-45 repro. wip/local 4d22445 is a snapshot on main@517e056 (pre-#71/#72), so its memory/* differs from main only by those merges.
+Open: P0 0 / P1 8 / P2 10. main unchanged (9be963d). cloud/memory-llm-gate f6229d7 is rebased onto main: it keeps the llm-gated/llm-invalid reasons through resolve, adds deictic-'this' and copy/paste idiom handling, and widens the that-conjunction pattern. No new issue there; suite 18F/2042P (same 18 MLX-stub), and the review repros match main. wip/local 7728b98 (on main@517e056) adds argfix bump/boost/lighter words and a set_brightness relative_not_level path. This carries new brain-46 [P2]: 'bump it down' now hits both _UP and _DOWN, so vague_delta/degree_delta return None (repro test_brain_pass57.py). wip suite 18F/2022P; its review repros pass brain-45 only because it predates #72.
 
 ## Open P0/P1 (ranked)
 - brain-16 [P1] abs_level misreads times, durations, percentages and unrelated words — `ml/src/brain/orchestrator.py` (main@fb2cfd0@003d1bb)
@@ -13,6 +13,7 @@ Open: P0 0 / P1 8 / P2 9. main 9be963d merged memory-hotfix (#71) and memory-rul
 - brain-43 [P1] Unverified planner DONE accepted whenever the model verifier errors — `ml/src/brain/orchestrator.py` (main@0b83c3b via #54; cloud/planner-verify@484f5e7)
 
 ## Highest-leverage next moves
+0. brain-46 (wip/local): let an explicit 'down'/'up' beat 'bump' in argfix before that snapshot lands.
 1. brain-42 (now on main): default to an in-memory long-term store, or give each HobbyLM/live case a fresh MUSELET_MEMORY_DB and WorkingMemory.
 2. brain-43 (now on main): when _verify_done returns p_yes None, return 'unverified' (or retry once) instead of accepting a bare DONE.
 3. brain-41 + brain-40: re-run ARGS on the final transcript for free-text skills, with a larger decode budget.
