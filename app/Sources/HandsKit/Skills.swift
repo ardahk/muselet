@@ -305,6 +305,7 @@ public final class Skills {
     var clockAXSettle: TimeInterval = 1.0
     var clockAXPoll: TimeInterval = 0.05
     var clockAXStepWait: TimeInterval = 0.25
+    var clockAXVerify: TimeInterval = 2.0
     /// Folder display name (Finder window title); tests stub it.
     var displayNameOverride: ((String) -> String)?
 
@@ -887,7 +888,7 @@ public final class Skills {
             let info = timers.start(seconds: seconds, label: label, backend: "clock_ax") { _ in }
             var r: [String: Any] = [
                 "backend": "clock_ax", "seconds": seconds, "ms": ax.ms,
-                "verified": ax.verified,
+                "verified": true, "clock_ax_steps": ax.steps,
                 "fires_at": TimerRegistry.isoString(info.firesAt), "timer_id": info.id,
             ]
             if let label { r["label"] = label }
@@ -907,6 +908,8 @@ public final class Skills {
         if let reason = ax.reason {
             r["fallback_reason"] = reason
             r["clock_ax_reason"] = reason
+            r["verified"] = false
+            r["clock_ax_steps"] = ax.steps
         }
         if let label { r["label"] = label }
         return r
