@@ -1,10 +1,9 @@
-# Planner review digest — pass 67 (2026-10-25T04:28Z)
+# Planner review digest — pass 68 (2026-10-25T04:42Z)
 
-Moved: main b340f24→dc6f2f5 (merges fallback, fix-pending, premiere editor + OCR export poll, open-ended), wip 6a1f942, fallback 36b421e, fix-pending 09dadc0, fix-same-tab 0e38395 (merge of main), open-ended 0d687d2 (merge), new premiere-demo a1c0f04.
-- planner-46 now LIVE on main: PLANNER_CONTEXT=1 default, Screen block before observation, LoRA untrained on it.
-- planner-42 update: new premiere_edit tool confirms each op by default (MUSELET_PREMIERE_CONFIRM=each); per-project mode is opt-in.
-- fix-pending on main: confirm_interrupt wired only when the orchestrator provides it. OK.
-- planner-40 (self_verified x2) and planner-45 unchanged on main.
+Moved: main dc6f2f5→82c9810, wip 5b656ef, new cloud/premiere-route-fix 7769c32.
+- main 82c9810: `_ax_blind` now also treats AX trees whose elements are only window controls (close/minimize/zoom/full screen) as blind, so CEF apps (Spotify) reach screenshot+grounder. Empty list stays blind. Cost: one screenshot/grounder step for chrome-only windows; no finding.
+- premiere-route-fix: the Premiere redirect runs first in the fallback pre-route; it fixes draft_email args being dispatched to premiere_edit. parse_request is gated on Premiere being frontmost or 'premiere' in the text; export/render map to op=export and still confirm. No finding.
+- Re-check: planner-46 (PLANNER_CONTEXT=1 on main), planner-42 (MUSELET_PREMIERE_CONFIRM=each), planner-40 (self_verified), planner-45: all unchanged on main 82c9810.
 
 New: 0. Resolved: 0. Open: 0 P0, 9 P1, 8 P2.
 Lead decision: PLANNER_CONTEXT default for the LoRA (planner-46); Premiere confirm default for demo 4 (planner-42).
