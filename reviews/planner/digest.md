@@ -1,21 +1,27 @@
-# Planner review digest — pass 98
+# Planner review digest — pass 99
 
-Heads: main b00f679 (unchanged), wip/local 73f8136 (Premiere focus guard, value diffs, ui_only fresh observe).
-Open: 0 P0, 21 P1, 16 P2. New: 0. Resolved: 0.
+Heads: main 32c0ad4 (merged everything from wip: engine deletion, page-load loop, AX click refs, app resolver, Premiere focus guard, docs), wip/local 69261f5 (= main content).
+Open: 0 P0, 23 P1, 13 P2. New: planner-68 (P1). Resolved: planner-67, planner-55. Promoted P2->P1: planner-61, planner-46 (both now on the deployed path).
 
-## Reviewed, no issue
-- wip repeated-Shift+3 guard: a second `keys shift+3` in the same Premiere window with no action in between returns a failed action with guidance. It stops the batch and counts as a normal failure, so it feeds the loop guard. Reset by any other action, a window change, a failed send or a new task; 7 tests.
-- wip obsdiff.render_line now emits value= for slider/stepper/incrementor/picker and HotText/clipSpeed buttons; matches Swift Serializer.line on the same branch, so diff-rebuilt observations still equal a fresh observe.
-- wip ui_only planners skip diff chaining and observe fresh each turn: one extra observe per turn, opt-in path only.
-- Premiere hint now says focus may not show in AX. "Reopen Speed/Duration to verify" is still a prompt instruction only; planner-64 stays open.
+## New
+- planner-68 (P1): the demo runs a hand-written override (base 4B, native tools, THINK=1024 on every turn, one action per turn) that has no accuracy or latency numbers. The nearest measured config (base 4B, think 512, batched) was 2.6 s/step p50 with a .770 holdout mean. The override exists only as a command in AGENTS.md, so benchmarks run through serve_brain.sh measure a different config.
 
-## Top open
-- planner-67 (P1, main): failed expect on an AXLoaded page re-polls verify up to 15 s; early exit reads a String as a dict. wip loop is correct; port it.
-- planner-66 (P1, wip): finance numbers aren't read back from the sheet.
-- planner-64 (P1): Premiere marker/cut/export have no harness end-state or export-file check.
-- planner-59 (P1): failed soft expect doesn't stop the batch or count toward the loop guard.
-- planner-63 (P1): destructive-refusal regex refuses "show all files in Downloads".
+## Promoted
+- planner-61 (P1): no expect on any native tool, so demo actions carry no expect.
+- planner-46 (P1): OCR on every tools-mode turn (latency + raw screen text in the prompt).
+
+## Resolved
+- planner-67: main's load repoll now observes separately and stops when loaded.
+- planner-55: docs now separate historical named-config numbers from the deployed build.
+
+## Still open on main
+- planner-66 (P1): finance numbers aren't read back from the sheet (engines now deleted on main).
+- planner-64 (P1): Premiere end state / export file not checked by the harness.
+- planner-59 (P1): soft expects stripped and don't stop batches or count toward the loop guard.
+- planner-63 (P1): destructive-refusal regex unchanged.
+- planner-60 (P1): sendgate search/find label exemption unchanged.
+- planner-58 (P1): provisional refs per root unchanged.
 
 ## Decisions for lead
-1. Port wip's page-load loop to main (planner-67) before the demo.
-2. Add read-back checks for finance and Premiere.
+1. Measure the deployed tools config against LoRA DSL (pass rate + step p50) before the demo; try THINK 512/256; put the profile in serve_brain.sh.
+2. Add an optional expect to native tools, and read-back checks for finance and Premiere.
