@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 
 _INTERNAL = {"ms", "_raw", "missing", "confirmed"}
 
@@ -13,16 +15,35 @@ def _clean(args: dict) -> dict:
     }
 
 
+_STYLE = re.compile(
+    r"\b(?:funny|witty|humou?rous|joke|jokes|polite|short|brief|nice|kind|"
+    r"sarcastic|formal|casual|friendly|professional|clever|silly|sweet|"
+    r"playful|creative|nice|thoughtful)\b", re.IGNORECASE)
+
+
+def style(args: dict) -> str | None:
+    """`about` that describes HOW to write ("is funny", "something witty"),
+    not the literal text: the model composes the reply itself."""
+    about = str(_clean(args).get("about") or "").strip()
+    if not about or len(about.split()) > 5 or not _STYLE.search(about):
+        return None
+    return re.sub(r"^(?:is|something|a|an)\s+", "", about, flags=re.IGNORECASE)
+
+
 def content(args: dict) -> str | None:
     args = _clean(args)
     for key in ("body", "text", "message", "about", "title"):
         value = args.get(key)
+        if key == "about" and style(args):
+            continue
         if value is not None and str(value).strip():
             return str(value).strip()
     return None
 
 
 def _with_content(skill: str, args: dict, result: str) -> str:
+    """'type exactly' only for the user's literal text; a style `about`
+    ("funny") is composed by the model in its own words."""
     value = content(args)
     if skill != "compose_text" and result and value:
         return f'{result}; type exactly: "{value}"'
@@ -79,6 +100,11 @@ def hint(skill: str, args: dict) -> str:
             f"{result}; body: {args.get('body', '')}; leave it as a draft, "
             "don't send".rstrip())
     if skill == "draft_email":
+        if (about := style(args)) and not any(
+                args.get(k) for k in ("body", "text", "message")):
+            return (f"reply to the open email; compose the reply yourself "
+                    f"in your own words ({about}), responding to what the "
+                    "email says; type it into the reply body")
         result = "the email is open in the browser/Mail; write a draft reply"
         if args.get("to"):
             result += f" to {args['to']}"

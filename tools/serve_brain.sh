@@ -51,7 +51,11 @@ case "${ROUTER:-}" in it2) ROUTER=$IT2 ;; it3) ROUTER=$IT3 ;; r2) ROUTER=$R2 ;; 
 BIG=mlx-community/Qwen3.6-35B-A3B-4bit
 # PLANNER_MODE=tools: native tool calling (one call per turn) for the blind planner, and for the main planner when PLANNER=35b
 planner_mode=${PLANNER_MODE:-dsl}; main_mode=dsl; [ "${PLANNER:-}" = "35b" ] && main_mode=$planner_mode
-case "${PLANNER:-}" in lora) PLANNER=$LORA ;; base) PLANNER=$BASE ;; 35b) PLANNER=$BIG; BLIND_PLANNER=${BLIND_PLANNER:-planner}; export MUSELET_OBS_NODES=${MUSELET_OBS_NODES:-350} ;; esac
+case "${PLANNER:-}" in lora) PLANNER=$LORA ;; base) PLANNER=$BASE ;;
+  35b) PLANNER=$BIG; BLIND_PLANNER=${BLIND_PLANNER:-planner}; export MUSELET_OBS_NODES=${MUSELET_OBS_NODES:-350}
+       # the 4B-tuned retrieval bank distracts the 35B (off-topic examples);
+       # think 512 truncates its reasoning mid-turn -> placeholder refs
+       RETRIEVAL_K=${RETRIEVAL_K:-0}; THINK=${THINK:-1024} ;; esac
 if [ -z "${ROUTER:-}" ]; then
   if [ -f "$IT3/config.json" ]; then ROUTER=$IT3; elif [ -f "$IT2/config.json" ]; then ROUTER=$IT2; elif [ -f "$R2/config.json" ]; then ROUTER=$R2; elif [ -f "$R1/config.json" ]; then ROUTER=$R1; else ROUTER=$BASE; fi
 fi
@@ -60,7 +64,7 @@ if [ -z "${PLANNER:-}" ]; then
 fi
 case "$PLANNER" in
   "$LORA") THINK=${THINK:-0}; FEWSHOT=${FEWSHOT:-none} ;;
-  *)        THINK=${THINK:-512}; FEWSHOT=${FEWSHOT:-prompts/planner_fewshot.md} ;;
+  *)        THINK=${THINK:-512}; [ "${PLANNER##*Qwen3.6-35B}" != "${PLANNER}" ] && THINK=${THINK:-1024}; FEWSHOT=${FEWSHOT:-prompts/planner_fewshot.md} ;;
 esac
 case "$ROUTER" in
   "$IT2") TAU=${TAU:-0.35}; ARGS_MODEL=${ARGS_MODEL:-$IT2} ;;
