@@ -4938,7 +4938,8 @@ function run() {
         t = time.perf_counter()
         try:
             res = await self.server.rpc(
-                "observe", {"scope": "focused_window", "max_nodes": 150,
+                "observe", {"scope": "focused_window",
+                            "max_nodes": int(os.environ.get("MUSELET_OBS_NODES", "150")),
                             "diff": True}, timeout=10)
             self._last_epoch = res.get("epoch")
             if res:
