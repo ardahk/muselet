@@ -4378,6 +4378,7 @@ function run() {
         last_failure_detail = ""
         fail_streak, prev_fail_key = 0, None
         noop_press_key, noop_press_count = None, 0
+        last_panel_focus: tuple[str, str, str] | None = None
         last_exp_ok = False
         last_exp_source = None
         planner, escalated = self.planner, False
@@ -4411,6 +4412,38 @@ function run() {
                 last_exp_ok = expect_ok or skill_ok
                 last_exp_source = (
                     "expect" if expect_ok else "skill" if skill_ok else None)
+
+        async def execute_planner_action(a):
+            nonlocal last_panel_focus
+            obs = self._last_obs or {}
+            app = str(obs.get("app") or "").strip()
+            combo = str(a.get("combo") or "").lower().replace(" ", "")
+            if a.get("op") != "keys" or combo != "shift+3" or \
+                    not app.casefold().startswith("adobe premiere"):
+                last_panel_focus = None
+                return await self._exec_one(a)
+            identity = (app.casefold(), str(obs.get("window") or ""), combo)
+            if identity == last_panel_focus:
+                self._diff_chain = None
+                trace["decisions"].append(
+                    {"repeated_panel_focus": {"combo": combo, "app": app}})
+                error = ("Timeline focus shortcut already sent for this "
+                         "window; focus is not verified by the unchanged AX "
+                         "tree. Do not repeat Shift+3. Use the visible "
+                         "timeline/clip or a live menu control, or ask for "
+                         "help if selection cannot be verified.")
+                return {"status": "failed", "error": error,
+                        "_log": self._batch_line(
+                            _log_act(a), f"failed: {error}",
+                            f"{_repr_line(a)}-> failed: {error}")}
+            r = await self._exec_one(a)
+            if r.get("status") == "ok":
+                last_panel_focus = identity
+                r["_log"] = str(r.get("_log") or "") + \
+                    " (shortcut sent; Timeline focus is not verified by AX)"
+            else:
+                last_panel_focus = None
+            return r
 
         self._pref_ask_rejected = False
         self._content_ask_rejected = False
@@ -4618,7 +4651,7 @@ function run() {
                             res_status != "awaiting_user" and \
                             n_executed < batch_cap:
                         a = pending.pop(0)
-                        r = await self._exec_one(a)
+                        r = await execute_planner_action(a)
                         batch_log.append(r["_log"])
                         rr = r.get("res") or {}
                         noop = (a.get("op") == "press" and
@@ -4695,7 +4728,7 @@ function run() {
                     res_status != "awaiting_user" and \
                     n_executed < batch_cap:
                 a = pending.pop(0)
-                r = await self._exec_one(a)
+                r = await execute_planner_action(a)
                 batch_log.append(r["_log"])
                 rr = r.get("res") or {}
                 noop = (a.get("op") == "press" and
@@ -4780,7 +4813,8 @@ function run() {
             lo = self._last_obs or {}
             # capped/truncated observations can't be rebuilt from diffs: an
             # element pushed past max_nodes shows up as `- #ref` (hands-13)
-            diffs = self._diff_chain if n_executed and not lo.get("truncated") \
+            diffs = self._diff_chain if n_executed and not ui_only \
+                and not lo.get("truncated") \
                 and len(lo.get("elements") or []) < 150 else None
             self._diff_chain = None
             if res_status == "awaiting_user":

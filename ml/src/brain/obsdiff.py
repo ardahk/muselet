@@ -13,6 +13,7 @@ from it. Mirrors Serializer.line so the result matches a fresh observe.
 import re
 
 _TEXT_ROLES = {"textfield", "textarea", "combobox"}
+_VALUE_ROLES = {"slider", "stepper", "incrementor", "picker"}
 _QSTR = r'"(?:[^"\\]|\\.)*"'
 _LINE = re.compile(rf'^#(\d+)\s+(\S+)\s+({_QSTR})(.*)$')
 _VALUE = re.compile(rf'value=({_QSTR})')
@@ -46,8 +47,14 @@ def parse_line(line: str) -> dict | None:
 def render_line(e: dict) -> str:
     s = f'#{e["ref"]} {e["role"]} "' + e["label"].replace("\\", "\\\\") \
         .replace('"', '\\"').replace("\n", "\\n") + '"'
-    if "value" in e and e["role"] in _TEXT_ROLES:
-        s += f" value={e['value']}"
+    if "value" in e:
+        if e["role"] in _TEXT_ROLES:
+            s += f" value={e['value']}"
+        elif (e["role"] in _VALUE_ROLES or
+              (e["role"] == "button" and
+               ("HotText" in e["label"] or e["label"] == "clipSpeed"))) \
+                and _unesc(e["value"]):
+            s += f" value={e['value']}"
     if "checked" in e:
         s += " checked" if e["checked"] else " unchecked"
     if e.get("selected"):

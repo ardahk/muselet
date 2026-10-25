@@ -234,3 +234,15 @@ def test_numbers_hint_sort_goal_frontmost():
     rendered = render_hints(hints)
     assert "Sort" in rendered
     assert "transaction values" in rendered
+
+
+def test_premiere_hints_cover_focus_fresh_observation_and_values():
+    hints = match_hints("double the speed in premiere pro")
+    assert hints and hints[0].id == "premiere"
+    rendered = render_hints(hints)
+    assert len(rendered) <= 1200
+    assert "Never repeat Shift+3" in rendered
+    assert "fresh observation" in rendered
+    assert '"clipSpeed"' in rendered
+    assert '"UI_HotTextNumberT" is Duration' in rendered
+    assert "Never open QuickTime or another app." in rendered
