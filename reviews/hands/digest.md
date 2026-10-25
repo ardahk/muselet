@@ -1,4 +1,7 @@
-# hands — digest (Pass 58)
+# hands — digest (Pass 59)
+
+Pass 59:
+- No new findings. main f5b4606 (bench harness frees the slot after a client disconnects; brightness tests paraphrased) and wip/local c49bf0e have no app/ changes. hands-26 (orchestrator.py:2556), hands-27 (BrainClient.swift:91) and hands-28 (ClockAX.swift:409) re-checked on main: still open. hands-32 unchanged.
 
 Pass 58:
 - No new findings. main 19d57fb (memory LLM gate #69; vague brightness asks now send set_brightness delta=±10/30) and wip/local 8a197f8 have no app/ changes. Checked the protocol for delta: argfix.vague_delta returns int, and Skills.swift:468/520 accepts `delta` as an alternative to `level` via intArg. It matches. hands-26 (orchestrator.py:2556), hands-27 (BrainClient.swift:91) and hands-28 (ClockAX.swift:409) re-checked on main: still open. hands-32 unchanged.
