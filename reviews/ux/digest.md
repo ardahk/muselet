@@ -1,8 +1,8 @@
-# ux digest — pass 62
+# ux digest — pass 63
 
-Heads: main fa0f040, wip 973a9b0, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
+Heads: main 4150ecb, wip b7b7840, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
 
-Counts: 0 P0, 1 P1, 13 P2. No new findings since pass 51 (ux-29). ux-26 resolved by design #70 (main fa0f040); ux-25 and ux-27 still live on main.
+Counts: 0 P0, 1 P1, 14 P2. New in pass 63: ux-30 (fix-pending: speech that isn't a command during a confirm gets no feedback). ux-26 resolved by design #70 (main 4150ecb); ux-25 and ux-27 still live on main.
 Open P1:
 - ux-28: the failure bubble shows raw "Not finished: expect failed: …" (orchestrator.py:3061, 2065)
 Open P2, ranked:

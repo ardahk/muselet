@@ -1,9 +1,9 @@
 {
-  "pass": 62,
-  "ts": "2026-10-25T03:22:00Z",
+  "pass": 63,
+  "ts": "2026-10-25T03:38:00Z",
   "last_reviewed": {
-    "main": "fa0f040",
-    "wip/local": "973a9b0",
+    "main": "4150ecb",
+    "wip/local": "b7b7840",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -76,7 +76,12 @@
     "cloud/memory-hotfix": "d932320",
     "cloud/memory-rules2": "03c3cd1",
     "cloud/design-polish": "bf4ae64",
-    "cloud/memory-writes": "d04e26c"
+    "cloud/memory-writes": "88ccf06",
+    "cloud/fallback": "6e40c3e",
+    "cloud/fix-apps-notes": "1ccb123",
+    "cloud/fix-email-reply": "805223b",
+    "cloud/fix-pending": "dba9094",
+    "cloud/hands-clock-verify": "a4d6463"
   },
-  "notes": "pass 62: main fa0f040 merged design #70 (identical to cloud/design b93bb50, reviewed in pass 53); ux-26 resolved, ux-25 still open. Benchmark brains on ports other than :8765 now get a fresh memory store, so benchmark runs can't pollute the demo's memory (good). design-polish bf4ae64: compact panel, inline model caption, the clamp includes the tail, and the Settings memory list hides workflow/episode rows; no issues. memory-writes is a policy change only, with no copy."
+  "notes": "pass 63: main 4150ecb is briefs only. New: ux-30 (fix-pending, speech ignored silently during a confirm). ux-29 updated (fallback adds silent planner steps). Copy fine: fix-apps-notes 'Which app?', fix-email-reply 'Which email? Open it, then ask me again', hands-clock-verify 'Timer set in Clock for X' and 'Timer set for X in Muselet'."
 }
