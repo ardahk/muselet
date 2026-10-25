@@ -415,3 +415,40 @@ def test_case_launched_apps_and_finder_windows_are_closed_but_preexisting_ones_n
         assert not result.get("teardown_incomplete")
 
     asyncio.run(scenario())
+
+
+def test_wait_disconnected_latch_frees_the_slot_instead_of_failing_the_case():
+    from bench.harness.runtime import HandsRuntime
+
+    class LatchedProxy:
+        def __init__(self):
+            self.capture = type("C", (), {"active": True})()
+            self.released = False
+            self.forced = 0
+
+        def mark_utterance_finished(self):
+            self.capture.active = False
+
+        async def wait_disconnected(self, timeout=10):
+            raise asyncio.TimeoutError()
+
+        async def release_slot(self, timeout=5.0):
+            return False
+
+        async def force_release(self):
+            self.forced += 1
+
+    async def scenario():
+        runtime = HandsRuntime.__new__(HandsRuntime)
+        runtime.proxy = LatchedProxy()
+        calls = []
+
+        async def note(name):
+            calls.append(name)
+        runtime._stop_client = lambda: note("stop")
+        runtime._terminate_client = lambda: note("terminate")
+        runtime.start_scripts = lambda: note("scripts")
+        await runtime.prepare_for_cleanup()
+        assert runtime.proxy.forced == 1 and calls == ["stop", "terminate", "scripts"]
+
+    asyncio.run(scenario())
