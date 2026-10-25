@@ -1,9 +1,9 @@
 {
-  "pass": 58,
-  "ts": "2026-10-25T00:59:30Z",
+  "pass": 59,
+  "ts": "2026-10-25T01:15:20Z",
   "last_reviewed": {
-    "main": "e4594d9",
-    "wip/local": "fc5d595",
+    "main": "9be963d",
+    "wip/local": "4d22445",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -76,6 +76,6 @@
     "cloud/memory-hotfix": "d932320",
     "cloud/memory-rules2": "03c3cd1"
   },
-  "next_id": 48,
-  "note": "pass 58: main e4594d9 proxy slot-wait fix + run_live keeps case skip_reason (clean); live_t2 mem-wiki-search check broadened to Zen (still not in decontam, -46). memory-hotfix/rules2 lane-adjacent, guard.py unchanged; rules2 (421 lines) only skimmed."
+  "next_id": 50,
+  "note": "pass 59: main 9be963d. New -48 (spend understated in REPORT), -49 (memory holdout number predates #72 rules). proxy displacement of stale hands client OK. #72 guard: again/correction now checked against prior turn text."
 }
