@@ -1,6 +1,6 @@
-# decisions — digest (pass 86)
+# decisions — digest (pass 87)
 
-Heads: main b00f679 (unchanged; -41 open), wip 73f8136 (local main@264cc82: control values added to observations (-42 input drift, P2), Premiere shift+3 repeat guard; -48 defaults unchanged), cool-tasks cfbec49 (-42 still blocks). Counts: 0 P0, 15 P1, 16 P2.
+Heads: main 32c0ad4 (= wip 69261f5; finance-engine deletion, planner prompt rewrite and deployed-override docs landed under a recorded user override). New P1 decisions-49: full suite incomplete with untriaged failures (REPORT). -48 down to P2 (deployed base-4B tools config unmeasured); -43 superseded by user override; -41 still open. cool-tasks cfbec49 (-42 blocks). Counts: 0 P0, 14 P1, 16 P2.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
