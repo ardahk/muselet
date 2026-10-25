@@ -1,6 +1,6 @@
-# decisions — digest (pass 66)
+# decisions — digest (pass 67)
 
-Heads: main cf33215 (merged agentic-evidence, app-knowhow, browser-flow, obs/control labels; -37 P0, -40, -41, -43 P1, -42, -44 P2 all live), wip 11da94c (= main). Budget: about $142.06 MTD estimated.
+Heads: main 5d135d0 (brief only; -37 P0, -40/-41/-43 P1, -42/-44 P2 live), wip c86fec4 (app tasks -> 35B via _force_blind: new decisions-45 P2), docs-final bf9118d (honest 'behind DeskMind' .779/.622; still tau 0.55 at claims.md:206 and $0.84 LoRA cost). Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
@@ -20,6 +20,6 @@ Contamination re-check this pass: 2400 freshly generated code-family items vs Je
 ## Highest-leverage next moves
 - NOW: set temperature_probs/conf = 1.0 in GenericMLXDecider.inline() on main (decisions-37, P0); add a __new__-path unit test.
 - Fix decisions-41 on main (drop _last_ok_url as search evidence, fix _subject cuts); agentic-apps is on main: run e2e AGENTIC_APPS=0 vs 1 and planner-LoRA parity/bench with hidden_skills (decisions-43, -42).
-- Make BLIND_PLANNER default explicit and log it per run; bench base vs escalate blind before quoting (decisions-44).
+- Pin BLIND_PLANNER and decide LoRA vs 35B for app tasks; make docs-final match the merged code and log the planner per trace (decisions-44, -45). agentic-fixes2 play evidence: observed url/title only, not last ok url (-41).
 - Quote {{route_acc}} for it3 @ .50 (serving) and fix claims.md:13,163 / REPORT.md:12 (decisions-38).
 - Bench the mlx4 export on the Mac with the same runners before quoting any number (decisions-5); results.md: label the full run below DeskMind on JevBench, TD tie on a different backend, test-selected (decisions-32).
