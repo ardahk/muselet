@@ -1,5 +1,14 @@
 # Claims registry
 
+> **Current-state caveat (2026-10-25):** finance/advisor source rows and their test commands are RETIRED —
+> those `executor: brain` workflow engines were deleted, and analysis intents are now AI-planned through
+> generic live-state tools; end-to-end validation of that path is pending. Separately, the deployed brain
+> differs from the configs quoted here — it runs a base-4B native-tools planner
+> (`docs/native-ui-planner.md`, override env in `AGENTS.md`). Historical offline/router/grounder
+> measurements (route_v1_clean, ScreenSpot-Pro, …) remain valid as named-config results — they are just
+> not measurements of the live deployment's planner path; fresh numbers for live task classes need a
+> fresh, safely-run measurement.
+
 Every number in `pitch/` is a `{{placeholder}}` defined here. Fill it only from the named source; if the source
 has not been run, the line stays out of the pitch. Mac = the demo MacBook Pro M5 Pro, 64 GB, macOS 27
 (AGENTS.md). Code citations: `origin/main` @ 1d49478; §2b (demo build, Sun 2026-10-25) cites functions on `main` @ ba739d6.

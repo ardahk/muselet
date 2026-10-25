@@ -1,5 +1,9 @@
 # MUSELET: master prompt for the new lead agent
 
+## Current-state override (2026-10-25)
+
+Read `AGENTS.md` and `docs/native-ui-planner.md` before following this historical handoff. App and analysis intents are AI-planned through generic live-state tools; deleted finance/advisor workflow engines must not be restored. `AGENTIC_APPS=0` does not re-enable native app workflows. Script defaults are distinct from current runtime overrides. The latest on-device deployment uses it3 routing with a base-4B native-tool planner; do not quote historical DSL/LoRA timings as measurements of that deployment. Premiere regression coverage is hermetic; do not claim fully validated live editing. Preserve all safety and confirmation rules.
+
 Paste this whole file as the first message of a new Devin session on the Mac, with `/Users/arda/cal13.0` open,
 in Fusion mode with max thinking. It was written by the previous lead at handoff (Sat Oct 24 2026, afternoon PDT).
 Everything below is the previous lead's understanding at handoff. **Verify live state before acting on any of

@@ -62,10 +62,14 @@ historical and do not authorize restoring those paths.
   (observe -> act -> verify); app skills are refused inside the planner ("operate the app's UI"). Programmatic
   evidence (`finish.evidence` / `progress_kind`) ends the task as soon as the goal is visible: a Pause button for
   media, cart count +1 over the baseline, a live Clock row (Pause/Resume), the draft text in the reply box.
-  `AGENTIC_APPS=0` restores native app skills.
+  `AGENTIC_APPS=0` / `--agentic-apps off` are compatibility flags only: the deterministic finance/advisor
+  workflow engines were deleted (a2004d9); app/analysis execution stays AI-planned regardless of the flag.
+  Legacy Premiere/app helpers still exist in the tree but are not callable in AI app flows, and generic
+  OS/script adapters are unaffected.
 - Planners: default LoRA 4B (`models/planner-4b-lora-mlx4`, HF `jonsnov/muselet-planner-4b-lora-mlx4`
-  @ 35a2ea3), greedy, no few-shot, DSL history, line-start op constraint, done-alone, retrieval k=1, THINK=0;
-  holdouts v1-ho/v1-ho2/v2-ho .857/1.000/.692 (mean .850), step p50 ~0.3 s. Blind planner (`BLIND_PLANNER`,
+  @ 35a2ea3), greedy, no few-shot, DSL history, line-start op constraint, done-alone, THINK=0;
+  `serve_brain.sh` default retrieval is k=0 (the quoted holdout numbers were measured with k=1 configs).
+  Holdouts v1-ho/v1-ho2/v2-ho .857/1.000/.692 (mean .850), step p50 ~0.3 s. Blind planner (`BLIND_PLANNER`,
   default `escalate` when `mlx-community/Qwen3.6-35B-A3B-4bit` is in the HF cache, else `base`): Qwen3.6-35B-A3B
   (MoE, ~3B active), retrieval k=1, app hints, think 512 (qwen sampler), batch cap 2. It takes over for page/browser
   tasks, open-ended redirects, recoverable-failure fallbacks, and from the first turn whose AX observation is blind
@@ -88,6 +92,50 @@ historical and do not authorize restoring those paths.
   `PLANNER_CONTEXT`, `APP_HINTS`, `OPEN_ENDED`).
 - Grounder: eyes-4b from the local MLX copy (`models/grounding/eyes-4b-mlx`), two-stage zoom, 1 MP
   (`click "<description>"` in the DSL); `GROUNDER=name[=path]|none` overrides; 2 MP / UI-Venus selectable.
+
+## Deployed runtime override (Sun 2026-10-25)
+
+The script defaults above are not what the Mac currently runs. The deployed brain overrides them with a
+base-4B native-tools planner; all LoRA/35B timings elsewhere in this file were measured on those named
+configs, not on this deployment. Exact override command (env prefix + script):
+
+```sh
+HF_HUB_OFFLINE=1 MUSELET_NO_ESCALATE=1 MUSELET_OBS_NODES=350 \
+MUSELET_ROUTE_CATALOG=training/artifacts/catalog_v3.json ROUTER=it3 \
+PLANNER=base ARGS_MODEL=models/route-4b-it3-mlx4 TAU=0.50 \
+PLANNER_AUX=planner BLIND_PLANNER=planner ESCALATE=0 RETRIEVAL_K=0 \
+FEWSHOT=none THINK=1024 THINK_ON=all THINK_SAMPLER=qwen \
+APP_HINTS=1 OPEN_ENDED=1 AGENTIC_APPS=1 VERIFY_DONE=on \
+FALLBACK_PLANNER=1 PLANNER_CONTEXT=1 PLANNER_MODE=tools \
+tools/serve_brain.sh --planner-mode tools
+```
+
+Changes vs the script defaults: `PLANNER=base` + `--planner-mode tools` (native tool calls, see
+`docs/native-ui-planner.md`), `BLIND_PLANNER=planner` (the main planner doubles as the blind planner),
+`PLANNER_AUX=planner` (shared aux), `THINK=1024` qwen sampler, `FEWSHOT=none`, `RETRIEVAL_K=0`, escalation off
+(`MUSELET_NO_ESCALATE=1`, `ESCALATE=0`), app hints/context/verify/fallback on. Python-side changes take effect
+on a brain restart; the app-discovery changes below are Swift-side and need an app rebuild + redeploy.
+
+- App discovery: a shared recursive enumeration of `/Applications`, `/System/Applications` and
+  `~/Applications` (`AppResolver.installedAppURLs`; skips hidden paths and `.app`/`.framework`/`.bundle`
+  internals, includes app symlinks such as Safari) feeds both native `open_app` and the `apps` RPC installed
+  list (sorted, deduplicated base names). Brain-side open resolution keeps normalized-exact then alias
+  matching, then resolves a unique year-suffixed candidate ("premiere" -> "Adobe Premiere Pro 2026" inside a
+  nested vendor folder); more than one candidate asks "Which app?".
+- Premiere/UI-loop reliability: the real localized name "Adobe Premiere" (plus Pro/year variants) is a
+  canvas app (`observation_blind`). Within a task, a repeated `keys shift+3` against the same observed
+  app+window is refused before the repeat RPC with model-facing feedback (`repeated_panel_focus`); any
+  different action, a different window or a new task permits it — this guards a loop, it is not proof the
+  shortcut failed. UI-only (native-tools) planner turns always take a fresh AX observation instead of
+  chaining act diffs, and obsdiff keeps numeric slider/stepper/incrementor/picker and Adobe
+  HotText/`clipSpeed` values so typed values stay verifiable. The model chooses the generic fallback itself;
+  there is no deterministic selection/edit workflow.
+- Focused regression commands (hermetic, no live UI):
+  `uv run --project ml python -m pytest ml/tests/test_obsdiff.py ml/tests/test_premiere_focus_progress.py
+  ml/tests/test_app_hints.py -q` (63 tests) plus `ml/tests/test_first_use_fixes.py
+  -k identical_noop_presses_trip_loop_guard`; Swift side:
+  `xcodebuildmcp swift-package test --package-path app --filter 'AppResolverTests|TruthfulLaunchTests'`
+  (31 tests). These prove harness mechanics only — live Premiere editing is not re-validated end to end.
 
 ## Repo layout
 - `app/`    Swift package: menu-bar app (voice, mascot, ghost cursor overlay) + `HandsKit` (AX observe/act, native skills, screenshots)
@@ -121,9 +169,11 @@ grounder = Qwen3.5-4B grounding LoRA (Tinker) vs deskmind/eyes-4b vs GUI-Owl-1.5
 - Wait for UI settle (AX notification or 2 stable samples) instead of fixed sleeps.
 - Start executing the first parsed action while the planner is still decoding.
 - Every live failure becomes a permanent regression test (failure-replay gate).
-- Keep System-1 speed on hard tasks: frequent multi-step workflows become catalog skills with `executor: brain`
-  (router picks them in one forward pass; deterministic Python tools do the work and drive HandsKit), and the
-  planner is the fallback for everything else.
+- Keep System-1 speed on hard tasks (user override, Sun Oct 25): app tasks, including finance/advisor
+  analysis, are planned and performed by the AI through generic tools using live state. App shortcut/API
+  cheat sheets and reusable generic execution adapters are allowed; whole hardcoded app recipe engines are
+  not (the `executor: brain` finance/advisor engines were deleted). Rapid-fire OS commands, safety
+  confirmations and outcome verification stay as is.
 
 ## Process + protocol
 `brain` (Python) runs a WebSocket server on `ws://127.0.0.1:8765`; the app connects as client.

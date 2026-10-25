@@ -18,6 +18,49 @@ AX text. `_verify_done` independently re-observes and re-captures screen
 text for UI-only planners. Fresh evidence is not a guarantee of successful
 completion; Numbers sorting still needs end-to-end validation.
 
+UI-only turns also get a **fresh AX observation every turn**: the act-diff
+chaining that rebuilds the next observation text from act `diff_text` (the
+DSL planner's speed path) is disabled for `ui_only` planners, so a dialog
+opened by the previous action is seen with real refs instead of a stale
+main-window view. When diffs are chained for the DSL planner, numeric AX
+values are preserved: `slider`/`stepper`/`incrementor`/`picker` values and
+Adobe Premiere's `clipSpeed` / `UI_HotText*` button values survive
+`obsdiff`, so typed speed/duration values stay verifiable.
+
+## Consecutive focus guard
+
+`keys shift+3` in an app whose observed name starts with "Adobe Premiere"
+is a Timeline-focus guess that may leave AX unchanged — a missing AX
+change is not proof the shortcut failed, and the planner used to re-send
+it indefinitely while "waiting" for evidence that may never arrive.
+Within a task, a repeat `shift+3` against the same observed app+window is
+refused before the RPC with model-facing feedback (`repeated_panel_focus`
+in the trace); the model then picks a generic fallback or asks — the guard
+does not guarantee the clip got selected and runs no deterministic
+selection workflow. Any different action, a different window or a new task
+permits the shortcut again; it only stops consecutive identical repeats.
+
+## App discovery
+
+Installed apps come from a shared recursive enumeration of `/Applications`,
+`/System/Applications` and `~/Applications` (`AppResolver.installedAppURLs`;
+skips hidden paths and `.app`/`.framework`/`.bundle` internals, includes
+app symlinks). The brain resolves spoken names by normalized exact match,
+then aliases, then a unique year-suffixed candidate — "premiere" resolves
+`Adobe Premiere Pro 2026` inside its nested vendor folder; more than one
+candidate asks "Which app?". The same enumeration backs the `apps` RPC
+installed list.
+
+## Regression coverage
+
+Hermetic only (no live UI, no model loads):
+`uv run --project ml python -m pytest ml/tests/test_obsdiff.py
+ml/tests/test_premiere_focus_progress.py ml/tests/test_app_hints.py -q`
+(63 tests) plus `ml/tests/test_first_use_fixes.py
+-k identical_noop_presses_trip_loop_guard`. These cover the mechanics above;
+they are not a live Premiere benchmark and do not claim end-to-end editing
+success.
+
 ## Enable
 
 ```sh
@@ -27,8 +70,12 @@ PLANNER=base PLANNER_MODE=tools BLIND_PLANNER=planner \
 
 The trailing `--planner-mode tools` override is needed because
 `serve_brain.sh` forces the main planner to DSL mode for `PLANNER=base`.
-DSL remains the default (`PLANNER_MODE` unset or `dsl`); all planner model
-alternatives stay selectable via the existing env knobs.
+DSL remains the script default (`PLANNER_MODE` unset or `dsl`); tools mode
+is what the current live demo build runs via the deployment override, and
+all planner model alternatives stay selectable via the existing env knobs.
+Tools mode exposes no arbitrary `script` tool — no model-emitted
+AppleScript/JXA; the generic HandsKit adapters behind each tool are shared
+with the DSL mode.
 
 ## AX-first click resolution
 
