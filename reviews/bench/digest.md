@@ -1,25 +1,26 @@
-# bench digest — pass 71 (2026-10-25T05:25Z, main@e425cad)
+# bench digest — pass 72 (2026-10-25T05:45Z, main@e8023b8)
 
-P0: 0 | open P1: 13 | open P2: 15
+P0: 0 | open P1: 14 | open P2: 15
 
 Ranked open P1:
-1. bench-44 LoRA planner shipped (efd2f3f) on uncommitted numbers. Gain is on v2-ho, whose screens were in training. Pooled .731 vs .647, not 'mean .850'.
-2. bench-42 acceptance case acc-user-pending-notes-then-text (now on main) drives Messages with no Messages-not-running guard.
-3. bench-36 competitor runs not pinned to it2 though claims say "it2 only"; router not recorded in results.
-4. bench-23 it3 chosen on route_v2, whose gold shares judges and policy with its training labels.
-5. bench-31 planner-LoRA demos on v2-holdout screens; clean 105-row subset never scored (now the serving planner).
-6. bench-16 HobbyLM --exclude-kind calc is Muselet-only; calc now gradable for both (bench-41 resolved).
-7. bench-28 5 v2-holdout golds accept field-clobbering type.
-8. bench-11, -14, -15, -20, -21, -29 unchanged.
+1. bench-48 (NEW) the serving few-shot (prompts/planner_fewshot.md:60-85) has the exact oe-spotify-jazz utterance with the full solution, the case's own player-state check and done. The Spotify open-ended result is train-on-test.
+2. bench-44 LoRA planner shipped (efd2f3f) on uncommitted numbers. Pooled .731 vs .647; most of the gain is on v2-ho, whose screens were in training.
+3. bench-42 acceptance case acc-user-pending-notes-then-text drives Messages with no Messages-not-running guard.
+4. bench-36 competitor runs don't pin or record router, planner or serving flags.
+5. bench-23 it3 chosen on route_v2, whose gold shares judges and policy with its training labels.
+6. bench-31 planner-LoRA demos on v2-holdout screens; the clean 105-row subset was never scored.
+7. bench-16 HobbyLM --exclude-kind calc is Muselet-only; calc is now gradable for both.
+8. bench-28 5 v2-holdout golds accept field-clobbering type.
+9. bench-11, -14, -15, -20, -21, -29 unchanged.
 
-Resolved this pass: bench-41 (provenance ok at b340f24). Downgraded: bench-34 to P2 (serving planner is LoRA THINK=0). New P2: bench-45 (cloud/open-ended Slack status / Amazon cart without user_ok or restore). Other P2: -37, -38, -39, -40, -43, -30, ...
+Open P2: -46 (now 5 unevaluated serving switches incl. BLIND_PLANNER), -47, -43, -37, -38, -39, -40, -30, -34, others. Resolved earlier: -41. Withdrawn: -45.
 
 Next moves:
-1. Add the Messages-not-running precondition to acc-user-pending-notes-then-text (bench-42).
-2. Commit the planner-LoRA eval JSONs, quote the pooled pass, and score LoRA vs base on the 105 clean v2-ho rows (bench-44/-31).
-3. ROUTER=it2 on competitor runs; record router, planner and the FALLBACK_PLANNER/PLANNER_CONTEXT/APP_HINTS/OPEN_ENDED flags in result rows (bench-36/-46).
-4. Rebuild calc_checker and grade calc for both systems; drop --exclude-kind calc (bench-16).
-5. Record forced_releases per case; disclose r4 D04-D06 fixed after observation (bench-38/-39).
+1. Reword the Spotify few-shot goal (different app/genre) or retire oe-spotify-jazz for a paraphrased held-out case (bench-48/-47).
+2. Add the Messages-not-running precondition to acc-user-pending-notes-then-text (bench-42).
+3. Commit the planner-LoRA eval JSONs, quote pooled numbers, and score LoRA vs base on the 105 clean v2-ho rows (bench-44/-31).
+4. ROUTER=it2 on competitor runs; record router, planner, FALLBACK_PLANNER/PLANNER_CONTEXT/APP_HINTS/OPEN_ENDED/BLIND_PLANNER in result rows (bench-36/-46).
+5. Re-run base planner holdouts with the new few-shot block; add a blind option to planner_offline.py (bench-46).
 
 Pass 66 notes: main 4150ecb..b340f24 merges test-strategy (bench-42/-43 carried), fix-email-reply, fix-apps-notes, memory-writes, planner-aux/LoRA ship. PLANNER is now another unpinned default for competitor runs: pin PLANNER alongside ROUTER and record both. cloud/open-ended adds APP_HINTS=1 and OPEN_ENDED=1 serving defaults, which change the planner prompt. Re-run planner holdouts with app hints on before merging (same issue as fallback PLANNER_CONTEXT). The planner_offline --app-hints flag exists for that.
 
@@ -32,3 +33,5 @@ Pass 69 (no new findings, no status changes): main unchanged, all open findings 
 Pass 70: main e425cad merges the wip change watched in pass 69 (PR #86). NEW P2 bench-47: the open-ended ask guard is fitted to evals/open_ended.jsonl cases, so label results after it as tune and add paraphrased held-out asks. The screen-context gating (data-only label) is good hardening, and it is another serving planner-prompt change (bench-46). No bench/eval/serve_brain changes; all open findings stand (bench-42 unfixed). wip/local 80c871c has no changes in my lane.
 
 Pass 71 (no new findings, no status changes): main unchanged, all open findings stand. Watch wip/local 323d274 (on local c711320, unmerged): it adds BLIND_PLANNER=base as a serving default, so the base planner takes blind/open-ended/fallback tasks with batch cap 2 and finish_when. It also adds blind examples to prompts/planner_fewshot.md. That changes the PLANNER=base reference prompt behind the .786/.917/.608 row, and adds a fifth unevaluated serving switch (bench-46). Before merging, re-run the base planner holdouts on the new few-shot and record BLIND_PLANNER in bench result rows. Also, the new few-shot examples use the exact open-ended eval utterance "play some jazz on Spotify" (oe-spotify-jazz) twice, including a worked done. If this merges, that case is a train-on-test result; extend bench-47 and drop it from or reword it in the open-ended suite.
+
+Pass 72: main e425cad..e8023b8 merges PR #87 (blind planner) and #88 (blind typing, Swift only). NEW P1 bench-48 (see above). bench-46 updated with BLIND_PLANNER. cloud/agentic-loop 9b2e512 (unmerged) adds a finish-criterion done gate, a page-load re-poll that won't count against the loop guard, workflow filtering and a cross-app retrieval skip. The done gate is stricter (good against false done). Retrieval changes alter planner prompts again, so re-run holdouts on merge. Its tests use user-trace utterances, not eval cases. wip/local 20055d1 has no changes in my lane.
