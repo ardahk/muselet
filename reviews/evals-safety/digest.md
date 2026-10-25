@@ -1,4 +1,7 @@
-# evals-safety digest (pass 80, 2026-10-25T06:54:46Z)
+# evals-safety digest (pass 81, 2026-10-25T07:30:12Z)
+
+-54 (P0) widened version on main: play_music auto-finish on any Pause button.
+
 
 -55 resolved. -54 (P0) unchanged on main, widened on agentic-evidence (play_music auto-finish on any Pause button).
 
