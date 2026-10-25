@@ -288,23 +288,4 @@ enum MascotPaths {
         }
         return p
     }
-
-    // MARK: menu-bar glyph
-
-    /// Gumdrop silhouette still used by `MenuBarIcon` (App/Theme.swift, outside the mascot folder).
-    static func bodyPath(width w: CGFloat, height h: CGFloat,
-                         bottomRadius rb: CGFloat, topRadius rt: CGFloat) -> CGPath {
-        let p = CGMutablePath()
-        p.move(to: CGPoint(x: rb, y: 0))
-        p.addLine(to: CGPoint(x: w - rb, y: 0))
-        p.addArc(tangent1End: CGPoint(x: w, y: 0), tangent2End: CGPoint(x: w, y: rb), radius: rb)
-        p.addLine(to: CGPoint(x: w, y: h - rt))
-        p.addArc(tangent1End: CGPoint(x: w, y: h), tangent2End: CGPoint(x: w - rt, y: h), radius: rt)
-        p.addLine(to: CGPoint(x: rt, y: h))
-        p.addArc(tangent1End: CGPoint(x: 0, y: h), tangent2End: CGPoint(x: 0, y: h - rt), radius: rt)
-        p.addLine(to: CGPoint(x: 0, y: rb))
-        p.addArc(tangent1End: CGPoint(x: 0, y: 0), tangent2End: CGPoint(x: rb, y: 0), radius: rb)
-        p.closeSubpath()
-        return p
-    }
 }
