@@ -1,6 +1,6 @@
-# decisions — digest (pass 65)
+# decisions — digest (pass 66)
 
-Heads: main 3a0860c (35B escalate blind planner, default when cached: decisions-37 now also hits the 35B verifier; new decisions-44 P2), wip 83cf584 (= main), agentic-evidence 1918cad still keeps _last_ok_url evidence, app-knowhow c69dfec leaves -40 at 3/103, 46/955, browser-flow 485763f = main merge. Budget: about $142.06 MTD estimated.
+Heads: main cf33215 (merged agentic-evidence, app-knowhow, browser-flow, obs/control labels; -37 P0, -40, -41, -43 P1, -42, -44 P2 all live), wip 11da94c (= main). Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
