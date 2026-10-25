@@ -1,4 +1,4 @@
-# bench digest — pass 89 (2026-10-25T10:45Z, main@298526d)
+# bench digest — pass 90 (2026-10-25T11:00Z, main@2de65a9)
 
 P0: 0 | open P1: 14 | open P2: 23
 
@@ -110,3 +110,9 @@ Pass 89 (no new findings): main 430e59e..298526d.
 - 95a9103 always includes the focused text input in observations: another observation change (bench-46).
 - wip/local d409a32 has no diff from main. cool-tasks cfbec49 is a merge of main; bench-56 is unchanged.
 - bench-54, bench-57 and bench-58 are unchanged.
+
+Pass 90 (no new findings): main 298526d..2de65a9.
+- bench-55 widened: failed expects are now soft on every agentic app task (36422a7), including Premiere, which has no finish check. The new Premiere hint says to write no expects.
+- 4bf7a41 blocks cmd+L/cmd+T in browser tasks unless the request mentions the address bar or a new tab, and rewrites the browser hint. That's another prompt change (bench-46).
+- The cart-count regex now reads the Walmart/Target labels. Fine, but there's still no starting baseline (bench-50).
+- wip/local 5b70519 has no diff from main.
