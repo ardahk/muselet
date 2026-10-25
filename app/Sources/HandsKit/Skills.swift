@@ -75,8 +75,6 @@ public struct SystemHooks {
     public var notify: (_ title: String, _ body: String) -> Void
     /// The pending timers changed (live: the `hands probe timers` snapshot file).
     public var timersChanged: ([TimerRegistry.Info]) -> Void
-    /// `/usr/bin/shortcuts` for Clock.app timers (inert: none installed).
-    public var shortcuts: ShortcutsRunning
     /// Accessibility and Clock.app are available for direct timer control.
     public var clockAXReady: () -> Bool
 
@@ -87,7 +85,6 @@ public struct SystemHooks {
                 playSound: @escaping (String) -> Void,
                 notify: @escaping (String, String) -> Void,
                 timersChanged: @escaping ([TimerRegistry.Info]) -> Void = { _ in },
-                shortcuts: ShortcutsRunning = NoShortcuts(),
                 clockAXReady: @escaping () -> Bool = { false }) {
         self.bluetoothGet = bluetoothGet
         self.bluetoothSet = bluetoothSet
@@ -98,7 +95,6 @@ public struct SystemHooks {
         self.playSound = playSound
         self.notify = notify
         self.timersChanged = timersChanged
-        self.shortcuts = shortcuts
         self.clockAXReady = clockAXReady
     }
 
@@ -129,7 +125,6 @@ public struct SystemHooks {
             },
             notify: { title, body in Notifier.post(title: title, body: body) },
             timersChanged: { TimerSnapshot.write($0) },
-            shortcuts: ShortcutsCLI(),
             clockAXReady: { ClockAX.liveReady() })
     }
 }
@@ -315,18 +310,12 @@ public final class Skills {
 
     /// Muselet-started timers (`start_timer`; `timers` / `timers_cancel` RPCs).
     public let timers = TimerRegistry()
-    /// Clock.app backend for `start_timer` (direct AX + optional shortcut).
-    public let clock: ClockTimers
 
-    /// Readiness and preferred backend for timer settings and RPC clients.
-    public func timerBackendInfo(refresh: Bool = false) -> [String: Any] {
-        var info = clock.info(refresh: refresh)
+    /// `timer_backend` RPC: `{clock_ax_ready, backend}`; backend is "clock_ax"
+    /// (Clock.app over Accessibility) or "muselet" (Muselet's own timer).
+    public func timerBackendInfo() -> [String: Any] {
         let axReady = hooks.clockAXReady()
-        info["clock_ax_ready"] = axReady
-        info["backend"] = ClockAX.backend(
-            enabled: clock.enabled, axReady: axReady,
-            shortcutReady: info["clock_ready"] as? Bool ?? false)
-        return info
+        return ["clock_ax_ready": axReady, "backend": ClockAX.backend(axReady: axReady)]
     }
 
     /// Premiere Pro default keyboard shortcuts per `premiere_command`.
@@ -357,7 +346,6 @@ public final class Skills {
         self.apps = apps
         self.hooks = hooks
         self.launcher = launcher
-        self.clock = ClockTimers(runner: hooks.shortcuts)
         timers.onChange = { [hooks] in hooks.timersChanged($0) }
     }
     public convenience init() {
@@ -373,21 +361,11 @@ public final class Skills {
         timers.list().map { TimerRegistry.dict($0, now: now) }
     }
 
-    /// `timers {}` RPC: Muselet records, shortcut status, optional Clock AX
-    /// observations, and `backend` readiness.
+    /// `timers {}` RPC: Muselet's records, Clock AX observations (asked, or
+    /// when a Clock timer is pending), and `backend` readiness.
     public func timersReport(askClock: Bool = false, now: Date = Date()) -> [String: Any] {
         var records = timerList(now: now)
-        var status: ClockShortcut.Status?
-        if askClock || records.contains(where: { $0["backend"] as? String == "clock" }),
-           let r = clock.runPlain(ClockShortcut.status) {
-            status = ClockShortcut.failureReason(r).map { ClockShortcut.Status.unknown($0) }
-                ?? ClockShortcut.parseStatus(r.stdout)
-        }
-        let merged = TimerMerge.merge(records, status: status)
-        records = merged.timers
-        var report: [String: Any] = [
-            "timers": records, "clock": merged.clock, "backend": timerBackendInfo(),
-        ]
+        var report: [String: Any] = ["timers": records, "backend": timerBackendInfo()]
         if askClock || records.contains(where: { $0["backend"] as? String == "clock_ax" }) {
             let ax = clockAXRead()
             if ax.status == "read" {
@@ -406,15 +384,12 @@ public final class Skills {
         return report
     }
 
-    /// `timers_cancel` outcome. Clock AX cancellation falls back to the
-    /// optional `Muselet Cancel Timer` shortcut.
+    /// `timers_cancel` outcome.
     public struct TimerCancel {
         public var cancelled: [[String: Any]] = []
         /// Clock timer ids that could not be cancelled.
         public var unsupported: [String] = []
-        /// Clock timer ids whose Cancel shortcut run failed, with the reason.
-        public var failed: [[String: Any]] = []
-        /// Clock AX cancellation failures when no shortcut can take over.
+        /// Why each unsupported Clock AX cancel failed.
         public var axReasons: [[String: Any]] = []
         public var unknown = false
     }
@@ -424,32 +399,17 @@ public final class Skills {
         var out = TimerCancel()
         let targets = timers.list().filter { id == nil || $0.id == id }
         if id != nil && targets.isEmpty { out.unknown = true; return out }
-        for t in targets where t.backend != "clock" && t.backend != "clock_ax" {
-            out.cancelled += timers.cancel(id: t.id).map { TimerRegistry.dict($0, now: now) }
-        }
-        let clockTargets = targets.filter { $0.backend == "clock" || $0.backend == "clock_ax" }
-        for t in clockTargets {
-            if t.backend == "clock_ax" {
-                let reason = clockAXCancel(t, now: now)
-                if reason == nil {
-                    out.cancelled += timers.cancel(id: t.id).map { TimerRegistry.dict($0, now: now) }
-                    continue
-                }
-                guard clock.has(ClockShortcut.cancel) else {
-                    out.unsupported.append(t.id)
-                    out.axReasons.append(["id": t.id, "reason": reason ?? "clock_ax_cancel_failed"])
-                    continue
-                }
-            } else if !clock.has(ClockShortcut.cancel) {
+        for t in targets {
+            guard t.backend == "clock_ax" else {
+                out.cancelled += timers.cancel(id: t.id).map { TimerRegistry.dict($0, now: now) }
+                continue
+            }
+            if let reason = clockAXCancel(t, now: now) {
                 out.unsupported.append(t.id)
-                continue
+                out.axReasons.append(["id": t.id, "reason": reason])
+            } else {
+                out.cancelled += timers.cancel(id: t.id).map { TimerRegistry.dict($0, now: now) }
             }
-            guard let r = clock.runPlain(ClockShortcut.cancel) else { out.unsupported.append(t.id); continue }
-            if let reason = ClockShortcut.failureReason(r) {
-                out.failed.append(["id": t.id, "reason": reason])
-                continue
-            }
-            out.cancelled += timers.cancel(id: t.id).map { TimerRegistry.dict($0, now: now) }
         }
         return out
     }
@@ -919,39 +879,22 @@ public final class Skills {
         return found ? total : nil
     }
 
-    /// Clock.app via AX, then its optional shortcut, then Muselet's timer.
-    /// All backends are kept in `timers` and the snapshot.
+    /// Clock.app via AX; if that fails, Muselet's own timer (silently).
+    /// Both backends are kept in `timers` and the snapshot.
     private func startTimer(seconds: Double, label: String?) -> [String: Any] {
-        var fallback: String?
-        var clockAXReason: String?
-        if clock.enabled {
-            let ax = clockAXStart(seconds: seconds, label: label)
-            if ax.reason == nil {
-                let info = timers.start(seconds: seconds, label: label, backend: "clock_ax") { _ in }
-                var r: [String: Any] = [
-                    "backend": "clock_ax", "seconds": seconds, "ms": ax.ms,
-                    "verified": ax.verified,
-                    "fires_at": TimerRegistry.isoString(info.firesAt), "timer_id": info.id,
-                ]
-                if let label { r["label"] = label }
-                if let signal = ax.signal { r["verify_signal"] = signal }
-                if let method = ax.method { r["wheel_method"] = method }
-                if let labelSet = ax.labelSet { r["label_set"] = labelSet }
-                return r
-            }
-            clockAXReason = ax.reason
-            let attempt = clock.start(seconds: seconds)
-            if attempt.reason == nil {
-                let info = timers.start(seconds: seconds, label: label, backend: "clock") { _ in }
-                var r: [String: Any] = ["backend": "clock", "seconds": seconds, "ms": attempt.ms,
-                                        "fires_at": TimerRegistry.isoString(info.firesAt), "timer_id": info.id]
-                if let label { r["label"] = label }
-                if let clockAXReason { r["clock_ax_reason"] = clockAXReason }
-                return r
-            }
-            fallback = attempt.reason
-        } else {
-            fallback = "clock_off"
+        let ax = clockAXStart(seconds: seconds, label: label)
+        if ax.reason == nil {
+            let info = timers.start(seconds: seconds, label: label, backend: "clock_ax") { _ in }
+            var r: [String: Any] = [
+                "backend": "clock_ax", "seconds": seconds, "ms": ax.ms,
+                "verified": ax.verified,
+                "fires_at": TimerRegistry.isoString(info.firesAt), "timer_id": info.id,
+            ]
+            if let label { r["label"] = label }
+            if let signal = ax.signal { r["verify_signal"] = signal }
+            if let method = ax.method { r["wheel_method"] = method }
+            if let labelSet = ax.labelSet { r["label_set"] = labelSet }
+            return r
         }
         let hooks = self.hooks
         let info = timers.start(seconds: seconds, label: label) { [weak self, weak delegate = self.delegate] _ in
@@ -961,8 +904,10 @@ public final class Skills {
         }
         var r: [String: Any] = ["fires_at": TimerRegistry.isoString(info.firesAt), "seconds": seconds,
                                 "timer_id": info.id, "backend": "muselet"]
-        if let fallback { r["fallback_reason"] = fallback }
-        if let clockAXReason { r["clock_ax_reason"] = clockAXReason }
+        if let reason = ax.reason {
+            r["fallback_reason"] = reason
+            r["clock_ax_reason"] = reason
+        }
         if let label { r["label"] = label }
         return r
     }

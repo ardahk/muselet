@@ -236,7 +236,7 @@ public enum ClockAX {
                         .map { $0.timeIntervalSince(now) }
                 selected = left.flatMap { target in
                     available.min { abs(running[$0].leftS - target) < abs(running[$1].leftS - target) }
-                        .flatMap { abs(running[$0].leftS - target) <= TimerMerge.tolerance ? $0 : nil }
+                        .flatMap { abs(running[$0].leftS - target) <= ClockAX.matchTolerance ? $0 : nil }
                 }
             }
             if let selected {
@@ -250,10 +250,11 @@ public enum ClockAX {
         }
     }
 
-    public static func backend(enabled: Bool, axReady: Bool, shortcutReady: Bool) -> String {
-        if !enabled { return "muselet" }
-        if axReady { return "clock_ax" }
-        return shortcutReady ? "clock" : "muselet"
+    /// Seconds of disagreement still counted as the same timer.
+    public static let matchTolerance: Double = 5
+
+    public static func backend(axReady: Bool) -> String {
+        axReady ? "clock_ax" : "muselet"
     }
 
     public static func liveReady() -> Bool {
@@ -444,7 +445,7 @@ extension Skills {
         } else {
             let target = info.firesAt.timeIntervalSince(now)
             selected = candidates.min { abs($0.leftS - target) < abs($1.leftS - target) }
-                .flatMap { abs($0.leftS - target) <= TimerMerge.tolerance ? $0 : nil }
+                .flatMap { abs($0.leftS - target) <= ClockAX.matchTolerance ? $0 : nil }
         }
         guard let selected, let cancel = selected.cancelButton,
               nodes.indices.contains(cancel) else { return "clock_timer_not_found" }

@@ -122,4 +122,15 @@ final class HoverDwellTests: XCTestCase {
         XCTAssertFalse(PillPolicy.wantsShow(mascotSettled: false, mascotHovering: false, pillShown: false,
                                             pillHover: false, recording: false, typing: false))
     }
+
+    func testPillZoneBridgesTheGapOnly() {
+        let kitten = CGRect(x: 100, y: 100, width: 60, height: 70)   // AppKit: pill sits below
+        let pill = CGRect(x: 95, y: 70, width: 70, height: 26)
+        XCTAssertTrue(PillZone.contains(CGPoint(x: 130, y: 140), kitten: kitten, pill: pill))
+        XCTAssertTrue(PillZone.contains(CGPoint(x: 100, y: 80), kitten: kitten, pill: pill))
+        XCTAssertTrue(PillZone.contains(CGPoint(x: 130, y: 98), kitten: kitten, pill: pill))    // gap
+        XCTAssertFalse(PillZone.contains(CGPoint(x: 170, y: 98), kitten: kitten, pill: pill))   // beside gap
+        XCTAssertFalse(PillZone.contains(CGPoint(x: 130, y: 60), kitten: kitten, pill: pill))
+        XCTAssertFalse(PillZone.contains(CGPoint(x: 130, y: 200), kitten: kitten, pill: pill))
+    }
 }

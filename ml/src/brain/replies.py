@@ -42,15 +42,10 @@ def _dur_words(v) -> str:
     return " ".join(parts) or "0 seconds"
 
 
-# Once per brain session, after a start_timer fallback for a missing shortcut.
-CLOCK_HINT = "Allow Accessibility or add the Clock shortcut in Settings"
-
-
 def _timer_text(a: dict, result) -> str:
     r = result if isinstance(result, dict) else {}
     secs = r.get("seconds", a.get("duration"))
-    where = " in Clock" if r.get("backend") == "clock" else ""
-    return f"Timer set{where} for {_dur_words(secs)}"
+    return f"Timer set for {_dur_words(secs)}"
 
 
 def human(name: str) -> str:

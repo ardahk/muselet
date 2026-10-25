@@ -60,7 +60,6 @@ final class HoverHostingView<Content: View>: NSHostingView<Content> {
 /// mascot or the pill, while listening, and while typing.
 final class PillController {
     static let hoverDwell: TimeInterval = 1.0
-    static let hideGrace: TimeInterval = 0.6
 
     let state = PillState()
     private let model: AppModel
@@ -70,7 +69,7 @@ final class PillController {
     private weak var parent: NSWindow?
     private var bag = Set<AnyCancellable>()
     private var hoverPill = false
-    private var hideWork: DispatchWorkItem?
+    private var moveMonitors: [Any] = []
     private var typingCtx: PendingCtx?
     private var closing = 0
     private var holdFrame = false
@@ -106,7 +105,7 @@ final class PillController {
                  onMic: { [weak self] in self?.onMic?() },
                  onKeyboard: { [weak self] in self?.beginTyping() },
                  onSubmit: { [weak self] t in self?.submit(t) },
-                 onCancel: { [weak self] in self?.endTyping() })
+                 onCancel: { [weak self] in self?.cancelTyping() })
     }
 
     func mascotHover(_ h: Bool) {
@@ -120,19 +119,41 @@ final class PillController {
                              recording: model.isRecording, typing: state.typing)
     }
 
+    /// Shown: dwell / pill hover / recording / typing, or the pointer is crossing the gap
+    /// between kitten and pill. Otherwise hidden at once (quick fade, `PillView.hideFade`).
     func update() {
-        hideWork?.cancel()
         if wantsShow {
             show()
             return
         }
-        // Grace period so the pointer can travel from the mascot to the pill.
-        let w = DispatchWorkItem { [weak self] in
-            guard let self, !self.wantsShow else { return }
-            self.hide()
+        if state.shown, pointerInZone() { return }     // the move monitor re-checks
+        hide()
+    }
+
+    /// Pointer inside the kitten, the pill (minus its transparent margin) or the gap between.
+    private func pointerInZone() -> Bool {
+        guard let m = parent?.frame else { return false }
+        let kitten = MascotView.kittenRect.offsetBy(dx: m.minX, dy: m.minY)
+        return PillZone.contains(NSEvent.mouseLocation, kitten: kitten,
+                                 pill: panel.frame.insetBy(dx: 10, dy: 10))
+    }
+
+    /// Mouse moves while shown, so leaving the zone hides the pill immediately.
+    private func watchPointer(_ on: Bool) {
+        if !on {
+            moveMonitors.forEach(NSEvent.removeMonitor)
+            moveMonitors = []
+            return
         }
-        hideWork = w
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.hideGrace, execute: w)
+        guard moveMonitors.isEmpty else { return }
+        let mask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged]
+        if let g = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: { [weak self] _ in
+            self?.update()
+        }) { moveMonitors.append(g) }
+        if let l = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { [weak self] e in
+            self?.update()
+            return e
+        }) { moveMonitors.append(l) }
     }
 
     private func show() {
@@ -142,12 +163,15 @@ final class PillController {
             parent?.addChildWindow(panel, ordered: .above)
         }
         if !state.shown { state.shown = true }
+        watchPointer(true)
         DispatchQueue.main.async { [weak self] in self?.layout() }
     }
 
     private func hide() {
+        watchPointer(false)
+        guard state.shown || panel.isVisible else { return }
         state.shown = false
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + PillView.hideFade + 0.03) { [weak self] in
             guard let self, !self.state.shown else { return }
             self.panel.orderOut(nil)
         }
@@ -178,6 +202,14 @@ final class PillController {
         onTyped?(text, ctx)
     }
 
+    /// Esc and the X button (and the `pill_typing close` debug hook): one path. Deferred
+    /// one run-loop turn so the X button's click finishes before its view is removed.
+    func cancelTyping() {
+        DispatchQueue.main.async { [weak self] in self?.endTyping() }
+    }
+
+    /// Every close (Esc, X, submit, click elsewhere): hand key focus back to the frontmost
+    /// app first, then run the one collapse animation on the non-key panel.
     func endTyping() {
         guard state.typing else { return }
         closing += 1
@@ -187,40 +219,40 @@ final class PillController {
         let staying = PillPolicy.wantsShow(mascotSettled: dwell.settled, mascotHovering: dwell.hovering,
                                            pillShown: true, pillHover: hoverPill,
                                            recording: model.isRecording, typing: false)
+        handBackFocus()
         withAnimation(PillView.typingAnimation(
             reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         )) {
             state.typing = false
             if !staying { state.shown = false }
         } completion: { [weak self] in
-            self?.finishClose(gen, staying: staying)
+            self?.finishClose(gen)
         }
     }
 
-    private func finishClose(_ gen: Int, staying: Bool) {
+    /// Drop key status without a visible change: re-order the panel while screen updates
+    /// are frozen and it still shows the field, so the collapse starts from the same pixels.
+    private func handBackFocus() {
+        panel.acceptsKey = false
+        guard panel.isKeyWindow else { return }
+        panel.disableScreenUpdatesUntilFlush()
+        panel.orderOut(nil)
+        panel.orderFrontRegardless()
+        parent?.addChildWindow(panel, ordered: .above)
+    }
+
+    private func finishClose(_ gen: Int) {
         guard gen == closing, !state.typing else { return }
         state.text = ""
         holdFrame = false
-        panel.acceptsKey = false
-        if !staying { hideWork?.cancel() }
-        if panel.isKeyWindow {
-            if !staying || !wantsShow {
-                panel.orderOut(nil)
-            } else {
-                panel.disableScreenUpdatesUntilFlush()
-                panel.orderOut(nil)
-                panel.orderFrontRegardless()
-                parent?.addChildWindow(panel, ordered: .above)
-            }
-        } else if !state.shown {
-            panel.orderOut(nil)
-        }
         layout()
         update()
     }
 
-    /// Clicked elsewhere: close an empty field, keep a draft.
+    /// Clicked elsewhere: close an empty field, keep a draft. (Our own hand-off drops
+    /// `acceptsKey` first and is ignored here.)
     private func resignedKey() {
+        guard panel.acceptsKey else { return }
         if state.typing && state.text.trimmingCharacters(in: .whitespaces).isEmpty { endTyping() }
     }
 

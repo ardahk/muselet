@@ -82,3 +82,19 @@ public enum PillPolicy {
         mascotSettled || (mascotHovering && pillShown) || pillHover || recording || typing
     }
 }
+
+/// Where the pointer keeps the pill up: the kitten, the pill, and the gap between them
+/// (so moving from the kitten down to the pill works). Leaving it hides the pill at once.
+public enum PillZone {
+    /// Rects in one coordinate space (AppKit, y up). `slop` widens the gap bridge.
+    public static func contains(_ p: CGPoint, kitten: CGRect, pill: CGRect, slop: CGFloat = 2) -> Bool {
+        if kitten.contains(p) || pill.contains(p) { return true }
+        let lower = pill.maxY <= kitten.minY ? pill : kitten
+        let upper = lower == pill ? kitten : pill
+        guard upper.minY >= lower.maxY else { return false }   // overlapping: nothing to bridge
+        let bridge = CGRect(x: max(kitten.minX, pill.minX) - slop, y: lower.maxY - slop,
+                            width: min(kitten.maxX, pill.maxX) - max(kitten.minX, pill.minX) + 2 * slop,
+                            height: upper.minY - lower.maxY + 2 * slop)
+        return bridge.width > 0 && bridge.contains(p)
+    }
+}
