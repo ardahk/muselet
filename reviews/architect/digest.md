@@ -1,9 +1,8 @@
-# architect digest - pass 61 (2026-10-25T01:55Z)
-Reviewed: main 19d57fb (a1fd57f brightness relative_not_level + bundle-id launch detection; #69 memory LLM gate, MEMORY_LLM still 0) and wip/local 8a197f8 (memory rules +421 lines: URL query extraction and site search; docs/claims refresh). Tests: main 414 passed / 3 skipped; wip 408 passed / 3 skipped. Memory holdout (rules + long-term) is .617 / .0195 on both main and wip, so the rules.py rewrite on wip adds no holdout gain. wip claims/REPORT still quote memory .574, but measured holdout is .617 (an understatement, not an overclaim). architect-40 is now on main. architect-39: proxy.py unchanged, still open. No new findings.
+# architect digest - pass 62 (2026-10-25T02:25Z)
+Reviewed: main f5b4606 (69a9650: runtime frees a latched slot via release_slot/force_release; f5b4606: sealed r4 strings paraphrased out of the tests) and wip/local c49bf0e (replay records precondition_error/observations). architect-39 is resolved: repro_force_release.py shows the slot freed and the next client paired. architect-40 is narrowed to the quoting rule, since a live run 20261025T015646Z ran after the patch. Open: P0 0, P1 11, P2 7. No new findings.
 
 ## Open P1 (ranked)
 00. architect-40 - Sealed r4 failures patched post-hoc; rerun = tuned-on-test - ml/src/brain/orchestrator.py
-0. architect-39 - Proxy stale-client displacement unreachable; wedged cases shrink replay n - bench/harness/proxy.py
 1. architect-37 - it3 default router; no it3 sealed overlap check; replay unpinned - tools/serve_brain.sh
 1b. architect-29 - No winning competitor number (TD tie within 1 SE, JevBench loses, HobbyLM r4 missing) - pitch/claims.md
 2. architect-33 - Done verifier default on with unfitted 0.5 threshold (on main) - ml/src/brain/orchestrator.py
@@ -21,4 +20,4 @@ Reviewed: main 19d57fb (a1fd57f brightness relative_not_level + bundle-id launch
 2. Flip THINK=512 with the greedy sampler, not qwen (same pass rate, -0.85 s/step, deterministic for the stage). 1 line.
 3. Fit VERIFY_P now that verify is on by default. Label v2-tune final states plus live_t1 traces and target false reject <= 5%, else VERIFY_DONE=off for the demo. ~30 min.
 4. Mac decisions run (muselet-decisions-4b-mlx4, T=1) on JevBench + TD through the shim. Quote only against the SE. ~30 min.
-5. Fix the proxy lock scope (architect-39) before the HobbyLM r4 run. Run reviews/architect/tests/repro_proxy_displace.py, which must pair client B. Then rehearse the 3:00 script with think + verify + memory on.
+5. Rehearse the 3:00 script with think + verify + memory on (proxy slot recovery landed in 69a9650; architect-39 resolved).
