@@ -1,4 +1,6 @@
-# finance digest (Pass 84, 2026-10-25; main 85958b0; P0 0, P1 5, P2 9)
+# finance digest (Pass 85, 2026-10-25; main ca73c12; P0 0, P1 5, P2 10)
+
+> Pass 85 new: finance-35 (P2) destructive-request refuse gate (orchestrator.py:161/925) refuses 'Remove all the duplicate charges from my October budget', 'Format all the amounts in my budget as currency', 'Reconcile all files in my Finance folder'. Fix: require a file/folder/disk object next to the quantifier; 'format' only with disk/drive.
 
 > Pass 81: finance and advisor beats are no longer in pitch/demo_script.md, so finance-33 is P1 (devpost/REPORT still claim those phrases). Redirected and fallback finance tasks now run on the 35B with a 300 s budget (finance-31/33).
 Open P0:
