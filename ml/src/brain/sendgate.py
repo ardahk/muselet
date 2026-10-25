@@ -71,7 +71,7 @@ def is_browser(app: str | None) -> bool:
     return bool(_BROWSER_RE.search(str(app or "")))
 
 
-_SEARCH_FIELD_RE = re.compile(r"\b(search|find)\b", re.IGNORECASE)
+_SEARCH_FIELD_RE = re.compile(r"\b(search|find)\b|\bask gmail\b", re.IGNORECASE)
 
 
 def enter_sends(app, window_title, focused_role, focused_label) -> bool:
