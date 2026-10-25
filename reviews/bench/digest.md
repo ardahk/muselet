@@ -1,6 +1,6 @@
-# bench digest — pass 61 (2026-10-25T02:52Z, main@13d0486)
+# bench digest — pass 62 (2026-10-25T03:10Z, main@6a37d0c)
 
-P0: 0 | open P1: 12 | open P2: 11
+P0: 0 | open P1: 13 | open P2: 11
 
 Ranked open P1:
 1. bench-36 competitor runs not pinned to it2 though claims say "it2 only"; router not recorded in results.
@@ -23,3 +23,5 @@ Next moves:
 Pass 60: new P2 bench-40 (unverified, needs Mac) HobbyLM EventKit date parse in 55e38f9 likely still exits 3 on aware+microsecond isoformat; event tasks would skip for Muselet only. Check: on the Mac, look for 'EventKit calendar snapshot failed' in the r4 event-kind records. Reviewed fine: wip/local fd357b3 moves the end-state calendar read into the runner process (EventKit access), reusing the start-state window.
 
 Pass 61 (no new findings): main 13d0486 = the wip fd357b3 change reviewed in pass 60 (end-state calendar read in the runner process, start window reused); fine. bench-40 still open: the Swift parseDate in _read_calendar_events is unchanged and the runner still passes aware+microsecond isoformat strings.
+
+Pass 62: NEW P1 bench-41: 6a37d0c patched vendored calc_checker.swift without updating PROVENANCE.md; verify_provenance raises, so replay.py won't start. Fix: add a harness-patch row with both hashes, rebuild calc_checker, then grade calc for both systems and drop --exclude-kind calc (closes bench-16's calc part).
