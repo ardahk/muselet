@@ -102,11 +102,48 @@ public enum TextTarget {
         if isKeystrokeApp(bundleId), win != nil {
             return Check(ok: true, via: keystrokeVia, observed: observed, focusTarget: nil)
         }
+        // Blind trees (empty / window-chrome only — CEF/Electron apps keep
+        // renderer AX off) take keystrokes like a keystroke app. Never
+        // Muselet itself.
+        if let w = win, appName != "Muselet", TextTarget.blindTree(w) {
+            return Check(ok: true, via: keystrokeVia, observed: observed, focusTarget: nil)
+        }
         let neutral = fa.map { neutralRoles.contains($0.role ?? "") } ?? true
         if windowFallback, neutral, let w = win, let area = largestTextArea(in: w, deadline: deadline) {
             return Check(ok: true, via: "window_textarea", observed: observed, focusTarget: area)
         }
         return Check(ok: false, via: nil, observed: observed, focusTarget: nil)
+    }
+
+    /// Mirrors Python `_WINDOW_CHROME`: labels of close/minimize/zoom/
+    /// full-screen window buttons (incl. "also has an action to zoom the
+    /// window" descriptions).
+    static func isChromeLabel(_ label: String) -> Bool {
+        let l = label.lowercased().trimmingCharacters(in: .whitespaces)
+        if l.contains("zoom the window") { return true }
+        let bare = l.hasSuffix(" button") ? String(l.dropLast(7)) : l
+        return ["close", "minimise", "minimize", "zoom",
+                "full screen", "fullscreen"].contains(bare)
+    }
+
+    /// Blind tree: every element the observation would emit is window chrome
+    /// (or there are none) — CEF/Electron apps like Spotify keep renderer
+    /// AX off. Mirrors `orchestrator.observation_blind`'s chrome rule.
+    public static func blindTree(_ window: Element, maxNodes: Int = 200) -> Bool {
+        var queue: [(Element, Int)] = [(window, 0)]
+        var qi = 0
+        while qi < queue.count && queue.count <= maxNodes {
+            let (el, depth) = queue[qi]; qi += 1
+            let a = el.copyAttrs()
+            if depth > 0, let axRole = a.role, let role = kRoleMap[axRole] {
+                guard isChromeLabel(Walker.label(of: a, role: role))
+                else { return false }
+            }
+            if depth < 12 {
+                queue.append(contentsOf: a.children.map { ($0, depth + 1) })
+            }
+        }
+        return true
     }
 
     /// Largest visible AXTextArea in `window` (BFS <= 400 nodes, depth <= 10,
