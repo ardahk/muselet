@@ -1,4 +1,6 @@
-# finance digest (Pass 90, 2026-10-25; main 2de65a9; P0 0, P1 5, P2 10)
+# finance digest (Pass 91, 2026-10-25; main 2de65a9; wip a6035fb; P0 1, P1 5, P2 10)
+
+> Pass 91 NEW P0 finance-36 (wip only): a2004d9 deletes ml/src/brain/finance, advisor and the finance_review/advisor_prep tools; their labels now go to the AI planner. Do not merge before the deadline, or restore behind a flag; README/devpost/REPORT still claim the deterministic engines.
 
 > Pass 85 new: finance-35 (P2) destructive-request refuse gate (orchestrator.py:161/925) refuses 'Remove all the duplicate charges from my October budget', 'Format all the amounts in my budget as currency', 'Reconcile all files in my Finance folder'. Fix: require a file/folder/disk object next to the quantifier; 'format' only with disk/drive.
 
