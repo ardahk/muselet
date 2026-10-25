@@ -1,12 +1,14 @@
-# Planner review digest — pass 81 (2026-10-25T08:35Z)
+# Planner review digest — pass 82 (2026-10-25T08:50Z)
 
-Moved: main 3e323a9→73b8031 (Observe keep-first for duplicate refs); wip 51d833a (= main); agentic-fixes2 104a411 (merge of main, not yet on main).
-- planner-58 (P1, new): the duplicate-ref crash is hidden, not fixed. Two elements can still share a ref, and press #N acts on the first.
-- planner-56 (P1, fixes2): unchanged. YouTube play evidence doesn't check which video.
-- planner-57 (P2, fixes2) and planner-31 (expect dropped, action runs unverified): unchanged.
-- planner-40/45/46/47/48/50/51/52/53/54/55 unchanged on main.
+Moved: main 73b8031→b7b38f9 (merged agentic-fixes2 and docs-final; ab850b3 30 turns / 300 s + soft expects for blind tasks; b7b38f9 PLANNER=35b observes up to 350 AX nodes, opt-in); wip e03e2c8 (= main).
+- planner-59 (P1, new): soft expects `continue` before the loop guard, so a repeating failed action runs up to 30 turns / 300 s on the 35B.
+- planner-56 (P1) now on main: YouTube play evidence doesn't check which video.
+- planner-55 (P2) now on main: the docs still say app turns stay on the LoRA.
+- planner-31 / planner-57 now on main.
+- OK: MUSELET_OBS_NODES is env-selectable and only 350 under PLANNER=35b.
+- planner-40/45/46/47/48/50/51/52/53/54/58 unchanged.
 
-New: 1 (P1). Resolved: 0. Open: 0 P0, 15 P1, 13 P2.
+New: 1 (P1). Resolved: 0. Open: 0 P0, 16 P1, 13 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
