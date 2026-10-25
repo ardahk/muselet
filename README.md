@@ -19,6 +19,9 @@ Built at Cal Hacks 13.0.
 
 ## How it works
 
+<p align="center"><img src="docs/img/muselet_architecture.png" width="1920" alt="Muselet architecture"></p>
+
+
 ```
 Right Option -> Parakeet STT (Neural Engine) -> brain (Python + MLX, ws://127.0.0.1:8765)
    System 1: trained 4B router, one forward pass -> skill | planner | ask | refuse
