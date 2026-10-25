@@ -1,4 +1,4 @@
-# training lane digest — pass 64 (main 6a37d0c)
+# training lane digest — pass 65 (main fa0f040)
 
 Open: 1 P0, 15 P1, 17 P2. No new findings; training-54 (sealed-r4 words in argfix.py) still open.
 

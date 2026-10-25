@@ -1,6 +1,6 @@
 {
-  "pass": 64,
-  "ts": "2026-10-25T03:10:00Z",
+  "pass": 65,
+  "ts": "2026-10-25T03:25:00Z",
   "mode": "pulse",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
@@ -48,8 +48,8 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "6a37d0c",
-    "wip/local": "9571a9e",
+    "main": "fa0f040",
+    "wip/local": "973a9b0",
     "cloud/memory": "ba3dc0a",
     "cloud/memory-eval": "c05944e",
     "cloud/memory-lt": "cc056af",
@@ -72,7 +72,9 @@
     "cloud/safety-planner28": "fb4a45a",
     "cloud/memory-llm-gate": "f6229d7",
     "cloud/memory-hotfix": "d932320",
-    "cloud/memory-rules2": "03c3cd1"
+    "cloud/memory-rules2": "03c3cd1",
+    "cloud/design-polish": "bf4ae64",
+    "cloud/memory-writes": "d04e26c"
   },
   "next_id": 53,
   "notes_pass39": "main fb2cfd0: evals/live_t1.jsonl changed only precondition/check/teardown/document_apps on 6 cases; all 43 utterances unchanged, so decontam gates and it2/it3cand overlap results stand. No lane findings.",
@@ -97,5 +99,6 @@
   "notes_pass61": "main: f5b4606 paraphrases the D04-D06 tests (training-54 stays open: regex words unchanged); 69a9650 harness only. training-49/50 unchanged (build.py:206, tinker_spend.py:27, REPORT.md:77 '$0.84').",
   "notes_pass62": "main/wip: bench/hobbylm/replay.py precondition handling only. Re-checked: training-54 argfix.py:7 still has bump|more light; training-49 build.py:206, training-50 tinker_spend.py:27 + REPORT.md '$0.84' unchanged.",
   "notes_pass63": "main: bench/hobbylm/replay.py calendar capture only. Re-checked: training-54 argfix.py 'more light' present; training-49/50 unchanged.",
-  "notes_pass64": "main: HobbyLM calc_checker harness only. Re-checked: training-54 argfix 'more light' present; training-49/50 unchanged."
+  "notes_pass64": "main: HobbyLM calc_checker harness only. Re-checked: training-54 argfix 'more light' present; training-49/50 unchanged.",
+  "notes_pass65": "main: design/Clock-timers (#70) + bench memory-store isolation in serve_brain.sh; no router/training/eval change. design-polish Swift-only; memory-writes policy-only. Re-checked training-54 (argfix 'more light'), 49, 50, 53 unchanged."
 }
