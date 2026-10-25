@@ -29,3 +29,22 @@ The trailing `--planner-mode tools` override is needed because
 `serve_brain.sh` forces the main planner to DSL mode for `PLANNER=base`.
 DSL remains the default (`PLANNER_MODE` unset or `dsl`); all planner model
 alternatives stay selectable via the existing env knobs.
+
+## AX-first click resolution
+
+A grounded `click "<target>"` first checks the live AX tree for an exact,
+unambiguous enabled pressable control (button, radio, checkbox, popup,
+menuitem, link, tab, row) whose label matches the target exactly, allowing
+one role-word qualifier ("Organize radio button", "Add a Column dropdown").
+A single unambiguous match is dispatched as an AX `press` through the same
+safety gates as any ref press (danger-label confirmation, permission
+checks); otherwise the screenshot/grounder path handles it unchanged.
+Right/double clicks always skip AX resolution.
+
+## Formula Facts
+
+The Numbers cheat sheet includes the installed 14.5 `SORT` and `SORTBY`
+signatures. These functions return a sorted copy into an empty destination,
+not an in-place sort. The model must discover the source references and
+choose the formula and destination; there is no formula-writing workflow
+engine. Formula-based sorting still needs live validation.

@@ -111,7 +111,8 @@ def test_exec_action_click_resolves_to_press(tmp_path):
     acts = [p for m, p in server.rpcs if m == "act"]
     assert acts and acts[-1]["op"] == "press" and acts[-1]["ref"] == 721
     assert "target" not in acts[-1]
-    assert server.rpcs == [("act", acts[-1])] or True
+    # exactly one RPC: the resolved press — no grounder/screenshot path
+    assert server.rpcs == [("act", acts[-1])]
     assert r["status"] == "ok"
 
 
@@ -127,16 +128,14 @@ def test_click_falls_back_to_grounder_when_no_match(tmp_path):
 
 
 def test_dangerous_resolved_press_still_confirms(tmp_path):
-    elements = [el(66, "button", "Delete Selected Rows")]
+    elements = [el(66, "button", "Delete")]
     o, server = _orch(tmp_path, elements)
 
     server.confirm_yes = False
     r = asyncio.run(o._exec_action({"op": "click", "target": "Delete"}))
-    assert r["status"] == "cancelled" or r["status"] == "failed"
+    assert r["status"] == "cancelled"
     assert server.confirms and not [p for m, p in server.rpcs if m == "act"]
 
-    server2 = FakeServer()
-    o._server = server2  # no-op attr; keep real path below
     o, server = _orch(tmp_path, elements)
     server.confirm_yes = True
     r = asyncio.run(o._exec_action({"op": "click", "target": "Delete"}))
