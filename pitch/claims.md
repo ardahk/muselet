@@ -2,7 +2,11 @@
 
 Every number in `pitch/` is a `{{placeholder}}` defined here. Fill it only from the named source; if the source
 has not been run, the line stays out of the pitch. Mac = the demo MacBook Pro M5 Pro, 64 GB, macOS 27
-(AGENTS.md). Code citations: `origin/main` @ 1d49478.
+(AGENTS.md). Code citations: `origin/main` @ 1d49478; §2b (demo build, Sun 2026-10-25) cites functions on `main` @ ba739d6.
+
+**Demo-build status (Sun 2026-10-25).** No HobbyLM result is valid or comparable yet; say so. DeskMind decision models
+lead ours: brain-4b .831 / .658 vs our decisions LoRA .779 / .622 (JevBench / typed-decisions, lead's Mac run). No live
+suite run exists for the shipping agentic-apps / 35B-blind configuration; live numbers below are from the earlier config.
 
 ## 1. Metrics (measure on the Mac, record the run path next to the value)
 
@@ -22,7 +26,7 @@ has not been run, the line stays out of the pitch. Mac = the demo MacBook Pro M5
 | `{{premiere_s}}` | Cut + marker + export dialog | 5 takes | `runs/traces/` | pending live run (screen was locked overnight) |
 | `{{receipt_ocr_ms}}` | Apple Vision OCR per receipt | `ocr` RPC `ms` field | `app/Sources/HandsKit/OCR.swift:137` | ~150 ms per receipt, warm (run path not given) |
 | `{{cat_rule_acc}}`, `{{cat_ask_rows}}` | Finance categorize accuracy with rules only; rows escalated to ASK | `PYTHONPATH=ml/src python3 -m pytest ml/tests/test_finance.py -s` | `ml/src/brain/finance/categorize.py` | not run yet |
-| `{{hobby_muselet_pass}}`/125, `{{hobby_muselet_p50_s}}` | Muselet (router it2 only, §1b) on HobbyLM's 125 sealed-r4 live requests, strict final-state grading | `bench/hobbylm/replay.py --system muselet --round r4` | `runs/bench/hobbylm/` | pending (morning replay blocked by a harness bug) |
+| `{{hobby_muselet_pass}}`/125, `{{hobby_muselet_p50_s}}` | Muselet (router it2 only, §1b) on HobbyLM's 125 sealed-r4 live requests, strict final-state grading | `bench/hobbylm/replay.py --system muselet --round r4` | `runs/bench/hobbylm/` | **no valid comparable score yet** (morning replay blocked by a harness bug; not quoted) |
 | `{{hobby_rerun_pass}}`/125, `{{hobby_rerun_p50_s}}` | HobbyLM itself, same Mac, its published harness | `bench/hobbylm/replay.py --system hobbylm --round r4` | same | pending (morning replay blocked by a harness bug) |
 | `{{dm_muselet_strict}}`/39, `{{dm_muselet_false_done}}`, `{{dm_muselet_step_p50_s}}` | Muselet (router it2 only, §1b) on DeskMind Bench `diag` (13 tasks x 3), graded by `deskmind-bench score` | `bench/deskmind/README.md` (c) | `runs/bench/deskmind/` | pending (morning replay blocked by a harness bug) |
 | `{{dm_rerun_strict}}`/39, `{{dm_rerun_step_p50_s}}` | DeskMind G18b on the same Mac, their commands | `bench/deskmind/README.md` (a) | same | pending (morning replay blocked by a harness bug) |
@@ -72,12 +76,12 @@ v1-ho / v1-ho2 / v2-ho):
 | Config | v1-ho | v1-ho2 | v2-ho | Mean | Step p50 |
 |---|---|---|---|---|---|
 | no-think (previous default) | .714 | .750 | .462 | .642 | ~0.15 s |
-| **4B think 512, Qwen sampler (serving)** | **.786** | **.917** | **.608** | **.770** | 2.6 s (p95 7.8 s) |
+| **4B think 512, Qwen sampler (`PLANNER=base`; LoRA serves now)** | **.786** | **.917** | **.608** | **.770** | 2.6 s (p95 7.8 s) |
 | 4B think 512, greedy | – | – | – | .763 | 1.7 s |
 | 35B-A3B think 512 (fails 3 s gate) | – | – | – | .807 | 6.0 s |
 | 35B-A3B no-think | – | – | – | .601 | – |
 
-`{{planner_holdout}}` = .786 / .917 / .608 (think, serving). Planner LoRA: HF `jonsnov/muselet-planner-4b-lora-mlx4`
+`{{planner_holdout}}` = .857 / 1.000 / .692 (planner LoRA, serving; mean .850, ~0.3 s per step, lead); base 4B think .786 / .917 / .608. Planner LoRA: HF `jonsnov/muselet-planner-4b-lora-mlx4`
 @ 35a2ea3, TBD(planner-lora eval, Mac).
 
 \* Speed measured on the earlier tuned config (tune .84 / holdout .57); not re-measured for the shipped prompt.
@@ -99,11 +103,12 @@ still pending.
 | | JevBench public | Typed-decisions test |
 |---|---|---|
 | Muselet base | .719 | .569 |
+| Muselet decisions LoRA (lead, Mac) | .779 | .622 |
 | DeskMind brain-4b | .831 | .658 |
 | DeskMind brain-0.8b | .723 | .540 |
 
-DeskMind leads here today. Allowed: "On decision benchmarks DeskMind's 4B is ahead of our base model today; our
-generalist decision LoRA is still training." Not allowed: any framing that Muselet wins or ties these.
+DeskMind leads here today, also against our trained decisions LoRA. Allowed: "On decision benchmarks DeskMind's 4B is
+ahead of us today (.831 / .658 vs .779 / .622)." Not allowed: any framing that Muselet wins or ties these.
 
 **Router, tuned vs tuned** (Mac MLX, each at its val-fitted tau; `runs/router/{it2,it3}_{val,route_v1_clean,route_v2}.json` via `evals/router_check.py`):
 
@@ -138,8 +143,9 @@ not given): eyes-4b two-stage zoom 63.5% at 1 MP, 67.5% at 2 MP (no zoom: 36.0% 
 - The morning HobbyLM / DeskMind replays blocked by a harness bug: no number exists from them.
 - Any r1/r2 number on a sealed external set; the 37 contaminated route_v1 cases.
 - Stale Tinker snapshots ($34.60, $64.89, $77.51): superseded; current total TBD(console).
-- Pending, `TBD(...)`: planner LoRA eval, 35B k=1, decisions LoRA, live suite re-run (it3 + thinking), multi-turn,
-  HobbyLM r4, DeskMind diag, Tinker console total.
+- Pending, `TBD(...)`: 35B k=1, live suite re-run on the shipping config (it3 + agentic apps + LoRA/35B planners),
+  multi-turn, HobbyLM r4 (no valid score yet), DeskMind diag, Tinker console total. Done since: planner LoRA (holdout
+  mean .850), decisions LoRA (.779 / .622, lead).
 
 ## 1b. Contamination disclosures (review decisions-21)
 
@@ -212,6 +218,21 @@ Re-verified on `origin/main` @ 1d49478 (2026-10-24); line numbers are at that co
 | Premiere cut/marker/export | `premiere_command` -> default shortcuts cmd+k / m / cmd+m (`HandsKit/Skills.swift:257-258,757`); export opens the Export dialog | main (shortcuts); UXP bridge UNTESTED (`premiere/README.md:3`) |
 | Latency chip next to the bubble | brain puts `ms` on the final `ui` (`orchestrator.py:1280-1288`, `server.py:184-186`): release-to-first-action for skills, total otherwise; app shows it for 2 s (`MuseletApp/App/AppDelegate.swift:132`, `MuseletApp/Mascot/MascotController.swift:232-238`) | main |
 
+## 2b. Demo-build claims (Sun 2026-10-25) -> code path
+
+| Claim | Why it is true | Status |
+|---|---|---|
+| System 1 acts directly only for OS-level skills | `Orchestrator._agentic_app`: `agentic_apps and catalog.kind(name) == "app"` -> `_agentic_route`; 26 `kind: system` skills stay native (`skills/catalog.json`); `--agentic-apps on` default (`cli.py`, `serve_brain.sh` `AGENTIC_APPS`) | main |
+| App tasks are operated by the planner over Accessibility | `_agentic_route` -> `_planner_loop(hint=agentic.hint(...), finish_criterion=app_finish(...))`; app skills refused inside the planner ("skill disabled: operate the app's UI") | main. Live check pending per beat |
+| Rule-based "Finish when", no model call | `finish.criterion` / `finish.app_finish` (`ml/src/brain/finish.py`) | main |
+| Ends as soon as the goal is visible | `finish.evidence` / `progress_kind`: Pause button for play, cart count above the baseline (`cart_count`), Clock Pause/Resume row, draft text in the composer | main. Allowed: "stops once it can see the goal on screen". Not allowed: "always knows when it's done" |
+| Adds to cart once, never buys | cart baseline + `_cart_added`; re-adds refused (commit f30bf1d); buy/purchase/pay/place order are confirm labels (`orchestrator.py` risky-label regex) | main; live check pending |
+| Uses the site's own search box | `_hand_built_search` rejects same-site search URLs, `_address_bar_query` rejects address-bar queries (commit 3620880, `ml/tests/test_same_tab.py`) | main |
+| Same tab, default browser, waits for page loads | same-tab planner urls (commit c0421e6); `default_browser()` reads the LaunchServices https handler; `_repoll_loading` (`LOAD_POLL_S` .25 s, `LOAD_WAIT_S` 5 s) | main |
+| Small planner for normal tasks, 35B for hard ones | `make_planner` LoRA default; `planner_blind` = Qwen3.6-35B-A3B when `BLIND_PLANNER=escalate` (default if cached); used when `blind_task` (page task, open-ended redirect, fallback, blind AX observation) | main. Don't say "35B handles every app task" |
+| Pixel clicks gated in apps holding user data | Spotify: refused; `_NO_BLIND_CLICK_APPS` + `_grounded_click_gate` -> `blind_click_blocked` unless OCR shows the goal subject and no destructive word | main. Disclose the Spotify incident when asked (`docs/REPORT.md` §5b) |
+| UI-scripting AppleScript needs a yes | `_SCRIPT_BLOCK` includes `click`, `perform action`, `AXPress`, `keystroke`; shell always confirms | main |
+
 ## 3. Competitor facts (verified 2026-10-24 from the URL)
 
 | Who | Fact we may quote | URL |
@@ -223,7 +244,7 @@ Re-verified on `origin/main` @ 1d49478 (2026-10-24); line numbers are at that co
 | Clicky | MIT; needs Anthropic, AssemblyAI and ElevenLabs keys behind a Cloudflare Worker; push-to-talk streams audio to AssemblyAI, sends transcript + screenshot to Claude; cursor flies via `[POINT:x,y:label:screenN]` tags | https://github.com/farzaa/clicky (README, CLAUDE.md) |
 
 Not verified, do not say: that Savvy flags tax-loss harvesting or cash drag (not on the page); that Clicky
-cannot click; any DeskMind Bench or HobbyLM live-set number on our Mac until those reruns exist (pending:
+cannot click; any DeskMind Bench or HobbyLM live-set number on our Mac until those reruns exist (HobbyLM: no valid comparable score yet) (pending:
 the morning replay was blocked by a harness bug; router it2 only, §1b). The JevBench and typed-decisions reruns in §1a do exist.
 
 ## 4. Demo prerequisites (open items the script depends on)

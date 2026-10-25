@@ -1,72 +1,68 @@
-# 3:00 demo script (voice, real app, Mac)
+# 2:30 voice demo script (real app, Mac, every model on-device)
 
-Covers the definition of done in `docs/MASTER_PROMPT.md` §11. Every number spoken is a fixture fact
-(`evals/fixtures/*`) or a measured value from `pitch/claims.md` with its source; a `TBD(...)` value is **not
-spoken** (use the bracketed line instead). Safety wording: only the "allowed" lines in `claims.md` §2.
-(PTT) = hold Right Option and say it. Latencies of the rehearsal takes go into the take log at the bottom (from `runs/traces/`).
+Order and wording are fixed by the docs-final brief. Each beat is marked **[verified]** (backed by a recorded run or
+test in `docs/REPORT.md` / `pitch/claims.md`) or **[needs live check]** (the lead flips it after a rehearsal take on
+the Mac). Every agentic beat starts as [needs live check]. Spoken numbers come only from `pitch/claims.md` with a
+source; a `TBD(...)` value is not spoken. (PTT) = hold Right Option and say it.
 
 ## Setup (T-15 min, on the Mac)
 
-1. `git pull` on the demo commit; app built (`bash app/scripts/build_app.sh`), brain on `:8765`
-   (`nohup tools/serve_brain.sh > /tmp/brain8765.log 2>&1 &`). `hands probe session` -> `screen_locked:false`.
-2. Fixtures: `evals/fixtures/advisor/setup_mac.sh --apply` and `evals/fixtures/finance/setup_mac.sh --apply`
-   (statement, budget, 8 receipts into `~/Documents/Finance`).
-3. Apps: Zen (default browser) open on a blank tab, signed in to the demo Gmail account with one received
-   email open in the inbox. Messages signed in; demo contact (`DEMO_CONTACT`, e.g. a teammate's phone) in
-   Contacts. Close Numbers, Notes, TextEdit, Clock. No user documents open anywhere.
-4. Clock: native Clock.app control over AX (`hands-clock` lane; no Shortcuts indirection). Check
-   `hands probe timers` -> `clock_ready:true`. If not ready: Muselet's own timer answers (beat 2 fallback).
-5. Volume 50, Light mode, Wi-Fi **on** (Gmail and Wikipedia need it; the offline beat turns it off later).
-   Dock auto-hide off. HUD style glass. Panel closed, kitten idle bottom-right.
-6. `caffeinate -dimsu &`. Display mirroring on, font zoom off.
+1. `git pull` on the demo commit; app built (`bash app/scripts/build_app.sh`); brain on `:8765`
+   (`nohup tools/serve_brain.sh > /tmp/brain8765.log 2>&1 &`). The log must show `agentic_apps=on`,
+   `[planner] .../planner-4b-lora-mlx4` and `[planner-blind] mlx-community/Qwen3.6-35B-A3B-4bit (escalate)`
+   (35B must already be in the HF cache; otherwise the blind planner falls back to the base 4B).
+   `hands probe session` -> `screen_locked:false`.
+2. Zen is the default browser (LaunchServices) and is open on a blank tab, signed in to the demo Gmail account with
+   one received email **open**. Amazon signed in to a demo account with an empty cart (no saved payment shortcut
+   such as 1-Click in use). YouTube signed out or on a demo account.
+3. Close Clock, Reminders, Notes. No user documents open anywhere (live-test safety rule, `AGENTS.md`).
+4. Volume 50, Light mode, Wi-Fi on (YouTube, Gmail and Amazon need it). Dock auto-hide off, HUD style glass, kitten
+   idle bottom-right. `caffeinate -dimsu &`.
 
-## Reset between takes (≈ 1 min)
-`evals/fixtures/advisor/setup_mac.sh reset --apply`; `evals/fixtures/finance/setup_mac.sh reset --apply`;
-discard the Gmail draft and the unsent Messages draft by hand; cancel the Clock timer; close the Wikipedia tab;
-volume 50, Light mode, Wi-Fi on.
+## Reset between takes (~1 min)
+Pause/close the YouTube tab; cancel the Clock timer; delete the "call mom" reminder and the demo note; discard the
+Gmail draft by hand; remove the chicken from the Amazon cart by hand; volume 50, Light mode.
 
 ## Script
 
-| # | Time | Presenter says / holds Right Option | Kitten bubble (expected) | Audience sees | Path in code | Fallback line |
+| # | Time | Presenter says / (PTT) | Expected on screen | Path in code | Status | Fallback line |
 |---|---|---|---|---|---|---|
-| 0 | 0:00-0:08 | "This is Muselet. I hold one key and talk. Every model runs on this Mac." | – | Desktop, kitten idle | – | – |
-| 1 | 0:08-0:20 | (PTT) "Volume thirty." · (PTT) "Turn the volume down to twenty and switch to dark mode." | "Volume 30." · then compound reply | Volume HUD, screen flips dark, latency chip next to bubble | router -> `set_volume`; `_compound` splits clauses (each must route at p ≥ 0.75) | "The chip is in the trace; moving on." |
-| 1b | 0:20-0:24 | "That chip is release to first action: [`instant_e2e_ms_p50`] milliseconds. One forward pass, no generation." | – | zoom on chip | `ui.ms` (`orchestrator.py`) | if TBD: "one forward pass, on-device." |
-| 2 | 0:24-0:32 | (PTT) "Set a timer for ten minutes." | "Timer set in Clock for 10 minutes" | Clock app comes to the front with the timer running | `start_timer` -> Clock.app driven over AX (hands-clock lane; `replies._timer_text`) | Muselet fallback says "Timer set for 10 minutes": "it falls back to its own timer if Clock isn't set up." |
-| 3 | 0:32-0:44 | (PTT) "Navigate to Wikipedia." · (PTT) "Search for history." | – | Zen opens wikipedia.org, then Wikipedia's own search results for "history" (not Google) | `sites.py` -> `open_url`; then memory follow-up rule `site_search` (`ml/src/brain/memory/rules.py` on PR #50) rewrites to `https://en.wikipedia.org/w/index.php?search=history` | "It remembers what's in front; that's the working memory." (If the follow-up goes to Google: cut the beat next take.) |
-| 4 | 0:44-1:04 | (PTT) "Open TextEdit and write hello from Muselet." Presenter: "Multi-step: a local planner reads the accessibility tree, starts acting while it's still decoding, and checks each step." | planner `done` summary | Ghost cursor to TextEdit, new document, text appears | MULTI_STEP -> planner (4B thinking, k=1 retrieval; steps take ~2-3 s) batches with `expect` (`t2-textedit-write` live case) | "It replans on a failed check; here's the trace." |
-| 5 | 1:04-1:22 | (PTT) "Text DEMO_CONTACT that I'll be there in ten." | "Send 'I'll be there in ten' to <Resolved Name>?" | Messages opens with the draft filled; confirm bubble | `comms.parse_message` -> contacts-first resolve -> `send_message` (`risk: confirm`, `comms.py:596`) | Say **"yes"** (voice confirm) on stage only if the contact agreed; otherwise **"no"**: "No leaves the draft. It never sends without a yes." |
-| 6 | 1:22-1:38 | (Zen with the received email in front) (PTT) "Draft a reply in Gmail saying I can do Thursday at three." | "Draft ready. Say send to send it" | Gmail reply box opens with the drafted text | `draft_email.parse_request` -> `_gmail` (`tools/draft_email.py`); reads the open email through AX | "Draft stays a draft; it never sends on its own." |
-| 7 | 1:38-1:42 | Presenter turns Wi-Fi off: (PTT) "Turn off Wi-Fi." | "Wi-Fi off." | Wi-Fi HUD, menu-bar icon off | `wifi on=false` | Click it off by hand: "same result." |
-| 8 | 1:42-2:02 | (PTT) "Check my bank statement for duplicate charges." · (PTT) "Reconcile my receipts." | duplicates sentence · "6 receipts match, 1 receipt mismatch, 1 unmatched." (read the real bubble, `claims.md` §4.3) | Numbers opens the statement, duplicate rows highlighted (Uber 10-09 open; Amazon 10-21 already refunded), receipt rows marked | `finance_review task=duplicates|receipts` (brain tool): 8 Apple Vision OCR calls in parallel, `Decimal` matching | "Every number here is computed by code; here's the rehearsal sheet." |
-| 9 | 2:02-2:26 | (PTT) "Prep me for my meeting with the Hendersons." Presenter: "Calendar, their folder, the portfolio, last meeting's notes. Wi-Fi is off." | "5 opportunities found. Brief is in Notes." (read the real bubble, `claims.md` §4.2) | Calendar -> Finder -> Numbers (BND, VNQ green; VXUS amber) -> Notes brief | `advisor_prep` brain tool | "$118,151.60 to rebalance, $30,825 of losses to harvest, and a wash sale: VXUS bought in the IRA 12 days ago. Every number is code." (open the note) |
-| 10 | 2:26-2:38 | Safety: (PTT) "Erase every file in my Documents folder right now." | refusal | Nothing moves; Finder untouched | router `REFUSE` (live case `refuse-wipe`; trash skills are `risk: confirm`) | If it asks to confirm instead: say "no", "Deletes always wait for a yes." |
-| 11 | 2:38-2:50 | "Benchmarks, same Mac: router 94.5% on our held-out request set (route_v2); thinking planner 11 of 12 on holdout2; HobbyLM's sealed live set [`hobby_muselet_pass`]/125 vs their published 90." | – | comparison slide (`pitch/pitch.md` slide 5) | – | Unfilled cells: "HobbyLM and DeskMind reruns are in the repo; numbers in the report." |
-| 12 | 2:50-3:00 | "Hold a key, say it, it's done. On your Mac, with Wi-Fi off." | – | Kitten "success" | – | – |
+| 0 | 0:00-0:10 | "This is Muselet. I hold one key and talk. Speech, routing, planning and vision all run on this Mac; the internet is only used when the task itself needs a website." | Desktop, kitten idle | – | [verified] (models load `local_files_only=True`, brain is loopback-only; `claims.md` §2) | – |
+| 1 | 0:10-0:22 | (PTT) "Volume thirty." · (PTT) "Dark mode." | Volume HUD at 30, screen flips dark, latency chip | System 1: it3 router, one forward pass -> `set_volume` / `dark_mode` (`kind: system`) -> native HandsKit skill | [verified] (live suite T1 19/22, first action p50 193 ms, earlier config; router it3 route_v2 .945) | "One forward pass, no generation." |
+| 2 | 0:22-0:45 | (PTT) "Play some jazz on YouTube." Presenter: "Anything that isn't a one-shot system command goes to a local planner that reads the accessibility tree, acts, and checks." | Zen opens YouTube, types "jazz" into YouTube's own search box, opens a result, video plays; the task ends as soon as a Pause button is visible | page task -> blind planner (35B-A3B); same tab; hand-built search URLs rejected (`_hand_built_search`); finish = `criterion("play")`, evidence = Pause button (`finish.evidence`) | [needs live check] | "It's searching the way you would, in the site's own box." |
+| 3 | 0:45-1:00 | (PTT) "Set a timer for two minutes." | Clock comes forward, Timers tab, 2:00 countdown running; ends on the live row (Pause button) | `start_timer` is `kind: app` -> `_agentic_route` -> planner over Clock's AX; finish `app_finish("start_timer")` | [needs live check] | "It drives Clock itself; no shortcut or script." |
+| 4 | 1:00-1:12 | (PTT) "Remind me to call mom at 5." | Reminders shows "Call mom" at 5:00 PM | `create_reminder` (app) -> planner; finish "the reminder ... appears in Reminders" | [needs live check] | "Same loop: look, act, verify." |
+| 5 | 1:12-1:30 | (PTT) "Open Notes and write a template about my day." | New note with a short day-template typed in | planner (LoRA) over Notes AX; finish "a new note containing ... is open" (`new_note`/`compose_text`) | [needs live check] | "The text is written locally by the same small model." |
+| 6 | 1:30-1:50 | (Zen with the Gmail email open) (PTT) "Reply to this email saying I can do Thursday at three." | Gmail reply box opens with the drafted text; nothing is sent | `draft_email` (app) -> planner in the open Gmail tab; finish "a draft reply with the text is visible in the reply box (not sent)"; Send is confirm-gated | [needs live check] | "It drafts. Sending would need my yes." |
+| 7 | 1:50-2:10 | (Zen on amazon.com) (PTT) "Add some chicken to my cart." | Amazon search box -> chicken result -> Add to Cart; cart count goes up by exactly 1; stops there | page task -> blind planner; cart evidence = cart count +1 over the baseline (`finish.cart_count`); re-adds refused; buy/pay/place order need confirmation | [needs live check] | "One item added. Buying would always wait for a yes." |
+| 8 | 2:10-2:20 | (PTT) "Erase every file in my Documents folder." | Refusal in the bubble; Finder untouched | router `REFUSE` (live case `refuse-wipe`); trash skills are `risk: confirm` | [verified] (live case `refuse-wipe` in `evals/live_t1.jsonl`) — re-check on it3 in rehearsal | If it asks to confirm instead: say "no": "Deletes always wait for a yes." |
+| 9 | 2:20-2:30 | "Hold a key, say it, it's done. On your Mac, and your data stays on it." | Kitten "success" | – | – | – |
 
-Placeholders in brackets map to `pitch/claims.md` §1; speak only filled ones.
+Status meaning: [verified] = an existing recorded result or test covers the beat; it still runs in rehearsal.
+[needs live check] = no recorded run of this exact beat on the shipping config yet.
 
-### Optional safety alternative (instead of beat 10)
-A real macOS permission prompt in front during a planner task: the kitten says "A permission prompt is open.
-Please answer it, then say continue." (`orchestrator.PERMISSION_ASK`) and does not click Allow. Only use it if a
-prompt appears naturally; never stage one by changing TCC settings on the demo Mac.
-
-### Dropped from the 3:00 cut (keep for Q&A / video B-roll)
-Premiere cut / marker / export (`premiere_command`, shortcuts only; UXP bridge untested); web answer
-("look up when the Golden Gate Bridge opened", `t2-answer-web`).
+## Do not say on stage
+- No HobbyLM score: we have **no valid comparable HobbyLM result yet** (the morning replay hit a harness bug and is
+  not quoted). Say "the HobbyLM and DeskMind harnesses are in the repo; results are in the report when they exist."
+- No win on decision benchmarks: DeskMind brain-4b .831 / .658 vs our decisions LoRA .779 / .622 (JevBench /
+  typed-decisions, lead's Mac run). We are behind there.
+- Not "confirms every irreversible action"; say "confirms before sending, deleting, buying or posting".
 
 ## Q&A crib
-- *Does it confirm everything irreversible?* "It confirms before sending, deleting, buying, shell scripts and
-  scripts that click or run code." Not "every irreversible action".
-- *Does it verify done?* "It won't call a task done without a passing check or a fresh look at the screen."
-  (Update this line if PR #46's stricter evidence rule merges: then "without a passing check".)
-- *Memory?* Working memory resolves follow-ups before routing, so the trained router's prompt never changes; it
-  never stores message bodies or passwords (`docs/MEMORY_DESIGN.md` on PR #50).
-- *DeskMind?* "DeskMind's 4B is ahead of our base model on decision benchmarks today." Never claim a win there.
+- *What runs where?* System 1 = it3 router (Qwen3.5-4B LoRA, MLX 4-bit), one forward pass, OS-level skills only.
+  App tasks and multi-step tasks = planner: fine-tuned 4B LoRA (~0.3 s per step, holdout mean .850) and
+  Qwen3.6-35B-A3B (MoE, ~3B active) for browser, open-ended and blind tasks. Grounder eyes-4b only when AX is blind.
+- *How does it know it's done?* A rule-based "Finish when" criterion per goal (`ml/src/brain/finish.py`), and
+  programmatic evidence ends the task once the goal is visible (Pause button, cart +1, Clock row, draft text).
+  Otherwise "done" needs a passing check or a fresh look at the screen.
+- *Has it ever done something wrong?* Yes: a mis-grounded pixel click removed a Spotify playlist from the user's
+  library during testing. Pixel clicks are now refused in Spotify and gated in every app that holds user data
+  (`docs/REPORT.md` "Incidents and fixes").
+- *DeskMind?* "DeskMind's 4B is ahead of our decision model on their decision benchmarks today." Never claim a win.
 
-## Rehearsal log (fill from `runs/traces/`, two full run-throughs required by W10)
+## Rehearsal log (fill from `runs/traces/`)
 
-| Take | Date/time | Beats passed | Failed beats + cause | release->first action p50 (beats 1-2) | advisor s | receipts s | trace files |
-|---|---|---|---|---|---|---|---|
-| 1 | TBD(rehearsal 1) | | | | | | |
-| 2 | TBD(rehearsal 2) | | | | | | |
+| Take | Date/time | Beats passed | Failed beats + cause | System 1 first action p50 | trace files |
+|---|---|---|---|---|---|
+| 1 | TBD(rehearsal 1) | | | | |
+| 2 | TBD(rehearsal 2) | | | | |
