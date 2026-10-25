@@ -1,9 +1,9 @@
 {
-  "pass": 74,
-  "ts": "2026-10-25T06:26:00Z",
+  "pass": 75,
+  "ts": "2026-10-25T06:43:00Z",
   "last_reviewed": {
-    "main": "e2f7e5e",
-    "wip/local": "3f8e2f8",
+    "main": "de1070d",
+    "wip/local": "52e4b94",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -89,7 +89,10 @@
     "cloud/premiere-demo": "a1c0f04",
     "cloud/premiere-route-fix": "7769c32",
     "cloud/agentic-loop": "dc7a063",
-    "cloud/agentic-apps": "1904638"
+    "cloud/agentic-apps": "1904638",
+    "cloud/agentic-evidence": "c4703c4",
+    "cloud/app-knowhow": "fc92f6b",
+    "cloud/browser-flow": "c0421e6"
   },
-  "notes": "pass 74: agentic-apps 1904638 only merges main (finish gate, removed timer_control); --agentic-apps still defaults on, so ux-31 is unchanged. main and wip have not moved. No new findings."
+  "notes": "pass 75: main de1070d merged agentic-apps (default on; ux-31 now live) and autodone (programmatic timer/cart finish evidence). agentic-evidence c4703c4 adds good copy, 'Message is ready; press Send when you want', and sets the mascot back to idle. app-knowhow and browser-flow add planner tips and routing only, no reply text. No new findings."
 }
