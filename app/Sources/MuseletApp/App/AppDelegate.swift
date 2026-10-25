@@ -227,16 +227,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: panel actions
 
-    /// `shortcuts list` off the main thread (cached 60 s unless `refresh`).
-    private func refreshTimerBackend(refresh: Bool) {
-        let rpc = self.rpc
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let (_, result, _) = rpc.handle(method: "timer_backend", params: ["refresh": refresh])
-            let status = ClockTimerStatus(result)
-            DispatchQueue.main.async { self?.model.clockTimers = status }
-        }
-    }
-
     private func wireActions() {
         let a = AppActions.shared
         a.requestPermission = { [weak self] k in
@@ -272,20 +262,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         a.searchMemory = { [weak self] query in self?.brain.sendMemorySearch(query) }
         a.deleteMemory = { [weak self] id in self?.brain.sendMemoryDelete(id) }
         a.clearMemory = { [weak self] in self?.brain.sendMemoryClear() }
-        a.setUseClockTimers = { [weak self] on in
-            guard let self else { return }
-            TimerSettings.useClock = on
-            self.rpc.skills.clock.enabled = on
-            self.model.useClockTimers = on
-            self.model.log(.system, on ? "timers: Clock app (Accessibility or shortcut)" : "timers: Muselet")
-        }
-        a.refreshTimerBackend = { [weak self] refresh in self?.refreshTimerBackend(refresh: refresh) }
-        a.openShortcuts = { NSWorkspace.shared.open(TimerSettings.shortcutsURL) }
-        rpc.skills.clock.enabled = TimerSettings.useClock
         a.panelVisible = { [weak self] visible in
             guard let self else { return }
             if visible { self.permissionWatcher.watch(for: 3600) } else { self.permissionWatcher.stop() }
-            if visible { self.refreshTimerBackend(refresh: false) }
             self.voice.ptt.ensureEnabled()
         }
     }

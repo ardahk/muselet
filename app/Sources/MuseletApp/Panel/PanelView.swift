@@ -15,11 +15,6 @@ final class AppActions {
     var searchMemory: (String) -> Void = { _ in }
     var deleteMemory: (Int) -> Void = { _ in }
     var clearMemory: () -> Void = {}
-    /// Settings › Timers.
-    var setUseClockTimers: (Bool) -> Void = { _ in }
-    /// Re-run `timer_backend` (`refresh`: re-list shortcuts now).
-    var refreshTimerBackend: (Bool) -> Void = { _ in }
-    var openShortcuts: () -> Void = {}
 }
 
 /// Menu-bar panel = Settings, in the System Settings style: grouped Form, system

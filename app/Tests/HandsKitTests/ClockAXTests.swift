@@ -47,7 +47,6 @@ final class ClockAXFakeElement: Element {
 private final class ClockAXFixture {
     let window: ClockAXFakeElement
     let app: ClockAXFakeElement
-    let shortcuts: FakeShortcuts
     let launcher: MockLauncher
     let apps: MockApps
     let skills: Skills
@@ -57,13 +56,11 @@ private final class ClockAXFixture {
     let wheels: [ClockAXFakeElement]
     let label: ClockAXFakeElement
 
-    init(shortcuts: [String] = [ClockShortcut.start, ClockShortcut.cancel],
-         axReady: Bool = true, selected: Bool = true, settableWheels: Bool = false,
+    init(axReady: Bool = true, selected: Bool = true, settableWheels: Bool = false,
          stuckWheel: Int? = nil, addRunningOnStart: Bool = true, withPicker: Bool = true,
          initialRunning: Bool = false) {
         let window = ClockAXFakeElement("AXWindow", "Clock", x: 0, y: 0, w: 400, h: 600)
         let app = ClockAXFakeElement("AXApplication")
-        let shortcutsRunner = FakeShortcuts(installed: shortcuts)
         let launcher = MockLauncher()
         launcher.apps["clock"] = (500, false)
         let apps = MockApps(frontmost: 500, running: [
@@ -134,11 +131,9 @@ private final class ClockAXFixture {
         window.attrs.children = controls
 
         var hooks = SystemHooks.inert
-        hooks.shortcuts = shortcutsRunner
         hooks.clockAXReady = { axReady }
         self.window = window
         self.app = app
-        self.shortcuts = shortcutsRunner
         self.launcher = launcher
         self.apps = apps
         self.tab = tab
@@ -222,10 +217,8 @@ final class ClockAXPureTests: XCTestCase {
     }
 
     func testBackendSelection() {
-        XCTAssertEqual(ClockAX.backend(enabled: false, axReady: true, shortcutReady: true), "muselet")
-        XCTAssertEqual(ClockAX.backend(enabled: true, axReady: true, shortcutReady: true), "clock_ax")
-        XCTAssertEqual(ClockAX.backend(enabled: true, axReady: false, shortcutReady: true), "clock")
-        XCTAssertEqual(ClockAX.backend(enabled: true, axReady: false, shortcutReady: false), "muselet")
+        XCTAssertEqual(ClockAX.backend(axReady: true), "clock_ax")
+        XCTAssertEqual(ClockAX.backend(axReady: false), "muselet")
     }
 }
 
@@ -243,7 +236,6 @@ final class ClockAXDriverTests: XCTestCase {
         XCTAssertEqual(value["label_set"] as? Bool, true)
         XCTAssertEqual(f.label.attrs.value as? String, "Tea")
         XCTAssertEqual(f.skills.timerList().first?["backend"] as? String, "clock_ax")
-        XCTAssertTrue(f.shortcuts.runs.isEmpty)
         XCTAssertEqual(f.apps.frontmostPid(), 500)
     }
 
@@ -265,22 +257,16 @@ final class ClockAXDriverTests: XCTestCase {
         XCTAssertEqual(f.tab.actions, [kAXPressAction as String])
     }
 
-    func testWheelFailureFallsBackToShortcutThenMuselet() {
-        let withShortcut = ClockAXFixture(stuckWheel: 2)
-        defer { _ = withShortcut.skills.timers.cancel(id: nil) }
-        let first = withShortcut.skills.execute(name: "start_timer", args: ["duration": 90])
-        let firstResult = first["result"] as? [String: Any] ?? [:]
-        XCTAssertEqual(firstResult["backend"] as? String, "clock")
-        XCTAssertEqual(firstResult["clock_ax_reason"] as? String, "wheel_m_stuck")
-        XCTAssertEqual(withShortcut.shortcuts.runs.map(\.name), [ClockShortcut.start])
-
-        let noShortcut = ClockAXFixture(shortcuts: [], stuckWheel: 2)
-        defer { _ = noShortcut.skills.timers.cancel(id: nil) }
-        let second = noShortcut.skills.execute(name: "start_timer", args: ["duration": 90])
-        let secondResult = second["result"] as? [String: Any] ?? [:]
-        XCTAssertEqual(secondResult["backend"] as? String, "muselet")
-        XCTAssertEqual(secondResult["fallback_reason"] as? String, "shortcut_missing")
-        XCTAssertEqual(secondResult["clock_ax_reason"] as? String, "wheel_m_stuck")
+    func testWheelFailureFallsBackToMuseletSilently() {
+        let f = ClockAXFixture(stuckWheel: 2)
+        defer { _ = f.skills.timers.cancel(id: nil) }
+        let result = f.skills.execute(name: "start_timer", args: ["duration": 90])
+        let value = result["result"] as? [String: Any] ?? [:]
+        XCTAssertEqual(result["ok"] as? Bool, true, "\(result)")
+        XCTAssertEqual(value["backend"] as? String, "muselet")
+        XCTAssertEqual(value["fallback_reason"] as? String, "wheel_m_stuck")
+        XCTAssertEqual(value["clock_ax_reason"] as? String, "wheel_m_stuck")
+        XCTAssertEqual(f.skills.timerList().first?["backend"] as? String, "muselet")
     }
 
     func testNoFallbackAfterStartPressEvenWhenUnverified() {
@@ -292,36 +278,28 @@ final class ClockAXDriverTests: XCTestCase {
         XCTAssertEqual(value["verified"] as? Bool, false)
         XCTAssertNil(value["clock_ax_reason"])
         XCTAssertEqual(f.start.actions, [kAXPressAction as String])
-        XCTAssertTrue(f.shortcuts.runs.isEmpty)
     }
 
-    func testReadinessAndToggleOffDoNotLaunchClock() {
+    func testUnavailableAXDoesNotLaunchClock() {
         let unavailable = ClockAXFixture(axReady: false)
         var launches = 0
         unavailable.launcher.onOpenApp = { _ in launches += 1 }
         defer { _ = unavailable.skills.timers.cancel(id: nil) }
         let result = unavailable.skills.execute(name: "start_timer", args: ["duration": 90])
-        XCTAssertEqual((result["result"] as? [String: Any])?["clock_ax_reason"] as? String,
-                       "clock_ax_unavailable")
-        XCTAssertEqual(launches, 0)
-
-        let disabled = ClockAXFixture()
-        disabled.skills.clock.enabled = false
-        disabled.launcher.onOpenApp = { _ in launches += 1 }
-        defer { _ = disabled.skills.timers.cancel(id: nil) }
-        let off = disabled.skills.execute(name: "start_timer", args: ["duration": 90])
-        XCTAssertEqual((off["result"] as? [String: Any])?["fallback_reason"] as? String, "clock_off")
+        let value = result["result"] as? [String: Any] ?? [:]
+        XCTAssertEqual(value["backend"] as? String, "muselet")
+        XCTAssertEqual(value["clock_ax_reason"] as? String, "clock_ax_unavailable")
         XCTAssertEqual(launches, 0)
     }
 
     func testClockAXCancelAndUnsupportedReason() {
-        let f = ClockAXFixture(shortcuts: [], initialRunning: true)
+        let f = ClockAXFixture(initialRunning: true)
         let record = f.skills.timers.start(seconds: 90, label: "Tea", backend: "clock_ax") { _ in }
         let cancelled = f.skills.cancelTimersDetailed(id: record.id)
         XCTAssertEqual(cancelled.cancelled.count, 1)
         XCTAssertEqual(f.skills.pendingTimers, 0)
 
-        let noMatch = ClockAXFixture(shortcuts: [])
+        let noMatch = ClockAXFixture()
         let pending = noMatch.skills.timers.start(seconds: 90, label: "Missing", backend: "clock_ax") { _ in }
         let rpc = RPCHandler(skills: noMatch.skills, warmUp: false)
         let (ok, response, error) = rpc.handle(method: "timers_cancel", params: ["id": pending.id])
@@ -354,8 +332,6 @@ final class ClockAXDriverTests: XCTestCase {
         let backend = rpc.handle(method: "timer_backend", params: [:]).1 as? [String: Any] ?? [:]
         XCTAssertEqual(backend["clock_ax_ready"] as? Bool, true)
         XCTAssertEqual(backend["backend"] as? String, "clock_ax")
-        f.skills.clock.enabled = false
-        let disabled = rpc.handle(method: "timer_backend", params: [:]).1 as? [String: Any] ?? [:]
-        XCTAssertEqual(disabled["backend"] as? String, "muselet")
+        XCTAssertEqual(Set(backend.keys), ["clock_ax_ready", "backend"])
     }
 }
