@@ -1,4 +1,4 @@
-# planner lane — pass 55 (main e4594d9, wip fc5d595)
+# planner lane — pass 56 (main 9be963d, wip 4d22445)
 
 Open P0: none.
 
@@ -25,6 +25,10 @@ Highest-leverage next moves:
 - W9 is merged (planner-30/24 fixed). Next, narrow `\[` to JXA computed keys and drop `\\`, `set .* to` and `format` for Numbers reads (planner-37, planner-15), or the demo-3 planner path will ask for confirmation on reads.
 - brain-9 is on main: pick the browser from 'in/using X' context, not the first mention (planner-41).
 - Add `view` to open_folder in catalog.json and to the prompt example (planner-32). Fix rule 14 to say `expect focused #<ref>` (planner-31).
+
+Pass 56 notes:
+- main 9be963d: memory rules phase 2 (#72: refinement/correction/again/undo/item rules, tune .70 -> .96), the memory-hotfix rules, a hands proxy fix and docs-demo-3. The lane diff is memory/{__init__,detect,rules}.py only; there are no planner/orchestrator/DSL/prompt/catalog changes. The rewrites still go through the IRREVERSIBLE guard. I did not do a deep rules review this pass (memory lane).
+- No open finding changed: self_verified is still on main (planner-40), and planner-44/45 are still open.
 
 Pass 55 notes:
 - main e4594d9 has harness and live-case fixes only (live_t2 reads the URL from Zen too). memory-hotfix and memory-rules2 change memory rules and guards only; neither touches the planner, orchestrator, DSL, prompt, catalog or HandsKit act/expect.
