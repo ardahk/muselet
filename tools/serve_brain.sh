@@ -32,7 +32,7 @@
 #   verify-done = done needs a passing expect or a model check on a fresh observation; VERIFY_DONE=off restores the old rule
 #   fallback = a recoverable skill/brain-tool failure hands the goal once to the planner with the failure as Last batch (FALLBACK_PLANNER=0 restores the error bubble); PLANNER_CONTEXT=1 adds ctx app/window/url + a screen summary (OCR when AX is thin) to the planner's first turn
 #   open-ended = APP_HINTS/OPEN_ENDED route free-form asks to the planner's open-ended path
-# Usage: PORT=... ROUTER=... ARGS_MODEL=... PLANNER=... FEWSHOT=... PLANNER_AUX=... TAU=... RETRIEVAL_K=... THINK=... THINK_ON=... THINK_SAMPLER=... APP_HINTS=... OPEN_ENDED=... ESCALATE=... VERIFY_DONE=... FALLBACK_PLANNER=... PLANNER_CONTEXT=... MEMORY=... MEMORY_LLM=... LONGTERM=... tools/serve_brain.sh [extra brain serve flags]
+# Usage: PORT=... ROUTER=... ARGS_MODEL=... PLANNER=... FEWSHOT=... PLANNER_AUX=... TAU=... RETRIEVAL_K=... THINK=... THINK_ON=... THINK_SAMPLER=... APP_HINTS=... OPEN_ENDED=... ESCALATE=... VERIFY_DONE=... FALLBACK_PLANNER=... PLANNER_CONTEXT=... PLANNER_MODE=dsl|tools MEMORY=... MEMORY_LLM=... LONGTERM=... tools/serve_brain.sh [extra brain serve flags]
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 # Brains on any port but the app's :8765 (benchmarks) get a fresh memory store per start, so test utterances never
@@ -49,6 +49,8 @@ IT2=models/route-4b-it2-mlx4
 IT3=models/route-4b-it3-mlx4
 case "${ROUTER:-}" in it2) ROUTER=$IT2 ;; it3) ROUTER=$IT3 ;; r2) ROUTER=$R2 ;; r1) ROUTER=$R1 ;; base) ROUTER=$BASE ;; esac
 BIG=mlx-community/Qwen3.6-35B-A3B-4bit
+# PLANNER_MODE=tools: native tool calling (one call per turn) for the blind planner, and for the main planner when PLANNER=35b
+planner_mode=${PLANNER_MODE:-dsl}; main_mode=dsl; [ "${PLANNER:-}" = "35b" ] && main_mode=$planner_mode
 case "${PLANNER:-}" in lora) PLANNER=$LORA ;; base) PLANNER=$BASE ;; 35b) PLANNER=$BIG; BLIND_PLANNER=${BLIND_PLANNER:-planner}; export MUSELET_OBS_NODES=${MUSELET_OBS_NODES:-350} ;; esac
 if [ -z "${ROUTER:-}" ]; then
   if [ -f "$IT3/config.json" ]; then ROUTER=$IT3; elif [ -f "$IT2/config.json" ]; then ROUTER=$IT2; elif [ -f "$R2/config.json" ]; then ROUTER=$R2; elif [ -f "$R1/config.json" ]; then ROUTER=$R1; else ROUTER=$BASE; fi
@@ -73,6 +75,7 @@ planner_context=${PLANNER_CONTEXT:-1}
 case "$planner_context" in 1|on) planner_context=on ;; 0|off) planner_context=off ;; esac
 args=(--port "${PORT:-8765}" --model "$ROUTER" --tau "$TAU" --args-model "$ARGS_MODEL"
       --planner-model "$PLANNER" --planner-fewshot "$FEWSHOT"
+      --planner-mode "$main_mode" --planner-blind-mode "$planner_mode"
       --planner-aux-model "${PLANNER_AUX:-$BASE}"
       --planner-retrieval-k "${RETRIEVAL_K:-1}"
       --planner-app-hints "$([ "${APP_HINTS:-1}" = "0" ] && echo off || echo on)"

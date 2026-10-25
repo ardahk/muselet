@@ -258,6 +258,8 @@ def catalog_desc(catalog, arg_signature, hidden=()) -> str:
 class Planner:
     """Streams DSL batches. plan() runs ON the MLX worker thread."""
 
+    mode = "dsl"
+
     def __init__(self, model_path: str, catalog, engine: DecisionEngine | None = None,
                  constrain: bool = PLANNER_CONSTRAIN_DEFAULT, done_alone: bool = True,
                  few_shot: str | None = FEWSHOT_PATH, history: str = "dsl",

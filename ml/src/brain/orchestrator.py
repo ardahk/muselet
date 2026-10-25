@@ -4130,6 +4130,9 @@ function run() {
         finish_rejected = False
         loading_strike_used = False
         self._ensure_workflows()
+        for p in {id(x): x for x in (planner, getattr(self, "planner_blind", None))}.values():
+            if callable(getattr(p, "begin_task", None)):
+                p.begin_task(keep=bool(answer))   # native-tools history: new task unless continuing after ask
 
         def update_last_evidence(action, result, verify_mode):
             nonlocal last_exp_ok, last_exp_source
@@ -4488,6 +4491,9 @@ function run() {
                 "base" if planner is getattr(self, "planner_blind", None)
                 else "escalate" if planner is self.planner_escalate
                 else "lora")
+            planner_turn["mode"] = getattr(planner, "mode", "dsl")
+            if info.get("native"):
+                planner_turn["native"] = info["native"]
             retrieved = getattr(planner, "last_retrieval", {})
             if retrieved.get("goals"):
                 planner_turn["retrieved"] = list(retrieved["goals"])
