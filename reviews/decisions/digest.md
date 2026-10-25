@@ -1,11 +1,11 @@
-# decisions — digest (pass 43)
+# decisions — digest (pass 44)
 
-Heads: main e4594d9 (harness/live only; decisions-37 P0 still live), wip fc5d595 (== main), docs-demo-3 c615c37 (unchanged; $0.84 vs $5.84). Budget: about $142.06 MTD estimated.
+Heads: main 9be963d (docs-demo-3 + memory rules merged; decisions-37 P0 still live), wip 4d22445. Budget: about $142.06 MTD estimated (main says planner LoRA $0.84; actual $5.84).
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
 1. decisions-37 P0 LIVE on main: inline() lacks temperature attrs -> planner done-verifier always errors, verify silently off — ml/src/brain/generic_decide.py:177-190@e9fb42d
-2. decisions-38 P1 it3 now default (tau .50) but claims.md:13 (.913 it2), :163 (tau .55), REPORT.md:12 (it2 tau .65) stale — pitch/claims.md
+2. decisions-38 P1 route claims fixed by #68 except claims.md:200 'default tau 0.55' — pitch/claims.md
 3. decisions-32 P1 Full run fails its gate; TD +.0065 vs DeskMind is within noise, test-selected — training/decisions/HANDOFF.md:7-8,82-89
 4. decisions-5 P1 4-bit MLX export has no logit parity check vs Tinker; Tinker numbers can't be carried over — training/decisions/export.py
 5. decisions-33 P1 near_miss_values makes gold the medoid (~2x chance) — training/decisions/families/core.py:29-49
