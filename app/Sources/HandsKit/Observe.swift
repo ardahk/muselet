@@ -674,7 +674,12 @@ public final class Hands {
             }
         }
         if records.count > maxNodes {
-            records = Array(records.prefix(maxNodes))
+            // keep the focused element and text inputs past the cap (e.g. a
+            // Gmail reply box at the bottom of a long thread)
+            let pinned = records.dropFirst(maxNodes).filter {
+                $0.focused || ["textarea", "textfield", "searchfield"].contains($0.role)
+            }.prefix(20)
+            records = Array(records.prefix(maxNodes)) + pinned
             truncated = true
         }
         obs.truncated = truncated
