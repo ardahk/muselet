@@ -1,9 +1,9 @@
 {
-  "pass": 72,
-  "ts": "2026-10-25T04:51:36Z",
+  "pass": 73,
+  "ts": "2026-10-25T05:06:54Z",
   "last_reviewed": {
-    "main": "82c9810",
-    "wip/local": "c156d18",
+    "main": "e425cad",
+    "wip/local": "80c871c",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -90,5 +90,5 @@
     "cloud/premiere-route-fix": "7769c32"
   },
   "next_id": 54,
-  "note": "pass 72: wip/local c156d18 only. -52 partially fixed there (fenced + relevance gate). New -53 open-ended ASK rejection."
+  "note": "pass 73: main e425cad = #86 merging wip c156d18 changes (context fence, ask guard, ClockAX). -52 resolved on main; -53 now on main. wip/local 80c871c = clean snapshot of 82c9810."
 }

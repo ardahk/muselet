@@ -1,4 +1,7 @@
-# evals-safety digest (pass 72, 2026-10-25T04:51:36Z)
+# evals-safety digest (pass 73, 2026-10-25T05:06:54Z)
+
+-52 resolved on main by #86. -53 (P2) now on main.
+
 
 New: -53 (P2) wip/local rejects any first-turn ASK on vague goals, incl. recipient asks.
 -52: fenced on wip/local c156d18; not yet on main/fallback.
