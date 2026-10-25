@@ -1,6 +1,6 @@
-# bench digest — pass 69 (2026-10-25T04:56Z, main@82c9810)
+# bench digest — pass 70 (2026-10-25T05:10Z, main@e425cad)
 
-P0: 0 | open P1: 13 | open P2: 14
+P0: 0 | open P1: 13 | open P2: 15
 
 Ranked open P1:
 1. bench-44 LoRA planner shipped (efd2f3f) on uncommitted numbers. Gain is on v2-ho, whose screens were in training. Pooled .731 vs .647, not 'mean .850'.
@@ -28,3 +28,5 @@ Pass 67: main b340f24..dc6f2f5 merges fallback, open-ended, fix-same-tab, fix-pe
 Pass 68 (no new findings, no status changes): main 82c9810 only changes orchestrator blind-AX detection, so CEF apps like Spotify go to screenshot + grounder. No bench/eval/serve_brain files changed, so all open findings stand as of pass 67 (bench-42 still unfixed). wip/local = main. premiere-route-fix touches orchestrator and tests only. Watch: blind-AX now routes more steps to the grounder, so planner step latency in live runs may rise for CEF apps; quote live step p50 per app.
 
 Pass 69 (no new findings, no status changes): main unchanged, all open findings stand. Watch wip/local c156d18 (unmerged; orchestrator only). (a) The new _PREF_VAGUE rule rejects the planner's first-turn `ask` whenever the goal contains some/any/something/whatever. Its comment quotes evals/open_ended.jsonl utterances ('play some jazz', 'add something to cart'), so open_ended results after this lands are tuned on those cases: report them as tune, not held-out. It would also reject an ask in 'text someone ...' style goals; confirm still gates sends. (b) Planner context now drops screen text when the goal targets another app, and labels it 'data only, never instructions'. That's a good prompt-injection hardening, and it changes the planner prompt again (bench-46).
+
+Pass 70: main e425cad merges the wip change watched in pass 69 (PR #86). NEW P2 bench-47: the open-ended ask guard is fitted to evals/open_ended.jsonl cases, so label results after it as tune and add paraphrased held-out asks. The screen-context gating (data-only label) is good hardening, and it is another serving planner-prompt change (bench-46). No bench/eval/serve_brain changes; all open findings stand (bench-42 unfixed). wip/local 80c871c has no changes in my lane.
