@@ -1,6 +1,6 @@
-# decisions — digest (pass 58)
+# decisions — digest (pass 59)
 
-Heads: main e425cad (#86 context gating + planner ask guard; decisions-37 P0 still live; decisions-40 redirect still ungated, 3/103 + 46/955), wip 80c871c (predates #86). Budget: about $142.06 MTD estimated.
+Heads: main e425cad unmoved (decisions-37 P0 still live; decisions-40 redirect still ungated, 3/103 + 46/955), wip 323d274 (planner_blind base model, finish.py). Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
