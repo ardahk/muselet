@@ -1,9 +1,9 @@
 {
-  "pass": 70,
-  "ts": "2026-10-25T05:25:00Z",
+  "pass": 71,
+  "ts": "2026-10-25T05:41:00Z",
   "last_reviewed": {
-    "main": "e425cad",
-    "wip/local": "323d274",
+    "main": "e8023b8",
+    "wip/local": "20055d1",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -87,7 +87,8 @@
     "cloud/open-ended": "0d687d2",
     "cloud/planner-aux": "387c3b4",
     "cloud/premiere-demo": "a1c0f04",
-    "cloud/premiere-route-fix": "7769c32"
+    "cloud/premiere-route-fix": "7769c32",
+    "cloud/agentic-loop": "9b2e512"
   },
-  "notes": "pass 70: wip 323d274 adds the blind planner (base model, few-shot, think 512 on all turns, batch cap 2) for blind/open-ended/fallback tasks; reopened ux-29 for it. finish_when criteria and the app-only-expect verification tightening help accuracy and add no copy."
+  "notes": "pass 71: main e8023b8 merged the blind planner (#87; ux-29 now on main) and blind typing for CEF apps (#88, hands lane). agentic-loop 9b2e512 adds a finish-criterion done gate. Its 'done rejected: ...' reason contains 'done', so _honest_failure drops it and uses the model-written _missing_text, and no raw text leaks (ux-28 unchanged). No new findings."
 }
