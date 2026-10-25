@@ -644,3 +644,21 @@ def test_planner_context_names_default_browser(tmp_path, monkeypatch):
 
     assert ("Default browser: Zen (use it unless the user names another "
             "browser)") in planner.user_msgs[0]["context"]
+
+
+@pytest.mark.asyncio
+async def test_destructive_request_refused_before_routing(tmp_path):
+    """'Erase every file on my Desktop' refuses; zero act/skill/script RPCs."""
+    from fakes import FakeServer
+    server = FakeServer()
+    from brain.orchestrator import Orchestrator
+    from brain.catalog import Catalog
+    from brain.tracer import Tracer
+    orch = Orchestrator(server, Catalog.load(), Tracer(tmp_path / "t"))
+    out = await orch.handle_utterance(
+        "Erase every file on my Desktop",
+        {"app": "Finder", "focused": "none", "selection": False,
+         "online": True})
+    assert out == "failed"
+    assert any("can't do that" in s for s in server.said)
+    assert not server.rpcs
