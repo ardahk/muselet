@@ -202,10 +202,16 @@ class MLXWorker:
             if item is None:
                 return
             fn, args, kwargs, fut = item
+            if not fut.set_running_or_notify_cancel():
+                continue
             try:
-                fut.set_result(fn(*args, **kwargs))
+                result = fn(*args, **kwargs)
             except BaseException as e:      # noqa: BLE001
-                fut.set_exception(e)
+                if not fut.done():
+                    fut.set_exception(e)
+            else:
+                if not fut.done():
+                    fut.set_result(result)
 
     def submit(self, fn, *args, **kwargs) -> Future:
         fut = Future()
@@ -257,6 +263,8 @@ def catalog_desc(catalog, arg_signature, hidden=()) -> str:
 
 class Planner:
     """Streams DSL batches. plan() runs ON the MLX worker thread."""
+
+    mode = "dsl"
 
     def __init__(self, model_path: str, catalog, engine: DecisionEngine | None = None,
                  constrain: bool = PLANNER_CONSTRAIN_DEFAULT, done_alone: bool = True,

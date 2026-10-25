@@ -60,6 +60,7 @@ final class MascotView: NSView {
     var zees: [CATextLayer] = []
 
     var mood: MascotMood = .idle
+    var busy = false { didSet { if busy != oldValue { refreshDots() } } }
     var breathKind = -1
     var tailKind = -1
     var lookVector = CGVector(dx: 0, dy: 0)

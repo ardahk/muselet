@@ -154,6 +154,14 @@ extension MascotView {
 
     // MARK: thinking dots
 
+    /// Thinking, or any non-listening mood while a request is in flight.
+    var showsDots: Bool { mood == .thinking || (busy && mood != .listening && mood != .sleeping) }
+
+    func refreshDots() {
+        dots.opacity = showsDots ? 1 : 0
+        if showsDots { startDots() } else { stopDots() }
+    }
+
     func startDots() {
         let now = CACurrentMediaTime()
         for (i, d) in dotLayers.enumerated() {

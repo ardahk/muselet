@@ -46,6 +46,9 @@ final class MascotController {
     private var orderOutWork: DispatchWorkItem?
     private var revertWork: DispatchWorkItem?
     private var sleepWork: DispatchWorkItem?
+    private var busyWork: DispatchWorkItem?
+    /// Safety net only: planner tasks run up to 5 minutes.
+    static let busySafety: TimeInterval = 360
     private static let originKey = "muselet.mascot.origin"
     private static let sleepAfter: TimeInterval = 300
 
@@ -83,6 +86,7 @@ final class MascotController {
         bubblePanel.orderOut(nil)
 
         model.$mood.removeDuplicates().sink { [weak self] m in self?.moodChanged(m) }.store(in: &bag)
+        model.$busy.removeDuplicates().sink { [weak self] b in self?.busyChanged(b) }.store(in: &bag)
         model.levelSubject.sink { [weak self] v in self?.view.setLevel(v) }.store(in: &bag)
         model.$pendingConfirm.sink { [weak self] c in
             self?.bubblePanel.ignoresMouseEvents = (c == nil)
@@ -164,13 +168,14 @@ final class MascotController {
     // MARK: moods
 
     private func moodChanged(_ m: MascotMood) {
+        if [.success, .confused, .idle, .sleeping].contains(m) { model.busy = false }
         view.apply(mood: m)
         revertWork?.cancel()
         let revertAfter: TimeInterval?
         switch m {
         case .success: revertAfter = 2.2
         case .confused: revertAfter = 4.5
-        case .thinking, .acting: revertAfter = 45   // safety net if the brain goes quiet
+        case .thinking, .acting: revertAfter = model.busy ? nil : 45   // busy has its own 6-min net
         default: revertAfter = nil
         }
         if let t = revertAfter {
@@ -182,6 +187,19 @@ final class MascotController {
             DispatchQueue.main.asyncAfter(deadline: .now() + t, execute: w)
         }
         scheduleSleep()
+    }
+
+    private func busyChanged(_ b: Bool) {
+        view.busy = b
+        busyWork?.cancel()
+        guard b else { return }
+        let w = DispatchWorkItem { [weak self] in
+            guard let self, self.model.busy else { return }
+            self.model.busy = false
+            if [.thinking, .acting].contains(self.model.mood) { self.model.mood = .idle }
+        }
+        busyWork = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.busySafety, execute: w)
     }
 
     /// One-shot timer (not a repeating one): fall asleep after 5 idle minutes.

@@ -73,13 +73,21 @@ def planner_opts(args) -> dict:
 
 
 def make_planner(pmodel: str, engine=None, opts: dict | None = None,
-                 tag: str = "planner", agentic_apps: bool = False):
+                 tag: str = "planner", agentic_apps: bool = False,
+                 mode: str = "dsl"):
     from .planner import Planner
     catalog = Catalog.load()
     planner_opts = dict(opts or {})
     if agentic_apps:
         planner_opts["hidden_skills"] = catalog.app_skills()
-    planner = Planner(pmodel, catalog, engine=engine, **planner_opts)
+    if mode == "tools":       # native chat-template tool calling (experiment)
+        from .native_planner import NativeToolPlanner
+        planner = NativeToolPlanner(
+            pmodel, catalog, engine=engine,
+            app_hints=bool(planner_opts.get("app_hints")),
+            hidden_skills=planner_opts.get("hidden_skills", ()))
+    else:
+        planner = Planner(pmodel, catalog, engine=engine, **planner_opts)
     if tag == "planner-aux":
         print(f"[{tag}] {pmodel} (separate)", flush=True)
     else:
@@ -105,6 +113,10 @@ ESCALATE_OPTS = {"constrain": False, "few_shot": "prompts/planner_fewshot.md",
                  "history": "dsl"}
 
 
+def _mode_kw(mode: str | None) -> dict:
+    return {"mode": mode} if mode and mode != "dsl" else {}
+
+
 async def serve(port: int = 8765, model: str | None = None,
                 planner_model: str | None = None,
                 planner_kw: dict | None = None,
@@ -120,7 +132,9 @@ async def serve(port: int = 8765, model: str | None = None,
                 planner_context: bool = False,
                 open_ended_route: bool = False,
                 planner_blind: str = "base",
-                agentic_apps: bool = True):
+                agentic_apps: bool = True,
+                planner_mode: str = "dsl",
+                planner_blind_mode: str | None = None):
     server = BrainServer(port=port)
     await server.start()
     engine = None
@@ -133,7 +147,8 @@ async def serve(port: int = 8765, model: str | None = None,
     pmodel = _resolve_model(planner_model)
     if pmodel:
         planner = make_planner(pmodel, engine, planner_kw,
-                               agentic_apps=agentic_apps)
+                               agentic_apps=agentic_apps, **_mode_kw(planner_mode))
+    blind_mode = _mode_kw(planner_blind_mode or planner_mode)
     orch = Orchestrator(server, Catalog.load(), Tracer(), engine=engine,
                         open_ended_route=open_ended_route)
     orch.agentic_apps = agentic_apps
@@ -166,7 +181,7 @@ async def serve(port: int = 8765, model: str | None = None,
             {**ESCALATE_OPTS, "retrieval_k": 1, "retrieval_bank": "v2-tune",
              "app_hints": bool((planner_kw or {}).get("app_hints")),
              "think_budget": 512, "think_on": "all", "think_sampler": "qwen"},
-            tag="planner-blind", agentic_apps=agentic_apps)
+            tag="planner-blind", agentic_apps=agentic_apps, **blind_mode)
         orch._schedule_warm_planner(orch.planner_blind, "planner-blind")
         print(f"[planner-blind] {orch.planner_blind.model_path} "
               f"(escalate)", flush=True)
@@ -183,7 +198,7 @@ async def serve(port: int = 8765, model: str | None = None,
                 {"few_shot": "prompts/planner_fewshot.md", "retrieval_k": 1,
                  "retrieval_bank": "v2-tune", "think_budget": 512,
                  "think_on": "all", "think_sampler": "qwen"},
-                tag="planner-blind", agentic_apps=agentic_apps)
+                tag="planner-blind", agentic_apps=agentic_apps, **blind_mode)
             print(f"[planner-blind] {blind_path} (base-config, "
                   f"shared weights)", flush=True)
     orch.memory_enabled = memory_enabled
@@ -426,6 +441,11 @@ def build_parser(argv=None):
                    default="base",
                    help="planner for blind/open-ended tasks: base = aux model "
                         "with few-shot + think 512; planner = shipped planner")
+    s.add_argument("--planner-mode", choices=("dsl", "tools"), default="dsl",
+                   help="main planner output: dsl = constrained DSL batches; tools = native "
+                        "chat-template tool calls, one per turn (experiment)")
+    s.add_argument("--planner-blind-mode", choices=("dsl", "tools"), default=None,
+                   help="blind/open-ended planner output (default: --planner-mode)")
     s.add_argument("--planner-constrain", action=argparse.BooleanOptionalAction,
                    default=None, help="line-start DSL op constraint "
                    "(default: planner.PLANNER_CONSTRAIN_DEFAULT)")
@@ -496,7 +516,9 @@ def run_cmd(args, ap):
             planner_context=args.planner_context == "on",
             open_ended_route=args.open_ended_route == "on",
             planner_blind=args.planner_blind,
-            agentic_apps=args.agentic_apps == "on", **memory_kw))
+            agentic_apps=args.agentic_apps == "on",
+            planner_mode=args.planner_mode,
+            planner_blind_mode=args.planner_blind_mode, **memory_kw))
     elif args.cmd == "eval-route":
         eval_route(args.model, args.cases, args.out,
                    tau=getattr(args, "tau", 0.55), args_model=args.args_model)
