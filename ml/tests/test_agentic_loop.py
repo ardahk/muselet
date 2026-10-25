@@ -368,3 +368,30 @@ def test_play_music_on_youtube_from_devin_never_opens_spotify(tmp_path):
     sent = json.dumps(server.rpcs).lower()
     assert "spotify" not in sent
     assert "youtube.com/results" in sent
+
+
+# Spotify: never grounded/pixel clicks (a grounded click removed a playlist)
+
+def test_spotify_prompts_never_suggest_clicks():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2] / "prompts"
+    hint = next(json.loads(line) for line in
+                (root / "app_hints.jsonl").read_text().splitlines()
+                if line.strip() and json.loads(line)["id"] == "spotify")
+    for tip in hint["tips"]:
+        assert "click \"" not in tip and "click #" not in tip
+    for block in (root / "planner_fewshot.md").read_text().split("\n\n"):
+        if "spotify" in block.lower():
+            assert not any(line.lstrip("[ok] ").startswith("click")
+                           for line in block.splitlines()), block
+
+
+def test_grounded_click_refused_in_spotify():
+    server = FakeServer()
+    orch = _orch(server, FakePlanner([['done "x"']]))
+    orch._last_obs = {"app": "Spotify", "window": "Spotify"}
+    orch.grounder_cfg = {"max_pixels": 1}
+    r = run(orch._exec_action({"op": "click",
+                               "target": "green Play button of the top result"}))
+    assert r["status"] == "failed" and "Spotify" in r["error"]
+    assert not [c for c in server.rpcs if c[0] in ("screenshot", "act")]
