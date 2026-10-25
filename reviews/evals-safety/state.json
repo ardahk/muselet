@@ -1,9 +1,9 @@
 {
-  "pass": 68,
-  "ts": "2026-10-25T03:50:25Z",
+  "pass": 69,
+  "ts": "2026-10-25T04:05:38Z",
   "last_reviewed": {
-    "main": "4150ecb",
-    "wip/local": "b7b7840",
+    "main": "b340f24",
+    "wip/local": "94f6fe9",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -83,8 +83,10 @@
     "cloud/fix-pending": "dba9094",
     "cloud/hands-clock-verify": "a4d6463",
     "cloud/test-strategy": "96c96d2",
-    "cloud/fix-same-tab": "065e65f"
+    "cloud/fix-same-tab": "065e65f",
+    "cloud/open-ended": "fd87f69",
+    "cloud/planner-aux": "387c3b4"
   },
   "next_id": 53,
-  "note": "pass 68: fallback 2ef5805 -> new -52; test-strategy adds evals/acceptance.jsonl + evals/replay/user_2026-10-24.jsonl outside decontam (-46 updated). fix-same-tab orchestrator-only, not deep-reviewed."
+  "note": "pass 69: main b340f24 ships LoRA planner (THINK=0, k=1) scored on v1-ho/v1-ho2/v2-ho .857/1.000/.692 by pre-registered rule -> -45,-47 resolved. acceptance+replay on main, still outside decontam (-46). fallback not merged; -52 open. open-ended touches planner_offline.py, not deep-reviewed."
 }
