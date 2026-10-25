@@ -199,3 +199,11 @@ def test_bare_site_titles_are_loading_and_repoll(tmp_path):
     assert run(orch._planner_loop(trace["utterance"], trace)) == "ok"
     assert state["verifies"] == 2
     assert not any("loop_guard" in d for d in trace["decisions"])
+
+
+def test_style_about_is_composed_literal_about_is_typed():
+    funny = hint("draft_email", {"about": "is funny", "reply": "true"})
+    assert "type exactly" not in funny and "your own words (funny)" in funny
+    assert content({"about": "something funny"}) is None
+    literal = hint("draft_email", {"about": "I can do Thursday at three"})
+    assert 'type exactly: "I can do Thursday at three"' in literal
