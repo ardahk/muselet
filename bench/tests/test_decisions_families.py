@@ -167,10 +167,37 @@ def test_question_count_draw_is_uniform_and_separate_from_answer_generation():
     assert abs(correlation) < 0.15
 
 
-def test_paraphrase_verbatim_checker_rejects_changed_numbers_and_preserves_names():
-    original = "Request from Avery Chen: invoice INV-4207 is due on 2026-04-15 for $125.00."
-    assert validate_paraphrase(original, "Avery Chen sent invoice INV-4207 for $125.00, due 2026-04-15.")
-    assert not validate_paraphrase(original, "Avery Chen sent invoice INV-4207 for $150.00, due 2026-04-15.")
+def test_paraphrase_preserves_numbers_dates_names_identifiers_and_conditions():
+    original = (
+        "Mina Patel filed CLM-2048 on 2026-03-10 at 09:14. The $5,000 ceiling is inclusive; "
+        "at least 3 records must be active."
+    )
+    paraphrased = (
+        "On 2026-03-10 at 09:14, Mina Patel filed CLM-2048. The $5,000 ceiling remains inclusive, "
+        "and at least 3 records must be active."
+    )
+    assert validate_paraphrase(original, paraphrased)
+
+
+def test_paraphrase_rejects_changed_date_number_name_identifier_or_condition():
+    original = (
+        "Mina Patel filed CLM-2048 on 2026-03-10. The $5,000 ceiling is inclusive; "
+        "at least 3 records must be active."
+    )
+    changed_date = (
+        "Mina Patel filed CLM-2048 on 2026-03-11. The $5,000 ceiling is inclusive; "
+        "at least 3 records must be active."
+    )
+    changed_condition = (
+        "Mina Patel filed CLM-2048 on 2026-03-10. The $5,000 ceiling is exclusive; "
+        "at least 3 records must be active."
+    )
+    assert not validate_paraphrase(original, changed_date)
+    assert not validate_paraphrase(original, changed_condition)
+    assert not validate_paraphrase(
+        "Request from Avery Chen: invoice INV-4207 is due on 2026-04-15 for $125.00.",
+        "Avery Chen sent invoice INV-4207 for $150.00, due 2026-04-15.",
+    )
 
 
 def test_author_schema_normalizes_choice_lists_booleans_and_score_levels():

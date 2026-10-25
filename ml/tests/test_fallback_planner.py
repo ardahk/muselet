@@ -541,29 +541,6 @@ def test_ask_allowed_for_specific_goal(tmp_path):
     assert planner.calls == 1   # ask passed through, waited for user
 
 
-def test_blind_click_blocked_in_spotify(tmp_path):
-    """Safety incident replay: grounded click on a 'green Play button' in a
-    chrome-only Spotify tree must be refused."""
-    from brain.orchestrator import _NO_BLIND_CLICK_APPS, normalize_name
-    utterance = "play some jazz on spotify"
-    planner = FakePlanner([
-        ['click "green Play button of the top result"'],
-        ['done "done"'],
-    ])
-    obs = _observe(
-        [{"ref": 1, "role": "button", "label": "close"},
-         {"ref": 2, "role": "button", "label": "minimise"},
-         {"ref": 3, "role": "button", "label": "zoom"}],
-        text='app: Spotify | window: "Spotify Premium"')
-    server, tracer, orch = _setup(
-        tmp_path, {utterance.lower(): ("MULTI_STEP", 0.9)},
-        planner=planner, observe=obs)
-
-    _run(orch.handle_utterance(utterance))
-
-    assert "spotify" in _NO_BLIND_CLICK_APPS
-
-
 def test_timer_control_intent(tmp_path):
     """'pause the timer' and bare 'pause it' (recent start_timer) route to
     timer_control, never media_control."""

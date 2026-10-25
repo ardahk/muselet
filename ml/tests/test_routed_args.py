@@ -1,7 +1,7 @@
-"""Regression coverage for routed live-suite argument and follow-up fixes."""
+"""Routed skill arguments: polarity, degree words and vague deltas,
+absolute levels, spoken paths (pathfind), durations, compound clauses and
+created-item follow-ups (argfix / pathfind / orchestrator coercion)."""
 
-import asyncio
-import json
 import os
 import time
 
@@ -9,23 +9,9 @@ import pytest
 
 from brain import argfix, pathfind
 from brain.catalog import Catalog
-from brain.orchestrator import Orchestrator, abs_level
+from brain.orchestrator import Orchestrator, abs_level, split_clauses
 from brain.traces import Tracer
-from fakes import FakeEngine, FakeServer
-
-
-def run(coro):
-    return asyncio.run(coro)
-
-
-def _skill_rpcs(server):
-    return [(params["name"], params["args"])
-            for method, params in server.rpcs if method == "skill"]
-
-
-def _traces(tracer):
-    return [json.loads(line) for path in tracer.dir.glob("*.jsonl")
-            for line in path.read_text().splitlines()]
+from fakes import FakeEngine, FakeServer, _skill_rpcs, _traces, run
 
 
 class ResultServer(FakeServer):
@@ -61,7 +47,7 @@ def _orch(tmp_path, routes, args=None, server=None):
     ("shut off the sound", True), ("turn off the sound", True),
     ("unmute", False), ("sound back on", False), ("sound on", False),
     ("audio is on", False), ("turn the sound back on", False),
-    ("silence, the speakers!", True),
+    ("silence, the speakers!", True), ("unmute, I'm on a call", False),
 ])
 def test_mute_polarity_lexicon(text, want):
     assert argfix.polarity("mute", text) is want
@@ -86,6 +72,8 @@ def test_dark_mode_polarity_lexicon(text, want):
     ("turn wifi off and then on", True), ("wifi off", False),
     ("disable wifi", False), ("turn off wifi", False),
     ("disconnect wifi", False),
+    # route_v1 regression after brain-5: kill/cut mean off
+    ("kill bluetooth", False), ("cut the wifi", False),
 ])
 def test_network_polarity_lexicon(skill, text, want):
     assert argfix.polarity(skill, text) is want
@@ -147,6 +135,17 @@ def test_bare_not_does_not_negate_unmute_command(tmp_path):
     assert o._slot is None
 
 
+def test_bool_on_conflicting_network_phrases_keep_model_value(tmp_path):
+    o, _ = _orch(tmp_path, {})
+    assert o._coerce_args(
+        "wifi", {"on": False}, utterance="turn wifi on, it's off") == {
+            "on": False}
+
+
+def test_bool_on_no_cue_keeps_model_value(tmp_path):
+    o, _ = _orch(tmp_path, {})
+    assert o._coerce_args("mute", {"on": True}, utterance="shh") == {"on": True}
+
 @pytest.mark.parametrize("text,skill,args,want_name,want_args", [
     ("turn it down a little", "change_volume", {}, "change_volume",
      {"delta": -10}),
@@ -171,14 +170,6 @@ def test_vague_delta_and_absolute_level(tmp_path, text, skill, args,
     assert _skill_rpcs(o.server) == [(want_name, want_args)]
 
 
-def test_model_delta_keeps_its_sign_without_degree_word(tmp_path):
-    text = "make it louder"
-    o, _ = _orch(tmp_path, {text: ("change_volume", 0.95)},
-                 {("change_volume", text): {"delta": 5}})
-    run(o.handle_utterance(text))
-    assert _skill_rpcs(o.server) == [("change_volume", {"delta": 5})]
-
-
 def test_abs_level_relative_guard_and_words():
     assert abs_level("turn it up by 20") is None
     assert abs_level("all the way up") == 100
@@ -189,6 +180,99 @@ def test_abs_level_relative_guard_and_words():
     assert abs_level("min") == 0
     assert abs_level("minimum") == 0
 
+
+@pytest.mark.parametrize("text,want", [
+    ("turn the volume down to twenty", 20),
+    ("turn it up to 30 percent", 30),
+    ("set it at half", 50),
+    ("crank it to the max", 100),
+    ("bring it down to twenty five", 25),
+    ("volume to 70%", 70),
+    ("turn it down a bit", None),
+    ("turn it up by 20", None),
+    ("louder so I can listen to music", None),
+    ("turn it down to 200", None),
+])
+def test_abs_level(text, want):
+    assert abs_level(text) == want
+
+
+def test_change_volume_with_absolute_target_becomes_set_volume(tmp_path):
+    srv = FakeServer()
+    eng = FakeEngine(
+        routes={"turn the volume down to twenty": ("change_volume", 0.9)},
+        argmap={("change_volume", "turn the volume down to twenty"):
+                {"delta": "-20"}})
+    o = Orchestrator(srv, Catalog.load(), Tracer(tmp_path / "t"), engine=eng)
+    run(o.handle_utterance("turn the volume down to twenty"))
+    assert _skill_rpcs(srv) == [("set_volume", {"level": 20})]
+    assert srv.said[-1] == "Volume 20"
+
+
+# ---------- degree words beat a small model delta (brain-8) ----------
+
+@pytest.mark.parametrize("text,skill,model,want", [
+    ("make it way louder", "change_volume", {"delta": 10}, {"delta": 30}),
+    ("make it way louder", "change_volume", {"delta": -5}, {"delta": 30}),
+    ("make it a little louder", "change_volume", {"delta": 30},
+     {"delta": 10}),
+    ("make it much quieter", "change_volume", {"delta": -10},
+     {"delta": -30}),
+    ("turn it down a touch", "change_volume", {"delta": -30},
+     {"delta": -10}),
+    ("make it louder by 10", "change_volume", {"delta": 10}, {"delta": 10}),
+    ("make it louder by 10", "change_volume", {"delta": 30}, {"delta": 10}),
+    ("make it louder", "change_volume", {"delta": 20}, {"delta": 20}),
+    ("make the screen way brighter", "set_brightness", {"level": 10},
+     {"delta": 30}),
+    ("make the screen a little dimmer", "set_brightness", {"delta": -30},
+     {"delta": -10}),
+    ("make the screen brighter by 10", "set_brightness", {},
+     {"delta": 10}),
+    ("set the volume to 30", "set_volume", {"level": 30}, {"level": 30}),
+    # relative asks with no number must not take a model-made absolute level (it dimmed the screen)
+    ("push the brightness up please", "set_brightness", {"level": 15}, {"delta": 10}),
+    ("the screen needs more light", "set_brightness", {"level": 15}, {"delta": 10}),
+    ("can you brighten the display", "set_brightness", {"level": 15}, {"delta": 10}),
+    ("set brightness to 15", "set_brightness", {"level": 15}, {"level": 15}),
+])
+def test_degree_words_override_model_delta(tmp_path, text, skill, model,
+                                           want):
+    o, _ = _orch(tmp_path, {text: (skill, 0.95)},
+                 {(skill, text): model})
+    run(o.handle_utterance(text))
+    assert _skill_rpcs(o.server) == [(skill, want)]
+
+
+def test_degree_delta_lexicon():
+    assert argfix.degree_delta("way louder") == 30
+    assert argfix.degree_delta("a bit quieter") == -10
+    assert argfix.degree_delta("louder") is None          # no degree word
+    assert argfix.degree_delta("a little louder, a lot") is None
+
+
+def test_rejected_brightness_delta_fails_without_asking(tmp_path):
+    async def scenario():
+        class RejectingServer(FakeServer):
+            async def rpc(self, method, params, timeout=30):
+                self.rpcs.append((method, params))
+                if method == "skill":
+                    return {"ok": False, "error": "delta unsupported"}
+                return {"ok": True}
+
+        rejecting = RejectingServer()
+        trace = Tracer(tmp_path / "reject")
+        failed = Orchestrator(rejecting, tracer=trace,
+                              engine=FakeEngine(default=("set_brightness", .99)))
+        result = await failed.handle_utterance("make the screen brighter")
+        assert result["outcome"] == "failed"
+        skill = next(params for method, params in rejecting.rpcs
+                     if method == "skill")
+        assert skill == {"name": "set_brightness", "args": {"delta": 10}}
+        assert rejecting.said
+        assert not any("ask" in line.casefold() for line in rejecting.said)
+        assert not rejecting.confirms
+    run(scenario())
 
 @pytest.mark.parametrize("text,view", [
     ("open my downloads as a list", "list"),
@@ -488,6 +572,228 @@ def test_resolve_entry_and_time_budget_caps_large_directory(tmp_path, monkeypatc
     assert elapsed < 0.5
 
 
+# ---------- spoken folder names -> absolute paths (brain-8) ----------
+
+HOME = "/Users/test"
+
+
+@pytest.mark.parametrize("spoken,want", [
+    ("desktop", "/Users/test/Desktop"),
+    ("my desktop", "/Users/test/Desktop"),
+    ("on my Desktop", "/Users/test/Desktop"),
+    ("the desktop folder", "/Users/test/Desktop"),
+    ("Documents", "/Users/test/Documents"),
+    ("in my documents folder", "/Users/test/Documents"),
+    ("downloads", "/Users/test/Downloads"),
+    ("into the Downloads", "/Users/test/Downloads"),
+    ("home", "/Users/test"),
+    ("my home folder", "/Users/test"),
+    ("applications", "/Applications"),
+    ("the Applications folder", "/Applications"),
+    ("pictures", "/Users/test/Pictures"),
+    ("my photos", "/Users/test/Pictures"),
+    ("movies", "/Users/test/Movies"),
+    ("videos", "/Users/test/Movies"),
+    ("music", "/Users/test/Music"),
+    ("to my music", "/Users/test/Music"),
+    ("iCloud Drive",
+     "/Users/test/Library/Mobile Documents/com~apple~CloudDocs"),
+    ("my icloud",
+     "/Users/test/Library/Mobile Documents/com~apple~CloudDocs"),
+    ("my desktop/trip photos", "/Users/test/Desktop/trip photos"),
+    ("Documents/taxes/2025", "/Users/test/Documents/taxes/2025"),
+])
+def test_well_known_folder_mappings(spoken, want):
+    path, how = pathfind.absolute(spoken, home=HOME)
+    assert (path, how) == (want, "alias")
+    assert os.path.isabs(path)
+
+
+def test_absolute_and_tilde_paths_pass_through(tmp_path):
+    assert pathfind.absolute("/Volumes/Data/x", home=HOME) == \
+        ("/Volumes/Data/x", "absolute")
+    assert pathfind.absolute("~/Desktop/a b", home=HOME) == \
+        ("~/Desktop/a b", "tilde")
+
+
+def test_relative_resolves_under_home_only_when_it_exists(tmp_path):
+    (tmp_path / "Projects" / "muselet").mkdir(parents=True)
+    assert pathfind.absolute("Projects/missing", home=str(tmp_path)) == \
+        (None, "unresolved")             # doesn't exist
+    assert pathfind.absolute("Projects/muselet", home=str(tmp_path)) == \
+        (str(tmp_path / "Projects" / "muselet"), "home")
+    assert pathfind.absolute("my zork stuff", home=str(tmp_path)) == \
+        (None, "unresolved")
+
+
+@pytest.fixture
+def home(tmp_path, monkeypatch):
+    h = tmp_path / "home"
+    for d in ("Desktop", "Documents", "Downloads"):
+        (h / d).mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(h))
+    return h
+
+
+def test_new_folder_on_my_desktop_gets_absolute_parent(tmp_path, home):
+    text = "make a folder on my desktop called muselet invoices"
+    o, _ = _orch(tmp_path, {text: ("new_folder", 0.95)},
+                 {("new_folder", text): {"parent": "my desktop",
+                                         "name": "muselet invoices"}})
+    run(o.handle_utterance(text))
+    assert _skill_rpcs(o.server) == [
+        ("new_folder", {"parent": str(home / "Desktop"),
+                        "name": "muselet invoices"})]
+
+
+def test_unknown_relative_parent_asks_and_sends_nothing(tmp_path, home):
+    text = "make a folder in zork stuff called notes"
+    o, _ = _orch(tmp_path, {text: ("new_folder", 0.95)},
+                 {("new_folder", text): {"parent": "zork stuff",
+                                         "name": "notes"}})
+    out = run(o.handle_utterance(text))
+    assert out["outcome"] == "awaiting_user"
+    assert o.server.said[-1] == "Which folder should I use?"
+    assert _skill_rpcs(o.server) == []
+    # answering with a well-known folder finishes with an absolute parent
+    run(o.handle_utterance("my documents"))
+    assert _skill_rpcs(o.server) == [
+        ("new_folder", {"parent": str(home / "Documents"), "name": "notes"})]
+
+
+@pytest.mark.parametrize("skill,key,spoken,rest", [
+    ("open_folder", "path", "my documents folder", "Documents"),
+    ("open_folder", "path", "my desktop/trip photos", "Desktop/trip photos"),
+    ("open_file", "path", "my desktop/notes.txt", "Desktop/notes.txt"),
+    ("move_to_trash", "path", "my downloads/old.zip", "Downloads/old.zip"),
+])
+def test_path_skills_never_get_relative_paths(tmp_path, home, skill, key,
+                                              spoken, rest):
+    text = f"do {skill} {spoken}"
+    o, _ = _orch(tmp_path, {text: (skill, 0.95)},
+                 {(skill, text): {key: spoken}})
+    run(o.handle_utterance(text))
+    rpcs = _skill_rpcs(o.server)
+    assert rpcs and rpcs[0][1][key] == str(home / rest)
+
+
+def test_skill_layer_rejects_a_relative_path(tmp_path, home):
+    o, _ = _orch(tmp_path, {})
+    o._utterance = "open the zork folder"
+    out = run(o._skill({"op": "skill", "name": "open_folder",
+                        "args": {"path": "zork"}}))
+    assert out == "awaiting_user"
+    assert o.server.said[-1] == "Which folder should I use?"
+    assert _skill_rpcs(o.server) == []
+
+
+def test_find_file_scope_is_a_path_arg():
+    assert pathfind.PATH_ARGS["find_file"] == ("scope",)
+    assert pathfind.absolute("in my downloads", home=HOME)[0] == \
+        "/Users/test/Downloads"
+
+
+# ---------- compound fast path (brain-3) ----------
+
+@pytest.mark.parametrize("text,parts,joins", [
+    ("turn the volume down to twenty and switch to dark mode",
+     ["turn the volume down to twenty", "switch to dark mode"], ["and"]),
+    ("open safari and then open notes", ["open safari", "open notes"],
+     ["and then"]),
+    ("mute, then open notes", ["mute", "open notes"], ["then"]),
+    ('type "salt and pepper" in notes', ['type "salt and pepper" in notes'], []),
+    ("open safari", ["open safari"], []),
+    ("and then", ["and then"], []),
+])
+def test_split_clauses(text, parts, joins):
+    assert split_clauses(text) == (parts, joins)
+
+
+def _compound_orch(tmp_path, routes, argmap=None):
+    srv = FakeServer()
+    eng = FakeEngine(routes=routes, argmap=argmap or {})
+    return Orchestrator(srv, Catalog.load(), Tracer(tmp_path / "t"),
+                        engine=eng), srv, eng
+
+
+def test_compound_live_case(tmp_path):
+    o, srv, eng = _compound_orch(
+        tmp_path,
+        {"turn the volume down to twenty": ("change_volume", 0.9),
+         "switch to dark mode": ("dark_mode", 0.95)},
+        {("dark_mode", "switch to dark mode"): {"on": "true"}})
+    text = "turn the volume down to twenty and switch to dark mode"
+    assert run(o.handle_utterance(text))["outcome"] == "ok"
+    assert eng.route_calls == ["turn the volume down to twenty",
+                               "switch to dark mode"]
+    assert _skill_rpcs(srv) == [("set_volume", {"level": 20}),
+                                ("dark_mode", {"on": True})]
+    assert srv.said == ["Volume 20, dark mode on"]
+    assert srv.uis[-1] == "success"
+    assert _traces(o.tracer)[-1]["compound"] == 2
+
+
+def test_compound_then_allows_same_skill(tmp_path):
+    o, srv, eng = _compound_orch(
+        tmp_path, {"open safari": ("open_app", 0.9),
+                   "open notes": ("open_app", 0.9)},
+        {("open_app", "open safari"): {"app": "Safari"},
+         ("open_app", "open notes"): {"app": "Notes"}})
+    run(o.handle_utterance("open safari and then open notes"))
+    assert _skill_rpcs(srv) == [("open_app", {"app": "Safari"}),
+                                ("open_app", {"app": "Notes"})]
+    assert srv.said == ["Opened Safari, opened Notes"]
+
+
+def test_compound_not_split_search_salt_and_pepper(tmp_path):
+    o, srv, eng = _compound_orch(
+        tmp_path, {"search for salt": ("web_search", 0.9),
+                   "search for salt and pepper": ("web_search", 0.95)},
+        {("web_search", "search for salt and pepper"):
+         {"query": "salt and pepper"}})
+    run(o.handle_utterance("search for salt and pepper"))
+    assert _skill_rpcs(srv) == [("web_search", {"query": "salt and pepper"})]
+    assert eng.route_calls[-1] == "search for salt and pepper"
+    assert "compound" not in _traces(o.tracer)[-1]
+
+
+def test_compound_low_confidence_clause_falls_back(tmp_path):
+    o, srv, eng = _compound_orch(
+        tmp_path, {"mute": ("mute", 0.9), "open notes": ("open_app", 0.6),
+                   "mute and open notes": ("MULTI_STEP", 0.9)})
+    o.planner = None
+    run(o.handle_utterance("mute and open notes"))
+    assert _skill_rpcs(srv) == []
+    assert eng.route_calls == ["mute", "open notes", "mute and open notes"]
+
+
+def test_compound_special_option_falls_back_early(tmp_path):
+    o, srv, eng = _compound_orch(
+        tmp_path, {"what time is it": ("ANSWER", 0.95)})
+    run(o.handle_utterance("what time is it and then mute"))
+    assert eng.route_calls[:2] == ["what time is it",
+                                   "what time is it and then mute"]
+
+
+def test_compound_stops_at_first_failure(tmp_path):
+    o, srv, eng = _compound_orch(
+        tmp_path, {"open safari": ("open_app", 0.9), "mute": ("mute", 0.9)},
+        {("open_app", "open safari"): {"app": "Safari"},
+         ("mute", "mute"): {"on": "true"}})
+    calls = []
+    real = srv.rpc
+
+    async def rpc(method, params, timeout=30):
+        if method == "skill":
+            calls.append(params["name"])
+            return {"ok": False, "error": "app not found"}
+        return await real(method, params, timeout)
+    srv.rpc = rpc
+    assert run(o.handle_utterance("open safari then mute"))["outcome"] == \
+        "failed"
+    assert calls == ["open_app"] and srv.uis[-1] == "confused"
+
+
 def test_compound_new_folder_then_open_uses_alias_path(tmp_path):
     text = "create a folder on my desktop called trip photos and open it"
     first = "create a folder on my desktop called trip photos"
@@ -676,11 +982,3 @@ def test_datetime_argument_is_not_recovered_as_duration(tmp_path):
     assert not any("seconds or" in bubble for bubble in o.server.said)
     assert not (o._slot and "duration_number" in o._slot)
 
-
-def test_kill_and_cut_mean_off_for_network_toggles():
-    """route_v1 regression after brain-5: 'kill bluetooth' must stay on=False (the old coercion got it right)."""
-    from brain.argfix import polarity
-    assert polarity("bluetooth", "kill bluetooth") is False
-    assert polarity("wifi", "cut the wifi") is False
-    assert polarity("bluetooth", "turn bluetooth on") is True
-    assert polarity("mute", "kill the sound") is True

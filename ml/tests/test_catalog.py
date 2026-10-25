@@ -86,3 +86,12 @@ def test_duration_coercion(cat, value, want):
 def test_duration_rejects_bool(cat):
     with pytest.raises(CatalogError):
         cat.validate_args("start_timer", {"duration": True})
+
+
+def test_catalog_url_coercion():
+    cat = Catalog({"skills": [{
+        "name": "go", "args": [{"name": "url", "type": "url",
+                                  "required": True}]
+    }]})
+    assert cat.validate_args("go", {"url": "gmail"})["url"] == \
+        "https://mail.google.com"

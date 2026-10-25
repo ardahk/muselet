@@ -4,7 +4,12 @@ import Foundation
 import XCTest
 @testable import HandsKit
 
-private func clockCatalog() -> [String: SkillDef] { try! Catalog.load() }
+// Timers: start_timer through Clock AX (fake Clock app tree) or Muselet's
+// own timer, the timers / timers_cancel / timer_backend RPCs and the
+// cross-process snapshot. Hermetic: fake AX elements, mock hooks and
+// launcher; snapshots only in temp dirs.
+
+// MARK: - Clock AX fake app
 
 private enum StartEffect {
     case running
@@ -159,7 +164,7 @@ private final class ClockAXFixture {
         self.pickerCancel = pickerCancel
         self.wheels = wheels
         self.label = label
-        let skills = Skills(catalog: clockCatalog(), scripts: SpyRunner(), events: MockPoster(),
+        let skills = Skills(catalog: catalog(), scripts: SpyRunner(), events: MockPoster(),
                             apps: apps, hooks: hooks, launcher: launcher)
         self.skills = skills
         skills.axApp = { [weak app] _ in app ?? ClockAXFakeElement("AXApplication") }
@@ -170,6 +175,8 @@ private final class ClockAXFixture {
         skills.clockAXVerify = 0.02
     }
 }
+
+// MARK: - Clock AX
 
 final class ClockAXPureTests: XCTestCase {
     func testWheelValueDurationAndCountdownParsing() {
@@ -233,11 +240,6 @@ final class ClockAXPureTests: XCTestCase {
         XCTAssertEqual(matched[0]["clock_left_s"] as? Double, 100)
         XCTAssertEqual(matched[1]["clock_seen"] as? Bool, true)
         XCTAssertNil(matched[2]["clock_seen"])
-    }
-
-    func testBackendSelection() {
-        XCTAssertEqual(ClockAX.backend(axReady: true), "clock_ax")
-        XCTAssertEqual(ClockAX.backend(axReady: false), "muselet")
     }
 }
 
@@ -331,7 +333,11 @@ final class ClockAXDriverTests: XCTestCase {
         let result = unavailable.skills.execute(name: "start_timer", args: ["duration": 90])
         let value = result["result"] as? [String: Any] ?? [:]
         XCTAssertEqual(value["backend"] as? String, "muselet")
+        XCTAssertEqual(value["fallback_reason"] as? String, "clock_ax_unavailable")
         XCTAssertEqual(value["clock_ax_reason"] as? String, "clock_ax_unavailable")
+        XCTAssertEqual(value["verified"] as? Bool, false)
+        XCTAssertNotNil(value["clock_ax_steps"] as? [String])
+        XCTAssertEqual(unavailable.skills.timerList().first?["backend"] as? String, "muselet")
         XCTAssertEqual(launches, 0)
     }
 
@@ -379,67 +385,252 @@ final class ClockAXDriverTests: XCTestCase {
     }
 }
 
-final class BlindTypingTests: XCTestCase {
-    private func fakeApp(window: ClockAXFakeElement) -> ClockAXFakeElement {
-        let app = ClockAXFakeElement("AXApplication")
-        app.singles[kAXFocusedWindowAttribute as String] = window
-        return app
+// MARK: - start_timer
+
+final class TimerTests: XCTestCase {
+    func testTimerFiresThroughMocks() {
+        var sounds: [String] = []
+        var notes: [(String, String)] = []
+        var hooks = SystemHooks.inert
+        let lock = NSLock()
+        hooks.playSound = { n in lock.lock(); sounds.append(n); lock.unlock() }
+        hooks.notify = { t, b in lock.lock(); notes.append((t, b)); lock.unlock() }
+        let s = Skills(catalog: catalog(), scripts: SpyRunner(), events: MockPoster(),
+                       apps: MockApps(), hooks: hooks)
+        let d = SpyDelegate()
+        s.delegate = d
+        let fired = expectation(description: "timer fired")
+        d.onTimer = { fired.fulfill() }
+
+        let t0 = Date()
+        let r = s.execute(name: "start_timer", args: ["duration": 0.15, "label": "Tea"])
+        XCTAssertLessThan(Date().timeIntervalSince(t0), 0.1)          // returns immediately
+        XCTAssertEqual(r["ok"] as? Bool, true, "\(r)")
+        XCTAssertNotNil(r["fires_at"] as? String)
+        XCTAssertEqual(s.pendingTimers, 1)
+        wait(for: [fired], timeout: 2)
+        XCTAssertGreaterThanOrEqual(Date().timeIntervalSince(t0), 0.14)
+        lock.lock()
+        XCTAssertEqual(sounds, ["Glass"])
+        XCTAssertEqual(notes.first?.0, "Timer done")
+        XCTAssertEqual(notes.first?.1, "Tea")
+        lock.unlock()
+        XCTAssertEqual(d.timerLabels, ["Tea"])
+        let gone = expectation(description: "cleaned up")
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) { gone.fulfill() }
+        wait(for: [gone], timeout: 1)
+        XCTAssertEqual(s.pendingTimers, 0)
     }
 
-    private func chromeWindow() -> ClockAXFakeElement {
-        ClockAXFakeElement("AXWindow", "Spotify", children: [
-            ClockAXFakeElement("AXButton", "Close"),
-            ClockAXFakeElement("AXButton", "Minimize"),
-            ClockAXFakeElement("AXButton", "this button also has an action to zoom the window"),
-        ])
+    func testRejectsBadDuration() {
+        let s = Skills(catalog: catalog(), scripts: SpyRunner(), events: MockPoster(),
+                       apps: MockApps(), hooks: .inert)
+        XCTAssertEqual(s.execute(name: "start_timer", args: ["duration": 0])["ok"] as? Bool, false)
+        XCTAssertEqual(s.execute(name: "start_timer", args: ["duration": "soon"])["ok"] as? Bool, false)
+        XCTAssertEqual(s.pendingTimers, 0)
     }
 
-    func testBlindTreeIsChromeOnly() {
-        XCTAssertTrue(TextTarget.blindTree(chromeWindow()))
+    func testParseDuration() {
+        XCTAssertEqual(Skills.parseDuration(90), 90)
+        XCTAssertEqual(Skills.parseDuration(1.5), 1.5)
+        XCTAssertEqual(Skills.parseDuration("90"), 90)
+        XCTAssertEqual(Skills.parseDuration("90s"), 90)
+        XCTAssertEqual(Skills.parseDuration("10 minutes"), 600)
+        XCTAssertEqual(Skills.parseDuration("1h 30m"), 5400)
+        XCTAssertEqual(Skills.parseDuration("1h30m"), 5400)
+        XCTAssertEqual(Skills.parseDuration("2 hrs"), 7200)
+        XCTAssertEqual(Skills.parseDuration("1:30"), 90)
+        XCTAssertEqual(Skills.parseDuration("PT10M"), 600)
+        XCTAssertNil(Skills.parseDuration("soon"))
+        XCTAssertNil(Skills.parseDuration(nil))
+    }
+}
+
+// MARK: - timers RPCs
+
+final class TimersRPCTests: XCTestCase {
+    private func skills(_ hooks: SystemHooks = .inert) -> Skills {
+        Skills(catalog: catalog(), scripts: SpyRunner(), events: MockPoster(), apps: MockApps(), hooks: hooks)
     }
 
-    func testBlindTreeEmptyWindowIsBlind() {
-        XCTAssertTrue(TextTarget.blindTree(
-            ClockAXFakeElement("AXWindow", "Empty", children: [])))
+    func testListShapeAndOrder() {
+        let s = skills()
+        defer { _ = s.cancelTimers(id: nil) }
+        _ = s.execute(name: "start_timer", args: ["duration": 600, "label": "Tea"])
+        _ = s.execute(name: "start_timer", args: ["duration": "90s"])
+        let list = s.timerList()
+        XCTAssertEqual(list.count, 2)
+        XCTAssertEqual(list.map { $0["total_s"] as? Double }, [90, 600])         // soonest first
+        let tea = list[1]
+        XCTAssertEqual(tea["label"] as? String, "Tea")
+        XCTAssertTrue(list[0]["label"] is NSNull)                // always present; null without a label
+        XCTAssertTrue((tea["id"] as? String ?? "").hasPrefix("timer-"))
+        XCTAssertEqual(tea["minutes"] as? Int, 10)
+        XCTAssertEqual(tea["left_s"] as? Double ?? 0, 600, accuracy: 1)
+        XCTAssertNotNil(tea["fires_at"] as? String)
+        XCTAssertTrue(JSONSerialization.isValidJSONObject(["timers": list]))
     }
 
-    func testBlindTreeRejectsContent() {
-        let win = ClockAXFakeElement("AXWindow", "Notes", children: [
-            ClockAXFakeElement("AXButton", "Close"),
-            ClockAXFakeElement("AXTextArea", "Note body"),
-        ])
-        XCTAssertFalse(TextTarget.blindTree(win))
+    func testMinutesLeftRoundUp() {
+        let t0 = Date(timeIntervalSince1970: 1_000_000)
+        let i = TimerRegistry.Info(id: "timer-x", label: nil, total: 600, startedAt: t0,
+                                   firesAt: t0.addingTimeInterval(600))
+        XCTAssertEqual(TimerRegistry.dict(i, now: t0.addingTimeInterval(230))["minutes"] as? Int, 7)  // 6:10 left
+        XCTAssertEqual(TimerRegistry.dict(i, now: t0.addingTimeInterval(580))["minutes"] as? Int, 1)  // 0:20 left
+        XCTAssertEqual(TimerRegistry.dict(i, now: t0.addingTimeInterval(700))["left_s"] as? Double, 0)
+        XCTAssertEqual(TimerRegistry.dict(i, now: t0.addingTimeInterval(700))["minutes"] as? Int, 0)
+        XCTAssertEqual(TimerRegistry.dict(i, now: t0)["total_s"] as? Double, 600)
     }
 
-    func testCheckFallsBackToKeystrokeOnBlindWindow() {
-        // no focused element, no text area, blind tree -> keystroke_app
-        let app = fakeApp(window: chromeWindow())
-        let chk = TextTarget.check(app: app, appName: "Spotify",
-                                   bundleId: "com.spotify.client",
-                                   windowFallback: false)
-        XCTAssertTrue(chk.ok)
-        XCTAssertEqual(chk.via, TextTarget.keystrokeVia)
+    func testRPCCancelOneUnknownAndAll() {
+        let s = skills()
+        let rpc = RPCHandler(skills: s, warmUp: false)
+        let a = s.execute(name: "start_timer", args: ["duration": 300, "label": "Pasta"])
+        _ = s.execute(name: "start_timer", args: ["duration": 120])
+        _ = s.execute(name: "start_timer", args: ["duration": 60])
+        let id = (a["result"] as? [String: Any])?["timer_id"] as? String
+        XCTAssertNotNil(id)
+
+        let (ok0, r0, _) = rpc.handle(method: "timers", params: [:])
+        XCTAssertTrue(ok0)
+        XCTAssertEqual(((r0 as? [String: Any])?["timers"] as? [[String: Any]])?.count, 3)
+
+        let (ok1, r1, e1) = rpc.handle(method: "timers_cancel", params: ["id": id ?? ""])
+        XCTAssertTrue(ok1, e1 ?? "")
+        let d1 = r1 as? [String: Any]
+        XCTAssertEqual((d1?["cancelled"] as? [[String: Any]])?.first?["label"] as? String, "Pasta")
+        XCTAssertEqual((d1?["timers"] as? [[String: Any]])?.count, 2)
+
+        let (ok2, r2, e2) = rpc.handle(method: "timers_cancel", params: ["id": "timer-nope"])
+        XCTAssertFalse(ok2)
+        XCTAssertEqual(e2, "unknown_timer: timer-nope")
+        XCTAssertEqual(((r2 as? [String: Any])?["timers"] as? [[String: Any]])?.count, 2)
+
+        let (ok3, _, e3) = rpc.handle(method: "timers_cancel", params: ["id": ""])
+        XCTAssertFalse(ok3)
+        XCTAssertTrue((e3 ?? "").hasPrefix("invalid params"), e3 ?? "")
+        XCTAssertEqual(s.pendingTimers, 2)
+
+        let (ok4, r4, _) = rpc.handle(method: "timers_cancel", params: [:])
+        XCTAssertTrue(ok4)
+        XCTAssertEqual(((r4 as? [String: Any])?["cancelled"] as? [[String: Any]])?.count, 2)
+        XCTAssertEqual(s.pendingTimers, 0)
+        // Nothing left: cancelling all again is fine.
+        let (ok5, r5, _) = rpc.handle(method: "timers_cancel", params: [:])
+        XCTAssertTrue(ok5)
+        XCTAssertEqual(((r5 as? [String: Any])?["cancelled"] as? [[String: Any]])?.count, 0)
     }
 
-    func testCheckNeverKeystrokesIntoMuselet() {
-        let app = fakeApp(window: chromeWindow())
-        let chk = TextTarget.check(app: app, appName: "Muselet",
-                                   bundleId: "com.muselet.app",
-                                   windowFallback: false)
-        XCTAssertFalse(chk.ok)
+    func testCancelledTimerNeverFires() {
+        var sounds = 0
+        let lock = NSLock()
+        var h = SystemHooks.inert
+        h.playSound = { _ in lock.lock(); sounds += 1; lock.unlock() }
+        let s = skills(h)
+        let d = SpyDelegate()
+        s.delegate = d
+        let r = s.execute(name: "start_timer", args: ["duration": 0.2])
+        let id = (r["result"] as? [String: Any])?["timer_id"] as? String
+        XCTAssertEqual(s.cancelTimers(id: id).count, 1)
+        let e = expectation(description: "past due")
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.45) { e.fulfill() }
+        wait(for: [e], timeout: 2)
+        lock.lock(); XCTAssertEqual(sounds, 0); lock.unlock()
+        XCTAssertTrue(d.timerLabels.isEmpty)
+        XCTAssertEqual(s.pendingTimers, 0)
     }
 
-    func testCheckNormalTreeStillNoTextTarget() {
-        let win = ClockAXFakeElement("AXWindow", "Notes", children: [
-            ClockAXFakeElement("AXGroup", children: [
-                ClockAXFakeElement("AXStaticText", "Hello"),
-            ]),
-        ])
-        let app = fakeApp(window: win)
-        let chk = TextTarget.check(app: app, appName: "Notes",
-                                   bundleId: "com.apple.Notes",
-                                   windowFallback: false)
-        XCTAssertFalse(chk.ok)
-        XCTAssertNil(chk.via)
+    func testChangesReachTheHook() {
+        var seen: [Int] = []
+        let lock = NSLock()
+        var h = SystemHooks.inert
+        h.timersChanged = { infos in lock.lock(); seen.append(infos.count); lock.unlock() }
+        let s = skills(h)
+        _ = s.execute(name: "start_timer", args: ["duration": 600])
+        _ = s.execute(name: "start_timer", args: ["duration": 900])
+        _ = s.cancelTimers(id: nil)
+        // Per-timer cancel (clock backend handling) reports the true
+        // intermediate list: [1,2] starts, then 1 then 0 pending.
+        lock.lock(); XCTAssertEqual(seen, [1, 2, 1, 0]); lock.unlock()
+    }
+
+    func testSnapshotRoundTripSkipsDeadProcessesAndPastTimers() {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("hands-timers-test-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let now = Date()
+        let live = TimerRegistry.Info(id: "timer-live", label: "Tea", total: 600,
+                                      startedAt: now.addingTimeInterval(-60), firesAt: now.addingTimeInterval(540))
+        let past = TimerRegistry.Info(id: "timer-past", label: nil, total: 60,
+                                      startedAt: now.addingTimeInterval(-120), firesAt: now.addingTimeInterval(-60))
+        TimerSnapshot.write([live, past], pid: 111, process: "Muselet", directory: dir, gc: false)
+        TimerSnapshot.write([live], pid: 222, process: "hands", directory: dir, gc: false)
+        TimerSnapshot.flush()
+        let got = TimerSnapshot.read(directory: dir, now: now, isAlive: { $0 == 111 })
+        XCTAssertEqual(got.count, 1)                               // 222 is dead, timer-past is due
+        XCTAssertEqual(got.first?["id"] as? String, "timer-live")
+        XCTAssertEqual(got.first?["label"] as? String, "Tea")
+        XCTAssertEqual(got.first?["process"] as? String, "Muselet")
+        XCTAssertEqual(got.first?["pid"] as? Int, 111)
+        XCTAssertEqual(got.first?["minutes"] as? Int, 9)
+        // No timers left in 111: its file goes away.
+        TimerSnapshot.write([], pid: 111, directory: dir, gc: false)
+        TimerSnapshot.flush()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("111.json").path))
+        XCTAssertEqual(TimerSnapshot.read(directory: dir, now: now, isAlive: { _ in true }).map { $0["pid"] as? Int },
+                       [222])
+        // A writer garbage-collects the files of processes that are gone.
+        var dead: pid_t = 99_999
+        while TimerSnapshot.processAlive(dead) { dead += 1 }
+        TimerSnapshot.write([live], pid: dead, directory: dir, gc: false)
+        TimerSnapshot.write([live], pid: getpid(), directory: dir)
+        TimerSnapshot.flush()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("\(dead).json").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("\(getpid()).json").path))
+    }
+}
+
+// MARK: - start_timer without Clock AX
+
+/// Inert hooks (Accessibility not trusted): Muselet's own timer, silently
+/// (docs/CLOCK_TIMERS.md).
+final class TimerFallbackTests: XCTestCase {
+    private func skills() -> Skills {
+        Skills(catalog: catalog(), scripts: SpyRunner(), events: MockPoster(), hooks: .inert)
+    }
+
+    private func result(_ r: [String: Any]) -> [String: Any] { r["result"] as? [String: Any] ?? [:] }
+
+    func testTimerBackendRPCHasNoShortcutFields() {
+        let rpc = RPCHandler(skills: skills(), warmUp: false)
+        let (ok, r, _) = rpc.handle(method: "timer_backend", params: ["refresh": true])
+        XCTAssertTrue(ok)
+        let d = r as? [String: Any] ?? [:]
+        XCTAssertEqual(Set(d.keys), ["clock_ax_ready", "backend"])
+        XCTAssertEqual(d["backend"] as? String, "muselet")
+        XCTAssertEqual(d["clock_ax_ready"] as? Bool, false)
+    }
+
+    func testTimersReportMuseletTimer() {
+        let s = skills()
+        defer { _ = s.timers.cancel(id: nil) }
+        let id = result(s.execute(name: "start_timer", args: ["duration": 60]))["timer_id"] as? String ?? ""
+        let report = s.timersReport()
+        XCTAssertNil(report["clock"])
+        XCTAssertNil(report["clock_ax"])
+        XCTAssertEqual((report["timers"] as? [[String: Any]])?.first?["id"] as? String, id)
+    }
+
+    func testSnapshotRoundTripKeepsBackend() {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("clock-snap-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let now = Date()
+        let info = TimerRegistry.Info(id: "timer-c", label: "Tea", total: 600, startedAt: now,
+                                      firesAt: now.addingTimeInterval(600), backend: "clock_ax")
+        TimerSnapshot.write([info], pid: 111, process: "Muselet", directory: dir, gc: false)
+        TimerSnapshot.flush()
+        let got = TimerSnapshot.read(directory: dir, now: now, isAlive: { $0 == 111 })
+        XCTAssertEqual(got.first?["backend"] as? String, "clock_ax")
+        XCTAssertEqual(got.first?["label"] as? String, "Tea")
     }
 }

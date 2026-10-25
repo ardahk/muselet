@@ -169,7 +169,6 @@ def test_calendar_is_never_scripted(clients):
     assert run(orch) == "ok"
     assert not any("iCal" in p.get("code", "") or "Calendar" in p.get("code", "")
                    for m, p in orch.server.calls if m == "act")
-    assert not hasattr(advisor, "calendar_lookup_script")
     assert "todays_agenda" not in keys(orch)
 
 
@@ -239,7 +238,6 @@ def test_final_bubble_counts_and_never_sums():
     assert tool.final_bubble(prep) == "5 opportunities found. Brief is in Notes."
     assert tool.final_bubble({"opportunities": [{"impact_usd": "10.50"}]}) == "1 opportunity found. Brief is in Notes."
     assert tool.final_bubble({"opportunities": []}) == "No opportunities found. Brief is in Notes."
-    assert not hasattr(tool, "total_impact")
 
 
 def test_reads_run_concurrently_with_calendar(clients, monkeypatch):

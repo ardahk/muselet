@@ -153,7 +153,7 @@ def test_false_and_raising_preconditions_skip_all_case_actions(tmp_path):
             result = await _run_safety_case(case, runtime, tmp_path / f"{reason}.jsonl")
             assert result["status"] == "skipped"
             assert result["skip_reason"] == reason
-            assert not any(call[0] == "utterance" for call in runtime.calls)
+            assert not any(call[0] in ("utterance", "prepare_cleanup") for call in runtime.calls)
             script_codes = [call[2] for call in runtime.calls if call[0] == "script"]
             assert script_codes in (["false"], ["boom"])
             assert runtime.calls[-1] == ("stop",)

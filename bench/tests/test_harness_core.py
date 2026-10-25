@@ -78,28 +78,6 @@ def test_planner_outcomes_and_parent_confirm_cancel_are_gradeable():
     assert not outcome_matches("ok", {"outcome": "fallback"})
 
 
-def test_precondition_failure_skips_every_later_case_step(tmp_path):
-    async def scenario():
-        runtime = FakeRuntime()
-        case = {
-            "id": "protected",
-            "utterance": "do not run",
-            "precondition": [{"shell": "false", "equals": "true"}],
-            "restore": [{"get": "volume", "set": "volume {value}"}],
-            "setup": [{"shell": "create"}],
-            "teardown": [{"shell": "remove"}],
-        }
-        result = await run_case(
-            case, runtime, values={}, trace_path=tmp_path / "traces.jsonl"
-        )
-        assert result["status"] == "skipped"
-        assert [call[2] for call in runtime.calls if call[0] == "script"] == ["false"]
-        assert not any(call[0] in ("utterance", "prepare_cleanup") for call in runtime.calls)
-        assert runtime.calls[-1] == ("stop",)
-
-    asyncio.run(scenario())
-
-
 def test_held_slot_timeout_skips_all_teardown_and_is_not_scored(tmp_path):
     async def scenario():
         runtime = HeldSlotTimeoutRuntime()

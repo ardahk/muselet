@@ -16,7 +16,7 @@ VENDORED_UPSTREAM = Path(__file__).resolve().parent / "upstream"
 DATASETS = ("r4", "r1", "r2", "r3", "calc", "settings")
 GAP_EVIDENCE = {
     "Arithmetic word problems not parsed by calc": (
-        "ml/tests/test_hobby_gaps.py:26-30; ml/src/brain/calc.py:437-453",
+        "ml/tests/test_calc.py:86-90; ml/src/brain/calc.py:437-453",
     ),
     "Native System Settings navigation is not implemented": (
         "skills/catalog.json:10-114; app/Sources/HandsKit/Skills.swift:360-520",

@@ -1,8 +1,11 @@
-"""Confirm summaries name the object and stay <= 12 words (task 6)."""
+"""Confirm summaries name the object and stay <= 12 words (task 6); skill
+success / failure copy stays short and hides ids (ux-2, ux-3, ux-8, ux-10,
+ux-11)."""
 
 import asyncio
 
 import pytest
+from brain import replies
 from brain.catalog import Catalog
 from brain.orchestrator import Orchestrator
 from brain.traces import Tracer
@@ -66,6 +69,14 @@ def test_summary_at_most_12_words(orch, a):
     assert len(s.split()) <= 12 and s.endswith("?"), s
 
 
+def test_confirm_summaries_never_none_or_dotq(orch):
+    cat = Catalog.load()
+    names = [n for n in ("send_message", "compose_email", "move_to_trash",
+                         "empty_trash", "quit_app") if cat.get(n)]
+    for n in names:
+        s = summ(orch, {"op": "skill", "name": n, "args": {}})
+        assert "None" not in s and ".?" not in s and len(s.split()) <= 12
+
 def test_long_body_shows_first_words(orch):
     s = summ(orch, {"op": "skill", "name": "send_message", "args": {
         "to": "Mom", "body": "I will be home around nine tonight because the "
@@ -97,3 +108,37 @@ def test_script_confirm_names_app(orch):
         "op": "script", "lang": "applescript",
         "code": 'tell application "Mail" to send'}]))
     assert orch.server.confirms == ["Run AppleScript on Mail?"]
+
+
+# ---------- success / failure copy (ux-2, ux-3, ux-8, ux-10, ux-11) ----------
+
+@pytest.mark.parametrize("name,args,want", [
+    ("set_volume", {"level": 30}, "Volume 30"),
+    ("open_app", {"app": "Safari"}, "Opened Safari"),
+    ("dark_mode", {"on": True}, "Dark mode on"),
+    ("mute", {"on": False}, "Unmuted"),
+    ("start_timer", {"duration": "600"}, "Timer set for 10 minutes"),
+    ("move_to_trash", {"path": "/Users/a/Desktop/old.pdf"},
+     "Moved old.pdf to Trash"),
+    ("send_message", {"to": "Mom", "body": "hi"}, "Sent to Mom"),
+    ("open_url", {"url": "https://www.apple.com/mac"}, "Opened apple.com"),
+])
+def test_success_copy(name, args, want):
+    assert replies.success_text(name, args) == want
+
+
+def test_success_copy_every_skill_short_no_ids():
+    for name, spec in Catalog.load().skills.items() if hasattr(
+            Catalog.load(), "skills") else []:
+        s = replies.success_text(name, {})
+        assert len(s.split()) <= 12 and "_" not in s and "None" not in s
+
+
+@pytest.mark.parametrize("err,frag", [
+    ("contact not found", "Couldn't find Mom"), ("timed out", "too long"),
+    ("not authorized", "permission"), ("boom", "Couldn't send message"),
+])
+def test_failure_copy(err, frag):
+    s = replies.fail_text("send_message", {"to": "Mom"}, err)
+    assert frag in s and "_" not in s and len(s.split()) <= 12
+    assert s.endswith(("?", ".")) and not s.endswith(".?")

@@ -436,36 +436,9 @@ def test_brain_executor_skill_goes_to_tools(tmp_path):
     del sys.modules["brain.tools.finance_review"]
 
 
-def test_script_policy_matrix():
-    """evals-safety-2 cases from the review."""
-    from brain.orchestrator import Orchestrator as O
-    o = O.__new__(O)
-    A = 'tell application "Finder" to reveal home'
-    assert not o.script_needs_confirm("applescript", A)
-    assert o.script_needs_confirm(
-        "applescript", 'tell application "Finder" to delete every file')
-    assert o.script_needs_confirm(
-        "applescript", 'tell application "Terminal" to do script "ls"')
-    assert o.script_needs_confirm(
-        "applescript",
-        'tell application "System Events" to keystroke "q"')
-    assert o.script_needs_confirm("shell", "ls")
-    assert o.script_needs_confirm("jxa", 'app.doShellScript("rm -rf /")')
-    num = ('tell application id "com.apple.Numbers"\n'
-           'set value of cell "B5" to 3\n'
-           'return value of cell "B5"\nend tell')
-    assert not o.script_needs_confirm("applescript", num)
-    num2 = ('tell application "Numbers"\n'
-            'set background color of cell "A1" to {1,0,0}\nend tell')
-    assert not o.script_needs_confirm("applescript", num2)
-    num3 = ('tell application "Numbers"\n'
-            'do shell script "echo hi"\nend tell')
-    assert o.script_needs_confirm("applescript", num3)
-
-
 # ---------- act diffs feed the next turn (no observe RPC) ----------
 
-from fakes import FakeServer
+from fakes import FakeServer, _skill_rpcs
 
 _OBS0 = 'app: Finder | window: "Recents" | focused: #4\n#1 button "Back"\n' \
         '#4 textfield "Search" value=""'
@@ -498,10 +471,12 @@ def test_turn_obs_from_act_diff_without_observe(tmp_path):
 
 
 def test_empty_diff_still_reused(tmp_path):
-    o = _diff_orch(tmp_path, [["press #1"], ['done "ok"'], ['done "ok"']],
+    o = _diff_orch(tmp_path, [["press #1"], ['done "a"'], ['done "b"']],
                    lambda p: {"ok": True, "diff_text": ""})
     assert run(o._planner_loop("go", trace_for(o))) == "ok"
-    assert o.server.methods()[:2] == ["observe", "act"]
+    # done on the diff view is rejected once, then a fresh observe (planner-13)
+    assert o.server.methods() == ["observe", "act", "observe"]
+    assert o.server.said[-1] == "b"
     assert o.planner.user_msgs[1]["obs"] == _OBS0
 
 
@@ -553,3 +528,179 @@ def test_regex_fallback_answers_math(tmp_path):
     assert run(o.handle_utterance("what's 7 times 8")) == {"outcome": "ok"}
     assert o.server.said == ["7 times 8 is 56"]
     assert "observe" not in o.server.methods()
+
+
+# ---------- planner robustness: prose lines and the loop guard (brain-3) ----------
+
+STUCK = "I'm stuck on that, can you help?"
+
+
+def test_planner_skips_prose_and_prefixes_skill(tmp_path):
+    turns = [["The previous action failed because TextEdit was closed.",
+              "</think>", "```", 'open_app app="TextEdit"', "```"],
+             ['done "Opened TextEdit"']]
+    o = _diff_orch(tmp_path, turns, lambda p: {"ok": True})
+    tr = trace_for(o)
+    assert run(o._planner_loop("open textedit", tr)) == "ok"
+    assert _skill_rpcs(o.server) == [("open_app", {"app": "TextEdit"})]
+    assert "ignored 4 non-action lines" in o.planner.user_msgs[1]["last_batch"]
+    assert {"skipped_lines": turns[0][:3] + ["```"]} in tr["decisions"]
+
+
+def test_loop_guard_same_action_twice(tmp_path):
+    o = _diff_orch(tmp_path, [["press #1"]],
+                   lambda p: {"ok": False, "error": "no such ref"})
+    tr = trace_for(o)
+    assert run(o._planner_loop("go", tr)) == "awaiting_user"
+    assert o.planner.calls == 2
+    assert o.server.said[-1] == STUCK and o.server.uis[-1] == "confused"
+    assert {"loop_guard": "same_action", "line": "press #1"} in tr["decisions"]
+    assert o._pending_task["goal"] == "go"
+
+
+def test_loop_guard_same_action_normalized(tmp_path):
+    o = _diff_orch(tmp_path, [['type #1 "hi"'], ['type  #1   "hi"']],
+                   lambda p: {"ok": False, "error": "x"})
+    assert run(o._planner_loop("go", trace_for(o))) == "awaiting_user"
+    assert o.planner.calls == 2
+
+
+def test_loop_guard_three_failed_turns(tmp_path):
+    o = _diff_orch(tmp_path, [["press #1"], ["press #2"], ["press #3"],
+                              ["press #4"]],
+                   lambda p: {"ok": False, "error": "x"})
+    tr = trace_for(o)
+    assert run(o._planner_loop("go", tr)) == "awaiting_user"
+    assert o.planner.calls == 3
+    assert any(d.get("loop_guard") == "3_failed_turns" for d in tr["decisions"])
+
+
+def test_loop_guard_prose_only_turns(tmp_path):
+    o = _diff_orch(tmp_path, [["I will now open the app."]],
+                   lambda p: {"ok": True})
+    assert run(o._planner_loop("go", trace_for(o))) == "awaiting_user"
+    assert o.planner.calls == 3 and o.server.said[-1] == STUCK
+
+
+def test_loop_guard_parse_errors_same_line(tmp_path):
+    o = _diff_orch(tmp_path, [["press 4"]], lambda p: {"ok": True})
+    assert run(o._planner_loop("go", trace_for(o))) == "awaiting_user"
+    assert o.planner.calls == 2
+
+
+def test_loop_guard_resets_after_success(tmp_path):
+    o = _diff_orch(tmp_path, [["press #1"], ["press #2"], ["press #1"],
+                              ['done "ok"']],
+                   lambda p: {"ok": p.get("ref") != 1, "error": "x"})
+    tr = trace_for(o)
+    assert run(o._planner_loop("go", tr)) == "ok"
+    assert not any("loop_guard" in d for d in tr["decisions"])
+
+
+# ---------- planner turn ends: ui ms, done, tool fallback, capped obs (lead review) ----------
+
+def test_planner_final_ui_carries_total_ms(tmp_path):
+    o = _diff_orch(tmp_path, [['done "ok"']], lambda p: {"ok": True})
+    o._t_final = time.perf_counter() - 0.5
+    o._first_action_ms = 1.0
+    assert run(o._planner_loop("go", trace_for(o))) == "ok"
+    assert o.server.ui_ms[-1] >= 500
+
+
+def test_done_after_passing_expect_needs_no_extra_observe(tmp_path):
+    o = _diff_orch(tmp_path, [["press #1", 'expect appears "Saved"'],
+                              ['done "ok"']],
+                   lambda p: {"ok": True, "diff_text": ""})
+    assert run(o._planner_loop("go", trace_for(o))) == "ok"
+    assert o.server.methods() == ["observe", "act", "verify"]
+
+
+def test_brain_tool_fallback_ends_planner(tmp_path, monkeypatch):
+    from brain import tools
+
+    async def fb(*a, **k):
+        return "fallback"
+    monkeypatch.setattr(tools, "run", fb)
+    o = _diff_orch(tmp_path, [["skill finance_review task=review"]] * 5,
+                   lambda p: {"ok": True})
+    assert run(o._planner_loop("review", trace_for(o))) == "fallback"
+    assert o.server.said == ["That workflow is almost ready"]
+    assert len(o.planner.user_msgs) == 1
+
+
+@pytest.mark.parametrize("obs_extra", [
+    {"truncated": True},
+    {"elements": [{"ref": i, "role": "button", "label": f"b{i}",
+                   "frame": [0, 0, 1, 1]} for i in range(150)]},
+])
+def test_capped_observation_never_rebuilt_from_diff(tmp_path, obs_extra):
+    o = _diff_orch(tmp_path, [["press #1"], ['done "ok"']],
+                   lambda p: {"ok": True, "diff_text": "- #1"})
+    base = o.server.observe()
+    o.server.observe = lambda: dict(base, **obs_extra)
+    assert run(o._planner_loop("go", trace_for(o))) == "ok"
+    assert o.server.methods() == ["observe", "act", "observe"]
+
+
+# ---------- login-page hint and no-op press loop guard (first use) ----------
+
+class _StreamingFakePlanner:
+    def __init__(self, turns):
+        self.turns = turns
+        self.calls = 0
+        self.login_hints = []
+        self.history = "dsl"
+
+    def plan(self, goal, observation, last_batch, lines_out, loop, cancel,
+             hint=None, script_output=None, login_page=False):
+        self.login_hints.append(login_page)
+        lines = self.turns[min(self.calls, len(self.turns) - 1)]
+        self.calls += 1
+        for line in lines:
+            loop.call_soon_threadsafe(lines_out.put_nowait, line)
+        loop.call_soon_threadsafe(lines_out.put_nowait, None)
+        return {"lines": lines, "ttft_ms": 1, "decode_tok_s": 1,
+                "tokens": 1}
+
+
+def test_planner_loop_passes_login_page_hint(tmp_path):
+    async def go():
+        server = FakeServer(observe=lambda: {
+            "epoch": 1, "app": "Chrome", "window": "Sign in",
+            "focused_ref": None, "elements": [],
+            "text": "app: Chrome | window: Sign in | Password",
+            "ax_ms": 1})
+        orch = Orchestrator(server, Catalog.load(), Tracer(tmp_path / "t"))
+        planner = _StreamingFakePlanner([['done "ok"']])
+        orch.planner = planner
+        outcome = await orch._planner_loop("continue", {"decisions": []})
+        return outcome, planner
+
+    outcome, planner = asyncio.run(go())
+    assert outcome == "ok"
+    assert planner.login_hints == [True]
+
+
+def test_identical_noop_presses_trip_loop_guard(tmp_path):
+    async def go():
+        server = FakeServer(act=lambda p: {
+            "ok": True, "epoch": 2, "diff_text": ""}, observe=lambda: {
+                "epoch": 1, "app": "Notes", "window": "Notes",
+                "focused_ref": None, "elements": [
+                    {"ref": 1, "role": "button", "label": "New Note",
+                     "frame": [0, 0, 20, 20]}],
+                "text": 'app: Notes | window: "Notes"\n'
+                        '#1 button "New Note"', "ax_ms": 1})
+        orch = Orchestrator(server, Catalog.load(), Tracer(tmp_path / "t"))
+        orch.planner = _StreamingFakePlanner([
+            ["press #1", "press #1", "press #1"],
+        ])
+        outcome = await orch._planner_loop("make a new note", {
+            "decisions": []})
+        return outcome, server, orch
+
+    outcome, server, orch = asyncio.run(go())
+    assert outcome == "awaiting_user"
+    assert server.said[-1] == "I'm stuck on that, can you help?"
+    assert len([1 for method, params in server.rpcs
+                if method == "act" and params.get("op") == "press"]) == 4

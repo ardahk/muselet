@@ -1,7 +1,10 @@
 import pytest
 
 from brain import dsl
+from brain.catalog import Catalog
 from brain.dsl import DSLError
+
+SKILLS = Catalog.load().skills
 
 
 CASES = [
@@ -136,3 +139,46 @@ def test_max_batch():
     with pytest.raises(DSLError) as ei:
         dsl.parse(text)
     assert "max 5" in str(ei.value)
+
+
+def test_dsl_ignores_comments_and_fences():
+    acts = dsl.parse('```\n# open the app first\nopen "Safari"\n'
+                     'expect app "Safari"\n```')
+    assert acts == [{"op": "open", "name": "Safari", "expect": 'app "Safari"'}]
+
+
+def test_dsl_fence_with_language_tag():
+    assert [a["op"] for a in dsl.parse('```dsl\nkeys cmd+n\n```')] == ["keys"]
+
+# ---------- planner output: prose/tag lines and bare skills (brain-3) ----------
+
+@pytest.mark.parametrize("line,want", [
+    ("The previous action failed because the window was not open.", None),
+    ("</think>", None),
+    ("<think>", None),
+    ("```", None),
+    ("```dsl", None),
+    ("# note", None),
+    ("", None),
+    ("Done.", None),
+    ('open_app app="TextEdit"', 'skill open_app app="TextEdit"'),
+    ("take_screenshot", "skill take_screenshot"),
+    ('skill open_app app="TextEdit"', 'skill open_app app="TextEdit"'),
+    ("press #4", "press #4"),
+    ('done "ok"', 'done "ok"'),
+    ("frobnicate_all x=1", None),          # not a catalog skill
+])
+def test_action_line(line, want):
+    assert dsl.action_line(line, SKILLS) == want
+
+
+def test_action_line_without_catalog_keeps_skill_calls():
+    assert dsl.action_line('open_app app="TextEdit"') == 'open_app app="TextEdit"'
+    assert dsl.action_line("The app failed to open.") is None
+
+
+def test_dsl_skill_arg_strips_trailing_punct():
+    a = dsl.parse("skill new_folder parent=~/Desktop, name=receipts")[0]
+    assert a["args"] == {"parent": "~/Desktop", "name": "receipts"}
+    a = dsl.parse('skill new_note body="hi." title=x;')[0]
+    assert a["args"] == {"body": "hi.", "title": "x"}

@@ -1,5 +1,6 @@
 """HandsKit 68fa473 fields: observe web_ax_pending, act truncated, script
-timed_out / script_failed (brain side, fakes only)."""
+timed_out / script_failed, script output head/tail, and the launch AX poll
+(brain side, fakes only)."""
 
 import asyncio
 import time
@@ -7,11 +8,11 @@ import time
 import pytest
 
 from brain.catalog import Catalog
-from brain.orchestrator import Orchestrator, _script_failure
+from brain.orchestrator import Orchestrator, _headtail, _script_failure
 from brain.traces import Tracer
 
 from fakes import FakeServer
-from test_planner_loop import _OBS0, _diff_orch, trace_for
+from test_planner_loop import _OBS0, FakePlanner, _diff_orch, trace_for
 
 READ = 'script applescript """tell application "Safari" to get URL of document 1"""'
 
@@ -131,6 +132,12 @@ def test_script_failure_stderr_head_capped():
     assert why == "exit 1; stderr: " + "e" * 200
 
 
+def test_script_output_head_tail():
+    s = "".join(f"row{i}\t{i}\n" for i in range(1000))
+    h = _headtail(s)
+    assert len(h) <= 1500 and h.startswith("row0") and h.endswith("row999\t999\n")
+    assert _headtail("short") == "short"
+
 @pytest.mark.parametrize("res,bubble,line", [
     (TIMEOUT, "That script timed out", "script -> failed: timed out"),
     (EXIT2, "Script failed",
@@ -153,3 +160,61 @@ def test_execute_actions_script_failure_bubble(tmp_path, res, bubble):
                                           'URL of document 1'}]))
     assert out == "failed"
     assert srv.said[-1] == bubble and srv.uis[-1] == "confused"
+
+
+# ---- (4) app launch: wait for the AX tree ----
+
+@pytest.mark.parametrize("launch", ['open "Notes"', 'skill open_app app="Notes"'])
+def test_planner_waits_for_launch_ax(monkeypatch, launch):
+    from brain import orchestrator
+    monkeypatch.setattr(orchestrator, "LAUNCH_AX_POLL_S", 0)
+    launched = [False]
+    polls = []
+
+    def observe():
+        ready = launched[0] and len(polls) >= 2
+        if launched[0]:
+            polls.append(1)
+        return {"epoch": 1, "app": "Notes", "window_source": "main" if ready else "none",
+                "elements": [{"ref": 1, "role": "textfield"}] if ready else [],
+                "text": "READY" if ready else "BLIND"}
+
+    def action(params):
+        launched[0] = True
+        return {"ok": True, "diff_text": ""}
+
+    server = FakeServer(observe=observe, act=action,
+                        handlers={"skill": action})
+    orch = Orchestrator(server)
+    orch.planner = FakePlanner([[launch], ['ask "What next?"']])
+    asyncio.run(orch._planner_loop("open Notes", {"decisions": []}))
+    assert orch.planner.user_msgs[1]["obs"].startswith("READY")
+    assert len(polls) == 3
+
+
+@pytest.mark.parametrize("obs", [None, {"text": "blind", "window_source": "none", "elements": []},
+                                      {"text": "ready", "window_source": "main", "elements": [{"ref": 1}]}])
+def test_launch_poll_bounded_or_unneeded(monkeypatch, obs):
+    from brain import orchestrator
+    monkeypatch.setattr(orchestrator, "LAUNCH_AX_TIMEOUT_S", .001)
+    monkeypatch.setattr(orchestrator, "LAUNCH_AX_POLL_S", 0)
+    server = FakeServer(observe=lambda: obs)
+    orch = Orchestrator(server)
+    orch._launch_pending = True
+    assert asyncio.run(orch._wait_launch_ax(obs)) == obs
+    assert not orch._launch_pending
+    if obs is None or obs.get("elements"):
+        assert server.rpcs == []
+
+
+def test_launch_poll_rpc_error_is_bounded(monkeypatch):
+    from brain import orchestrator
+    monkeypatch.setattr(orchestrator, "LAUNCH_AX_TIMEOUT_S", .001)
+    monkeypatch.setattr(orchestrator, "LAUNCH_AX_POLL_S", 0)
+
+    def observe():
+        raise RuntimeError("AX unavailable")
+
+    orch = Orchestrator(FakeServer(observe=observe))
+    obs = {"window_source": "none", "elements": [], "text": "blind"}
+    assert asyncio.run(orch._wait_launch_ax(obs)) == obs

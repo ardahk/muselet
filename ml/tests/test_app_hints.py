@@ -1,5 +1,7 @@
+import asyncio
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -8,6 +10,7 @@ sys.path.insert(0, str(ROOT / "evals"))
 
 import planner_offline
 from brain import cli
+from brain.catalog import Catalog
 from brain.app_hints import (
     AppHint,
     load_hints,
@@ -15,7 +18,10 @@ from brain.app_hints import (
     open_ended_redirect,
     render_hints,
 )
+from brain.orchestrator import Orchestrator
 from brain.planner import Planner
+from brain.traces import Tracer
+from fakes import FakeEngine, FakeServer
 
 
 def test_app_hint_matching_and_redirects():
@@ -66,6 +72,36 @@ def test_app_hint_rendering_truncates_at_tip_boundary():
     assert rendered.endswith("- " + first)
     assert second not in rendered
     assert render_hints([]) == ""
+
+
+@pytest.mark.parametrize("enabled,expected", [
+    (True, "planner"),
+    (False, "answer"),
+])
+def test_open_ended_route_redirects_answer_when_enabled(
+        tmp_path, enabled, expected):
+    text = "add usb-c cable to my amazon cart"
+    orch = Orchestrator(FakeServer(), Catalog.load(),
+                        Tracer(tmp_path / "traces"), engine=FakeEngine())
+    orch.open_ended_route = enabled
+    trace = {"decisions": []}
+    pre = SimpleNamespace(
+        probs={"ANSWER": 0.95}, p_top=0.95, ms={}, top="ANSWER")
+
+    async def planner_loop(goal, current_trace, hint=None):
+        assert goal == text
+        return "planner"
+
+    async def answer(goal, current_trace):
+        return "answer"
+
+    orch._planner_loop = planner_loop
+    orch._answer = answer
+    assert asyncio.run(orch._engine_route(text, trace, pre=pre)) == expected
+    if enabled:
+        assert trace["open_ended"] == {"from": "ANSWER", "hint": "amazon"}
+    else:
+        assert "open_ended" not in trace
 
 
 def _prompt_planner(enabled):

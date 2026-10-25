@@ -1,5 +1,4 @@
 import asyncio
-import copy
 import time
 
 import pytest
@@ -9,17 +8,11 @@ from brain.catalog import Catalog
 from brain.orchestrator import Orchestrator
 from brain.server import BrainServer
 from brain.traces import Tracer
-from fakes import FakeEngine, FakeServer
+from fakes import CapturingTracer, FakeEngine, FakeServer, _skill_rpcs
 
 
 def run(coro):
     return asyncio.run(coro)
-
-
-class CapturingTracer(Tracer):
-    def finish(self, outcome):
-        self.last = copy.deepcopy(self.current)
-        super().finish(outcome)
 
 
 def make_orch(tmp_path, engine=None, server=None):
@@ -85,22 +78,86 @@ def test_new_command_classifies_explicit_request_types(
     assert run(orch._new_command(text, ctx)) == expected
 
 
-@pytest.mark.parametrize("default", [
-    ("open_app", 0.99), ("send_message", 0.99),
-])
-@pytest.mark.parametrize("text", [
-    "yes", "no", "the second one", "Caleb Kawano", "Caleb", "50", "ten",
-    "continue", "send it to the work one", "Volume 50",
-])
-def test_answers_resume_pending_task_without_routing(tmp_path, default, text):
-    engine = FakeEngine(default=default)
-    orch, goal, resumed = pending_orch(tmp_path, engine=engine)
+# ---------- a pending planner ask: answers resume, new commands cancel (brain-12) ----------
 
-    result = run(orch.handle_utterance(text))
+def ask_orch(tmp_path, engine=None):
+    orch = Orchestrator(FakeServer(), Catalog.load(), Tracer(tmp_path / "traces"),
+                        engine=engine)
+    orch._pending_task = {"goal": "move it", "t": time.time()}
+    orch._answer_history = ["earlier answer"]
+    resumed = []
+
+    async def plan(goal, trace, answer=None):
+        resumed.append((goal, answer))
+        return "resumed"
+
+    orch._planner_loop = plan
+    return orch, resumed
+
+
+@pytest.mark.parametrize("text,skill", [
+    ("set the volume to 50", "set_volume"),
+    ("set the volume to thirty percent", "set_volume"),
+    ("open Safari", "open_app"),
+    ("launch Notes", "open_app"),
+    ("open my downloads", "open_folder"),
+    ("turn on dark mode", "dark_mode"),
+    ("unmute", "mute"),
+    ("search for weather tomorrow", "web_search"),
+    ("take a screenshot", "take_screenshot"),
+])
+@pytest.mark.parametrize("use_engine", [False, True])
+def test_brain12_new_command_cancels_pending_ask(tmp_path, text, skill, use_engine):
+    engine = FakeEngine(default=("ANSWER", 0.95)) if use_engine else None
+    orch, resumed = ask_orch(tmp_path, engine)
+    routed = []
+    if use_engine:
+        async def route(text, trace):
+            routed.append(text)
+            return "routed"
+        orch._engine_route = route
+
+    result = asyncio.run(orch.handle_utterance(text))
+
+    assert resumed == []
+    assert orch._pending_task is None
+    assert orch._answer_history == []
+    if use_engine:
+        assert result["outcome"] == "routed"
+        assert routed == [text]
+    else:
+        assert result["outcome"] == "ok"
+        assert orch.server.skills()[0]["name"] == skill
+
+
+@pytest.mark.parametrize("text", [
+    "yes", "no", "the first one", "second", "Safari", "John Smith",
+    "report.pdf", "Open Safari.txt", "~/Documents", "/Users/alex/Notes",
+    '"open Safari"', "the blue one", "Volume 50", "a screenshot",
+    "the search results", "maybe use the other folder", "50", "continue", "",
+    "the second one", "Caleb Kawano", "Caleb", "ten", "send it to the work one",
+])
+@pytest.mark.parametrize("default", [
+    None, ("open_app", 0.99), ("send_message", 0.99),
+])
+def test_brain12_answers_and_ambiguous_replies_resume(tmp_path, text, default):
+    engine = FakeEngine(default=default) if default else None
+    orch, resumed = ask_orch(tmp_path, engine)
+
+    result = asyncio.run(orch.handle_utterance(text))
 
     assert result["outcome"] == "resumed"
-    assert resumed == [(goal, text)]
-    assert engine.route_calls == []
+    assert resumed == [("move it", text)]
+    assert orch._answer_history == ["earlier answer", text]
+    assert orch.server.methods() == []
+    if engine:
+        assert engine.route_calls == []
+
+
+def test_brain12_unknown_command_remains_an_answer(tmp_path):
+    orch, resumed = ask_orch(tmp_path)
+    asyncio.run(orch.handle_utterance("set it to the other one"))
+    assert resumed == [("move it", "set it to the other one")]
 
 
 def test_confident_router_command_reuses_route_for_normal_path(tmp_path):
@@ -173,6 +230,15 @@ def test_duration_slot_only_superseded_by_new_command(
                      if method == "skill")
         assert skill["name"] == "start_timer"
         assert skill["args"]["duration"] == 600
+
+
+def test_a_new_command_drops_a_parked_permission_goal(tmp_path):
+    o = make_orch(tmp_path, FakeEngine({"mute": ("mute", 0.95)}))
+    o._pending_task = {"goal": "type hello", "t": time.time(),
+                       "permission_gate": True, "reroute": True}
+    run(o.handle_utterance("mute"))
+    assert o._pending_task is None
+    assert [n for n, _ in _skill_rpcs(o.server)] == ["mute"]
 
 
 def contact(name, value, label="mobile"):

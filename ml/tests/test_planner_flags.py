@@ -1,9 +1,13 @@
 """Planner knobs from the offline benchmark (constraint, done-alone,
-few-shot, history format), CLI flags, Last-batch formats, brain-16
-relative volume, planner-20. Fakes only (no Metal / weights)."""
+few-shot, history format), BatchCutter limits, CLI flags, Last-batch formats,
+brain-16 relative volume, planner-20, the opt-in escalation planner (load,
+warm, races) and plan-bank retrieval. Fakes only (no Metal / weights)."""
 
 import asyncio
+import json
+import sys
 import threading
+import weakref
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -12,21 +16,27 @@ import pytest
 
 try:
     import mlx.core as mx
-except ImportError as exc:
-    pytest.skip(f"MLX is unavailable on this platform: {exc}", allow_module_level=True)
+except ImportError:  # _fake_engine skips without MLX; the rest runs anywhere
+    mx = None
 
-from fakes import FakeEngine, FakeServer
-from test_live_e2e_fixes import _skill_rpcs
+from fakes import FakeEngine, FakeServer, InlineWorker, _skill_rpcs
 from test_planner_loop import _diff_orch, trace_for
 
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "evals"))
+
+import planner_offline
+import planner_retrieval_report
 from brain import cli, dsl
 from brain import planner as P
 from brain.catalog import Catalog
 from brain.orchestrator import Orchestrator, _log_act, _repr_line, abs_level, rel_delta
-from brain.planner import OpConstraint, Planner, history, runtime_repr
+from brain.plan_bank import Demo, render_block
+from brain.planner import (BatchCutter, OpConstraint, Planner, history,
+                           runtime_repr)
 from brain.traces import Tracer
 
-ROOT = Path(__file__).resolve().parents[2]
+SKILLS = Catalog.load().skills
 
 VOCAB = ["<eos>", "<|im_end|>", "skill", " open_app", " app=Safari", "\n", "The",
          " plan", "done", ' "ok"', "press", " #1", "skill!", " ", "script",
@@ -52,6 +62,7 @@ BASE = {"press": 3.0, " #1": 2.5, "\n": 2.0, "<eos>": 3.5}
 
 
 def _fake_engine(wants):
+    pytest.importorskip("mlx.core")
     step = [0]
 
     def lm_head(_):
@@ -286,6 +297,88 @@ def test_logged_action_drops_expect_and_marked_line_parses(tmp_path):
     assert dsl.parse(logged[5:])[0] == dsl.parse('skill open_app app="Text Edit"')[0]
 
 
+# ---------- BatchCutter: 5-action batches (brain-3, brain-11, brain-18) ----------
+
+def test_batch_cutter_does_not_count_prose():
+    c, out = BatchCutter(), []
+    for ln in ["Let me think.", "</think>", "```", "press #1", "press #2",
+               "press #3", "press #4", "press #5", "press #6"]:
+        if (o := c.push(ln)) is not None:
+            out.append(o)
+        if c.done:
+            break
+    assert [o for o in out if o.startswith("press")] == \
+        [f"press #{i}" for i in range(1, 6)]
+
+
+@pytest.mark.parametrize("lines", [
+    ["mute"] * 6,
+    ["mute", "skill mute", "press #1", "mute", "keys a", "mute"],
+])
+def test_brain18_bare_and_explicit_skills_count_once(lines):
+    cutter, emitted = BatchCutter(), []
+    for line in lines:
+        if (out := cutter.push(line)) is not None:
+            emitted.append(out)
+        if cutter.done:
+            break
+    assert emitted == lines[:5]
+    assert cutter.n == 5 and cutter.full and cutter.done
+    normalized = [dsl.action_line(line, SKILLS) for line in emitted]
+    assert len(dsl.parse("\n".join(normalized))) == 5
+
+
+@pytest.mark.parametrize("line,count", [
+    ("", 0), ("Let me think.", 0), ("</think>", 0), ("```", 0),
+    ("# note", 0), ('expect appears "Saved"', 0), ("unknown", 0),
+    ("unknown_skill x=1", 1), ("press #1", 1), ("wait 10", 1),
+    ('script shell """echo ok"""', 1),
+])
+def test_brain18_non_skill_lines_unchanged(line, count):
+    cutter = BatchCutter()
+    assert cutter.push(line) == line
+    assert cutter.n == count
+    assert not cutter.full and not cutter.done
+
+
+def test_brain18_bare_fifth_skill_keeps_expect():
+    cutter = BatchCutter()
+    for _ in range(5):
+        assert cutter.push("mute") == "mute"
+    assert cutter.push("# note") is None
+    assert cutter.push('expect appears "Muted"') == 'expect appears "Muted"'
+    assert cutter.n == 5 and cutter.done
+
+
+def test_brain18_custom_and_empty_catalogs():
+    cutter = BatchCutter(max_actions=1, skills={"customskill"})
+    assert cutter.push("customskill") == "customskill"
+    assert cutter.n == 1 and cutter.full
+    assert cutter.push("customskill") is None
+    empty = BatchCutter(skills={})
+    assert empty.push("mute") == "mute"
+    assert empty.n == 0
+
+
+def test_cutter_counts_scripts_and_skips_after_full():
+    c, out = BatchCutter(), []
+    for ln in ['script applescript """x"""', "# note", "keys a", "keys b",
+               "keys c", 'script jxa """y"""', "# trailing", "keys d"]:
+        if (o := c.push(ln)) is not None:
+            out.append(o)
+        if c.done:
+            break
+    assert [o.split()[0] for o in out if not o.startswith("#")] == \
+        ["script", "keys", "keys", "keys", "script"]
+
+
+def test_cutter_terminal_op_ends():
+    c = BatchCutter()
+    c.push("press #1")
+    c.push('done "ok"')
+    assert c.done
+
+
 # ---------- CLI flags ----------
 
 def test_cli_defaults():
@@ -296,6 +389,16 @@ def test_cli_defaults():
     assert cli.planner_opts(args) == {"done_alone": True,
                                       "few_shot": "prompts/planner_fewshot.md",
                                       "history": "dsl", "app_hints": False}
+
+
+def test_login_hint_is_opt_in():
+    planner = Planner.__new__(Planner)
+    base = planner.user_message("sign in", 'window: "Home"', None)
+    hinted = planner.user_message("sign in", 'window: "Login"', None,
+                                  login_page=True)
+    assert base == 'Goal: "sign in"\nwindow: "Home"'
+    assert "Login page: ask the user to sign in" not in base
+    assert "Login page: ask the user to sign in" in hinted
 
 
 def test_cli_memory_flags_and_planner_recent_prompt():
@@ -549,3 +652,330 @@ def test_escalation_planner_settings(capsys):
     fs = (ROOT / "prompts" / "planner_fewshot.md").read_text()
     assert p.system.endswith("\n\n" + fs)
     assert "[planner-escalate] fake constrain=False" in capsys.readouterr().out
+
+
+# ---------- escalation load / unload and planner warm-up (brain-9, first use) ----------
+
+def test_warm_planner_records_event_and_swallows_failure(
+        tmp_path, monkeypatch):
+    import brain.planner as planner_module
+
+    monkeypatch.setattr(planner_module, "worker", InlineWorker)
+    orch = Orchestrator(FakeServer(), Catalog.load(),
+                        Tracer(tmp_path / "traces"), engine=FakeEngine())
+
+    class WarmPlanner:
+        model_path = "fake/model"
+
+        def warm(self):
+            return {"warm_ms": 42.0, "prefix_ms": 1.0,
+                    "constraint_ms": 2.0, "retrieval_ms": 3.0,
+                    "decode_ms": 4.0}
+
+    asyncio.run(orch.warm_planner(WarmPlanner()))
+    rows = [json.loads(line) for path in orch.tracer.dir.glob("*.jsonl")
+            for line in path.read_text().splitlines()]
+    assert rows[-1]["event"] == "planner.warm"
+    assert rows[-1]["warm_ms"] == 42.0
+    assert rows[-1]["model"] == "fake/model"
+
+    class BrokenPlanner:
+        def warm(self):
+            raise RuntimeError("warm failed")
+
+    asyncio.run(orch.warm_planner(BrokenPlanner()))
+
+
+def test_successful_escalation_load_schedules_planner_warm(
+        tmp_path, monkeypatch):
+    import brain.planner as planner_module
+
+    monkeypatch.setattr(planner_module, "worker", InlineWorker)
+    orch = Orchestrator(FakeServer(), Catalog.load(),
+                        Tracer(tmp_path / "traces"), engine=FakeEngine())
+    orch.planner = object()
+    orch._sysctl_reader = lambda name: {
+        "hw.memsize": 64 * 1024 ** 3,
+        "kern.memorystatus_level": 50,
+    }[name]
+    warmed = []
+
+    class EscalationPlanner:
+        model_path = "fake/escalation"
+
+        def warm(self):
+            warmed.append(True)
+            return {"warm_ms": 5.0}
+
+    planner = EscalationPlanner()
+    orch._escalate_loader = lambda *args, **kwargs: planner
+
+    async def enable_and_warm():
+        result = await orch.set_escalation(True)
+        await asyncio.gather(*list(orch._warm_tasks))
+        return result
+
+    result = asyncio.run(enable_and_warm())
+
+    assert result == {"loaded": True}
+    assert orch.planner_escalate is planner
+    assert warmed
+
+
+@pytest.mark.parametrize("memory,pressure,reason", [
+    (32 * 1024 ** 3, 60, "needs 48 GB RAM"),
+    (64 * 1024 ** 3, 30, "memory pressure"),
+])
+def test_escalation_refuses_insufficient_memory(memory, pressure, reason):
+    orch = Orchestrator(FakeServer(), Catalog.load())
+    orch.planner = object()
+    values = {"hw.memsize": memory, "kern.memorystatus_level": pressure}
+    orch._sysctl_reader = values.__getitem__
+    result = asyncio.run(orch.set_escalation(True))
+    assert result == {"loaded": False, "reason": reason}
+    assert orch.planner_escalate is None
+
+
+def test_escalation_loads_once_and_unloads():
+    orch = Orchestrator(FakeServer(), Catalog.load())
+    orch.planner = object()
+    orch._sysctl_reader = lambda name: {
+        "hw.memsize": 64 * 1024 ** 3,
+        "kern.memorystatus_level": 60,
+    }[name]
+    calls = []
+    planner = object()
+    orch._escalate_loader = lambda *args, **kwargs: (
+        calls.append((args, kwargs)) or planner)
+    async def go():
+        first = await orch.set_escalation(True)
+        second = await orch.set_escalation(True)
+        await orch.set_escalation(False)
+        return first, second
+    first, second = asyncio.run(go())
+    assert first == second == {"loaded": True}
+    assert len(calls) == 1
+    assert calls[0][1]["tag"] == "planner-escalate"
+    assert orch.planner_escalate is None
+
+
+def test_escalation_refuses_without_base_planner():
+    orch = Orchestrator(FakeServer(), Catalog.load())
+    assert asyncio.run(orch.set_escalation(True)) == {
+        "loaded": False, "reason": "no planner"}
+
+
+# ---------- escalation load races (brain-30) ----------
+
+def _race_orch(gate, calls):
+    orch = Orchestrator(FakeServer())
+    orch.planner = object()
+    orch._sysctl_reader = lambda name: {
+        "hw.memsize": 64 * 1024 ** 3, "kern.memorystatus_level": 60}[name]
+
+    class Planner:
+        pass
+
+    def loader(*args, **kwargs):
+        planner = Planner()
+        calls.append(weakref.ref(planner))
+        assert gate.wait(5)
+        return planner
+
+    orch._escalate_loader = loader
+    return orch
+
+
+async def _loading(calls):
+    async with asyncio.timeout(5):
+        while not calls:
+            await asyncio.sleep(0.001)
+
+
+def test_brain30_toggle_off_during_load_leaves_no_planner():
+    gate, calls = threading.Event(), []
+    orch = _race_orch(gate, calls)
+
+    async def scenario():
+        on = asyncio.create_task(orch.set_escalation(True))
+        await _loading(calls)
+        assert await asyncio.wait_for(orch.set_escalation(False), 1) == {"loaded": False}
+        gate.set()
+        assert await on == {"loaded": False}
+        assert orch.planner_escalate is None
+        assert calls[0]() is None
+
+    asyncio.run(scenario())
+
+
+def test_brain30_two_enables_load_one_copy():
+    gate, calls = threading.Event(), []
+    orch = _race_orch(gate, calls)
+
+    async def scenario():
+        first = asyncio.create_task(orch.set_escalation(True))
+        await _loading(calls)
+        second = asyncio.create_task(orch.set_escalation(True))
+        gate.set()
+        assert await asyncio.gather(first, second) == [{"loaded": True}] * 2
+        assert len(calls) == 1
+        assert orch.planner_escalate is calls[0]()
+
+    asyncio.run(scenario())
+
+
+def test_escalation_checks_memory_after_waiting_for_lock():
+    gate, calls = threading.Event(), []
+    orch = _race_orch(gate, calls)
+
+    async def scenario():
+        await orch._escalate_lock.acquire()
+        enable = asyncio.create_task(orch.set_escalation(True))
+        await asyncio.sleep(0)
+        orch._sysctl_reader = lambda name: 0
+        orch._escalate_lock.release()
+        assert await enable == {"loaded": False, "reason": "needs 48 GB RAM"}
+        assert not calls
+
+    asyncio.run(scenario())
+
+
+# ---------- plan-bank retrieval knobs ----------
+
+def _demo(goal, demo_id=None):
+    return Demo(goal=goal, app="Finder", category="single_step",
+                obs_header='app: Finder | window: "Desktop"', obs_lines=['#1 button "New Folder"'],
+                batch=["press #1"], id=demo_id)
+
+
+def test_planner_retrieval_layout_keeps_examples_after_cached_prefix(monkeypatch):
+    demos = [_demo("create a folder on desktop", "folder"),
+             _demo("rename a file in downloads", "rename")]
+    monkeypatch.setattr("brain.plan_bank.load_bank", lambda spec: demos)
+    message_calls = []
+
+    def renderer(msgs):
+        message_calls.append(msgs)
+        return list("".join(f"<|{message['role']}|>{message['content']}<|end|>"
+                            for message in msgs).encode("utf-8"))
+
+    def make_planner(k):
+        p = P.Planner("fake", Catalog.load(), engine=_fake_engine(["<eos>"]),
+                      constrain=False, few_shot=None, retrieval_k=k)
+        p._render_msgs = renderer
+        p.tokenizer.encode = lambda text, add_special_tokens=False: list(text.encode("utf-8"))
+        p._prefill = lambda tokens: []
+        return p
+
+    observation = 'app: Finder | window: "Desktop"\n#1 button "New Folder"'
+    plain, retrieved = make_planner(0), make_planner(2)
+    plain_result = plain.plan("make a new folder", observation, None, asyncio.Queue(),
+                              asyncio.new_event_loop(), threading.Event())
+    retrieved_result = retrieved.plan("make a new folder", observation, None, asyncio.Queue(),
+                                      asyncio.new_event_loop(), threading.Event())
+    assert plain.system == retrieved.system
+    assert plain._prefix_tokens == retrieved._prefix_tokens
+    assert plain._prefix_tokens == renderer([{"role": "system", "content": plain.system},
+                                             {"role": "user", "content": ""}])[:plain._cut]
+    plain_user = next(message["content"] for message in message_calls[1]
+                      if message["role"] == "user")
+    retrieved_user = next(message["content"] for message in message_calls[3]
+                          if message["role"] == "user")
+    assert plain_user == plain.user_message("make a new folder", observation, None)
+    chosen = retrieved.plan_bank.retrieve("make a new folder", observation, 2)
+    assert retrieved_user == render_block(chosen) + retrieved.user_message(
+        "make a new folder", observation, None)
+    assert retrieved_user.startswith("# Similar worked examples")
+    assert renderer(message_calls[3])[:retrieved._cut] == retrieved._prefix_tokens
+    assert plain_result["retrieved"] == []
+    assert retrieved_result["retrieved"] == [demo.id or demo.goal for demo in chosen]
+    assert {"prompt_tokens", "dynamic_tokens"} <= plain_result.keys()
+    assert retrieved_result["dynamic_tokens"] > plain_result["dynamic_tokens"]
+
+
+def test_planner_retrieval_flags_load_bank_only_when_enabled(monkeypatch, capsys):
+    args, _ = cli.build_parser(["serve"])
+    assert not ({"retrieval_k", "retrieval_bank"} & cli.planner_opts(args).keys())
+    with pytest.raises(SystemExit):
+        cli.build_parser(["serve", "--help"])
+    help_text = capsys.readouterr().out
+    assert "@REV" in help_text and "bank.jsonl.gz" in help_text
+    seen = {}
+
+    def fake_load(spec):
+        seen["spec"] = spec
+        return [_demo("open a clean task", "demo-id")]
+
+    monkeypatch.setattr("brain.plan_bank.load_bank", fake_load)
+    args, _ = cli.build_parser(["serve", "--planner-retrieval-k", "2",
+                                "--planner-retrieval-bank", "x.jsonl"])
+    opts = cli.planner_opts(args)
+    assert opts["retrieval_k"] == 2 and opts["retrieval_bank"] == "x.jsonl"
+    assert opts["app_hints"] is False
+    planner = cli.make_planner("fake", _fake_engine([]), opts)
+    assert seen["spec"] == "x.jsonl"
+    assert planner.retrieval_k == 2
+    assert "retrieval_k=2 retrieval_bank=x.jsonl" in capsys.readouterr().out
+    with pytest.raises(SystemExit):
+        cli.build_parser(["serve", "--planner-retrieval-k", "3"])
+    with pytest.raises(ValueError):
+        P.Planner("fake", Catalog.load(), engine=_fake_engine([]), retrieval_k=3)
+
+
+def test_offline_parser_runner_and_old_summary(monkeypatch):
+    args = planner_offline.build_parser().parse_args(["--retrieval-k", "2"])
+    assert args.retrieval_k == 2 and args.retrieval_bank == "v2-tune"
+    assert planner_offline.build_parser().parse_args(
+        ["--app-hints"]).app_hints is True
+    seen = {}
+
+    class FakePlanner:
+        def __init__(self, *args, **kwargs):
+            seen.update(kwargs)
+            self.tokenizer = type("FakeTokenizer", (), {
+                "eos_token_id": 0,
+                "encode": lambda self, text, add_special_tokens=False: [],
+            })()
+
+    monkeypatch.setattr("brain.planner.Planner", FakePlanner)
+    runner = planner_offline.Runner("fake", None, retrieval_k=2, retrieval_bank="x.jsonl")
+    assert seen["retrieval_k"] == 2 and seen["retrieval_bank"] == "x.jsonl"
+    assert seen["app_hints"] is False
+
+    old_row = {
+        "tags": ["single_step"], "pass": True, "strict_pass": True,
+        "valid": True, "strict_valid": True, "skipped": 0,
+        "ttft_ms": 20.0, "plan_ms": 100.0, "decode_tok_s": 12.0, "tokens": 5,
+    }
+    summary = planner_offline.summarize("old", "model", {}, [old_row])
+    assert summary["knobs"]["retrieval_k"] == 0
+    assert summary["knobs"]["retrieval_bank"] == "v2-tune"
+    assert summary["prompt_tokens_mean"] is None
+    assert summary["dynamic_tokens_mean"] is None
+    assert summary["retrieval_ms_p50"] is None
+
+
+def test_decide_pre_registered_pass_fail_gates_and_tie():
+    sets = planner_retrieval_report.SETS
+
+    def rows(passes, ttft=100):
+        return {name: {"n": 100, "n_pass": passes, "ttft_ms_p50": ttft}
+                for name in sets}
+
+    base = rows(50)
+    passing = rows(55, 120)
+    small_gain = rows(51, 120)
+    one_drop = rows(52, 120)
+    one_drop["v1-tune"]["n_pass"] = 48
+    slow = rows(55, 120)
+    slow["v2-holdout"]["ttft_ms_p50"] = 251
+    decision, notes = planner_retrieval_report.decide(
+        {0: base, 1: passing, 2: small_gain})
+    assert decision == 1 and "k=1: gain +0.050 -> PASS" in notes
+    assert "holdout gain +0.010 < +0.030" in planner_retrieval_report.decide(
+        {0: base, 1: small_gain})[1][0]
+    assert "drop > 1 scenario" in planner_retrieval_report.decide(
+        {0: base, 1: one_drop})[1][0]
+    assert "TTFT p50 > +150 ms" in planner_retrieval_report.decide(
+        {0: base, 1: slow})[1][0]
+    assert planner_retrieval_report.decide({0: base, 1: passing, 2: passing})[0] == 1

@@ -2,15 +2,21 @@
 route_render_samples.jsonl (skills/catalog.json, v2: r2/it2) and
 route_render_samples_v3.jsonl (training/artifacts/catalog_v3.json: it3),
 both produced on cloud/data-pipeline by muselet_train.render_samples.
-Uses only the locally cached Qwen3.5 tokenizer — no model weights."""
+Also planner LoRA samples (planner_lora_render_samples.jsonl) vs the brain
+planner prompt builder on the 4B tokenizer.
+Uses only the locally cached Qwen3.5 tokenizers — no model weights. Each test
+skips on its own missing snapshot."""
 
 import json
+import re
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from brain.catalog import Catalog
 from brain.decision import RouteRenderer, ARGS_SYSTEM, ARGS_USER
+from brain.planner import FEWSHOT_PATH, Planner, history
 
 ROOT = Path(__file__).resolve().parents[2]
 SAMPLES = ROOT / "training" / "artifacts" / "route_render_samples.jsonl"
@@ -19,6 +25,10 @@ CATALOGS = {"v2": (ROOT / "skills" / "catalog.json", SAMPLES),
                    ROOT / "training" / "artifacts" / "route_render_samples_v3.jsonl")}
 MODEL = "mlx-community/Qwen3.5-0.8B-4bit"
 MODEL4B = "mlx-community/Qwen3.5-4B-4bit"
+LORA_SAMPLES = ROOT / "training" / "artifacts" / \
+    "planner_lora_render_samples.jsonl"
+LOGIN_RE = re.compile(
+    r"\b(?:sign\s*in|sign-in|log\s*in|login|password)\b", re.IGNORECASE)
 
 
 def _snapshot(repo):
@@ -30,8 +40,11 @@ def _snapshot(repo):
 
 
 _SNAP = _snapshot(MODEL)
-pytestmark = pytest.mark.skipif(_SNAP is None,
-                                reason="Qwen3.5-0.8B tokenizer not cached")
+_SNAP4B = _snapshot(MODEL4B)
+needs_08b = pytest.mark.skipif(_SNAP is None,
+                               reason="Qwen3.5-0.8B tokenizer not cached")
+needs_4b = pytest.mark.skipif(_SNAP4B is None,
+                              reason="Qwen3.5-4B tokenizer not cached")
 
 
 @pytest.fixture(scope="module", params=sorted(CATALOGS))
@@ -55,14 +68,13 @@ def samples(which):
             if l.strip()]
 
 
+@needs_08b
+@needs_4b
 def test_tokenizer_parity_08b_vs_4b():
     """Both snapshots must tokenize the samples identically."""
-    snap4 = _snapshot(MODEL4B)
-    if snap4 is None:
-        pytest.skip("4B snapshot incomplete")
     from tinker_cookbook import tokenizer_utils
     t8 = tokenizer_utils.get_tokenizer(_SNAP)
-    t4 = tokenizer_utils.get_tokenizer(snap4)
+    t4 = tokenizer_utils.get_tokenizer(_SNAP4B)
     rows = [json.loads(l) for l in SAMPLES.read_text().splitlines()[1:]]
     for r in rows:
         e8 = t8.encode(r["utterance"], add_special_tokens=False)
@@ -70,6 +82,7 @@ def test_tokenizer_parity_08b_vs_4b():
         assert e8 == e4, f"tokenizer mismatch on {r['utterance']!r}"
 
 
+@needs_08b
 def test_header_parity(rr, samples, cat):
     h = samples[0]
     assert h["kind"] == "header"
@@ -95,6 +108,7 @@ def test_header_parity(rr, samples, cat):
         assert toks == prefix + [h["id_tokens"][c]], f"id token {c}"
 
 
+@needs_08b
 @pytest.mark.parametrize("i", range(50))
 def test_sample_parity(rr, samples, cat, i):
     """Every rendered sample must match tokens + choice_pos exactly."""
@@ -124,3 +138,78 @@ def test_args_templates():
     assert ARGS_USER == (
         'Skill: {name}({sig})\nContext: app={app} | last_action={last}\n'
         'Request: "{request}"')
+
+
+# --- Planner LoRA samples vs brain planner prompt (4B tokenizer) ---
+
+@pytest.fixture(scope="module")
+def planners():
+    catalog = Catalog.load()
+    rr = RouteRenderer(_SNAP4B, catalog)
+    engine = SimpleNamespace(
+        model_path=_SNAP4B,
+        model=None,
+        tokenizer=rr.tokenizer,
+        body=None,
+        lm_head=None,
+        rr=rr,
+        catalog=catalog,
+    )
+    return (
+        Planner(_SNAP4B, catalog, engine=engine, few_shot=None, retrieval_k=0),
+        Planner(_SNAP4B, catalog, engine=engine, few_shot=FEWSHOT_PATH,
+                retrieval_k=0),
+    )
+
+
+def _lora_samples():
+    rows = [json.loads(line) for line in LORA_SAMPLES.read_text().splitlines()
+            if line.strip()]
+    assert rows[0]["meta"] == {
+        "demos": "jonsnov/muselet-planner-demos-v1@9453ff6",
+        "tokenizer": MODEL4B,
+        "few_shot": None,
+        "retrieval_k": 0,
+    }
+    return rows[1:]
+
+
+def _login_page(observation):
+    window = re.match(
+        r'^app: [^|]+ \| window: "((?:[^"\\]|\\.)*)"', observation)
+    title = window[1] if window else ""
+    return bool(LOGIN_RE.search(f"{title}\n{observation}"))
+
+
+@needs_4b
+def test_sample_tokens_match_brain_planner(planners):
+    planner, default_planner = planners
+    rows = _lora_samples()
+    im_end_id = planner.tokenizer.convert_tokens_to_ids("<|im_end|>")
+
+    for row in rows:
+        state = row["state"]
+        prompt = planner.prompt_tokens(
+            state["goal"],
+            state["observation"],
+            history(state.get("last_batch"), "dsl"),
+            None,
+            state.get("script_output"),
+            _login_page(state["observation"]),
+        )
+
+        assert row["n_prompt"] == len(prompt), row["id"]
+        assert row["tokens"][:row["n_prompt"]] == prompt, row["id"]
+        expected_completion = planner.tokenizer.encode(
+            row["completion"], add_special_tokens=False) + [im_end_id]
+        assert row["tokens"][row["n_prompt"]:] == expected_completion, row["id"]
+
+        default_prompt = default_planner.prompt_tokens(
+            state["goal"],
+            state["observation"],
+            history(state.get("last_batch"), "dsl"),
+            None,
+            state.get("script_output"),
+            _login_page(state["observation"]),
+        )
+        assert len(default_prompt) > len(prompt), row["id"]

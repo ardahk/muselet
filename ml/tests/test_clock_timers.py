@@ -24,12 +24,9 @@ AX_START_UNVERIFIED = {"backend": "muselet", "fallback_reason": "start_unverifie
 TIMER = [{"op": "skill", "name": "start_timer", "args": {"duration": "600"}}]
 
 
+# The five AX_* backends are covered end to end (same strings) by
+# test_only_the_timer_reply_no_setup_hint below.
 @pytest.mark.parametrize("result,want", [
-    (AX_VERIFIED, "Timer set in Clock for 10 minutes"),
-    (AX_UNVERIFIED, "Timer set for 10 minutes"),
-    (AX_FAILED, "Timer set for 10 minutes in Muselet"),
-    (AX_UNAVAILABLE, "Timer set for 10 minutes in Muselet"),
-    (AX_START_UNVERIFIED, "Timer set for 10 minutes in Muselet"),
     ({"backend": "clock_ax", "seconds": 5400}, "Timer set for 1 hour 30 minutes"),
     ({"backend": "muselet", "seconds": 90}, "Timer set for 1 minute 30 seconds"),
     ({"backend": "clock_ax", "seconds": 1}, "Timer set for 1 second"),

@@ -1,10 +1,19 @@
-"""In-process fakes (no WebSocket): a server that records say/ui/confirm/rpc
-and a scripted System-1 engine with the DecisionEngine route/args API."""
+"""In-process fakes (no WebSocket): a server that records say/ui/confirm/rpc,
+a scripted System-1 engine with the DecisionEngine route/args API, and small
+shared helpers (planner/worker stand-ins, rpc/trace readers)."""
 
+import asyncio
+import copy
 import inspect
+import json
 import threading
+import time
+from concurrent.futures import Future
 
+from brain.catalog import Catalog
 from brain.decision import RouteResult
+from brain.orchestrator import Orchestrator
+from brain.traces import Tracer
 
 
 class FakeServer:
@@ -88,3 +97,84 @@ class FakeEngine:
         self.args_calls.append((skill, text))
         return dict(self.argmap.get((skill, " ".join(text.lower().split())), {}),
                     ms={"args_ms": 30.0}, _raw="raw")
+
+
+def run(coro):
+    return asyncio.run(coro)
+
+
+def _skill_rpcs(server):
+    return [(p["name"], p["args"]) for m, p in server.rpcs if m == "skill"]
+
+
+def _acts(server):
+    return [p for m, p in server.rpcs if m == "act"]
+
+
+def _traces(tracer):
+    return [json.loads(line) for path in tracer.dir.glob("*.jsonl")
+            for line in path.read_text().splitlines()]
+
+
+class CapturingTracer(Tracer):
+    """Keeps a deep copy of the finished trace as `.last`."""
+
+    def finish(self, outcome):
+        self.last = copy.deepcopy(self.current)
+        super().finish(outcome)
+
+
+class ScriptedPlanner:
+    """Planner.plan / Planner.generate stand-in (runs on the MLX worker)."""
+
+    def __init__(self, turns=None, answer=None):
+        self.turns = turns or [["done \"ok\""]]
+        self.answer = answer
+        self.plans: list[dict] = []
+        self.generates: list[tuple[str, str]] = []
+
+    def plan(self, goal, observation, last_batch, lines_out, loop, cancel,
+             **kw):
+        idx = min(len(self.plans), len(self.turns) - 1)
+        self.plans.append({"goal": goal, "obs": observation})
+        for line in self.turns[idx]:
+            time.sleep(0.005)
+            loop.call_soon_threadsafe(lines_out.put_nowait, line)
+        loop.call_soon_threadsafe(lines_out.put_nowait, None)
+        return {"lines": self.turns[idx], "ttft_ms": 1.0, "tokens": 4,
+                "plan_ms": 5.0, "decode_tok_s": 10.0}
+
+    def generate(self, system, user, max_tokens=48, stop_at_newline=True):
+        self.generates.append((system, user))
+        return self.answer(system, user) if callable(self.answer) \
+            else self.answer
+
+
+class InlineWorker:
+    """MLX worker stand-in: submit_async runs fn on a thread."""
+
+    async def submit_async(self, fn, *args, **kwargs):
+        return await asyncio.to_thread(fn, *args, **kwargs)
+
+    def submit(self, fn, *args, **kwargs):
+        future = Future()
+        try:
+            future.set_result(fn(*args, **kwargs))
+        except BaseException as exc:
+            future.set_exception(exc)
+        return future
+
+
+class SyncWorker:
+    """MLX worker stand-in: submit_async calls fn inline."""
+
+    async def submit_async(self, fn, *args, **kwargs):
+        return fn(*args, **kwargs)
+
+
+def engine_orch(tmp_path, server, routes=None, args=None, planner=None):
+    """Orchestrator over `server` with a FakeEngine(routes, args)."""
+    o = Orchestrator(server, Catalog.load(), Tracer(tmp_path / "traces"),
+                     engine=FakeEngine(routes or {}, args or {}))
+    o.planner = planner
+    return o

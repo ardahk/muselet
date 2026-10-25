@@ -2,10 +2,16 @@ import json
 import statistics
 import time
 
+from types import SimpleNamespace
+
 import brain.memory as memory_module
 from brain.memory import WorkingMemory, detect, eval_adapter, resolve
-from brain.memory.rewrite import STATIC, _valid, llm_rewrite
-from brain.memory.rules import SEARCH_URLS
+from brain.memory.policy import (
+    allowed_value, extract_writes, forget_command, memory_command,
+    planner_writes,
+)
+from brain.memory.rewrite import _valid, llm_rewrite
+from brain.memory.store import IMPORTANCE, MemoryStore, render
 from brain.memory.working import site_for_url
 
 
@@ -714,11 +720,7 @@ def test_history_privacy_atomic_save_and_compact_recent_lines(tmp_path):
     assert restored.focus(6, {"app": "Zen"})["site"] == "wikipedia.org"
 
 
-def test_all_search_templates_exist_and_adapter_shape():
-    assert len(SEARCH_URLS) == 30
-    assert STATIC.count("Output:") == 8
-    assert STATIC.count("Output: UNCHANGED") == 2
-    assert "Output: ASK:" in STATIC
+def test_eval_adapter_shape():
     adapter = eval_adapter("open Safari", {"app": "Zen", "t": 11}, [])
     assert set(adapter) == {"text", "changed", "path", "ask", "ms"}
     assert adapter["text"] == "open Safari"
@@ -793,3 +795,137 @@ def test_live_questions_are_not_site_scoped():
                  "find out what time the store closes"):
         result = eval_adapter(text, ctx, history)
         assert not result["changed"], text
+
+
+# --- Long-term store (brain/memory/store.py) ---
+
+def test_upsert_add_update_noop_and_superseded_visibility(tmp_path):
+    store = MemoryStore(tmp_path / "memory.db")
+    added = store.upsert("person", "Mom", "Jane Kim", now=1)
+    unchanged = store.upsert("person", "mom", "Jane Kim", now=2)
+    updated = store.upsert("person", "mom", "Jane Lee", now=3)
+
+    assert added["action"] == "ADD"
+    assert unchanged["action"] == "NOOP"
+    assert updated["action"] == "UPDATE"
+    assert added["importance"] == IMPORTANCE["person"]
+    assert [row["value"] for row in store.list()] == ["Jane Lee"]
+    assert [row["value"] for row in store.search("mom", now=4)] == ["Jane Lee"]
+    assert store.delete(updated["id"])["value"] == "Jane Lee"
+    assert store.list() == []
+    store.close()
+
+
+def test_fts_search_limits_results_and_rendering(tmp_path):
+    store = MemoryStore(tmp_path / "memory.db")
+    store.upsert("fact", "favorite tea", "green tea every morning", now=1)
+    store.upsert("person", "mom", "Jane Kim", now=1)
+    store.upsert("preference", "music", "jazz", now=1)
+
+    rows = store.search("tea", k=3, now=2)
+    assert len(rows) <= 3
+    assert rows[0]["key"] == "favorite tea"
+    assert all(len(line) <= 80 for line in render(rows))
+    assert sum(len(line.split()) * 1.3 for line in render(rows)) <= 150
+    assert rows[0]["used"] == 2
+    store.close()
+
+
+def test_like_fallback_search_and_forget_candidates(tmp_path):
+    store = MemoryStore(tmp_path / "memory.db", fts=False)
+    first = store.upsert("fact", "coffee", "dark roast", now=1)
+    store.upsert("fact", "tea", "green", now=1)
+
+    assert [row["id"] for row in store.search("coffee", now=2)] == [
+        first["id"]]
+    assert [row["id"] for row in store.forget("roast", now=2)] == [
+        first["id"]]
+    assert store.clear() == 2
+    store.close()
+
+
+def test_environment_override_sets_database_path(tmp_path, monkeypatch):
+    path = tmp_path / "override" / "memory.db"
+    monkeypatch.setenv("MUSELET_MEMORY_DB", str(path))
+    store = MemoryStore()
+    assert store.path == path
+    store.close()
+
+
+# --- Write policy and privacy filter (brain/memory/policy.py) ---
+
+def test_privacy_filter_rejects_codes_and_secret_phrases():
+    assert not allowed_value("my bank pin is 4821")
+    assert not allowed_value("the code is 123456")
+    assert not allowed_value("use password for login")
+    assert not allowed_value("card 4111 1111 1111 1111")
+    assert not allowed_value("remember this message body")
+    assert allowed_value("I like green tea")
+
+
+def test_fact_preference_and_person_write_commands():
+    fact = memory_command("Remember that I drink green tea every morning")
+    assert fact.write == {
+        "type": "fact", "key": "drink green tea every morning",
+        "value": "I drink green tea every morning"}
+    assert fact.reply == "Got it, I'll remember that."
+
+    assert memory_command("my favorite color is blue").write == {
+        "type": "preference", "key": "color", "value": "blue"}
+    assert memory_command("I prefer dark roast for coffee").write == {
+        "type": "preference", "key": "coffee", "value": "dark roast"}
+    assert memory_command("my mom is Jane Kim").write == {
+        "type": "person", "key": "mom", "value": "Jane Kim"}
+    assert memory_command("call my mom Jane Kim").write == {
+        "type": "person", "key": "mom", "value": "Jane Kim"}
+    assert memory_command("Jane Kim is my mom").write == {
+        "type": "person", "key": "mom", "value": "Jane Kim"}
+    assert memory_command("call me Ace").write == {
+        "type": "person", "key": "user name", "value": "Ace"}
+    assert memory_command("remember my pin is 4821") is None
+
+
+def test_correction_requires_a_short_previous_argument():
+    previous = SimpleNamespace(args={"query": "Kayla"})
+    assert extract_writes(
+        "no, I meant Caleb", previous_turn=previous) == [{
+            "type": "correction", "key": "kayla", "value": "Caleb"}]
+    assert extract_writes(
+        "I meant Caleb", previous_turn=previous) == [{
+            "type": "correction", "key": "kayla", "value": "Caleb"}]
+    assert extract_writes(
+        "no, I meant Caleb", previous_turn=SimpleNamespace(
+            args={"query": "the very long contact name"})) == []
+
+
+def test_forget_commands_and_planner_writes():
+    assert forget_command("forget that") == ("that", None)
+    assert forget_command("forget about Mom") == ("query", "mom")
+    assert forget_command("forget everything") == ("clear", None)
+    assert forget_command("what do you remember about tea") == (
+        "remember", "tea")
+    writes = planner_writes("make a folder", "Finder", 2)
+    assert [(row["type"], row["key"]) for row in writes] == [
+        ("episode", "make folder"), ("workflow", "make folder")]
+    assert extract_writes(
+        "send a message saying SECRET BODY", skill="send_message",
+        args={"body": "SECRET BODY"}) == []
+
+
+def test_generic_commands_never_become_person_memories():
+    for text in ("show whatever is sitting on desktop",
+                 "the file is on the desktop", "call Mom Jane Kim",
+                 "what is the weather", "safari is slow",
+                 "call mom", "open whatever is in downloads"):
+        assert memory_command(text) is None, text
+        assert extract_writes(text, skill="open_app") == [], text
+
+
+def test_planner_writes_need_real_app_and_two_steps():
+    assert planner_writes("make a folder", "Finder", 1) == []
+    assert planner_writes("make a folder", "Finder", 0) == []
+    for app in ("", "none", "unknown", None):
+        assert planner_writes("make a folder", app, 3) == [], app
+    assert [row["value"] for row in planner_writes(
+        "make a folder", "Finder", 2)] == [
+            "make a folder → ok (2 steps, Finder)", "2 steps in Finder"]

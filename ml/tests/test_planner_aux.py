@@ -9,12 +9,7 @@ from brain.memory import MemoryStore, WorkingMemory
 from brain.orchestrator import Orchestrator
 from brain.tools import compose_text, draft_email
 from brain.traces import Tracer
-from fakes import FakeServer
-
-
-class _Worker:
-    async def submit_async(self, fn, *args, **kwargs):
-        return fn(*args, **kwargs)
+from fakes import FakeServer, SyncWorker
 
 
 class _TextModel:
@@ -53,7 +48,7 @@ def _run(coro):
 
 
 def test_memory_rewrite_uses_aux_complete(tmp_path, monkeypatch):
-    monkeypatch.setattr("brain.planner.worker", lambda: _Worker())
+    monkeypatch.setattr("brain.planner.worker", lambda: SyncWorker())
     planner = _TextModel()
     aux = _TextModel()
     orch = _orch(tmp_path)
@@ -73,7 +68,7 @@ def test_memory_rewrite_uses_aux_complete(tmp_path, monkeypatch):
 
 
 def test_fallback_answer_uses_aux_generate(tmp_path, monkeypatch):
-    monkeypatch.setattr("brain.planner.worker", lambda: _Worker())
+    monkeypatch.setattr("brain.planner.worker", lambda: SyncWorker())
     planner = _TextModel(answer="planner answer")
     aux = _TextModel(answer="aux answer")
     orch = _orch(tmp_path)
@@ -88,7 +83,7 @@ def test_fallback_answer_uses_aux_generate(tmp_path, monkeypatch):
 
 
 def test_verify_missing_text_uses_aux_generate(tmp_path, monkeypatch):
-    monkeypatch.setattr("brain.planner.worker", lambda: _Worker())
+    monkeypatch.setattr("brain.planner.worker", lambda: SyncWorker())
     planner = _TextModel(answer="planner text")
     aux = _TextModel(answer="the save dialog is still open")
     orch = _orch(tmp_path)
@@ -103,7 +98,7 @@ def test_verify_missing_text_uses_aux_generate(tmp_path, monkeypatch):
 
 
 def test_verify_done_uses_aux_decide(tmp_path, monkeypatch):
-    monkeypatch.setattr("brain.planner.worker", lambda: _Worker())
+    monkeypatch.setattr("brain.planner.worker", lambda: SyncWorker())
     planner = _TextModel()
     aux = _TextModel()
     orch = _orch(tmp_path, FakeServer(observe=lambda: {
@@ -121,7 +116,7 @@ def test_verify_done_uses_aux_decide(tmp_path, monkeypatch):
 
 
 def test_escalation_planner_owns_verify_text_and_decide(tmp_path, monkeypatch):
-    monkeypatch.setattr("brain.planner.worker", lambda: _Worker())
+    monkeypatch.setattr("brain.planner.worker", lambda: SyncWorker())
     planner = _TextModel()
     aux = _TextModel()
     escalation = _TextModel()
@@ -147,7 +142,7 @@ def test_escalation_planner_owns_verify_text_and_decide(tmp_path, monkeypatch):
 
 def test_web_question_and_answer_use_aux_when_planner_is_absent(
         tmp_path, monkeypatch):
-    monkeypatch.setattr("brain.planner.worker", lambda: _Worker())
+    monkeypatch.setattr("brain.planner.worker", lambda: SyncWorker())
     question = "look up when the golden gate bridge opened"
     page = ('app: Safari | window: "Search"\n' +
             "The Golden Gate Bridge opened in 1937. " * 15)
@@ -171,7 +166,7 @@ def test_web_question_and_answer_use_aux_when_planner_is_absent(
 
 def test_compose_text_uses_aux_and_falls_back_to_planner(
         monkeypatch):
-    from test_first_use_fixes import _compose_orch
+    from test_tool_compose_text import _compose_orch
 
     aux = _TextModel(answer="An excellent draft\nA short note.")
     orch = _compose_orch("Planner text", monkeypatch)
@@ -191,7 +186,7 @@ def test_compose_text_uses_aux_and_falls_back_to_planner(
 
 
 def test_draft_email_uses_aux_generate(tmp_path, monkeypatch):
-    monkeypatch.setattr("brain.planner.worker", lambda: _Worker())
+    monkeypatch.setattr("brain.planner.worker", lambda: SyncWorker())
     monkeypatch.setattr(draft_email, "user_name", lambda: None)
     obs = {"epoch": 1, "app": "Mail", "window": "Inbox", "elements": []}
     orch = _orch(tmp_path, FakeServer(observe=lambda: obs))
