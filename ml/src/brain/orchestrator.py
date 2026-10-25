@@ -3760,7 +3760,8 @@ function run() {
                 # expects — evidence verification decides done, and a
                 # model-written predicate that can't match shouldn't
                 # abort the batch the action already ran in
-                if self._progress not in (None, "unset"):
+                if self._progress not in (None, "unset") or getattr(
+                        self, "_agentic", None):
                     trace_d = self.tracer.current if self.tracer else None
                     if trace_d is not None:
                         trace_d.setdefault("decisions", []).append(
