@@ -20,6 +20,7 @@ import threading
 import time
 from pathlib import Path
 import unicodedata
+from urllib.parse import urlsplit
 
 from . import argfix, calc, dsl, obsdiff, pathfind, replies, sendgate, slots
 from .memory import MemoryStore, Resolution, WorkingMemory, resolve
@@ -154,6 +155,23 @@ _LOADING_TITLE = re.compile(
 _CHAT_IDE = frozenset(normalize_name(a) for a in (
     "Devin", "Terminal", "iTerm2", "Warp", "Ghostty", "Visual Studio Code",
     "Code", "Cursor", "Windsurf", "Xcode"))
+
+
+WEB_UI_ERROR = "use the page's search box: type into it and press return"
+_URL_SEARCH = re.compile(r"\?|/results\b|/s\?k=|/search\b", re.I)
+_URLISH = re.compile(
+    r"^(?:https?://\S+|(?:[\w-]+\.)+[a-z]{2,}(?::\d+)?(?:/\S*)?)$", re.I)
+_ADDRESS_BAR = re.compile(
+    r"address|enter (?:a )?(?:url|address|website)|^search\W*$|"
+    r"search (?:or|with)\b|\burl\b", re.I)
+
+
+def url_host(url: str) -> str:
+    try:
+        host = urlsplit(url if "://" in url else "https://" + url).hostname
+    except ValueError:
+        return ""
+    return (host or "").casefold().removeprefix("www.")
 
 
 def fallback_recoverable(reason: str) -> bool:
@@ -2539,6 +2557,30 @@ function run() {
                 return e.get("label", "")
         return ""
 
+    def _hand_built_search(self, url: str, front: str) -> bool:
+        """A planner search/query url on the site the browser already shows."""
+        if not sendgate.is_browser(front) or not _URL_SEARCH.search(url):
+            return False
+        pages = [self._last_ok_url, (self._page_task or {}).get("url")]
+        if sendgate.is_browser(self._ctx.get("app")):
+            pages.append(self._focus_ctx.get("url"))
+        hosts = {url_host(str(p)) for p in pages if p}
+        return bool(url_host(url) and url_host(url) in hosts)
+
+    def _address_bar_query(self, a: dict) -> bool:
+        """Typing a non-URL query into a browser's address/search bar."""
+        if not sendgate.is_browser((self._last_obs or {}).get("app")):
+            return False
+        element = self._element_for_ref(a.get("ref")) or {}
+        if element.get("role") not in ("combobox", "textfield"):
+            return False
+        names = " ".join(str(element.get(k) or "")
+                         for k in ("label", "placeholder"))
+        value = str(element.get("value") or "").strip()
+        text = str(a.get("text") or "").strip()
+        return bool(_ADDRESS_BAR.search(names.strip()) and
+                    _URLISH.match(value) and text and not _URLISH.match(text))
+
     def _element_for_ref(self, ref):
         if ref is None or not self._last_obs:
             return None
@@ -3062,6 +3104,13 @@ function run() {
         if op == "click":
             return {"status": "failed", "error": "no screenshot attached",
                     "_log": f"{dsl_line}-> failed: no screenshot attached"}
+        if op == "type" and self._address_bar_query(a):
+            if self.tracer.current is not None:
+                self.tracer.current.setdefault("decisions", []).append(
+                    {"web_ui_guard": {"type": str(a.get("text") or "")[:80]}})
+            return {"status": "failed", "error": WEB_UI_ERROR,
+                    "_no_strike": True,
+                    "_log": f"{dsl_line}-> failed: {WEB_UI_ERROR}"}
         if op in ("press", "type", "keys"):
             # injection + danger guard: destructive labels need a confirm
             needs = False
@@ -3131,8 +3180,15 @@ function run() {
             a["url"] = fix_url(a.get("url") or "")
             if str(a["url"]).partition(":")[0].casefold() not in APP_SCHEMES:
                 a = self._with_browser(a, goal)
-            self._last_url = str(a.get("url") or "")
             front = str((self._last_obs or {}).get("app") or "")
+            if self._hand_built_search(a["url"], front):
+                if self.tracer.current is not None:
+                    self.tracer.current.setdefault("decisions", []).append(
+                        {"web_ui_guard": {"url": a["url"]}})
+                return {"status": "failed", "error": WEB_UI_ERROR,
+                        "_no_strike": True,
+                        "_log": f"{dsl_line}-> failed: {WEB_UI_ERROR}"}
+            self._last_url = str(a.get("url") or "")
             in_task = (
                 not self._page_task and self._last_ok_url and
                 sendgate.is_browser(front) and
@@ -4341,7 +4397,9 @@ function run() {
                 # loop guard: same action failing twice in a row, or three
                 # failed turns -> ask the user instead of burning turns;
                 # a blind_click_blocked refusal is recoverable, not a strike
-                if not failure_detail.startswith("blind_click_blocked"):
+                web_ui = failure_detail == WEB_UI_ERROR
+                if not failure_detail.startswith("blind_click_blocked") and \
+                        not web_ui:
                     fail_streak += 1
                 same = fail_key is not None and fail_key == prev_fail_key
                 recovery_reason = (
@@ -4350,7 +4408,7 @@ function run() {
                     else "action_error")
                 last_failure_detail = failure_detail
                 spent = False
-                if verify_mode:
+                if verify_mode and not web_ui:
                     spent = not await self._recover(
                         trace, recovery_reason, failure_detail)
                 if self.planner_escalate is not None and fail_streak >= 2 \

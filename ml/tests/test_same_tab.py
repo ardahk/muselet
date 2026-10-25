@@ -166,7 +166,7 @@ def test_page_task_uses_planner_and_planner_url_navigates_same_tab(tmp_path):
         engine = FakeEngine()
         server = FakeServer()
         planner = FakePlanner([
-            ['url "https://www.amazon.com/s?k=chicken"'],
+            ['url "https://www.amazon.com/gp/cart/view.html"'],
             ['done "searched"'],
         ])
         orch = _orch(tmp_path, server=server, engine=engine, planner=planner)
@@ -269,17 +269,17 @@ def test_second_planner_url_in_task_reuses_front_browser_tab(tmp_path):
     async def go():
         server, orch = _browser_task_orch(tmp_path, [
             ['url "https://www.youtube.com"'],
-            ['url "https://www.youtube.com/results?search_query=jazz"'],
-            ['done "Playing jazz"'],
+            ['url "https://en.wikipedia.org/wiki/Jazz"'],
+            ['done "Opened jazz"'],
         ])
-        await orch.handle_utterance("play some jazz on youtube",
+        await orch.handle_utterance("open youtube then wikipedia jazz",
                                     {"app": "Finder"})
         acts = [p for m, p in server.rpcs if m == "act" and p.get("op") == "url"]
         assert [p["url"] for p in acts] == ["https://www.youtube.com"]
         skills = _skills(server)
         assert len(skills) == 1 and skills[0][1]["name"] == "open_url"
         assert skills[0][1]["args"] == {
-            "url": "https://www.youtube.com/results?search_query=jazz",
+            "url": "https://en.wikipedia.org/wiki/Jazz",
             "browser": "Zen", "same_tab": True}
 
     _run(go())
@@ -336,3 +336,45 @@ def test_default_browser_reads_launchservices_plist(tmp_path, monkeypatch):
         assert real_default_browser() is None
     finally:
         real_default_browser.cache_clear()
+
+
+def test_planner_search_url_on_current_site_is_rejected(tmp_path):
+    async def go():
+        server, orch = _browser_task_orch(tmp_path, [
+            ['url "https://www.youtube.com"'],
+            ['url "https://youtube.com/results?search_query=jazz"'],
+            ['done "Playing jazz"'],
+        ])
+        planner = orch.planner
+        await orch.handle_utterance("play some jazz on youtube",
+                                    {"app": "Finder"})
+        acts = [p for m, p in server.rpcs if m == "act" and p.get("op") == "url"]
+        assert [p["url"] for p in acts] == ["https://www.youtube.com"]
+        assert _skills(server) == []
+        assert len(planner.calls) >= 3
+
+    _run(go())
+
+
+def test_address_bar_query_typing_is_rejected(tmp_path):
+    orch = _orch(tmp_path)
+    orch._last_obs = {"app": "Zen", "elements": [
+        {"ref": 3, "role": "combobox", "label": "Search...",
+         "value": "https://www.youtube.com/"},
+        {"ref": 9, "role": "combobox", "label": "Search", "value": ""}]}
+
+    async def go():
+        bar = await orch._exec_action(
+            {"op": "type", "ref": 3, "text": "jazz music", "enter": True})
+        url = await orch._exec_action(
+            {"op": "type", "ref": 3, "text": "en.wikipedia.org"})
+        page = await orch._exec_action(
+            {"op": "type", "ref": 9, "text": "jazz music", "enter": True})
+        return bar, url, page
+
+    bar, url, page = _run(go())
+    assert bar["status"] == "failed"
+    assert bar["error"] == ("use the page's search box: type into it and "
+                            "press return")
+    assert url["status"] == "ok"
+    assert page["status"] == "ok"
