@@ -1,8 +1,8 @@
 {
-  "pass": 63,
-  "ts": "2026-10-25T02:32:36Z",
+  "pass": 64,
+  "ts": "2026-10-25T02:47:24Z",
   "last_reviewed": {
-    "main": "55e38f9",
+    "main": "13d0486",
     "wip/local": "fd357b3",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
@@ -77,5 +77,5 @@
     "cloud/memory-rules2": "03c3cd1"
   },
   "next_id": 51,
-  "note": "pass 63: main 55e38f9 fixes calendar precondition seeding in HobbyLM replay; prior runs skipped those cases (core.py:733-746 -> status skipped, out of pass_rate). -25 updated."
+  "note": "pass 64: main 13d0486 moves HobbyLM calendar final-state capture into runner (EventKit TCC). Event-kind cases before this graded without calendar_events. -25 updated."
 }
