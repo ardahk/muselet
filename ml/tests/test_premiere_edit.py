@@ -4,7 +4,7 @@ import pytest
 
 from brain.catalog import Catalog
 from brain.orchestrator import Orchestrator
-from brain.tools import premiere_edit
+from brain.tools import compose_text, draft_email, premiere_edit
 from brain.traces import Tracer
 from fakes import FakeServer
 
@@ -111,6 +111,11 @@ def test_both_existing_redirect_sites_dispatch_premiere_edit(tmp_path, monkeypat
     orch = make_orch(tmp_path)
     calls = []
 
+    monkeypatch.setattr(compose_text, "parse_request", lambda _text: pytest.fail(
+        "Premiere redirect must precede compose_text"))
+    monkeypatch.setattr(draft_email, "parse_request", lambda *_args: pytest.fail(
+        "Premiere redirect must precede draft_email"))
+
     async def brain_tool(name, args, text):
         calls.append((name, args, text))
         return "ok"
@@ -131,6 +136,43 @@ def test_both_existing_redirect_sites_dispatch_premiere_edit(tmp_path, monkeypat
     assert calls[-1][:2] == ("premiere_edit", {"op": "transition"})
     assert trace["decisions"] == [
         {"premiere_redirect": {"op": "transition"}}]
+
+
+def test_draft_email_fallback_dispatches_draft_email_not_premiere(
+        tmp_path, monkeypatch):
+    orch = make_orch(tmp_path)
+    orch.engine = None
+    orch.memory_enabled = False
+    orch.route = lambda _text: {"kind": "answer"}
+    calls = []
+
+    async def brain_tool(name, args, text):
+        calls.append((name, args, text))
+        return "ok"
+
+    monkeypatch.setattr(orch, "_brain_tool", brain_tool)
+    parse_request = draft_email.parse_request
+    parse_calls = 0
+
+    def parse_after_preroute(text, ctx):
+        nonlocal parse_calls
+        parse_calls += 1
+        if parse_calls == 1:
+            return None
+        return parse_request(text, ctx)
+
+    monkeypatch.setattr(draft_email, "parse_request", parse_after_preroute)
+    monkeypatch.setattr(compose_text, "parse_request", lambda _text: None)
+    text = "draft an email to my coworkers saying hello"
+    result = asyncio.run(orch.handle_utterance(text, {"app": "Notes"}))
+
+    assert result["outcome"] == "ok"
+    assert calls == [(
+        "draft_email",
+        {"to": "my coworkers", "about": "hello", "reply": False},
+        text,
+    )]
+    assert parse_calls == 2
 
 
 @pytest.mark.parametrize(("output", "message"), [
