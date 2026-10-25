@@ -1,4 +1,4 @@
-# hands — digest (Pass 89)
+# hands — digest (Pass 90)
 
 Open: 0 P0, 7 P1, 19 P2.
 
@@ -15,6 +15,12 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 90 (no new findings; 2 status updates):
+- hands-44 widened: soft expects now apply to every agentic app task (36422a7).
+- hands-47: the Premiere hint says one batch with no expects, so the duration edit has no check at all.
+- 4bf7a41 blocks cmd+L/cmd+T in browsers unless the user asks for the address bar, and the browser tip now says use `url`. That's good for Zen, but the `url` steps now go through the same-tab path more often (hands-34 still open). The new cart-count patterns look fine.
+- wip/local matches main.
 
 Pass 89:
 - New P2 hands-49: the focused text input is added to observations with no check that it is inside the observed window, and its parent walk has no deadline.
