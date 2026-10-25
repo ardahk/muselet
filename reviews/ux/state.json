@@ -1,9 +1,9 @@
 {
-  "pass": 71,
-  "ts": "2026-10-25T05:41:00Z",
+  "pass": 72,
+  "ts": "2026-10-25T05:57:00Z",
   "last_reviewed": {
-    "main": "e8023b8",
-    "wip/local": "20055d1",
+    "main": "fe2de69",
+    "wip/local": "422399a",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -90,5 +90,5 @@
     "cloud/premiere-route-fix": "7769c32",
     "cloud/agentic-loop": "9b2e512"
   },
-  "notes": "pass 71: main e8023b8 merged the blind planner (#87; ux-29 now on main) and blind typing for CEF apps (#88, hands lane). agentic-loop 9b2e512 adds a finish-criterion done gate. Its 'done rejected: ...' reason contains 'done', so _honest_failure drops it and uses the model-written _missing_text, and no raw text leaks (ux-28 unchanged). No new findings."
+  "notes": "pass 72: main fe2de69 uses the local eyes-4b (no lazy HF download). wip 422399a (b43270d fix-thinking) prewarms the grounder, keeps blind mode only for the target app, adds blind_click_blocked and pause/resume/cancel for Clock timers. ux-20 is mostly mitigated (residual 10 s silent wait during prewarm). ux-29 is unchanged: the blind planner still thinks 512 tokens on every turn. No new findings."
 }
