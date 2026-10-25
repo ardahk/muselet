@@ -1,9 +1,9 @@
 {
-  "pass": 89,
-  "ts": "2026-10-25T11:02:00Z",
+  "pass": 90,
+  "ts": "2026-10-25T11:33:00Z",
   "last_reviewed": {
     "main": "2de65a9",
-    "wip/local": "5b70519",
+    "wip/local": "4db92e8",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -99,5 +99,5 @@
     "cloud/cool-tasks": "cfbec49",
     "cloud/native-tools": "6053e4e"
   },
-  "notes": "pass 89: main 2de65a9 makes expects soft for all agentic app tasks (36422a7). That extends the ux-28 mitigation: app tasks can no longer stop on 'expect failed'. It also blocks cmd+L/cmd+T in browser tasks unless the user mentions the address bar (keeps Zen's URL overlay off the page; good for the demo look), widens the cart-count patterns, and adds a Premiere one-batch hint. None adds bubble copy. ux-34 (orchestrator.py:161) and ux-32 (README.md:32) are still unfixed. wip/local equals main."
+  "notes": "pass 90: only wip moved (4db92e8). Web page-load signals (AXLoaded/AXElementBusy) feed a fresh observation after navigation; Premiere clipSpeed counts as a hot-text field; Numbers sort integrity guard (failure copy is the generic 'Script failed'); the step phrase says 'Opening browser' instead of the browser name; the Settings panel moves from Form to custom cards and drops the Models/35B toggle section (a static review can't judge the native look; needs a screenshot). New ux-35: Esc cancel now hides the bubble instead of showing 'Stopped.'. ux-34 and ux-32 are still unfixed on main."
 }
