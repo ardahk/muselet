@@ -1,4 +1,4 @@
-# bench digest — pass 84 (2026-10-25T09:15Z, main@2445a1d)
+# bench digest — pass 85 (2026-10-25T09:30Z, main@85958b0)
 
 P0: 0 | open P1: 14 | open P2: 21
 
@@ -80,3 +80,10 @@ Pass 84 (no new findings, no status changes): main 4f94e42..2445a1d.
 - bench-50 (timer cancel) and bench-54 (Devpost .850) are unchanged.
 - cool-tasks e4def97 is a merge of main; bench-56 is unchanged.
 - wip/local 6e7f50b changes only the shopping hint text.
+
+Pass 85 (no new findings): main 2445a1d..85958b0.
+- bench-55 widened: a524768 makes planner expects soft on any task with a finish criterion, including the default LoRA planner.
+- New shopping few-shot 'add a phone charger to my cart on target.com' shows a USB-C charger and a 'Charging Cable' button. It's the same template as oe-amazon-cart ('add a USB-C charging cable to my Amazon cart'), but a different site, product and wording, and that case is manual:true. Watch item, not train-on-test; if oe-amazon-cart is ever reported, note the example.
+- 71badc3's shopping-never-reminder guard is fine.
+- wip/local 3d21638 has no diff from main. cool-tasks a77104e is a merge of main; bench-56 is unchanged.
+- bench-50, bench-53 and bench-54 are unchanged.
