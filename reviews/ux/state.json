@@ -1,9 +1,9 @@
 {
-  "pass": 53,
-  "ts": "2026-10-25T00:47:00Z",
+  "pass": 54,
+  "ts": "2026-10-25T01:02:00Z",
   "last_reviewed": {
-    "main": "eb3e945",
-    "wip/local": "3f21dc6",
+    "main": "e4594d9",
+    "wip/local": "fc5d595",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -72,7 +72,9 @@
     "cloud/design": "b93bb50",
     "cloud/panel-hook-fix": "ef35421",
     "cloud/memory-llm-gate": "6864386",
-    "cloud/docs-demo-3": "c615c37"
+    "cloud/docs-demo-3": "c615c37",
+    "cloud/memory-hotfix": "d932320",
+    "cloud/memory-rules2": "03c3cd1"
   },
-  "notes": "pass 53: main eb3e945 is a design brief only. cloud/design b93bb50 reviewed: native grouped-Form panel (permission rows show only when something is missing, plus a brain warning row), kitten template icon, kitten clamped to visibleFrame, a shared X/Esc close path, 0.12 s pill fade, Clock-over-AX-only timers (CLOCK_HINT removed). It resolves ux-26; ux-25 is still open. memory-llm-gate has no new copy; panel-hook-fix is debug hooks only; docs-demo-3 has no lane files."
+  "notes": "pass 54: main e4594d9 is harness/live-case only (no lane files). memory-hotfix and memory-rules2 change only detect/rules classification labels; no new user-facing copy. All open findings unchanged."
 }

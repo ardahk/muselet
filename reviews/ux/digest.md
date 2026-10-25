@@ -1,8 +1,8 @@
-# ux digest — pass 53
+# ux digest — pass 54
 
-Heads: main eb3e945, wip 3f21dc6, design b93bb50, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
+Heads: main e4594d9, wip fc5d595, design b93bb50, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
 
-Counts: 0 P0, 1 P1, 14 P2. No new findings in passes 52-53; cloud/design resolves ux-26 once merged (ux-25 is still open there) (hands-clock #55 and brain-9 #61 copy OK). New in pass 51: ux-29. ux-25, ux-26 and ux-27 are now live on main (ui-polish #49, memory #58).
+Counts: 0 P0, 1 P1, 14 P2. No new findings in passes 52-54; cloud/design resolves ux-26 once merged (ux-25 is still open there) (hands-clock #55 and brain-9 #61 copy OK). New in pass 51: ux-29. ux-25, ux-26 and ux-27 are now live on main (ui-polish #49, memory #58).
 Open P1:
 - ux-28: the failure bubble shows raw "Not finished: expect failed: …" (orchestrator.py:3061, 2065)
 Open P2, ranked:
