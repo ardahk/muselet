@@ -1,6 +1,6 @@
-# evals-safety digest (pass 88, 2026-10-25T09:25:53Z)
+# evals-safety digest (pass 89, 2026-10-25T09:41:18Z)
 
-P0 evals-safety-56 open; NEW P1 evals-safety-57: failed expects no longer end the batch when a finish criterion exists.
+P0 evals-safety-56 open; P1 -57 open; NEW P1 evals-safety-58: destructive-refuse regex blocks empty_trash phrasings.
 
 
 -54 downgraded to P1: Spotify runtime path fixed by #101; eval check and non-Spotify play evidence still weak.
