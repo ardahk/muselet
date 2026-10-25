@@ -1,12 +1,12 @@
-# Planner review digest — pass 91 (2026-10-25T11:36Z)
+# Planner review digest — pass 92 (2026-10-25T12:08Z)
 
-main unchanged at 2de65a9. wip 5b70519→4db92e8 (local, unmerged): page-load signal (AXLoaded/AXElementBusy), keep agentic batches, Premiere clipSpeed hot-text, Numbers sort integrity guard, model picker removed from the panel.
-- planner-65 (P2, new): busy-only pages may wait up to 15 s after each navigation action, with an observe every 100 ms (hypothesis, not measured).
-- planner-59 (P1): soft-expect tasks now strip the fused expect from the act RPC, and a failure still doesn't stop the batch or count toward the loop guard.
-- OK: the Numbers sort guard blocks cell rewrites for sort goals (has tests). Removing the panel model picker leaves ESCALATE/--planner-model selectable by env, so alternatives stay configurable.
-- planner-64 (Premiere unverified), planner-58 (ref numbering), planner-63 (refuse regex) and planner-60 (sendgate): unchanged on main.
+main unchanged at 2de65a9. wip 4db92e8→a6035fb (local, unmerged): a2004d9 deletes the finance/advisor engines per the new user override in AGENTS.md. App/analysis intents always plan; FEWSHOT=none and RETRIEVAL_K=0 by default.
+- planner-66 (P1, new): finance/advisor answers are unverified, so there is a correct-looking-wrong-numbers risk on demo goal 3. Fix with generic read-back verification, not an engine.
+- planner-64 / planner-51 reframed to respect the override: verification and measurement only.
+- planner-55: README still claims deterministic Decimal finance and the .85 planner score on old defaults.
+- planner-65, planner-59, planner-58, planner-63 and planner-60: unchanged.
 
-New: 1 P2. Resolved: 0. Open: 0 P0, 19 P1, 16 P2.
+New: 1 P1. Resolved: 0. Open: 0 P0, 20 P1, 16 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
