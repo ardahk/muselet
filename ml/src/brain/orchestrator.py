@@ -3111,6 +3111,51 @@ function run() {
             post["window"] = window.group(1)
         return post
 
+    _CLICK_ROLES = {
+        "button": ("button",),
+        "radio": ("radio", "radio button"),
+        "checkbox": ("checkbox", "check box"),
+        "popup": ("popup", "pop up", "popup button", "pop up button",
+                  "dropdown", "drop down", "dropdown menu"),
+        "menuitem": ("menu item", "menuitem"),
+        "link": ("link",),
+        "tab": ("tab",),
+        "row": ("row",),
+    }
+
+    @staticmethod
+    def _norm_target(text) -> str:
+        return re.sub(r"\W+", " ", str(text).casefold()).strip()
+
+    def _ax_ref_for_click(self, action: dict) -> int | None:
+        """Exact AX control match for a grounded `click "<target>"`. Returns
+        the unique eligible element's ref, or None to fall back to the
+        grounder. No fuzzy/substring matching — ambiguity is None."""
+        if action.get("right") or action.get("double"):
+            return None
+        target = self._norm_target(action.get("target") or "")
+        if not target:
+            return None
+        obs = self._last_obs or {}
+        hits: set[int] = set()
+        for el in obs.get("elements") or []:
+            role = str(el.get("role") or "")
+            phrases = self._CLICK_ROLES.get(role)
+            if not phrases or not el.get("enabled", True):
+                continue
+            ref = el.get("ref")
+            if not isinstance(ref, int) or isinstance(ref, bool) or ref <= 0:
+                continue
+            label = self._norm_target(el.get("label") or "")
+            if not label:
+                continue
+            if target != label and \
+                    not any(target == f"{label} {p}" or
+                            target == f"{p} {label}" for p in phrases):
+                continue
+            hits.add(ref)
+        return hits.pop() if len(hits) == 1 else None
+
     async def _exec_action(self, a: dict) -> dict:
         """Execute one DSL action. Returns
         {status: ok|failed|awaiting_user|cancelled|done, ...details}."""
@@ -3303,6 +3348,17 @@ function run() {
                     self._script_output = _headtail(str(text_out))
                     self._last_script_stdout = str(text_out)
             return r
+        if op == "click" and a.get("target"):
+            ref = self._ax_ref_for_click(a)
+            if ref is not None:
+                trace = self.tracer.current
+                if trace is not None:
+                    trace.setdefault("decisions", []).append(
+                        {"click_ax": {"target": a["target"], "ref": ref}})
+                press = {k: v for k, v in a.items()
+                         if k not in ("target", "right", "double")}
+                press["op"], press["ref"] = "press", ref
+                return await self._exec_action(press)
         if op == "click" and normalize_name(str(
                 (self._last_obs or {}).get("app") or "")) == "spotify":
             if a.get("double"):
