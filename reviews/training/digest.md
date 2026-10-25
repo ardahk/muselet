@@ -1,6 +1,6 @@
-# training lane digest — pass 71 (main 82c9810)
+# training lane digest — pass 72 (main e425cad)
 
-Open: 1 P0, 15 P1, 18 P2. No new findings; training-55 (LoRA planner prompt drift) and training-54 still open.
+Open: 1 P0, 15 P1, 18 P2. No new findings; #86 gates planner screen context by goal relevance but the LoRA planner still lacks a holdout rerun under current defaults (training-55). training-54 still open.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
