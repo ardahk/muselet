@@ -1,9 +1,9 @@
 {
-  "pass": 84,
-  "ts": "2026-10-25T08:24:26Z",
+  "pass": 85,
+  "ts": "2026-10-25T08:41:02Z",
   "last_reviewed": {
-    "main": "73b8031",
-    "wip/local": "51d833a",
+    "main": "b42117b",
+    "wip/local": "e03e2c8",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -97,5 +97,5 @@
     "cloud/agentic-fixes2": "104a411"
   },
   "next_id": 56,
-  "note": "pass 84: main 73b8031 Swift Observe duplicate-ref crash fix only. agentic-fixes2 104a411: pending-task state helper, content-ask rejection only when the goal already carries the text value, async auto_done with evidence(); no confirm/send gating change. No new finding."
+  "note": "pass 85: main b7b38f9 merged docs-final (-48/-49 now on main) and agentic-fixes2. ab850b3: blind/agentic tasks get 30 turns/300 s, failed planner expects are soft (orchestrator.py:4686-4694: no strike, no recovery; batch still stops at the failed expect; Send still confirm-gated); loop guard at 5 failures. b7b38f9: PLANNER=35b observes 350 AX nodes. No latency/accuracy measurement for either. No new finding."
 }
