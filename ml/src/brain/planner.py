@@ -152,6 +152,19 @@ def sample_logits(logits, temp: float, top_p: float, top_k: int, rng) -> int:
     return int(rng.choice(len(pr), p=pr))
 
 
+def sample_row(row, temp: float, top_p: float, top_k: int, rng) -> int:
+    """sample_logits on an MLX logits row: top-k on the GPU, then temp/top-p
+    on the k survivors in numpy (same distribution; no 250k-vocab sort/copy
+    per token)."""
+    if temp <= 0:
+        return int(mx.argmax(row).item())
+    if top_k <= 0:
+        return sample_logits(np.array(row), temp, top_p, top_k, rng)
+    idx = mx.argpartition(-row, kth=top_k - 1)[:top_k]
+    ids, vals = np.array(idx), np.array(row[idx])
+    return int(ids[sample_logits(vals, temp, top_p, 0, rng)])
+
+
 def has_action(lines) -> bool:
     return any(not re.match(r"^(#|expect\b|done\b)", ln) for ln in lines)
 
@@ -539,6 +552,7 @@ class Planner:
         repeats = {}
         feed = None
         closed = None
+        prefill_ms = None
 
         def close_tail():
             text = self.tokenizer.decode(thought)
@@ -546,15 +560,17 @@ class Planner:
 
         while len(thought) < self.think_budget:
             out = self.body(mx.array([cur]), cache=cache)
-            logits = np.array(self.lm_head(out[:, -1:, :]).astype(mx.float32)[0, 0])
-            nxt = int(np.argmax(logits)) if sampler is None else sample_logits(
-                logits, sampler["temp"], sampler["top_p"], sampler["top_k"], rng)
+            row = self.lm_head(out[:, -1:, :]).astype(mx.float32)[0, 0]
+            nxt = int(mx.argmax(row).item()) if sampler is None else sample_row(
+                row, sampler["temp"], sampler["top_p"], sampler["top_k"], rng)
             if nxt == close_id:
                 closed, feed = "model", [close_id] + after
                 break
             if nxt in stop_ids:
                 closed, feed = "eos", close_tail()
                 break
+            if not thought:
+                prefill_ms = round((time.perf_counter() - started) * 1000, 1)
             thought.append(nxt)
             cur = [nxt]
             if len(thought) >= THINK_NGRAM:
@@ -570,7 +586,8 @@ class Planner:
                 closed, feed = "budget", [nxt] + close_tail()
                 break
         text = self.tokenizer.decode(thought)
-        return feed, {"tokens": len(thought),
+        return feed, {"tokens": len(thought), "prefill_ms": prefill_ms,
+                      "prompt_tokens": len(dyn),
                       "ms": round((time.perf_counter() - started) * 1000, 1),
                       "text": text[:THINK_TRACE_CHARS], "closed": closed}
 

@@ -244,8 +244,11 @@ async def serve(port: int = 8765, model: str | None = None,
     async def on_config(msg):
         result = {}
         if "escalate_planner" in msg:
-            result.update(await orch.set_escalation(
-                bool(msg.get("escalate_planner"))))
+            # MUSELET_NO_ESCALATE=1: the app's 35B-fallback toggle is ignored
+            # (single-model experiments)
+            want = bool(msg.get("escalate_planner")) and \
+                os.environ.get("MUSELET_NO_ESCALATE") != "1"
+            result.update(await orch.set_escalation(want))
         if "memory" in msg:
             orch.memory_enabled = bool(msg["memory"])
             orch.longterm_enabled = bool(
