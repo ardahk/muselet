@@ -1,9 +1,9 @@
-# Planner review digest — pass 84 (2026-10-25T09:15Z)
+# Planner review digest — pass 85 (2026-10-25T09:32Z)
 
-Moved: main 4f94e42→2445a1d (#110-#114: Ask Gmail send exemption, email_open finish criterion, maps/shopping hints); wip 6e7f50b (hint tweak); cool-tasks e4def97 (merge of main only).
-- planner-60 (P1): still open; only 'ask gmail' was added and the bare search/find substring match is unchanged.
-- OK: email_open evidence needs a Reply/Reply all control plus every sender word in the view. Hint edits are text-only (shopping expect 'to cart'/'1 item', maps route cards).
-- planner-40/45/46/47/48/50/51/52/53/54/55/56/58/59 unchanged on main; 61 (native-tools) and 62 (cool-tasks) unchanged.
+Moved: main 2445a1d→85958b0 (#115 soft expects whenever a finish criterion exists; #116 shopping few-shot; #117 shopping is never create_reminder); wip 3d21638 (= main); cool-tasks a77104e (merge of main).
+- planner-59 (P1, worse): with a finish criterion, a failed expect returns ok and the batch continues.
+- OK: the shopping guard sends cart/shop goals to the planner instead of create_reminder.
+- planner-60 (search/find label skips the send confirm) and planner-56 (YouTube video not checked) unchanged; others unchanged.
 
 New: 0. Resolved: 0. Open: 0 P0, 17 P1, 15 P2.
 
