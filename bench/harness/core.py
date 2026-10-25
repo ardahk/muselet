@@ -579,8 +579,11 @@ _FINDER_WINDOW_IDS = 'tell application "Finder" to get id of every Finder window
 def _running_names(listing: Any) -> set[str]:
     names: set[str] = set()
     for app in listing.get("running", []) if isinstance(listing, dict) else []:
-        values = [app.get(k) for k in ("name", "bundle_id", "bundleId")] if isinstance(app, dict) else [app]
-        names.update(str(v).casefold() for v in values if v)
+        # bundle ids only when present: helpers such as com.apple.messages.AssistantExtension are named "Messages"
+        bundle = (app.get("bundle_id") or app.get("bundleId")) if isinstance(app, dict) else None
+        value = bundle or (app.get("name") if isinstance(app, dict) else app)
+        if value:
+            names.add(str(value).casefold())
     return names
 
 

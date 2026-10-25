@@ -397,6 +397,11 @@ def test_find_file_scope_is_a_path_arg():
     ("make the screen brighter by 10", "set_brightness", {},
      {"delta": 10}),
     ("set the volume to 30", "set_volume", {"level": 30}, {"level": 30}),
+    # HobbyLM r4 D04-D06 (live run 20261025T004223Z): relative asks got level=15 and dimmed the screen
+    ("bump the brightness up", "set_brightness", {"level": 15}, {"delta": 10}),
+    ("screen faded, more light needed", "set_brightness", {"level": 15}, {"delta": 10}),
+    ("outdoor and screen gone blackish, brighten it", "set_brightness", {"level": 15}, {"delta": 10}),
+    ("set brightness to 15", "set_brightness", {"level": 15}, {"level": 15}),
 ])
 def test_degree_words_override_model_delta(tmp_path, text, skill, model,
                                            want):

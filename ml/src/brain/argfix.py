@@ -4,10 +4,10 @@ import re
 
 
 _UP = re.compile(
-    r"\b(?:up|louder|raise|increase|higher|brighter|brighten)\b",
+    r"\b(?:up|louder|raise|increase|higher|brighter|brighten|bump|boost|lighter|more light)\b",
     re.IGNORECASE)
 _DOWN = re.compile(
-    r"\b(?:down|quieter|softer|lower|decrease|dimmer|dim|darker)\b",
+    r"\b(?:down|quieter|softer|lower|decrease|dimmer|dim|darker|reduce|less light)\b",
     re.IGNORECASE)
 _SMALL = re.compile(r"\b(?:a little|a bit|slightly|a touch|a notch)\b",
                     re.IGNORECASE)
