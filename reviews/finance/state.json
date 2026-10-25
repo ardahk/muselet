@@ -1,7 +1,7 @@
 {
   "lane": "finance",
-  "pass": 77,
-  "ts": "2026-10-25T07:29:45Z",
+  "pass": 78,
+  "ts": "2026-10-25T07:45:07Z",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
@@ -48,8 +48,8 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "cf33215",
-    "wip/local": "11da94c",
+    "main": "5d135d0",
+    "wip/local": "c86fec4",
     "cloud/memory": "a8af560",
     "cloud/memory-eval": "c05944e",
     "devin/1792872486-data-route-handoff": "seen",
@@ -94,9 +94,10 @@
     "cloud/agentic-apps": "1904638",
     "cloud/agentic-evidence": "1918cad",
     "cloud/app-knowhow": "c69dfec",
-    "cloud/browser-flow": "485763f"
+    "cloud/browser-flow": "485763f",
+    "cloud/docs-final": "bf9118d"
   },
   "next_id": 28,
-  "notes": "pass77: main cf33215 merges browser-flow, app-knowhow, agentic-evidence, obs-labels (derived labels for unlabeled controls) and control-labels (slider typing). The brain tools don't use observation labels; Numbers finance unaffected. wip = main. 349 finance/advisor/memory tests pass.",
+  "notes": "pass78: main 5d135d0 adds only the builder_agentic_fixes2 brief. wip c86fec4 sets _force_blind for app tasks (planner path only; brain tools unaffected). docs-final bf9118d is docs only and makes no finance-number changes; its claims about the brain-tool path depend on finance-33/31 being fixed.",
   "timestamp": "2026-10-25T05:37:35Z"
 }
