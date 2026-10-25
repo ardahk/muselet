@@ -1,6 +1,6 @@
-# training lane digest — pass 83 (main 73b8031)
+# training lane digest — pass 84 (main b7b38f9)
 
-Open: 1 P0, 16 P1, 18 P2. No new findings (main: Swift crash fix only). Top: training-54, training-58, training-50.
+Open: 1 P0, 16 P1, 18 P2. No new findings. training-50 now on main: REPORT/claims count planner LoRA at $0.84 vs $5.84 in its run report. Top: training-54, training-50, training-58.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
