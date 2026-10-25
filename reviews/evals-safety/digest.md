@@ -1,4 +1,7 @@
-# evals-safety digest (pass 74, 2026-10-25T05:22:19Z)
+# evals-safety digest (pass 75, 2026-10-25T05:37:41Z)
+
+-54 (P1) now on main via #87.
+
 
 New: -54 (P1) planner few-shot contains open-ended eval case oe-spotify-jazz verbatim with its solution (wip/local).
 

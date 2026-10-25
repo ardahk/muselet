@@ -1,9 +1,9 @@
 {
-  "pass": 74,
-  "ts": "2026-10-25T05:22:19Z",
+  "pass": 75,
+  "ts": "2026-10-25T05:37:41Z",
   "last_reviewed": {
-    "main": "e425cad",
-    "wip/local": "323d274",
+    "main": "e8023b8",
+    "wip/local": "20055d1",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -87,8 +87,9 @@
     "cloud/open-ended": "0d687d2",
     "cloud/planner-aux": "387c3b4",
     "cloud/premiere-demo": "a1c0f04",
-    "cloud/premiere-route-fix": "7769c32"
+    "cloud/premiere-route-fix": "7769c32",
+    "cloud/agentic-loop": "9b2e512"
   },
   "next_id": 55,
-  "note": "pass 74: wip/local 323d274 (c711320 blind planner rework). New -54 few-shot leakage of oe-spotify-jazz. finish.py is prompt-only hint, not grading; batch cap 2 for blind tasks."
+  "note": "pass 75: main e8023b8 merges #87 blind planner (-54 now on main) and #88 blind typing (Swift). agentic-loop 9b2e512: done gate via finish.evidence; play evidence = any Pause button or 'playing' in script stdout, subject not checked; gate rejects only the first done. Runtime gate, not bench grading; watch if used as benchmark success."
 }
