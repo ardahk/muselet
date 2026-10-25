@@ -1,6 +1,6 @@
-# training lane digest — pass 68 (main b340f24)
+# training lane digest — pass 69 (main dc6f2f5)
 
-Open: 1 P0, 15 P1, 17 P2. No new findings; training-54 still open. training-51 updated: LoRA planner (step 72) is now the default; holdout matrix (.850 mean) uncommitted, k=1 picked among LoRA variants on holdouts.
+Open: 1 P0, 15 P1, 18 P2. New training-55: default LoRA planner now serves a prompt (premiere_edit catalog line, app hints, planner context) it was never trained or holdout-tested on; parity reference regenerated to match. training-54 still open.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
