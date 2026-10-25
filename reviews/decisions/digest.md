@@ -1,6 +1,6 @@
-# decisions — digest (pass 79)
+# decisions — digest (pass 80)
 
-Heads: main 2de65a9 (unchanged), wip 4db92e8 (local main@313fc46: fused expects stripped from act RPCs on agentic/progress tasks; the AXLoaded page signal is not used by finish evidence (-41); Numbers sort guard), cool-tasks cfbec49 (-42 still blocks). Counts: 0 P0, 14 P1, 16 P2. Budget: about $142.06 MTD estimated.
+Heads: main 2de65a9 (unchanged), wip a6035fb (local main@a2004d9: new -48 P1: retrieval k=0 + few-shot off by default despite the recorded k=1 win; AGENTIC_APPS=0 removed; finance engines deleted while README still claims Decimal math), cool-tasks cfbec49 (-42 still blocks). Counts: 0 P0, 15 P1, 16 P2. Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
