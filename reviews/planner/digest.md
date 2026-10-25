@@ -1,12 +1,12 @@
-# Planner review digest — pass 71 (2026-10-25T05:30Z)
+# Planner review digest — pass 72 (2026-10-25T05:46Z)
 
-Moved: wip/local → 323d274 (snapshot on local main@c711320: planner-blind, finish.py, blind few-shot, _CHAT_IDE). origin/main e425cad unchanged.
-- planner-48 (P1, new): page tasks and open-ended redirects are forced onto base + qwen think 512 with batch cap 2, even with a full AX tree (demo goal 2). No numbers recorded.
-- planner-49 (P1, new): blind few-shot has `done` in the same batch as its checking script, and examples without expects.
-- planner-40: wip partly mitigates it (app-only expects no longer count as DONE evidence except for bare opens). Skill ok is still accepted.
-- OK: "Finish when:" comes from the user's goal (rule-based, dynamic tail); _CHAT_IDE keeps Terminal/IDE/Devin text out of the screen context; trace records which planner ran.
+Moved: main e425cad→e8023b8 (blind planner 30122c0/c711320/c405103, blind typing keystroke fallback, blindTree size fix), wip 20055d1 (= main@8b15e29), new cloud/agentic-loop 9b2e512.
+- planner-49 RESOLVED on main c405103 (done is alone after the player-state result).
+- planner-48 (P1) now on main: page tasks/open-ended redirects still force base+qwen think 512, batch cap 2.
+- agentic-loop: finish-criterion done gate (play: Pause button or script 'playing'; search: subject words in title/URL; cart: confirmation text incl. OCR; directions), 0.25 s/5 s expect re-poll while a browser page loads, workflow hygiene. Good direction. planner-45 is mostly fixed there, but 'skill' evidence still counts as evidenced.
+- planner-40 / 42 / 46 / 47 unchanged on main.
 
-New: 2 P1. Resolved: 0. Open: 0 P0, 11 P1, 9 P2.
+New: 0. Resolved: 1. Open: 0 P0, 10 P1, 9 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
