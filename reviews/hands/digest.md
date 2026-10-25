@@ -1,4 +1,4 @@
-# hands — digest (Pass 92)
+# hands — digest (Pass 93)
 
 Open: 0 P0, 7 P1, 20 P2.
 
@@ -15,6 +15,11 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 93 (wip/local 9015e83 only):
+- 2900d4b rewrites planner_system rules 1/8/9/10/14/16 to be generic, removes the Safari cmd+L and Numbers SUM examples, and adds a prompt-contract test. hands-50 is partly fixed; the numbers hint's skills list still names hidden skills.
+- Context screen capture now uses the current frontmost app (good). In tools mode (ui_only) the brain forces OCR on every turn with up to 2400 chars: an extra screenshot and OCR per turn, a latency cost. It's off by default.
+- Rule 14 no longer tells the planner to `expect focused` before typing in document apps; the app-side no_text_target check still applies.
 
 Pass 92 (wip/local a6035fb only; main unchanged):
 - a2004d9 deletes the finance/advisor engines (-5.3k lines), following the user override in AGENTS.md. Every app/analysis intent now always goes to the agentic planner, and tools.run is a shim to _agentic_route.
