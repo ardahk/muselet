@@ -1,11 +1,11 @@
-# Planner review digest — pass 85 (2026-10-25T09:32Z)
+# Planner review digest — pass 86 (2026-10-25T09:48Z)
 
-Moved: main 2445a1d→85958b0 (#115 soft expects whenever a finish criterion exists; #116 shopping few-shot; #117 shopping is never create_reminder); wip 3d21638 (= main); cool-tasks a77104e (merge of main).
-- planner-59 (P1, worse): with a finish criterion, a failed expect returns ok and the batch continues.
-- OK: the shopping guard sends cart/shop goals to the planner instead of create_reminder.
-- planner-60 (search/find label skips the send confirm) and planner-56 (YouTube video not checked) unchanged; others unchanged.
+Moved: main 85958b0→ca73c12 (#118/#119 destructive-request refuse gate; #120 Premiere Speed/Duration hint; #105 ui-progress and #108 native-tools merged); wip 47f809a; cool-tasks 3937e6b (merge of main).
+- planner-63 (P1, new): the refuse regex blocks 'show all files in Downloads', 'format all the amounts as currency' and 'remove all duplicates' before routing.
+- planner-61 (P2): native tools mode is on main, still opt-in, still has no expect.
+- planner-59 / planner-60 / planner-56 unchanged. The ui-progress step bubble is UI-only and skipped for deferred servers, which is fine.
 
-New: 0. Resolved: 0. Open: 0 P0, 17 P1, 15 P2.
+New: 1 P1. Resolved: 0. Open: 0 P0, 18 P1, 15 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
