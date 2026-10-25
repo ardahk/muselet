@@ -1,4 +1,23 @@
-# hands — digest (Pass 62)
+# hands — digest (Pass 63)
+
+Open: 0 P0, 3 P1, 7 P2 (hands-32 superseded).
+
+Ranked open P0/P1:
+1. P1 hands-28 (main fa0f040, Skills.swift:884): if Clock never confirms the timer started, it's still reported as set. No alarm fires, and a test (ClockAXTests:272) locks this behaviour in.
+2. P1 hands-29 (main, ClockAX.swift:319/425/554): Clock start and cancel bring Clock to the front and never switch back. Since #70 there is no setting to turn Clock timers off.
+3. P1 hands-26 (main, orchestrator.py:2556): the brain removes `expect` from `act`, so the app's built-in polling never runs. verify then checks only once.
+
+Next moves (max 5):
+1. hands-28: if verified==false after pressing Start, also start Muselet's own timer (or fail) instead of using a no-op callback.
+2. hands-29: record the frontmost pid before openApp and re-activate it after Start/Cancel.
+3. hands-26: send `expect` with `act` (one line), then drop the extra verify RPC when expect_ok is present.
+4. hands-27: build headless hello frames with ScreenGeometry.cgBounds (top-left).
+5. hands-31: close Premiere's Window menu (Esc / AXCancel) when the Timeline step fails, and poll before sending the shortcut.
+
+Pass 63:
+- main fa0f040 merged #70 (design): native Settings panel, kitten menu-bar icon, Clock-only timers (Shortcuts backend and Settings > Timers removed), mascot clamped to visibleFrame, pill hides at once with a gap-bridge zone, one close path for Esc and X. These are the cloud/design deletions, now merged on purpose and documented in AGENTS.md:149, so hands-32 is superseded.
+- Brain/bench code does not read the removed `clock`/`shortcuts` fields (only bench/tests fixtures mention backend "clock").
+- cloud/design-polish bf4ae64 (compact panel, kitten rect includes the tail, memory list filtered to user types) and wip/local 973a9b0: no issues. cloud/memory-writes d04e26c has no app/ changes.
 
 Pass 62:
 - No new findings. main 6a37d0c (HobbyLM calc_checker reads the macOS 27 Calculator display, bench only, outside lane) and wip/local 9571a9e have no app/ changes. hands-26 (orchestrator.py:2556), hands-27 (BrainClient.swift:91) and hands-28 (ClockAX.swift:409) re-checked on main: still open. hands-32 unchanged.
