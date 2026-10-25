@@ -209,7 +209,7 @@ def test_script_stdout_playing_is_play_evidence(tmp_path):
     orch = _orch(server, planner)
     trace = trace_for(orch)
     assert run(orch._planner_loop("play some jazz on spotify", trace)) == "ok"
-    assert orch._done_evidence == "finish"
+    assert orch._done_evidence == "auto"
 
 
 # 4. workflow-memory hygiene ------------------------------------------------

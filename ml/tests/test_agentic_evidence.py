@@ -9,13 +9,19 @@ from brain.finish import cart_count, evidence, progress_kind
         (
             "timer_start", "", {
                 "text": 'app: Clock | window: "Timers"\n'
-                        '#1 button "Pause"\n#2 text "9:58 remaining"',
+                        '+ #1 button "Pause"\n#2 text "9:58 remaining"',
             }, {"args": {"duration": "10 minutes"}}, True,
         ),
         (
             "timer_start", "", {
                 "text": 'app: Clock | window: "Timers"\n'
                         '#1 button "Pause"\n#2 text "4:59 remaining"',
+            }, {"args": {"duration": "10 minutes"}}, False,
+        ),
+        (
+            "timer_start", "", {
+                "text": '#5 button "Pause"\n'
+                        '#7 textfield "Label" value="10:00"',
             }, {"args": {"duration": "10 minutes"}}, False,
         ),
         (
@@ -159,12 +165,30 @@ def test_progress_kind_for_agentic_skills(skill, args, expected):
 
 @pytest.mark.parametrize("goal,expected", [
     ("pause the timer", ("timer", "", {})),
+    ("set a timer for 10 minutes",
+     ("timer_start", "", {"duration": "10 minutes"})),
+    ("set timer for 1 hour 30 minutes",
+     ("timer_start", "", {"duration": "1 hour 30 minutes"})),
     ("add coffee to the cart", ("cart", "", {})),
+    ("play jazz on youtube", ("play", "jazz", {})),
     ("get directions to the library", ("directions", "the library", {})),
     ("do something generic", None),
 ])
 def test_progress_kind_for_non_agentic_goals(goal, expected):
     assert progress_kind(goal) == expected
+
+
+@pytest.mark.parametrize("observation", [
+    '+ #31 button "Pause (k)"',
+    '#31 button "Pause keyboard shortcut k"',
+])
+def test_progress_play_accepts_pause_button(observation):
+    assert evidence("play", "jazz", obs=observation, progress=True)
+
+
+def test_progress_play_rejects_play_button():
+    assert not evidence(
+        "play", "jazz", obs='#31 button "Play (k)"', progress=True)
 
 
 def test_progress_evidence_accepts_string_observation():

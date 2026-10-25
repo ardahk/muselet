@@ -32,6 +32,13 @@ def _subject(goal: str, end: int) -> str:
 
 
 _TIMER = re.compile(r"\b(?:timer|countdown)\b", re.IGNORECASE)
+_TIMER_PAUSE = re.compile(r"\bpause\b", re.IGNORECASE)
+_TIMER_RESUME = re.compile(r"\b(?:resume|unpause|continue)\b", re.IGNORECASE)
+_TIMER_CANCEL = re.compile(
+    r"\b(?:cancel|stop|kill|delete)\b", re.IGNORECASE)
+_DURATION = re.compile(
+    r"(\d+(?:\.\d+)?)\s*(hours?|hrs?|minutes?|mins?|seconds?|secs?)",
+    re.IGNORECASE)
 
 
 def criterion(goal: str) -> tuple[str, str, str] | None:
@@ -88,10 +95,16 @@ APP_KINDS = {
     "draft_email": "email", "play_music": "play",
 }
 _PAUSE = re.compile(r"(?i)^pause\b")
-_BUTTON = re.compile(r'^\s*#\d+\s+button\s+"([^"]*)"', re.MULTILINE)
+_BUTTON = re.compile(
+    r'^\s*[+~]?\s*#\d+\s+button\s+"([^"]*)"', re.MULTILINE)
 _CART_DONE = re.compile(r"(?i)added to (?:your )?cart|cart subtotal|\b1 item")
 _ROUTE = re.compile(r"(?i)\b(?:directions|route)\b")
 _COUNTDOWN = re.compile(r'(?:(\d{1,2}):)?(\d{1,2}):(\d{2})')
+_COUNTDOWN_EDITABLE = re.compile(
+    r"^\s*[+~]?\s*#\d+\s+"
+    r"(?:textfield|textarea|textview|combobox|searchfield|spinbutton|"
+    r"incrementor)\b", re.IGNORECASE)
+_COUNTDOWN_ELEMENT = re.compile(r"^\s*[+~]?\s*#\d+\s+\S+", re.IGNORECASE)
 _KEYWORD_STOP = {
     "the", "and", "for", "with", "about", "note", "new", "write",
     "that", "this",
@@ -157,10 +170,8 @@ def _seconds(duration) -> float | None:
     value = str(duration).strip().lower()
     if value.isdigit():
         return float(value)
-    pattern = re.compile(
-        r"(\d+(?:\.\d+)?)\s*(hours?|hrs?|minutes?|mins?|seconds?|secs?)")
-    matches = list(pattern.finditer(value))
-    if not matches or re.sub(pattern, "", value).strip(" ,and") != "":
+    matches = list(_DURATION.finditer(value))
+    if not matches or re.sub(_DURATION, "", value).strip(" ,and") != "":
         return None
     seconds = 0.0
     for match in matches:
@@ -199,9 +210,19 @@ def progress_kind(
             subject = ""
         return kind, subject, args
     if "timer" in clean_goal.lower():
-        return "timer", "", {}
+        if (_TIMER_PAUSE.search(clean_goal) or
+                _TIMER_RESUME.search(clean_goal) or
+                _TIMER_CANCEL.search(clean_goal)):
+            return "timer", "", {}
+        durations = [match.group(0)
+                     for match in _DURATION.finditer(clean_goal)]
+        args = {"duration": " ".join(durations)} if durations else {}
+        return "timer_start", "", args
     if "cart" in clean_goal.lower() or "basket" in clean_goal.lower():
         return "cart", "", {}
+    crit = criterion(clean_goal)
+    if crit and crit[0] == "play":
+        return "play", crit[1], {}
     match = _DIRECTIONS.search(clean_goal)
     if match:
         criterion_value = criterion(clean_goal)
@@ -233,15 +254,20 @@ def evidence(kind: str, subject: str = "", obs: dict | str | None = None,
     if kind == "timer":
         return _timer_evidence(goal, text)
     if kind == "timer_start":
-        if not re.search(r'(?im)^\s*#\d+\s+button\s+"Pause"', text):
+        if not re.search(
+                r'(?im)^\s*[+~]?\s*#\d+\s+button\s+"Pause"', text):
             return False
         countdowns = []
-        for value in _quoted_values(text):
-            for match in _COUNTDOWN.finditer(value):
-                hours, minutes, seconds = match.groups()
-                total = (int(hours or 0) * 3600 +
-                         int(minutes) * 60 + int(seconds))
-                countdowns.append(total)
+        for line in text.splitlines():
+            if (not _COUNTDOWN_ELEMENT.match(line) or
+                    _COUNTDOWN_EDITABLE.match(line)):
+                continue
+            for value in _quoted_values(line):
+                for match in _COUNTDOWN.finditer(value):
+                    hours, minutes, seconds = match.groups()
+                    total = (int(hours or 0) * 3600 +
+                             int(minutes) * 60 + int(seconds))
+                    countdowns.append(total)
         if not countdowns:
             return False
         requested = _seconds(args.get("duration"))
@@ -316,11 +342,11 @@ def _timer_evidence(goal: str, obs_text: str) -> bool:
     """Clock Timers tab state proves the pause/resume/cancel happened."""
     has_resume = bool(re.search(r'button "Resume"', obs_text))
     has_pause = bool(re.search(r'button "Pause"', obs_text))
-    if re.search(r"\bpause\b", goal, re.IGNORECASE):
+    if _TIMER_PAUSE.search(goal):
         return has_resume
-    if re.search(r"\b(?:resume|unpause|continue)\b", goal, re.IGNORECASE):
+    if _TIMER_RESUME.search(goal):
         return has_pause
-    if re.search(r"\b(?:cancel|stop|kill|delete)\b", goal, re.IGNORECASE):
+    if _TIMER_CANCEL.search(goal):
         return not (has_resume or has_pause)
     return False
 
