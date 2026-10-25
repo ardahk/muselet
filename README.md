@@ -1,10 +1,10 @@
-<p align="center"><img src="docs/img/kitten_idle.png" width="120" alt="Muselet mascot"></p>
+<p align="center"><img src="docs/img/kitten.png" width="120" alt="Muselet mascot"></p>
 
-# Muselet
+# muselet
 
-**Hold a key, say it, it's done. On your Mac, offline.**
+**an on-device voice agent for macOS. say it, and your mac does it**
 
-Muselet is a voice agent that actually operates macOS for you, and everything runs on-device on Apple Silicon. No cloud models, no screen uploads. Hold **Right Option**, talk, and a little mascot gets it done while a ghost cursor shows you where it's clicking.
+muselet is a voice agent that actually operates macOS for you, and everything runs on-device on Apple Silicon. No cloud models, no screen uploads. Hold **Right Option**, talk, and a little mascot gets it done while a ghost cursor shows you where it's clicking.
 
 Built at Cal Hacks 13.0.
 
@@ -18,6 +18,11 @@ Built at Cal Hacks 13.0.
 - **Safe by default**: it *asks* when a request is ambiguous, *confirms* before anything that sends, deletes, buys or posts, and *refuses* destructive requests.
 
 ## How it works
+
+<p align="center"><img src="docs/img/muselet_architecture.png" width="1920" alt="Muselet architecture"></p>
+
+The diagram illustrates the broader architecture. The current demo selects one native UI tool per turn;
+arbitrary model-written scripts and multi-action DSL batches are not exposed in that mode.
 
 ```
 Right Option -> Parakeet STT (Neural Engine) -> brain (Python + MLX, ws://127.0.0.1:8765)
