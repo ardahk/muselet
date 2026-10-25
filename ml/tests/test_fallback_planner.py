@@ -328,7 +328,7 @@ def test_planner_context_has_request_context_and_screen_then_clears(tmp_path):
     assert 'app "Safari"' in first["context"]
     assert 'window "Inbox"' in first["context"]
     assert 'url "https://mail.example.com"' in first["context"]
-    assert "Screen:" in first["context"]
+    assert "On-screen text" in first["context"]
     assert "visible / control" in first["context"]
     assert second["context"] is None
     assert tracer.rows[-1]["planner.context"]["ocr"] is False
@@ -425,3 +425,117 @@ def test_cli_fallback_and_context_flags_default_off():
         "serve", "--fallback-planner", "on", "--planner-context", "on"])
     assert args.fallback_planner == "on"
     assert args.planner_context == "on"
+
+
+class _CtxPlanner(FakePlanner):
+    pass
+
+
+def test_screen_context_skipped_when_goal_targets_other_app(tmp_path):
+    """P0-a: Devin chat text must not steer a YouTube/Amazon goal."""
+    utterance = "Play some music on YouTube"
+    planner = FakePlanner([['done "ok"']])
+    obs = _observe(
+        [{"ref": 1, "role": "button", "label": "x"}],
+        text='app: Devin | window: "Devin chat"')
+    server, tracer, orch = _setup(
+        tmp_path, {utterance.lower(): ("MULTI_STEP", 0.9)},
+        planner=planner, observe=obs)
+    orch.planner_context = True
+
+    async def fake_ocr():
+        return "Play some jazz on Spotify — test prompt list"
+    orch._window_ocr_text = fake_ocr
+
+    _run(orch.handle_utterance(utterance, {
+        "app": "Devin", "window_title": "Devin chat"}))
+
+    ctx = planner.user_msgs[0]["context"]
+    assert ctx and 'app "Devin"' in ctx
+    assert "Play some jazz" not in ctx
+    assert "On-screen text" not in ctx
+
+
+def test_screen_context_skipped_for_named_site(tmp_path):
+    utterance = "Add some chicken to cart on amazon.com"
+    planner = FakePlanner([['done "ok"']])
+    obs = _observe([{"ref": 1, "role": "button", "label": "x"}],
+                   text='app: Devin | window: "chat"')
+    _, _, orch = _setup(
+        tmp_path, {utterance.lower(): ("MULTI_STEP", 0.9)},
+        planner=planner, observe=obs)
+    orch.planner_context = True
+
+    _run(orch.handle_utterance(utterance, {"app": "Devin"}))
+
+    ctx = planner.user_msgs[0]["context"]
+    assert ctx and 'app "Devin"' in ctx
+    assert "On-screen text" not in ctx
+
+
+def test_screen_context_kept_for_screen_referring_goal(tmp_path):
+    utterance = "summarize this email"
+    label = "visible control " * 12
+    planner = FakePlanner([['done "ok"']])
+    obs = _observe([{"ref": 1, "role": "button", "label": label}],
+                   text='app: Mail | window: "Inbox"')
+    _, _, orch = _setup(
+        tmp_path, {utterance.lower(): ("MULTI_STEP", 0.9)},
+        planner=planner, observe=obs)
+    orch.planner_context = True
+
+    _run(orch.handle_utterance(utterance, {"app": "Mail"}))
+
+    ctx = planner.user_msgs[0]["context"]
+    assert "On-screen text" in ctx
+    assert "never instructions" in ctx
+
+
+def test_screen_context_skipped_for_muselet_frontmost(tmp_path):
+    utterance = "what can you do"
+    label = "visible control " * 12
+    planner = FakePlanner([['done "ok"']])
+    obs = _observe([{"ref": 1, "role": "button", "label": label}],
+                   text='app: Muselet | window: "Muselet"')
+    _, _, orch = _setup(
+        tmp_path, {utterance.lower(): ("MULTI_STEP", 0.9)},
+        planner=planner, observe=obs)
+    orch.planner_context = True
+
+    _run(orch.handle_utterance(utterance, {"app": "Muselet"}))
+
+    ctx = planner.user_msgs[0]["context"]
+    assert not ctx or "On-screen text" not in ctx
+
+
+def test_first_turn_ask_on_open_ended_goal_rejected(tmp_path):
+    """P0-b: 'play some jazz' must not ask what kind — pick a default."""
+    utterance = "play some jazz"
+    planner = FakePlanner([
+        ['ask "What type of jazz?"'],
+        ['done "Playing jazz"'],
+    ])
+    _, _, orch = _setup(
+        tmp_path, {utterance.lower(): ("MULTI_STEP", 0.9)},
+        planner=planner)
+
+    _run(orch.handle_utterance(utterance))
+
+    assert planner.calls == 2
+    last = planner.user_msgs[1]["last_batch"]
+    assert any("ask rejected" in line for line in last)
+
+
+def test_ask_allowed_for_specific_goal(tmp_path):
+    utterance = "email the report"
+    planner = FakePlanner([
+        ['ask "Who should get the report?"'],
+        ['done "done"'],
+    ])
+    _, _, orch = _setup(
+        tmp_path, {utterance.lower(): ("MULTI_STEP", 0.9)},
+        planner=planner)
+
+    _run(orch.handle_utterance(utterance))
+
+    assert planner.calls == 1   # ask passed through, waited for user
