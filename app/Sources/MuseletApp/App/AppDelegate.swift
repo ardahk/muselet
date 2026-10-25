@@ -225,7 +225,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             let base: [String: Any] = [
                 "app": "none", "focused": "none", "selection": false,
-                "online": UtteranceCtx.online(),
+                "online": UtteranceCtx.online(), "url": "", "window_title": "",
             ]
             voice.sendTyped(
                 text, ctx: PendingCtx(fallback: base,

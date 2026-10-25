@@ -90,11 +90,15 @@ One JSON object per frame; `t` = message type.
 
 App -> brain:
 - `{"t":"hello","screens":[{"id":1,"frame":[x,y,w,h],"scale":2.0}]}`
-- `{"t":"utterance","id":"u1","text":"...","final":false,"ctx":{"app":"Notes","focused":"textarea \"Note body\"","selection":false,"online":true}}`
+- `{"t":"utterance","id":"u1","text":"...","final":false,"ctx":{"app":"Notes","focused":"textarea \"Note body\"","selection":false,"online":true,"url":"","window_title":"Untitled"}}`
   (partials allow speculative prefill; `final:true` commits). `ctx` is captured by the app at push-to-talk
   key-down, before any Muselet UI appears: `app` = frontmost app's localized name; `focused` = the focused
   element as `<role> "<label>"` using the observation role names (or `none`); `selection` = focused element
-  has non-empty `AXSelectedText`; `online` = current network reachability (no blocking probe). The brain owns
+  has non-empty `AXSelectedText`; `online` = current network reachability (no blocking probe); `window_title` = focused
+  window's AXTitle (or `""`); `url` = current page URL when the frontmost app is a browser (Safari, Chrome, Zen,
+  Arc, Firefox, Brave, Edge), read via AX only (window AXDocument, else the AXWebArea's AXURL; never Apple
+  Events), else `""`. `url`/`window_title` feed working memory only and are never added to the router ctx
+  (router parity). The brain owns
   `last_action` (`<skill> key=value ...` with the raw extracted arg strings, e.g. `start_timer duration="10 minutes"`).
 - `{"t":"cancel"}`
 - `{"t":"rpc_result","id":"r1","ok":true,"result":{...}}` or `{"t":"rpc_result","id":"r1","ok":false,"error":"..."}`

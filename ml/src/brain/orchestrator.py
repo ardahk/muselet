@@ -14,9 +14,11 @@ import re
 import subprocess
 import threading
 import time
+from pathlib import Path
 import unicodedata
 
 from . import argfix, calc, dsl, obsdiff, pathfind, replies, sendgate, slots
+from .memory import Resolution, WorkingMemory, resolve
 from .catalog import Catalog, CatalogError
 from .sites import SITES, fix_url, match_name, normalize_name
 from .traces import Tracer
@@ -397,6 +399,11 @@ class Orchestrator:
         self.tracer = tracer or Tracer()
         self.engine = engine
         self.tau = tau
+        self.memory_enabled = True
+        self.memory_llm = True
+        self.memory = WorkingMemory(path=Path("runs/memory/working.json"))
+        self._focus_ctx = {}
+        self._planner_ran = False
         self.planner = None
         self.planner_escalate = None    # opt-in bigger planner (loop guard)
         self.escalate_opts = None
@@ -504,17 +511,26 @@ class Orchestrator:
     # ---------- utterance ----------
 
     async def handle_utterance(self, text: str, ctx: dict | None = None) -> dict:
+        original_text = text
         t0 = time.perf_counter()
+        said_items = getattr(self.server, "said", None)
+        said_before = len(said_items) if isinstance(said_items, list) else 0
         self._t_final = t0
         self._first_action_ms = None
         self._web_ax_t0 = None
         self._ms_kind = None
+        self._last_skill = None
+        self._planner_ran = False
         trace = self.tracer.begin(text)
         # utterance-frame ctx wins (app/focused/selection/online)
         if ctx:
             for k in ("app", "focused", "selection", "online"):
                 if k in ctx:
                     self._ctx[k] = ctx[k]
+            for k in ("url", "window_title"):
+                if k in ctx:
+                    self._focus_ctx[k] = ctx[k]
+        self._utterance = text
         outcome = "ok"
         try:
             await self.server.ui("thinking")
@@ -577,46 +593,74 @@ class Orchestrator:
                     self._answer_history.append(text)
                     outcome = await self._planner_loop(
                         goal, trace, answer=text)
-            elif (msg := comms.parse_message(text)) is not None and \
-                    msg.get("channel") in (None, "messages"):
-                trace["decisions"].append({"message_redirect": msg})
-                outcome = await comms.start(self, msg, text)
-            elif (calc_result := calc.result(text)) is not None and \
-                    calc_result.value is not None and (
-                    str(self._ctx.get("app", "")).casefold() == "calculator"
-                    or re.search(r"\bcalculator\b", text, re.IGNORECASE) is not None
-                    ):
-                outcome = await self._deliver_calc(
-                    calc_result, trace, calculator=True)
-            elif self.engine is not None:
-                outcome = await self._engine_route(text, trace)
             else:
-                plan = self.route(text)
-                trace["decisions"].append({"router": plan})
-                if plan["kind"] == "skill":
+                memory_result = None
+                if self.memory_enabled:
+                    memory_result = await self._memory_followup(text, trace)
+                if memory_result and memory_result.ask:
+                    await self.server.say(memory_result.ask)
+                    await self.server.ui("listening")
+                    outcome = "awaiting_user"
+                elif (memory_result and memory_result.direct and
+                      memory_result.path in {"rule", "llm"} and
+                      self.catalog.risk(
+                          memory_result.direct.get("skill", "")) == "safe"):
+                    direct = memory_result.direct
+                    name = direct["skill"]
+                    args = dict(direct.get("args") or {})
+                    self._utterance = memory_result.text
                     outcome = await self.execute_actions(
-                        [{"op": "skill", "name": plan["name"],
-                          "args": plan["args"]}])
-                elif plan["kind"] == "batch":
-                    outcome = await self.execute_actions(plan["actions"])
-                elif (parsed := calc.result(text)) is not None:
-                    outcome = await self._deliver_calc(
-                        parsed, trace, calculator=False)
+                        [{"op": "skill", "name": name, "args": args}])
+                    if outcome == "ok":
+                        parts = " ".join(
+                            f'{k}="{v}"' if isinstance(v, str) and " " in v
+                            else f"{k}={v}" for k, v in args.items())
+                        self._ctx["last_action"] = f"{name} {parts}".strip()
+                        if self.engine is not None:
+                            self.engine.last_action = self._ctx["last_action"]
                 else:
-                    from .tools import draft_email
-                    from . import comms
-                    dargs = None if comms.is_messaging(text) else \
-                        draft_email.parse_request(text, self._ctx)
-                    if dargs is not None:
-                        trace["decisions"].append(
-                            {"draft_redirect": dargs})
-                        outcome = await self._brain_tool(
-                            "draft_email", dargs, text)
+                    if memory_result and memory_result.changed:
+                        text = memory_result.text
+                        self._utterance = text
+                    if (msg := comms.parse_message(text)) is not None and \
+                            msg.get("channel") in (None, "messages"):
+                        trace["decisions"].append({"message_redirect": msg})
+                        outcome = await comms.start(self, msg, text)
+                    elif (calc_result := calc.result(text)) is not None and \
+                            calc_result.value is not None and (
+                            str(self._ctx.get("app", "")).casefold() == "calculator"
+                            or re.search(r"\bcalculator\b", text,
+                                         re.IGNORECASE) is not None):
+                        outcome = await self._deliver_calc(
+                            calc_result, trace, calculator=True)
+                    elif self.engine is not None:
+                        outcome = await self._engine_route(text, trace)
                     else:
-                        await self._observe()
-                        await self.server.say("I can't do that yet")
-                        await self._end_ui("confused")
-                        outcome = "fallback"
+                        plan = self.route(text)
+                        trace["decisions"].append({"router": plan})
+                        if plan["kind"] == "skill":
+                            outcome = await self.execute_actions(
+                                [{"op": "skill", "name": plan["name"],
+                                  "args": plan["args"]}])
+                        elif plan["kind"] == "batch":
+                            outcome = await self.execute_actions(plan["actions"])
+                        elif (parsed := calc.result(text)) is not None:
+                            outcome = await self._deliver_calc(
+                                parsed, trace, calculator=False)
+                        else:
+                            from .tools import draft_email
+                            dargs = None if comms.is_messaging(text) else \
+                                draft_email.parse_request(text, self._ctx)
+                            if dargs is not None:
+                                trace["decisions"].append(
+                                    {"draft_redirect": dargs})
+                                outcome = await self._brain_tool(
+                                    "draft_email", dargs, text)
+                            else:
+                                await self._observe()
+                                await self.server.say("I can't do that yet")
+                                await self._end_ui("confused")
+                                outcome = "fallback"
             trace["release_to_first_action_ms"] = self._first_action_ms
             self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
             return {"outcome": outcome}
@@ -637,7 +681,68 @@ class Orchestrator:
                 pass
             return {"outcome": outcome}
         finally:
+            if self.memory_enabled:
+                try:
+                    memory_ctx = dict(self._focus_ctx)
+                    memory_ctx.setdefault("app", self._ctx.get("app"))
+                    if not memory_ctx.get("url") and self._last_url:
+                        memory_ctx["url"] = self._last_url
+                    if self._last_skill:
+                        skill, args, result = self._last_skill
+                    elif self._planner_ran:
+                        skill, args, result = "planner", {}, {}
+                    else:
+                        skill, args, result = None, {}, {}
+                    said = (said_items[-1] if isinstance(said_items, list) and
+                            len(said_items) > said_before else None)
+                    self.memory.record(
+                        original_text, self._utterance, skill, args,
+                        outcome == "ok", memory_ctx, said=said,
+                        result=result)
+                except Exception:
+                    log.exception("working-memory record failed")
             self.tracer.finish(outcome)
+
+    async def _memory_followup(self, text: str, trace: dict) -> Resolution:
+        now = time.time()
+        focus_ctx = dict(self._focus_ctx)
+        focus_ctx.setdefault("app", self._ctx.get("app"))
+        if not focus_ctx.get("url") and self._last_url:
+            focus_ctx["url"] = self._last_url
+        started = time.perf_counter()
+        try:
+            result = resolve(
+                text, self.memory, focus_ctx, now, catalog=self.catalog)
+        except Exception:
+            log.exception("working-memory resolution failed")
+            return Resolution("none", text, False, None)
+
+        reason = result.reason
+        if (reason and result.path == "none" and self.memory_llm and
+                self.planner is not None):
+            try:
+                from .memory.rewrite import STATIC, dynamic, llm_rewrite
+                from .planner import worker
+                prompt = STATIC + dynamic(text, self.memory, focus_ctx, now)
+                output = await worker().submit_async(
+                    self.planner.complete, prompt, 40)
+                result = llm_rewrite(
+                    text, self.memory, focus_ctx, now,
+                    lambda _prompt, _tokens: output, 40)
+                if result.reason != "guard":
+                    result.reason = reason
+            except Exception:
+                log.exception("working-memory LLM fallback failed")
+                result = Resolution("none", text, False, reason)
+
+        if reason:
+            trace["decisions"].append({
+                "memory.followup": {
+                    "path": result.path, "reason": result.reason,
+                    "before": text, "after": result.text,
+                    "ms": (time.perf_counter() - started) * 1000,
+                }})
+        return result
 
     # ---------- engine path ----------
 
@@ -2403,6 +2508,7 @@ function run() {
             await self.server.say("Planning isn't ready yet")
             await self._end_ui("confused")
             return "fallback"
+        self._planner_ran = True
         from . import dsl
         from .planner import worker
         goal = text
@@ -2492,6 +2598,15 @@ function run() {
                 f"{self._last_obs.get('window', '') if self._last_obs else ''}\n"
                 f"{obs_text}", re.IGNORECASE))
             plan_kwargs = {"hint": hint, "script_output": self._script_output}
+            if self.memory_enabled:
+                try:
+                    params = inspect.signature(planner.plan).parameters
+                    if "recent" in params or any(
+                            p.kind == inspect.Parameter.VAR_KEYWORD
+                            for p in params.values()):
+                        plan_kwargs["recent"] = self.memory.recent_lines(5)
+                except (TypeError, ValueError):
+                    pass
             if login_page:
                 try:
                     params = inspect.signature(planner.plan).parameters
