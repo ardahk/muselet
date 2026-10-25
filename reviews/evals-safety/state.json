@@ -1,9 +1,9 @@
 {
-  "pass": 90,
-  "ts": "2026-10-25T09:56:32Z",
+  "pass": 91,
+  "ts": "2026-10-25T10:26:55Z",
   "last_reviewed": {
-    "main": "b92677f",
-    "wip/local": "f1e504c",
+    "main": "430e59e",
+    "wip/local": "9f6aa0d",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -95,10 +95,10 @@
     "cloud/browser-flow": "485763f",
     "cloud/docs-final": "bf9118d",
     "cloud/agentic-fixes2": "104a411",
-    "cloud/cool-tasks": "3937e6b",
+    "cloud/cool-tasks": "2fafa9e",
     "cloud/native-tools": "6053e4e",
     "cloud/ui-progress": "a66166b"
   },
   "next_id": 59,
-  "note": "pass 90: main b92677f \u2014 #121 MLX worker skips cancelled futures (no grading/gating effect); README added: route_v2 .945 is the v2-catalog subset (claims.md:117) but README drops the qualifier; '~190 ms first action' needs a claims.md source. -56/-57/-58 unchanged. First fetch attempt failed with a credential prompt; retry succeeded."
+  "note": "pass 91: main 430e59e \u2014 #122 PLANNER=35b now RETRIEVAL_K=0, THINK=1024 (2x think budget, unmeasured latency); premiere_edit agentic route drops parsed args (planner reads goal); #123 style-'about' email replies composed by model (send still confirm-gated); #124 observation keeps focused element/inputs when truncated; #125 Premiere HotText typing in Act.swift. -56/-57/-58 unchanged. cool-tasks 2fafa9e = merge of main."
 }

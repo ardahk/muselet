@@ -235,3 +235,6 @@
 {"id": "evals-safety-56", "pass": 90, "ts": "2026-10-25T09:56:32Z", "status": "open", "update": true, "branch": "main", "sha": "b92677f", "detail": "Unchanged on main b92677f (sendgate.py:79-80). New README.md:18 claims it 'confirms before anything that sends'."}
 {"id": "evals-safety-57", "pass": 90, "ts": "2026-10-25T09:56:32Z", "status": "open", "update": true, "branch": "main", "sha": "b92677f", "detail": "Unchanged on main b92677f (orchestrator.py:3751)."}
 {"id": "evals-safety-58", "pass": 90, "ts": "2026-10-25T09:56:32Z", "status": "open", "update": true, "branch": "main", "sha": "b92677f", "detail": "Unchanged on main b92677f (orchestrator.py:161-164)."}
+{"id": "evals-safety-56", "pass": 91, "ts": "2026-10-25T10:26:55Z", "status": "open", "update": true, "branch": "main", "sha": "430e59e", "detail": "Unchanged on main 430e59e."}
+{"id": "evals-safety-57", "pass": 91, "ts": "2026-10-25T10:26:55Z", "status": "open", "update": true, "branch": "main", "sha": "430e59e", "detail": "Unchanged on main 430e59e."}
+{"id": "evals-safety-58", "pass": 91, "ts": "2026-10-25T10:26:55Z", "status": "open", "update": true, "branch": "main", "sha": "430e59e", "detail": "Unchanged on main 430e59e."}
