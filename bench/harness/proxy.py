@@ -155,6 +155,9 @@ class BenchProxy:
     def url(self) -> str:
         return f"ws://{self.host}:{self.port}"
 
+    def _notify_slot_freed(self) -> None:
+        self._disconnected.set()
+
     async def start(self) -> "BenchProxy":
         if self._server is not None:
             return self
@@ -255,7 +258,14 @@ class BenchProxy:
         await asyncio.wait_for(self._connected.wait(), timeout)
 
     async def wait_disconnected(self, timeout: float = 10) -> None:
-        await asyncio.wait_for(self._disconnected.wait(), timeout)
+        # Wait for the slot to be actually free, not just the event: a new
+        # client's connect clears _disconnected again and can starve a waiter
+        # that was still blocked when the previous disconnect completed.
+        deadline = time.monotonic() + max(0.0, timeout)
+        while not self._slot_released():
+            if time.monotonic() >= deadline:
+                raise asyncio.TimeoutError()
+            await asyncio.sleep(min(0.05, deadline - time.monotonic()))
 
     def _slot_released(self) -> bool:
         return (
