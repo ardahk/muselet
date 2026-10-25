@@ -196,7 +196,7 @@ async def serve(port: int = 8765, model: str | None = None,
     server.on_config = on_config
     server.on_memory = on_memory
     server.on_partial = lambda t, c=None: orch._speculative_route(t, c)
-    server.on_confirm_interrupt = orch.confirm_interrupt
+    server.on_confirm_interrupt = getattr(orch, "confirm_interrupt", None)
     print(f"brain listening on ws://127.0.0.1:{server.port}", flush=True)
     print("type an utterance + enter (headless mode)", flush=True)
 
