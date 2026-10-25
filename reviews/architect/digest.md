@@ -1,5 +1,5 @@
-# architect digest - pass 56 (2026-10-25T00:38Z)
-Reviewed: main e9fb42d (it3 default router by user call; memory rules + long-term on, LLM off; decisions LoRA #39; brain-9 #61; hands-clock #55), wip/local bf98333, brain-9 327ef2c. New: architect-37 (it3 default vs the sealed-set rule). Memory ships below its own pre-registered resolution rule (.574 vs .85), but false-rewrite .0195 is under the .02 cap, so low risk.
+# architect digest - pass 57 (2026-10-25T00:52Z)
+Reviewed: main eb3e945 (design brief only), wip/local 3f21dc6, new design b93bb50, docs-demo-3 c615c37, memory-llm-gate 6864386, panel-hook-fix ef35421. No new findings. design removes the Shortcuts timer backend + SettingsView by explicit user request (brief §3) and keeps Settings › Memory in PanelView; Muselet timer fallback kept. docs-demo-3 discloses greedy t512 (.763, 1.7 s) next to qwen and the live-suite 27/43-ran skip, quotes T1/T2 separately (good), but still cites it3 overlap 0 only as "(lane brief)" (architect-37). memory-llm-gate: lexical guard on LLM rewrites, 40/40 memory tests pass on Linux, no re-measured resolution/false-rewrite yet; MEMORY_LLM stays 0. Re-checked open findings: none changed (serve_brain.sh@eb3e945:49-50 still THINK_SAMPLER qwen, VERIFY_DONE on; replay.py still unpinned).
 
 ## Open P1 (ranked)
 1. architect-37 - it3 default router; no it3 sealed overlap check; replay unpinned - tools/serve_brain.sh
