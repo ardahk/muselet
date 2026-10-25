@@ -1,4 +1,4 @@
-# bench digest — pass 54 (2026-10-25T00:50Z, main@eb3e945)
+# bench digest — pass 55 (2026-10-25T01:05Z, main@e4594d9)
 
 P0: 0 | open P1: 12 | open P2: 8
 
@@ -19,3 +19,6 @@ Next moves:
 5. Fix the 5 v2-holdout golds before LoRA-vs-base on the 105 screen-clean rows.
 
 Note: bench-35 (stale router claim) is fixed on cloud/docs-demo-3 c615c37; resolves on merge.
+
+Watch (pass 55, not a finding yet): cloud/memory-rules2 03c3cd1 rewrites ml/src/brain/memory/rules.py (+421) from live regressions; the claims' memory row (.574 / .0195 on the frozen holdout) is from the pre-rules2 code, so re-run evals/memory_eval.py holdout after merge before quoting. Its new tests contain 2 phrases that are also holdout utterances ('a bit more', 'make it thursday instead'), both generic; no tune-only leakage beyond that.
+Reviewed fine: main e4594d9 proxy wait_disconnected polls _slot_released (fixes event re-clear race), run_live keeps the case skip_reason; mem-wiki-search check now also reads Zen. Nit: the new test_live_record_merge_keeps_case_skip_reason re-implements the merge expression instead of calling run_live code, so it would not catch a regression.
