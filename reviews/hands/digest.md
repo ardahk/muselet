@@ -1,4 +1,4 @@
-# hands — digest (Pass 65)
+# hands — digest (Pass 66)
 
 Open: 0 P0, 4 P1, 8 P2.
 
@@ -6,7 +6,7 @@ Ranked open P0/P1:
 0. P1 hands-34 (cloud/fix-same-tab 065e65f, Launch.swift:224-245): same-tab open_url/web_search posts cmd+L, waits a fixed 80 ms, then types the URL plus Return without checking the address bar has focus. It can type into, or submit, a page field. Fix before merge.
 1. P1 hands-28 (main fa0f040, Skills.swift:884): if Clock never confirms the timer started, it's still reported as set. No alarm fires, and a test (ClockAXTests:272) locks this behaviour in.
 2. P1 hands-29 (main, ClockAX.swift:319/425/554): Clock start and cancel bring Clock to the front and never switch back. Since #70 there is no setting to turn Clock timers off.
-3. P1 hands-26 (main, orchestrator.py:2556): the brain removes `expect` from `act`, so the app's built-in polling never runs. verify then checks only once.
+3. P1 hands-26 (main b340f24, orchestrator.py:2641): the brain removes `expect` from `act`, so the app's built-in polling never runs. verify then checks only once.
 
 Next moves (max 5):
 1. hands-28: merge cloud/hands-clock-verify (it falls back on start_unverified), but first handle hands-33: check clockAXRead() once before adding the Muselet fallback.
@@ -14,6 +14,11 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` (one line), then drop the extra verify RPC when expect_ok is present.
 4. hands-27: build headless hello frames with ScreenGeometry.cgBounds (top-left).
 5. hands-31: close Premiere's Window menu (Esc / AXCancel) when the Timeline step fails, and poll before sending the shortcut.
+
+Pass 66:
+- main b340f24 merged #74 memory-writes, #75 fix-apps-notes, #76 fix-email-reply, #79 test-strategy and #82 planner-aux. None of them change app/. The brain-side launch AX wait (`_wait_launch_ax`) uses bounded polling, and the webmail reply checks the draft signature before typing; neither raises a HandsKit contract issue. Replay STICKY RPC methods match the app's method names.
+- wip/local 94f6fe9, cloud/open-ended fd87f69 and cloud/planner-aux 387c3b4 have no app/ changes.
+- Re-checked on main: hands-26 (now at orchestrator.py:2641), hands-27 (BrainClient.swift:91) and hands-28 (Skills.swift:887) are still open. fix-same-tab, hands-clock-verify and fix-pending are not merged yet, so hands-34 and hands-33 stand on their branches.
 
 Pass 65:
 - New P1 hands-34 on cloud/fix-same-tab: blind address-bar typing. The brain makes same_tab the default whenever a browser is frontmost.
