@@ -16,6 +16,8 @@ final class MascotView: NSView {
 
     var onClick: (() -> Void)?
     var onDragEnded: (() -> Void)?
+    /// Maps a proposed window origin to an allowed one (live, while dragging).
+    var constrainOrigin: ((NSPoint) -> NSPoint)?
     /// Pointer entered / left the body (drives the hover pill).
     var onHover: ((Bool) -> Void)?
 
@@ -110,6 +112,14 @@ final class MascotView: NSView {
     }
 
     /// Body rect (with a little slack) in view coordinates.
+    /// The visible kitten (ground shadow, body, ears and their bounce headroom) in
+    /// window coordinates; the bubble anchor sits inside it. Kept on screen.
+    static var kittenRect: CGRect {
+        CGRect(x: bodyBase.x - bodySize.width / 2 - 2, y: bodyBase.y - 6,
+               width: bodySize.width + 4,
+               height: MascotPaths.Body.height + MascotPaths.Ear.height + 10)
+    }
+
     var bodyHitRect: CGRect {
         CGRect(x: Self.bodyBase.x - Self.bodySize.width / 2 - 6, y: Self.bodyBase.y - 6,
                width: Self.bodySize.width + 12, height: Self.bodySize.height + 16)
@@ -165,7 +175,8 @@ final class MascotView: NSView {
             dragged = true
             NSCursor.closedHand.push()
         }
-        w.setFrameOrigin(NSPoint(x: o0.x + dx, y: o0.y + dy))
+        let p = NSPoint(x: o0.x + dx, y: o0.y + dy)
+        w.setFrameOrigin(constrainOrigin?(p) ?? p)
     }
 
     override func mouseUp(with event: NSEvent) {
