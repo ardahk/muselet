@@ -1,9 +1,9 @@
 {
-  "pass": 68,
-  "ts": "2026-10-25T04:54:00Z",
+  "pass": 69,
+  "ts": "2026-10-25T05:09:00Z",
   "last_reviewed": {
-    "main": "82c9810",
-    "wip/local": "c156d18",
+    "main": "e425cad",
+    "wip/local": "80c871c",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -89,5 +89,5 @@
     "cloud/premiere-demo": "a1c0f04",
     "cloud/premiere-route-fix": "7769c32"
   },
-  "notes": "pass 68: wip c156d18. The planner now rejects a first-turn 'ask' on open-ended goals ('play some jazz'), which means fewer clarification questions (good). It only logs the Clock timer fallback, adds no bubble copy, and the open-ended regex also matches 'send something to Mom'; the confirm gate still covers sends. Screen text is withheld from the planner when the goal targets another app. No new findings."
+  "notes": "pass 69: main e425cad (#86) is identical to the wip c156d18 code reviewed in pass 68. wip 80c871c only edits a test. No new findings."
 }
