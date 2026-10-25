@@ -15,29 +15,36 @@ def _clean(args: dict) -> dict:
     }
 
 
+_STYLE = re.compile(
+    r"\b(?:funny|witty|humou?rous|joke|jokes|polite|short|brief|nice|kind|"
+    r"sarcastic|formal|casual|friendly|professional|clever|silly|sweet|"
+    r"playful|creative|nice|thoughtful)\b", re.IGNORECASE)
+
+
+def style(args: dict) -> str | None:
+    """`about` that describes HOW to write ("is funny", "something witty"),
+    not the literal text: the model composes the reply itself."""
+    about = str(_clean(args).get("about") or "").strip()
+    if not about or len(about.split()) > 5 or not _STYLE.search(about):
+        return None
+    return re.sub(r"^(?:is|something|a|an)\s+", "", about, flags=re.IGNORECASE)
+
+
 def content(args: dict) -> str | None:
     args = _clean(args)
     for key in ("body", "text", "message", "about", "title"):
         value = args.get(key)
+        if key == "about" and style(args):
+            continue
         if value is not None and str(value).strip():
             return str(value).strip()
     return None
 
 
-_LITERAL_KEYS = ("body", "text", "message", "title")
-
-
 def _with_content(skill: str, args: dict, result: str) -> str:
-    """'type exactly' only when the arg is the user's literal text
-    (body/text/message/title) — 'about' describes WHAT to write, the
-    model composes it in its own words."""
-    args = _clean(args)
-    value = None
-    for key in _LITERAL_KEYS:
-        v = args.get(key)
-        if v is not None and str(v).strip():
-            value = str(v).strip()
-            break
+    """'type exactly' only for the user's literal text; a style `about`
+    ("funny") is composed by the model in its own words."""
+    value = content(args)
     if skill != "compose_text" and result and value:
         return f'{result}; type exactly: "{value}"'
     return result
@@ -93,10 +100,8 @@ def hint(skill: str, args: dict) -> str:
             f"{result}; body: {args.get('body', '')}; leave it as a draft, "
             "don't send".rstrip())
     if skill == "draft_email":
-        if args.get("about") and not any(
-                args.get(k) for k in _LITERAL_KEYS):
-            about = re.sub(r"^(?:is|something|a|an)\s+", "",
-                           str(args["about"]).strip(), flags=re.IGNORECASE)
+        if (about := style(args)) and not any(
+                args.get(k) for k in ("body", "text", "message")):
             return (f"reply to the open email; compose the reply yourself "
                     f"in your own words ({about}), responding to what the "
                     "email says; type it into the reply body")
