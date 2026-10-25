@@ -23,6 +23,7 @@ class BrainServer:
         self._late: set[str] = set()          # rpc ids that timed out
         self._connected = asyncio.Event()
         self._utterance_task: asyncio.Task | None = None
+        self._interrupt_task: asyncio.Task | None = None
         self.on_utterance = None      # async cb(text, final, ctx)
         self.on_partial = None        # sync cb(text, ctx) for spec route
         self.on_confirm_interrupt = None  # async cb(text, ctx) -> bool
@@ -69,7 +70,9 @@ class BrainServer:
                 else:
                     log.info("utterance ignored during confirm: %r", text[:60])
 
-            asyncio.get_running_loop().create_task(interrupt_runner())
+            # keep a reference: the loop holds tasks only weakly
+            self._interrupt_task = asyncio.get_running_loop().create_task(
+                interrupt_runner())
             return
         self._run_utterance(text, ctx)
 
