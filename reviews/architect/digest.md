@@ -1,5 +1,5 @@
-# architect digest - pass 73 (2026-10-25T05:14Z)
-Reviewed: main e425cad (#86 3678b4f: screen-context gating, open-ended ask guard, Clock wheel keyboard fallback). The 2 fallback-test failures seen on wip c156d18 are fixed: fallback, clock, grounder, premiere and bench suites give 458 passed, 3 skipped. wip/local 80c871c doesn't have #86's changes (its diff from main is -266 lines in the same 3 files); 452 passed. premiere-route-fix 7769c32 is still unmerged, so main still sends draft_email args to premiere_edit (orchestrator.py ~992-1005). Watch item: _PREF_VAGUE still matches 'send something to Sam'; one rejection, confirm-gated.
+# architect digest - pass 74 (2026-10-25T05:28Z)
+Reviewed: wip/local 323d274 on main e425cad (unchanged). It adds --planner-blind (default base): blind and open-ended tasks plan with the base model plus few-shot, k=1 and THINK=512 with the qwen sampler, sharing the aux weights. It also adds a rule-based end-state criterion and +19 lines in planner_fewshot.md. Watch: this puts qwen thinking (architect-36: ~853 ms/step slower than greedy for a tied result) back on the default path for blind and open-ended tasks. The split has no recorded holdout or latency measurement against LoRA-only. Measure it, and consider THINK_SAMPLER=greedy, before merging. Static review only this pass; tests were not run. premiere-route-fix is still unmerged.
 Open: P0 0, P1 13, P2 8. No new findings and no status changes.
 
 ## Open P0/P1 (ranked)
@@ -24,6 +24,7 @@ Open: P0 0, P1 13, P2 8. No new findings and no status changes.
 4. Fit VERIFY_P on the LoRA planner's traces, or turn VERIFY_DONE off for the demo (architect-33).
 
 5. Before the demo, smoke-test evals/live_premiere.jsonl on the Mac (Window > Timeline, Sequence > Apply Video Transition) and change cmd+t to the real shortcut in planner_system.md:46 (architect-26/35).
+
 
 
 
