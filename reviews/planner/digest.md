@@ -1,16 +1,16 @@
-# Planner review digest — pass 57 (2026-10-25T01:35Z)
+# Planner review digest — pass 58 (2026-10-25T01:50Z)
 
-Branches moved since pass 56: wip/local 4d22445→7728b98, cloud/memory-llm-gate 6864386→f6229d7. main unchanged (9be963d).
-- wip 7728b98: orchestrator System-1 `set_brightness` relative-vs-level arg fix (HobbyLM D04-D06). Not planner path. No finding.
-- memory-llm-gate f6229d7: memory LLM guard/trace reasons + pitch docs; no planner/DSL/prompt/HandsKit/serve_brain changes. No finding.
-- Re-checked open findings on main 9be963d: none changed (no lane-file diff since pass 56).
+Branches moved since pass 57: main 9be963d→19d57fb, wip/local 7728b98→8a197f8.
+- main a1fd57f: System-1 `set_brightness` relative-delta arg fix (HobbyLM D04-D06). Not planner path.
+- main 19d57fb (#69, memory-llm-gate): `has_context` gate + llm-invalid validation before the 40-token planner.complete rewrite. Only reachable with MEMORY_LLM=1 (default 0, serve_brain.sh). Reduces rewrite latency/false rewrites; no planner/DSL/prompt/HandsKit change. No finding.
+- wip 8a197f8: same content as main. No finding.
+- Re-checked on main 19d57fb: `self_verified` still DONE evidence (planner-40), THINK_SAMPLER default still qwen (planner-44), planner-ok memory writes unchanged (planner-45).
 
 New: 0. Resolved: 0. Open: 0 P0, 11 P1, 8 P2.
-Top: planner-45 (false-success memory persistence), planner-40 (skill ok = DONE evidence), planner-44 (qwen think sampler latency).
 Lead decision: greedy think sampler; persist memory/workflows only after verified DONE.
 
 ---
-## Open findings (unchanged from pass 56)
+## Open findings (unchanged from pass 56, re-checked pass 58)
 
 Open P0: none.
 
