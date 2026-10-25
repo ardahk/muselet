@@ -197,7 +197,14 @@ class HandsRuntime:
         if self.proxy.capture.active:
             await self._stop_client()
             self.proxy.mark_utterance_finished()
-            await self._wait_for("wait_disconnected", self.proxy.wait_disconnected)
+            try:
+                await self.proxy.wait_disconnected()
+            except asyncio.TimeoutError:
+                # The client process is already terminated; the outcome and checks are captured. Free the
+                # slot instead of failing the case (live runs 20261025T015646Z: 11 wait_disconnected latches).
+                await self._terminate_client()
+                if not await self.proxy.release_slot(2.0):
+                    await self.proxy.force_release()
             await self.start_scripts()
 
     async def stop(self) -> None:

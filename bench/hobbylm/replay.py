@@ -1305,7 +1305,10 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Non
                     "frames": result.get("frames", []),
                     "first_action_method": first_action.get("method"),
                     **session,
-                    **{key: result[key] for key in ("skip_reason", "error")
+                    **{key: result[key]
+                       for key in ("skip_reason", "error",
+                                   "precondition_error",
+                                   "precondition_observations")
                        if result.get(key)},
                     **({"calc_setup": "calculator_open_cleared"}
                        if task["kind"] == "calc" else {}),

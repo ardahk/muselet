@@ -148,6 +148,7 @@ class BenchProxy:
         self._pending_scripts: dict[str, asyncio.Future] = {}
         self._pending_rpcs: dict[str, asyncio.Future] = {}
         self._script_seq = 0
+        self.forced_releases = 0
         self._allowed_confirm_skills: set[str] = set()
         self.capture = CaseCapture()
 
@@ -288,6 +289,22 @@ class BenchProxy:
         while not self._slot_released() and time.monotonic() < deadline:
             await asyncio.sleep(min(0.1, max(0.0, deadline - time.monotonic())))
         return self._slot_released()
+
+    async def force_release(self) -> None:
+        """Last resort once the hands process is gone: drop both connections so the slot frees
+        (a lingering client socket must not cost the next case its run)."""
+        for connection in (self._hands, self._brain):
+            if connection is not None:
+                await _close_bounded(connection, 1.0)
+                transport = getattr(connection, "transport", None)
+                if transport is not None:
+                    try:
+                        transport.abort()
+                    except Exception:
+                        pass
+        self._hands = self._brain = None
+        self._disconnected.set()
+        self.forced_releases += 1
 
     def gate_turns(self) -> None:
         """Forward one final utterance; hold later ones until `release_held_utterance`."""
