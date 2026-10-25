@@ -1,9 +1,9 @@
 {
-  "pass": 57,
-  "ts": "2026-10-25T00:43:44Z",
+  "pass": 58,
+  "ts": "2026-10-25T00:59:30Z",
   "last_reviewed": {
-    "main": "eb3e945",
-    "wip/local": "3f21dc6",
+    "main": "e4594d9",
+    "wip/local": "fc5d595",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -72,8 +72,10 @@
     "cloud/design": "b93bb50",
     "cloud/docs-demo-3": "c615c37",
     "cloud/memory-llm-gate": "6864386",
-    "cloud/panel-hook-fix": "ef35421"
+    "cloud/panel-hook-fix": "ef35421",
+    "cloud/memory-hotfix": "d932320",
+    "cloud/memory-rules2": "03c3cd1"
   },
   "next_id": 48,
-  "note": "pass 57: main eb3e945 is a docs brief only; memory-llm-gate changes orchestrator gating, guard.py unchanged (-44 stands if the rewrite is re-enabled)."
+  "note": "pass 58: main e4594d9 proxy slot-wait fix + run_live keeps case skip_reason (clean); live_t2 mem-wiki-search check broadened to Zen (still not in decontam, -46). memory-hotfix/rules2 lane-adjacent, guard.py unchanged; rules2 (421 lines) only skimmed."
 }
