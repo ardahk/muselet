@@ -1,3 +1,20 @@
+# Brain lane review: pass 91 (2026-10-25T11:40Z)
+
+Open: P0 0, P1 16, P2 31. New: brain-76 (P2, wip/local).
+
+## Branches
+- main 2de65a9 and cloud/cool-tasks cfbec49: unchanged.
+- wip/local 4db92e8: now carries 5 local commits ahead of main (page-load signal and waits, fused-expect stripping, Numbers sort guard, progress wording).
+
+## New
+- brain-76 (P2, wip/local): `wait <ms>` in a browser returns after ~150 ms when the page already reports loaded; waits for in-page updates are cut short. Repro test_brain_pass91.py (1500 ms -> 152 ms).
+
+## Notes
+Every press / Return in a browser now costs one extra observe; failed expects on a loading page can repoll for 15 s at 0.1 s. brain-73 unchanged.
+
+## Tests
+wip/local 18 MLX-only suite failures (same set as main), 2560 passed. Review repros: wip/local 77 / 53.
+
 # Brain lane review: pass 90 (2026-10-25T11:12Z)
 
 Open: P0 0, P1 16, P2 30. No new IDs; brain-73 widened.
