@@ -1,16 +1,16 @@
-# Planner review digest — pass 58 (2026-10-25T01:50Z)
+# Planner review digest — pass 59 (2026-10-25T02:20Z)
 
-Branches moved since pass 57: main 9be963d→19d57fb, wip/local 7728b98→8a197f8.
-- main a1fd57f: System-1 `set_brightness` relative-delta arg fix (HobbyLM D04-D06). Not planner path.
-- main 19d57fb (#69, memory-llm-gate): `has_context` gate + llm-invalid validation before the 40-token planner.complete rewrite. Only reachable with MEMORY_LLM=1 (default 0, serve_brain.sh). Reduces rewrite latency/false rewrites; no planner/DSL/prompt/HandsKit change. No finding.
-- wip 8a197f8: same content as main. No finding.
-- Re-checked on main 19d57fb: `self_verified` still DONE evidence (planner-40), THINK_SAMPLER default still qwen (planner-44), planner-ok memory writes unchanged (planner-45).
+Branches moved since pass 58: main 19d57fb→f5b4606, wip/local 8a197f8→c49bf0e.
+- main 69a9650: harness wait_disconnected latch (proxy slot release). Not planner path.
+- main f5b4606: comment-only orchestrator change + paraphrased brightness regression tests (keeps sealed HobbyLM utterances out of repo). No planner behavior change.
+- wip c49bf0e: main + bench/hobbylm/replay.py only. No finding.
+- Re-checked on main f5b4606: `self_verified` still DONE evidence (planner-40, 2 hits), THINK_SAMPLER default qwen (planner-44), planner-ok memory writes unchanged (planner-45).
 
 New: 0. Resolved: 0. Open: 0 P0, 11 P1, 8 P2.
 Lead decision: greedy think sampler; persist memory/workflows only after verified DONE.
 
 ---
-## Open findings (unchanged from pass 56, re-checked pass 58)
+## Open findings (unchanged from pass 56, re-checked pass 59)
 
 Open P0: none.
 
