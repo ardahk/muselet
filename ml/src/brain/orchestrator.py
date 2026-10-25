@@ -663,7 +663,7 @@ def observation_blind(obs: dict | None) -> bool:
 
 class Orchestrator:
     WEB_AX_WINDOW_S = 2.2     # Chrome's web AX tree lands ~2 s after a switch
-    LOAD_POLL_S = 0.25        # re-verify cadence while a page is loading
+    LOAD_POLL_S = 0.1         # re-verify cadence while a page is loading
     LOAD_WAIT_S = 5.0         # max re-verify window for a loading page
     WEB_PAGE_CAP_S = 3.0
     WEB_PAGE_POLL_S = 0.25
@@ -3435,12 +3435,6 @@ function run() {
         r = await self._rpc_action("act", params, a)
         if op == "url" and r.get("status") == "ok":
             self._last_ok_url = str(a.get("url") or "")
-        if r.get("status") == "ok" and (
-                op == "url" or op == "press" or
-                (op == "type" and a.get("enter")) or
-                (op == "keys" and
-                 re.fullmatch(r"(?i)return|enter|\\r", str(a.get("combo") or "")))):
-            await self._await_page_load()
         r["_log"] = f"{dsl_line}-> {'ok' if r['status']=='ok' else 'failed: ' + r.get('error','?')}"
         return r
 
@@ -3705,6 +3699,14 @@ function run() {
         params = await self._resolve_open(method, params)
         if params is None:
             return {"status": "awaiting_user"}
+        # a task with finish evidence (or any agentic app task) verifies
+        # expects separately — the act RPC must not carry a fused expect,
+        # or a mismatch aborts the action inside HandsKit (e.g. keys are
+        # posted but the fused expect failure returns ok:false)
+        soft_expect = (getattr(self, "_progress", None) not in (None, "unset")
+                       or bool(getattr(self, "_agentic", None)))
+        if method == "act" and soft_expect and "expect" in params:
+            params = {k: v for k, v in params.items() if k != "expect"}
         if self._first_action_ms is None:
             self._first_action_ms = (time.perf_counter() - self._t_final) * 1000
         t = time.perf_counter()
@@ -3743,6 +3745,21 @@ function run() {
             return {"status": "failed",
                     "error": res.get("error", "?"), "res": res}
         self._last_action_error = None
+        # navigation-level actions: if the fresh observation reports the
+        # page loading, wait for the real load signal before verify
+        op = str(action.get("op") or "")
+        nav = (method == "act" and (
+                op == "url" or op == "press" or
+                (op == "type" and action.get("enter")) or
+                (op == "keys" and re.fullmatch(
+                    r"(?i)return|enter|\\r",
+                    str(action.get("combo") or ""))))) or (
+            method == "skill" and params.get("name") in
+            ("open_url", "web_search"))
+        if nav and (method == "skill" or op == "url" or
+                (self._obs_seen and self._browser_name(
+                    str(self._obs_seen[1].get("app") or "")))):
+            await self._await_page_load()
         # expect passthrough for every action type (incl. skill/script)
         exp = action.get("expect")
         if exp:
@@ -3766,8 +3783,7 @@ function run() {
                 # expects — evidence verification decides done, and a
                 # model-written predicate that can't match shouldn't
                 # abort the batch the action already ran in
-                if self._progress not in (None, "unset") or getattr(
-                        self, "_agentic", None):
+                if soft_expect:
                     trace_d = self.tracer.current if self.tracer else None
                     if trace_d is not None:
                         trace_d.setdefault("decisions", []).append(
@@ -3784,10 +3800,13 @@ function run() {
         is just the browser's name, or a loading/untitled title."""
         if not obs:
             return False
-        # authoritative when the browser exposes AXLoaded: loaded=false means
-        # loading (regardless of title heuristics), busy extends it.
-        if "web_loaded" in obs:
-            return (not obs["web_loaded"]) or bool(obs.get("web_busy"))
+        # AXElementBusy extends loading even without AXLoaded
+        if obs.get("web_busy") is True:
+            return True
+        # explicit AXLoaded is authoritative; missing/null falls through
+        # to the title/text heuristics
+        if isinstance(obs.get("web_loaded"), bool):
+            return not obs["web_loaded"]
         if obs.get("web_ax_pending"):
             return True
         app = str(obs.get("app") or "")
@@ -3817,85 +3836,86 @@ function run() {
                       re.IGNORECASE)) or site_loading)
 
     async def _wait_ms(self, ms: int):
-        """`wait <ms>`: on a browser page that exposes AXLoaded, return as
-        soon as the page reports loaded (min 150 ms); else plain sleep."""
+        """`wait <ms>`: on a browser page with an explicit load signal,
+        return once the page is loaded (150 ms floor inside the requested
+        wait, not on top of it); else a plain sleep."""
+        obs = self._obs_seen[1] if self._obs_seen else None
+        if not (obs and self._browser_name(str(obs.get("app") or "")) and
+                (isinstance(obs.get("web_loaded"), bool) or
+                 obs.get("web_busy") is not None)):
+            await asyncio.sleep(ms / 1000)
+            return
+        deadline = ms / 1000
+        t0 = time.perf_counter()
+        await asyncio.sleep(min(0.15, deadline))
         try:
-            obs = self._obs_seen[1] if self._obs_seen else None
-            if not (obs and "web_loaded" in obs and
-                    self._browser_name(str(obs.get("app") or ""))):
-                await asyncio.sleep(ms / 1000)
-                return
-            await asyncio.sleep(0.15)
-            t0 = time.perf_counter()
-            while time.perf_counter() - t0 < ms / 1000:
-                obs = await self._observe_once()
-                if obs.get("web_loaded") is True:
+            while True:
+                remaining = deadline - (time.perf_counter() - t0)
+                if remaining <= 0:
                     return
-                await asyncio.sleep(0.1)
+                obs = await self._observe_once()
+                self._diff_chain = None
+                if not obs or not (
+                        self._browser_name(str(obs.get("app") or "")) and
+                        (isinstance(obs.get("web_loaded"), bool) or
+                         obs.get("web_busy") is not None)):
+                    return          # window changed / signal lost
+                if not self._page_loading(obs):
+                    return          # loaded (busy-only clear counts)
+                await asyncio.sleep(min(self.LOAD_POLL_S, remaining))
         except RuntimeError:
             pass
 
     async def _await_page_load(self, cap: float = 15.0):
-        """After a navigation-level action in a browser: if the fresh
-        observation says the page is loading, poll every 0.1 s until
-        `web_loaded` or `cap`. Instant loads cost one extra observe."""
+        """After a navigation-level action: a FRESH observation carrying an
+        explicit load signal (web_loaded/web_busy) that says the page is
+        loading -> poll until loaded or cap. Title/text heuristics stay in
+        _repoll_loading; instant loads cost exactly one observe."""
         try:
-            obs = self._obs_seen[1] if self._obs_seen else None
-            if not (obs and "web_loaded" in obs and
-                    self._browser_name(str(obs.get("app") or ""))):
-                return
-            t0 = time.perf_counter()
-            polls = 0
-            loaded = obs.get("web_loaded") is True
-            while not loaded and time.perf_counter() - t0 < cap:
-                await asyncio.sleep(0.1)
-                polls += 1
-                obs = await self._observe_once()
-                loaded = obs.get("web_loaded") is True
-            if polls and self.tracer.current is not None:
-                self.tracer.current.setdefault("page_load_wait", []).append(
-                    {"ms": round((time.perf_counter() - t0) * 1000, 1),
-                     "polls": polls, "loaded": loaded})
+            obs = await self._observe_once()
+            self._diff_chain = None   # fresh epoch consumed; drop stale diffs
         except RuntimeError:
             return
-
-        app = str(obs.get("app") or "")
-        title = str(obs.get("window") or "").strip()
-        if not self._browser_name(app):
-            return False
-        text = str(obs.get("text") or "")
-        bare_title = re.sub(r"^\(\d+\)\s*", "", title)
-        bare_title = re.sub(
-            r"\s+-\s+(?:Google Chrome|Chrome|Safari|Firefox|"
-            r"Microsoft Edge|Edge|Brave|Arc|Zen|Opera)\s*$",
-            "", bare_title, flags=re.IGNORECASE).strip()
-        host = urlsplit(str(obs.get("url") or "")).hostname or ""
-        labels = {re.sub(r"[^a-z0-9]", "", host.split(".")[-2].casefold())
-                  if len(host.split(".")) >= 2 else ""}
-        host_key = host.casefold().removeprefix("www.")
-        labels.update(
-            re.sub(r"[^a-z0-9]", "", name.casefold())
-            for name, site in SITES.items()
-            if (urlsplit(f"https://{site}").hostname or "").casefold()
-            .removeprefix("www.") == host_key)
-        title_key = re.sub(r"[^a-z0-9]", "", bare_title.casefold())
-        site_loading = bool(host and title_key and title_key in labels)
-        return (not title or bool(self._browser_name(title)) or bool(
-            _LOADING_TITLE.search(title)) or bool(
-            re.search(r"Waiting for \S+|Transferring data from", text,
-                      re.IGNORECASE)) or site_loading)
+        if not obs or not (
+                self._browser_name(str(obs.get("app") or "")) and
+                (isinstance(obs.get("web_loaded"), bool) or
+                 obs.get("web_busy") is not None)):
+            return
+        t0 = time.perf_counter()
+        polls = 0
+        loaded = not self._page_loading(obs)
+        try:
+            while not loaded and time.perf_counter() - t0 < cap:
+                await asyncio.sleep(self.LOAD_POLL_S)
+                polls += 1
+                obs = await self._observe_once()
+                self._diff_chain = None
+                if not obs or not (
+                        self._browser_name(str(obs.get("app") or "")) and
+                        (isinstance(obs.get("web_loaded"), bool) or
+                         obs.get("web_busy") is not None)):
+                    break      # window changed / signal lost -> stop
+                loaded = not self._page_loading(obs)
+        except RuntimeError:
+            pass
+        if polls and self.tracer.current is not None:
+            self.tracer.current.setdefault("page_load_wait", []).append(
+                {"ms": round((time.perf_counter() - t0) * 1000, 1),
+                 "polls": polls, "loaded": loaded})
 
     async def _repoll_loading(self, exp: str, vres: dict) -> tuple[dict, bool]:
         """Failed expect while the page loads: re-verify every LOAD_POLL_S
         for up to LOAD_WAIT_S. Returns (verify result, still loading)."""
-        if not self._page_loading(await self._observe_once()):
+        obs0 = await self._observe_once() or {}
+        if not self._page_loading(obs0):
             return vres, False
         started = time.perf_counter()
         polls = 0
-        cap = 15.0 if "web_loaded" in await self._observe_once() \
-            else self.LOAD_WAIT_S
+        signal = (isinstance(obs0.get("web_loaded"), bool) or
+                  obs0.get("web_busy") is not None)
+        cap = 15.0 if signal else self.LOAD_WAIT_S
         while time.perf_counter() - started < cap:
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(self.LOAD_POLL_S)
             polls += 1
             try:
                 vres = await self.server.rpc("verify", {"expect": exp},
@@ -3904,10 +3924,19 @@ function run() {
                 vres = {"ok": False, "observed": str(e)}
             if vres.get("ok", False):
                 break
-            obs = vres.get("observed") if isinstance(
-                vres.get("observed"), dict) else None
-            if obs and obs.get("web_loaded") is True:
-                break          # page is done loading; stop waiting
+            if signal:
+                o = await self._observe_once()
+                self._diff_chain = None
+                if not o or not (
+                        self._browser_name(str(o.get("app") or "")) and
+                        (isinstance(o.get("web_loaded"), bool) or
+                         o.get("web_busy") is not None)):
+                    break      # window changed / signal lost -> stop
+                if o.get("web_loaded") is True and not o.get("web_busy"):
+                    break      # page is done loading; stop waiting
+                if o.get("web_loaded") is None and \
+                        o.get("web_busy") is False:
+                    break      # busy-only signal cleared
         loading = not vres.get("ok", False) and self._page_loading(
             await self._observe_once())
         if self.tracer.current is not None:
@@ -5095,6 +5124,8 @@ function run() {
                 "observe", {"scope": "focused_window",
                             "max_nodes": int(os.environ.get("MUSELET_OBS_NODES", "150")),
                             "diff": True}, timeout=10)
+            if res is None:
+                return None
             self._last_epoch = res.get("epoch")
             if res:
                 self._obs_seen = (time.perf_counter(), res)
