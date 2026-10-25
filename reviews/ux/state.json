@@ -1,9 +1,9 @@
 {
-  "pass": 81,
-  "ts": "2026-10-25T08:45:00Z",
+  "pass": 82,
+  "ts": "2026-10-25T09:00:00Z",
   "last_reviewed": {
-    "main": "b7b38f9",
-    "wip/local": "e03e2c8",
+    "main": "4f94e42",
+    "wip/local": "52eb571",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -94,7 +94,10 @@
     "cloud/app-knowhow": "c69dfec",
     "cloud/browser-flow": "485763f",
     "cloud/docs-final": "bf9118d",
-    "cloud/agentic-fixes2": "104a411"
+    "cloud/agentic-fixes2": "104a411",
+    "cloud/ui-progress": "a66166b",
+    "cloud/cool-tasks": "4c84adc",
+    "cloud/native-tools": "6053e4e"
   },
-  "notes": "pass 81: main b7b38f9 merged agentic-fixes2 (reviewed in pass 80) and docs-final. ab850b3 gives agentic tasks 30 turns / 300 s with soft expects -> new ux-33. b7b38f9 lets PLANNER=35b observe 350 AX nodes; that is an opt-in setting and adds no reply text. ux-32 moves to main (demo_script.md:53 still says 4B LoRA ~0.3 s per step). wip/local equals main. Open: ux-31 and ux-28 P1."
+  "notes": "pass 82: main 4f94e42 adds demo-loop fixes: YouTube play evidence needs a YouTube page; search fields never trigger the Enter-send confirm (fewer false confirm cards, good UX); the web_ui_guard error tells the planner to press a result; done_summary is reset per task. None adds bubble copy. ui-progress a66166b adds per-turn step bubbles and a busy flag for the dots -> partly mitigates ux-29/31/33 (status rows appended). cool-tasks 4c84adc adds relay/summary carry tasks (alt demo beats 8a-8c) that reuse 'Message is ready\u2026'; no new copy issues. native-tools 6053e4e is an opt-in planner mode (default dsl) with no UX surface. wip/local equals main. No new findings."
 }
