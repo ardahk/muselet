@@ -1,11 +1,11 @@
-# hands — digest (Pass 75)
+# hands — digest (Pass 76)
 
 Open: 0 P0, 5 P1, 10 P2.
 
 Ranked open P0/P1:
 -1. P1 hands-38 (main e2f7e5e via a615f00, ClockAX.swift:523-552): the Clock cancel falls back to `live.first` and presses a stale detail-pane Cancel after a fixed 80 ms. It can cancel a user's own Clock timer and still report success. Fix before the demo.
 0. P1 hands-36 (main e425cad via #86, ClockAX.swift:546-708): the Clock wheel key fallback clicks the wheel, then types digits and up to 70 HID arrow keys without re-checking Clock is frontmost or the wheel has focus. Keys can land in the user's frontmost app. Gate it before the demo.
-1. P1 hands-34 (main dc6f2f5, Launch.swift:224-232): fix-same-tab merged unchanged. Same-tab open_url/web_search posts cmd+L, waits a fixed 80 ms, then types the URL plus Return without checking the address bar has focus. The brain uses it by default whenever a browser is frontmost.
+1. P1 hands-34 (main dc6f2f5, Launch.swift:224-232): fix-same-tab merged unchanged. Same-tab open_url/web_search posts cmd+L, waits a fixed 80 ms, then types the URL plus Return without checking the address bar has focus. The brain uses it by default whenever a browser is frontmost; cloud/browser-flow c0421e6 also sends every later planner `url` step in a task through it (pass 76).
 2. P1 hands-29 (main, ClockAX.swift): Clock start and cancel bring Clock to the front and never switch back, and there's no opt-out.
 3. P1 hands-26 (main, orchestrator.py:3051): the brain removes `expect` from `act`, so the app's built-in polling never runs.
 
@@ -15,6 +15,12 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 76:
+- main de1070d merged agentic-apps (catalog `kind`, already cleared) and f30bf1d. The only app/ change: GhostCursor no longer shows the box highlight around the target (opacity 0, pop removed). Failures still show through the chip colour and ripple. Harmless.
+- cloud/browser-flow c0421e6 (brain only): default-browser rewrite, read from the LaunchServices plist (Swift falls back to the default handler if the name doesn't resolve), and same-tab for planner `url` steps. hands-34 status record added: that widens the blind cmd+L path.
+- cloud/app-knowhow fc92f6b (brain/prompts only): the Clock tips have the planner press a running timer's Pause/Cancel button, with no check that the timer is Muselet's. Same risk as hands-38, but through the planner. Noted only, no new record.
+- cloud/agentic-evidence c4703c4: finish/evidence changes only, no new RPC methods or fields. wip/local 52e4b94 matches main for app/. Other open findings re-checked and unchanged.
 
 Pass 75:
 - cloud/agentic-apps 1904638 merges main (timer_control removed upstream, finish evidence gate). Against main it differs in app/ only through skills/catalog.json (`kind` keys). Swift loads the catalog with JSONSerialization as [String: Any] (Skills.swift:49), so the extra key is ignored; confirmed. No RPC changes.
