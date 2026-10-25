@@ -1,22 +1,21 @@
-# bench digest — pass 73 (2026-10-25T06:00Z, main@fe2de69)
+# bench digest — pass 74 (2026-10-25T06:15Z, main@e2f7e5e)
 
-P0: 0 | open P1: 14 | open P2: 16
+P0: 0 | open P1: 13 | open P2: 16
 
 Ranked open P1:
-1. bench-48 (NEW) the serving few-shot (prompts/planner_fewshot.md:60-85) has the exact oe-spotify-jazz utterance with the full solution, the case's own player-state check and done. The Spotify open-ended result is train-on-test.
-2. bench-44 LoRA planner shipped (efd2f3f) on uncommitted numbers. Pooled .731 vs .647; most of the gain is on v2-ho, whose screens were in training.
-3. bench-42 acceptance case acc-user-pending-notes-then-text drives Messages with no Messages-not-running guard.
-4. bench-36 competitor runs don't pin or record router, planner or serving flags.
-5. bench-23 it3 chosen on route_v2, whose gold shares judges and policy with its training labels.
-6. bench-31 planner-LoRA demos on v2-holdout screens; the clean 105-row subset was never scored.
-7. bench-16 HobbyLM --exclude-kind calc is Muselet-only; calc is now gradable for both.
-8. bench-28 5 v2-holdout golds accept field-clobbering type.
-9. bench-11, -14, -15, -20, -21, -29 unchanged.
+1. bench-44 LoRA planner shipped (efd2f3f) on uncommitted numbers. Pooled .731 vs .647; most of the gain is on v2-ho, whose screens were in training.
+2. bench-42 acceptance case acc-user-pending-notes-then-text drives Messages with no Messages-not-running guard.
+3. bench-36 competitor runs don't pin or record router, planner or serving flags.
+4. bench-23 it3 chosen on route_v2, whose gold shares judges and policy with its training labels.
+5. bench-31 planner-LoRA demos on v2-holdout screens; the clean 105-row subset was never scored.
+6. bench-16 HobbyLM --exclude-kind calc is Muselet-only; calc is now gradable for both.
+7. bench-28 5 v2-holdout golds accept field-clobbering type.
+8. bench-11, -14, -15, -20, -21, -29 unchanged.
 
-Open P2: -49 (NEW: Finish-when line reaches the LoRA planner, out of its SFT distribution), -46 (now 5 unevaluated serving switches incl. BLIND_PLANNER), -47, -43, -37, -38, -39, -40, -30, -34, others. Resolved earlier: -41. Withdrawn: -45.
+Open P2: -49 (NEW: Finish-when line reaches the LoRA planner, out of its SFT distribution), -46 (now 5 unevaluated serving switches incl. BLIND_PLANNER), -47, -43, -37, -38, -39, -40, -30, -34, others. Resolved: -41, -48 (pass 74). Withdrawn: -45.
 
 Next moves:
-1. Reword the Spotify few-shot goal (different app/genre) or retire oe-spotify-jazz for a paraphrased held-out case (bench-48/-47).
+1. Gate Finish-when to the base/blind planner, or A/B the LoRA with and without it (bench-49); add paraphrased held-out open-ended asks (bench-47).
 2. Add the Messages-not-running precondition to acc-user-pending-notes-then-text (bench-42).
 3. Commit the planner-LoRA eval JSONs, quote pooled numbers, and score LoRA vs base on the 105 clean v2-ho rows (bench-44/-31).
 4. ROUTER=it2 on competitor runs; record router, planner, FALLBACK_PLANNER/PLANNER_CONTEXT/APP_HINTS/OPEN_ENDED/BLIND_PLANNER in result rows (bench-36/-46).
@@ -37,3 +36,5 @@ Pass 71 (no new findings, no status changes): main unchanged, all open findings 
 Pass 72: main e425cad..e8023b8 merges PR #87 (blind planner) and #88 (blind typing, Swift only). NEW P1 bench-48 (see above). bench-46 updated with BLIND_PLANNER. cloud/agentic-loop 9b2e512 (unmerged) adds a finish-criterion done gate, a page-load re-poll that won't count against the loop guard, workflow filtering and a cross-app retrieval skip. The done gate is stricter (good against false done). Retrieval changes alter planner prompts again, so re-run holdouts on merge. Its tests use user-trace utterances, not eval cases. wip/local 20055d1 has no changes in my lane.
 
 Pass 73: main e8023b8..fe2de69 only makes serve_brain.sh use the local grounder copy models/grounding/eyes-4b-mlx when present, instead of a lazy HF download of deskmind/eyes-4b@mlx-4bit. Not verified: the local folder is gitignored and has no recorded revision, and the grounding README downloads to a different path (models/eyes-4b-mlx). Record the source revision so grounder bench numbers map to the served weights. NEW P2 bench-49 (Finish-when reaches the LoRA planner). bench-48 still open. Watch wip/local 422399a (on local b43270d, unmerged): the Spotify few-shot still uses the exact oe-spotify-jazz goal and now solves it with `tell application "Spotify" to play`, so bench-48 is unchanged. It also adds timer Finish-when criteria and regenerates training/artifacts/planner_lora_render_samples.jsonl (the token parity reference). Confirm the regenerated render still matches the SFT training render, not just the new serving prompt.
+
+Pass 74: main fe2de69..e2f7e5e merges agentic-loop (31e500a, 9b2e512, dc7a063), fix-thinking (b43270d), premiere-route-fix and the timer controls (a615f00). bench-48 RESOLVED: the Spotify few-shot is now a YouTube example, and no eval case matches. bench-49 still open (Finish-when at orchestrator.py:3816-3820, now with timer criteria). The finish-criterion done gate is stricter against false done, which is good. Retrieval now skips other-app demos and filters workflows, another planner-prompt change for bench-46. Watch cloud/agentic-apps 523d2c1 (unmerged): it adds AGENTIC_APPS=1 as a serving default, which sends app-kind skills (start_timer, create_event, send_message, compose_email, play_music, premiere_*) to the planner instead of System-1 skills. That changes latency and pass semantics for HobbyLM, DeskMind, live and acceptance cases that route to those skills, and router accuracy no longer describes what executes. On merge, pin AGENTIC_APPS on competitor runs, record it in result rows, and report per-case latency for off vs on. wip/local 3f8e2f8 has no changes in my lane.

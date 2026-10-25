@@ -1,9 +1,9 @@
 {
- "pass": 73,
- "ts": "2026-10-25T06:00Z",
+ "pass": 74,
+ "ts": "2026-10-25T06:15Z",
  "branches": {
-  "main": "fe2de69",
-  "wip/local": "422399a",
+  "main": "e2f7e5e",
+  "wip/local": "3f8e2f8",
   "cloud/bench": "f584cb2",
   "cloud/data-pipeline": "830ba35",
   "cloud/decisions": "ae36620",
@@ -82,7 +82,8 @@
   "cloud/planner-aux": "387c3b4",
   "cloud/premiere-demo": "a1c0f04",
   "cloud/premiere-route-fix": "7769c32",
-  "cloud/agentic-loop": "9b2e512"
+  "cloud/agentic-loop": "dc7a063",
+  "cloud/agentic-apps": "523d2c1"
  },
  "notes": "pass52: bench-34 now serving (THINK=512 qwen). New bench-35 (claims stale after tau .35). it3 stays opt-in because it fails the pre-registered rule, which is correct. hands-clock and memory moves touch no lane files."
 }
