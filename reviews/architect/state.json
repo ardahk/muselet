@@ -1,6 +1,6 @@
 {
- "pass": 81,
- "ts": "2026-10-25T07:40:00Z",
+ "pass": 82,
+ "ts": "2026-10-25T07:55:00Z",
  "last_reviewed": {
   "cloud/advisor": "9432c30",
   "cloud/advisor-2": "0a65f75",
@@ -67,8 +67,8 @@
   "cloud/safety-planner28": "e3abc5e",
   "cloud/ui-polish": "e8bceef",
   "cloud/w9-safety": "6aa332a",
-  "main": "cf33215",
-  "wip/local": "11da94c",
+  "main": "5d135d0",
+  "wip/local": "c86fec4",
   "cloud/design": "b93bb50",
   "cloud/docs-demo-3": "c615c37",
   "cloud/memory-llm-gate": "f6229d7",
@@ -92,6 +92,7 @@
   "cloud/agentic-apps": "1904638",
   "cloud/agentic-evidence": "1918cad",
   "cloud/app-knowhow": "c69dfec",
-  "cloud/browser-flow": "485763f"
+  "cloud/browser-flow": "485763f",
+  "cloud/docs-final": "bf9118d"
  }
 }

@@ -1,10 +1,10 @@
-# architect digest - pass 81 (2026-10-25T07:40Z)
-Reviewed: main cf33215, which merges browser-flow, app-knowhow and agentic-evidence (all reviewed in pass 80), plus mac/obs-labels 6d8d7bb (derived labels for unlabeled controls) and #99 control-labels 37e6459 (value= on dials; digits typed into sliders/steppers with an arrow-key fallback). wip/local 11da94c is the same tree as main.
-Tests (Linux): main agentic/finish/evidence/catalog/planner/fallback/grounder/same-tab/app-hints: 347 passed. The Swift changes were reviewed by reading only (no macOS compile or run).
-Open: P0 0, P1 16, P2 10. New: architect-52 (P2). 48, 49 and 51 re-checked: still open on cf33215.
+# architect digest - pass 82 (2026-10-25T07:55Z)
+Reviewed: main 5d135d0 (adds only the agentic-fixes2 brief, which merges without review by the user's call). wip/local c86fec4 sets _force_blind in _agentic_route and the timer-control route, so app tasks plan on the 35B. docs-final bf9118d updates REPORT, pitch, claims and AGENTS. Its competitor claims are honest: no valid HobbyLM score, and DeskMind leads on decisions. It still quotes the LoRA's .850 without a caveat.
+Tests (Linux): wip agentic/evidence/loop/fallback/same-tab: 138 passed. Main code is unchanged since cf33215 (347 passed last pass).
+Open: P0 0, P1 16, P2 10. No new IDs. architect-51 is now backed by recorded numbers, and wip makes it worse.
 
 ## Open P0/P1 (ranked)
-- architect-51 [P1] (new) BLIND_PLANNER defaults to 35B-A3B + THINK 512 whenever its HF cache exists: unmeasured, ~5-7 s/step vs 3 s gate, +19 GB
+- architect-51 [P1] 35B blind planner is 5.95 s p50 (FAIL > 3 s), .807 < LoRA .850 on our bench; wip forces it on all agentic-app + timer tasks
 - architect-48 [P1] Timer-control pre-route hijacks 'set a timer ... to stop the oven' into a cancel (main de1070d)
 - architect-49 [P1] agentic-apps on by default on main: start_timer/create_event and 10 more go through the planner, unmeasured (38/125 r4)
 - architect-45 [P1] Shipped LoRA planner's holdout .850 rests on a decontam gate that misses word-order paraphrases of holdout goals
@@ -21,11 +21,11 @@ Open: P0 0, P1 16, P2 10. New: architect-52 (P2). 48, 49 and 51 re-checked: stil
 - architect-13 [P1] Cloud Tinker System One backend reports as 'muselet', untagged
 - architect-8 [P1] Phase-1 LoRA likely misses Sat 12:00 PDT; no fallback router measured
 
-Watch (not filed): typeIntoControl (Act.swift@cf33215) clicks the control's midpoint if AX focus fails, then posts digits and up to 70 arrow keys as global keystrokes, with no check that focus actually landed on the control. A wrong focus sends digits or arrows to whatever is focused. The loop stops after the first press that doesn't change the value, so at most one stray arrow press.
+Watch (not filed): the agentic-fixes2 brief merges without review by the user's call. I'll review it after the merge. REPORT.md:184@bf9118d still labels the base-4B k=1 row "shipped 4B" although the LoRA serves.
 
 ## Next moves (max 5)
-1. architect-51: give BLIND_PLANNER a fixed default (no cache probe), and measure escalate vs base vs LoRA on the blind/agentic slices.
-2. architect-48/49: fix the timer-control match, and default AGENTIC_APPS=0 or measure on vs off; pin both settings in r4 configs.
-3. architect-42: restore the screenshot start-state, then smoke-test one calc, one screenshot and one none case on the Mac.
-4. Run HobbyLM r4 with ROUTER=it2 MEMORY=0 LONGTERM=0 and the knobs pinned, and report passes/125 with skips and timeouts counted as failures (architect-32/37/40/44).
-5. architect-52: record ax_ms on a large Chrome page before and after obs-labels, and limit the sibling scan by role and count.
+1. architect-51: don't merge the wip _force_blind lines until a live LoRA-vs-35B run on app tasks exists. The 35B fails the 3 s gate on our own bench (5954 ms) and scores lower (.807 vs .850). Keep BLIND_PLANNER explicit.
+2. architect-48: add the timer-control match to agentic-fixes2; 'set a timer for 10 minutes to stop the oven' must start a timer.
+3. architect-45: re-score the LoRA holdout without the near-paraphrase items, or caveat .850 in devpost/REPORT before submission.
+4. architect-42: restore the screenshot start-state, then run HobbyLM r4 with ROUTER=it2 MEMORY=0 LONGTERM=0 and AGENTIC_APPS/BLIND_PLANNER pinned; report passes/125 with skips and timeouts counted as failures (32/37/40/44).
+5. architect-49: decide AGENTIC_APPS from on-vs-off timer/event slice numbers, not by default.
