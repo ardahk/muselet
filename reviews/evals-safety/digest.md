@@ -1,6 +1,6 @@
-# evals-safety digest (pass 93, 2026-10-25T10:57:29Z)
+# evals-safety digest (pass 94, 2026-10-25T11:28:11Z)
 
-No new findings; -57 widened to all agentic app tasks; -56 (P0), -58 open on main 2de65a9.
+No new findings; -57 also on wip/local (fused expect stripped); -56 (P0), -58 open.
 
 
 -54 downgraded to P1: Spotify runtime path fixed by #101; eval check and non-Spotify play evidence still weak.

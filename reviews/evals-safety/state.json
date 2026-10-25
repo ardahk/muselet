@@ -1,9 +1,9 @@
 {
-  "pass": 93,
-  "ts": "2026-10-25T10:57:29Z",
+  "pass": 94,
+  "ts": "2026-10-25T11:28:11Z",
   "last_reviewed": {
     "main": "2de65a9",
-    "wip/local": "5b70519",
+    "wip/local": "4db92e8",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -100,5 +100,5 @@
     "cloud/ui-progress": "a66166b"
   },
   "next_id": 59,
-  "note": "pass 93: main 2de65a9 \u2014 #131 soft expects extended to all agentic app tasks (-57 widened); #129 blocks cmd+L/cmd+T in browser tasks unless user asked for address bar/new tab (no_strike), cart-count regex accepts 'cart contains N items' / 'cart, N items' (cart finish evidence). -56/-58 unchanged."
+  "note": "pass 94: main unchanged 2de65a9. wip/local 4db92e8 (on unpushed main@313fc46): de6319c strips fused expect from act RPC for soft-expect tasks (-57 updated); page-load AXLoaded signal; numbers sort-script guard runs before script confirm (fail-closed); premiere clip speed; UI panel. -56/-58 unchanged."
 }
