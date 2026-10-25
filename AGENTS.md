@@ -51,7 +51,8 @@ Hackathon deadline: Cal Hacks submission Sun Oct 25 2026, 09:00 PDT. Tinker budg
   Offline planner bench: `evals/planner_offline.py` (tune / holdout / holdout2 sets; never tune on holdouts).
 - Planner auxiliary model: base 4B handles non-DSL generation/decide calls so the LoRA only plans; +1 resident
   4B is ~2.5 GB, and `PLANNER_AUX=planner` reuses the planner. Verified done + bounded recovery (`VERIFY_DONE`);
-  working/long-term memory (`MEMORY`, `LONGTERM`; `MEMORY_LLM` rewrite off).
+  working/long-term memory (`MEMORY`, `LONGTERM`; `MEMORY_LLM` rewrite off). Serving enables recoverable-failure handoff and first-turn planner
+  context by default (`FALLBACK_PLANNER`, `PLANNER_CONTEXT`).
 - Grounder: eyes-4b, two-stage zoom, 1 MP (`click "<description>"` in the DSL), lazy-loaded; 2 MP / UI-Venus selectable.
 
 ## Repo layout

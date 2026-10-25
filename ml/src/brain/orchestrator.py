@@ -91,6 +91,102 @@ _IMPERATIVE = re.compile(
     r"copy|paste|type|write|email|text|call|schedule|remind)\b",
     re.IGNORECASE)
 
+_NO_FALLBACK = re.compile(
+    r"permission|not authori[sz]ed|not allowed|denied|\btcc\b|disconnected|"
+    r"not connected|screen_locked|screen is locked|timed? ?out|cancel|"
+    r"sign in|can't do that", re.I)
+_RECOVERABLE = re.compile(
+    r"not[_ ]found|no such|couldn'?t find|can'?t find|cannot find|"
+    r"does not exist|no match|unknown (?:app|contact|skill)|not installed|"
+    r"isn'?t installed|no application|not_frontmost|not frontmost|"
+    r"didn'?t come to the front|no_text_target|no text target|no target|"
+    r"nothing (?:focused|selected)|script failed|exit[_ ]code|non-zero|"
+    r"expect failed|verif|missing|unresolved|didn'?t catch|couldn'?t|"
+    r"can'?t read|invalid|not implemented|almost ready", re.I)
+_SCREEN_REF = re.compile(
+    r"\b(?:this|these|here|current(?:ly)?|selected|highlighted|on (?:the |my )?"
+    r"screen|in front|the open (?:one|email|page|tab|file|document|window))\b",
+    re.I)
+
+
+def fallback_recoverable(reason: str) -> bool:
+    if not reason or _NO_FALLBACK.search(reason):
+        return False
+    return bool(_RECOVERABLE.search(reason))
+
+
+def screen_text(obs) -> str:
+    if not obs:
+        return ""
+    pieces = []
+    for element in obs.get("elements") or []:
+        label = str(element.get("label") or "").strip()
+        value = str(element.get("value") or "").strip()
+        line = " ".join(x for x in (label, value) if x)
+        if line:
+            pieces.append(line)
+    if not pieces:
+        pieces = [
+            re.sub(r"#\d+\s*", "", line).strip()
+            for line in str(obs.get("text") or "").splitlines()
+            if not line.casefold().startswith("app:")
+        ]
+    lines = []
+    for line in pieces:
+        if line and (not lines or line != lines[-1]):
+            lines.append(line)
+    return "\n".join(lines)
+
+
+def _accepts(fn, name: str) -> bool:
+    try:
+        params = inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        return False
+    return name in params or any(
+        p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
+
+
+class _DeferredServer:
+    def __init__(self, server):
+        self.server = server
+        self.buffer = []
+        self.said = []
+        self.confirmed = False
+
+    async def say(self, *args, **kwargs):
+        self.buffer.append(("say", args, kwargs))
+        if args:
+            self.said.append(args[0])
+
+    async def ui(self, *args, **kwargs):
+        self.buffer.append(("ui", args, kwargs))
+        bubble = kwargs.get("bubble")
+        if bubble is None and len(args) > 1:
+            bubble = args[1]
+        if bubble:
+            self.said.append(bubble)
+
+    async def rpc(self, *args, **kwargs):
+        await self.flush()
+        return await self.server.rpc(*args, **kwargs)
+
+    async def ask_confirm(self, *args, **kwargs):
+        await self.flush()
+        self.confirmed = True
+        return await self.server.ask_confirm(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self.server, name)
+
+    async def flush(self):
+        calls, self.buffer = self.buffer, []
+        for method, args, kwargs in calls:
+            await getattr(self.server, method)(*args, **kwargs)
+
+    def drop(self):
+        self.buffer.clear()
+
 
 _ABS_ANYWHERE = {"max", "maximum", "full", "half"}
 _REL_UNITS = {"notch": 10, "notches": 10, "step": 10, "steps": 10,
@@ -461,6 +557,12 @@ class Orchestrator:
         self._last_memory_ids: list[int] = []
         self._focus_ctx = {}
         self._planner_ran = False
+        self.fallback_planner = False
+        self.planner_context = False
+        self._fallback_used = False
+        self._fail_reason = None
+        self._fallback_missing = None
+        self._fallback_scope = False
         self.planner = None
         self.planner_aux = None
         self.planner_escalate = None    # opt-in bigger planner (loop guard)
@@ -586,6 +688,7 @@ class Orchestrator:
         self._ms_kind = None
         self._last_skill = None
         self._planner_ran = False
+        self._fallback_used = False
         previous_turn = self.memory.last(time.time()) if self.memory_enabled else None
         previous_memory_ids = list(self._last_memory_ids)
         self._last_memory_ids = []
@@ -699,8 +802,10 @@ class Orchestrator:
                     name = direct["skill"]
                     args = dict(direct.get("args") or {})
                     self._utterance = memory_result.text
-                    outcome = await self.execute_actions(
-                        [{"op": "skill", "name": name, "args": args}])
+                    outcome = await self._with_fallback(
+                        name, args, memory_result.text, trace,
+                        lambda: self.execute_actions(
+                            [{"op": "skill", "name": name, "args": args}]))
                     if outcome == "ok":
                         parts = " ".join(
                             f'{k}="{v}"' if isinstance(v, str) and " " in v
@@ -1080,6 +1185,61 @@ class Orchestrator:
 
     # ---------- engine path ----------
 
+    async def _with_fallback(self, label: str, args: dict, text: str,
+                             trace: dict, run) -> str:
+        from . import comms
+        eligible = (
+            self.fallback_planner and self.planner is not None and
+            not self._fallback_used and not self._planner_ran and
+            self._collect is None and label != "send_message" and
+            not comms.is_messaging(text) and
+            self._skill_risk(label, args) == "safe")
+        if not eligible:
+            return await run()
+
+        real = self.server
+        proxy = _DeferredServer(real)
+        self.server = proxy
+        self._fallback_scope = True
+        self._fail_reason = None
+        self._fallback_missing = None
+        try:
+            out = await run()
+        except BaseException:
+            self.server = real
+            await proxy.flush()
+            raise
+        finally:
+            self.server = real
+            self._fallback_scope = False
+
+        reason = (self._fallback_missing or self._fail_reason or
+                  (proxy.said[-1] if proxy.said else "") or out)
+        handoff = (
+            out in ("failed", "fallback") and not proxy.confirmed and
+            (out == "fallback" or self._fallback_missing or
+             fallback_recoverable(reason)))
+        if handoff:
+            proxy.drop()
+            return await self._fallback_to_planner(
+                label, args, text, trace, reason)
+        await proxy.flush()
+        return out
+
+    async def _fallback_to_planner(self, label, args, text, trace, reason):
+        self._fallback_used = True
+        info = {"from": label, "reason": str(reason)[:200]}
+        trace["fallback.planner"] = info
+        trace.setdefault("decisions", []).append(
+            {"fallback.planner": info})
+        log.info("planner fallback from %s: %s", label, info["reason"])
+        act = _log_act({"op": "skill", "name": label, "args": args})
+        line = self._batch_line(
+            act, f"failed: {info['reason']}",
+            f"{act} -> failed: {info['reason']}")
+        await self.server.ui("thinking")
+        return await self._planner_loop(text, trace, fallback=line)
+
     async def _brain_tool(self, label: str, args: dict, text: str) -> str:
         """executor:brain skills — local tools, never sent to HandsKit."""
         from . import tools
@@ -1101,7 +1261,9 @@ class Orchestrator:
             draft_email.parse_request(text, {**self._ctx, **self._focus_ctx})
         if dargs is not None:
             trace["decisions"].append({"draft_redirect": dargs})
-            return await self._brain_tool("draft_email", dargs, text)
+            return await self._with_fallback(
+                "draft_email", dargs, text, trace,
+                lambda: self._brain_tool("draft_email", dargs, text))
         # reuse a speculative route (+ARGS) when the final text matches the
         # last partial (architect-5a)
         if pre is None and self._collect is None:
@@ -1172,9 +1334,11 @@ class Orchestrator:
         spec = self.catalog.get(label) or {}
         if not spec.get("args"):
             if spec.get("executor") == "brain":
-                return await self._brain_tool(label, {}, text)
-            return await self.execute_actions(
-                [{"op": "skill", "name": label, "args": {}}])
+                run = lambda: self._brain_tool(label, {}, text)
+            else:
+                run = lambda: self.execute_actions(
+                    [{"op": "skill", "name": label, "args": {}}])
+            return await self._with_fallback(label, {}, text, trace, run)
         if spec_ext is not None:
             ext = spec_ext
         else:
@@ -1185,7 +1349,9 @@ class Orchestrator:
                                    "spec_args": spec_ext is not None})
         raw_args = {k: v for k, v in ext.items()
                     if k not in ("ms", "_raw", "missing")}
-        return await self._run_skill(label, raw_args, text, trace)
+        return await self._with_fallback(
+            label, raw_args, text, trace,
+            lambda: self._run_skill(label, raw_args, text, trace))
 
     def _missing(self, name: str, args: dict) -> list[str]:
         return [a["name"] for a in (self.catalog.get(name) or {}).get("args", [])
@@ -1688,6 +1854,15 @@ class Orchestrator:
                           text: str, trace: dict, question: str | None = None,
                           extra: dict | None = None) -> str:
         """ask for the first missing arg; the next final utterance fills it."""
+        if self._fallback_scope and _SCREEN_REF.search(text or "") and \
+                self._arg_spec(skill, missing[0]).get("type") in {
+                    "app", "contact", "path", "string", "url"}:
+            self._fallback_missing = \
+                f"missing {missing[0]}: the screen may show it"
+            trace.setdefault("decisions", []).append({
+                "slot_to_planner": {
+                    "skill": skill, "missing": list(missing)}})
+            return "failed"
         self._slot = {"skill": skill, "args": dict(args),
                       "missing": list(missing), "t": time.time(),
                       "utterance": text, "tries": 0}
@@ -2927,9 +3102,40 @@ function run() {
             except Exception:
                 pass
 
+    async def _planner_context_block(self, obs) -> tuple[str, bool]:
+        context = []
+        app = str(self._ctx.get("app") or "").strip()
+        if app.casefold() == "none":
+            app = ""
+        window = str(self._focus_ctx.get("window_title") or "").strip()
+        url = str(self._focus_ctx.get("url") or "").strip()
+        parts = [f'{name} "{value}"'
+                 for name, value in (("app", app), ("window", window),
+                                     ("url", url)) if value]
+        if parts:
+            context.append("Context at request: " + " | ".join(parts))
+
+        screen = screen_text(obs)
+        used_ocr = False
+        if observation_blind(obs) or len(screen) < 120:
+            ocr = await self._window_ocr_text()
+            if ocr.strip():
+                screen = ocr
+                used_ocr = True
+                prefix = "Screen (OCR): "
+            else:
+                prefix = "Screen: "
+        else:
+            prefix = "Screen: "
+        if screen.strip():
+            compact = re.sub(r"\s+", " / ", screen).strip(" /")
+            context.append(prefix + _headtail(compact, 600))
+        return "\n".join(context), used_ocr
+
     async def _planner_loop(self, text: str, trace: dict,
                             hint: str | None = None,
-                            answer: str | None = None) -> str:
+                            answer: str | None = None,
+                            fallback: str | None = None) -> str:
         """System 2: observe -> plan(stream) -> execute -> replan.
         12 turns / 60 s. Returns final outcome."""
         if self.planner is None:
@@ -2947,14 +3153,14 @@ function run() {
         self._ms_kind = "total"
         t_start = time.perf_counter()
         self._script_output = None
-        last_batch: list[str] | None = None
+        last_batch: list[str] | None = [fallback] if fallback else None
         prev_had_failure = False
         done_rejected = False
         prev_expect_ok = False
         obs_text = ""
         diffs: list[str] | None = None
         next_obs = None
-        actions_log: list[str] = []
+        actions_log: list[str] = [fallback] if fallback else []
         self._recover_round = 0
         last_failure_detail = ""
         fail_streak, prev_fail_key = 0, None
@@ -3060,6 +3266,13 @@ function run() {
                         plan_kwargs["login_page"] = True
                 except (TypeError, ValueError):
                     pass
+            if turn == 0 and self.planner_context:
+                block, used_ocr = await self._planner_context_block(
+                    self._last_obs)
+                trace["planner.context"] = {
+                    "chars": len(block), "ocr": used_ocr}
+                if _accepts(planner.plan, "context"):
+                    plan_kwargs["context"] = block
             fut = worker().submit(
                 planner.plan, goal, plan_obs, last_batch, q, loop,
                 cancel, **plan_kwargs)
@@ -3591,6 +3804,7 @@ function run() {
         await self.server.ui(mascot, bubble, ms=ms)
 
     async def _fail(self, raw_error: str, friendly: str = "That didn't work"):
+        self._fail_reason = raw_error
         if self.tracer.current is not None:
             self.tracer.current.setdefault("decisions", []).append(
                 {"error": raw_error})
