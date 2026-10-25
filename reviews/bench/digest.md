@@ -1,6 +1,6 @@
-# bench digest — pass 90 (2026-10-25T11:00Z, main@2de65a9)
+# bench digest — pass 91 (2026-10-25T11:30Z, main@2de65a9)
 
-P0: 0 | open P1: 14 | open P2: 23
+P0: 0 | open P1: 14 | open P2: 24
 
 Ranked open P1:
 1. bench-44 LoRA planner shipped (efd2f3f) on uncommitted numbers. Pooled .731 vs .647; most of the gain is on v2-ho, whose screens were in training.
@@ -116,3 +116,9 @@ Pass 90 (no new findings): main 298526d..2de65a9.
 - 4bf7a41 blocks cmd+L/cmd+T in browser tasks unless the request mentions the address bar or a new tab, and rewrites the browser hint. That's another prompt change (bench-46).
 - The cart-count regex now reads the Walmart/Target labels. Fine, but there's still no starting baseline (bench-50).
 - wip/local 5b70519 has no diff from main.
+
+Pass 91: main unchanged; wip/local 5b70519..4db92e8 (not merged).
+- NEW bench-59 (P2): the 35B toggle is gone from Settings, but its stored value is still sent on every hello, so a hidden setting can switch the planner.
+- bench-55: fused act expects are now stripped on soft-expect tasks. The Premiere hint adds a planner-side Speed re-check, which is still not harness evidence.
+- Page-load signal (AXLoaded/AXElementBusy): `wait` returns early once the page is loaded, and navigation waits up to 15 s. Latency from before and after e2cb384 isn't comparable.
+- The Numbers sort guard and hint come from a live failure, not the eval wording. They change the prompt for the holdout case h-numbers-sort ("sort the transactions by amount"), whose accept rule is `script applescript` (bench-46).
