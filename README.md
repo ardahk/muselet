@@ -1,10 +1,10 @@
-<p align="center"><img src="docs/img/kitten_idle.png" width="120" alt="Muselet mascot"></p>
+<p align="center"><img src="docs/img/kitten.png" width="120" alt="Muselet mascot"></p>
 
-# Muselet
+# muselet
 
-**Hold a key, say it, it's done. On your Mac, offline.**
+**an on-device voice agent for macOS. say it, and your mac does it**
 
-Muselet is a voice agent that actually operates macOS for you, and everything runs on-device on Apple Silicon. No cloud models, no screen uploads. Hold **Right Option**, talk, and a little mascot gets it done while a ghost cursor shows you where it's clicking.
+muselet is a voice agent that actually operates macOS for you, and everything runs on-device on Apple Silicon. No cloud models, no screen uploads. Hold **Right Option**, talk, and a little mascot gets it done while a ghost cursor shows you where it's clicking.
 
 Built at Cal Hacks 13.0.
 
