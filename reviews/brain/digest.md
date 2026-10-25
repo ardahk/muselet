@@ -1,6 +1,6 @@
-# brain lane digest — pass 52 (2026-10-25T00:20:00Z)
+# brain lane digest — pass 53 (2026-10-25T00:35:00Z)
 
-Open: P0 0 / P1 8 / P2 8. main 8fb465c merged memory phase 1+2 (#50/#58, carries brain-42), architect-27 (#65), and serve now defaults to planner think 512/qwen. New memory WS frame: server runs it as a task (receive loop not blocked); Swift BrainFrames parses it. Suite on main: 18 failed / 1996 passed / 108 skipped (all MLX-stub). wip/local fe6c209 = main in lane.
+Open: P0 0 / P1 8 / P2 8. main e9fb42d merged brain-9 (#61, carries brain-44), it3 as default router, LLM memory rewrite off, decisions LoRA export (#39), hands-clock (#55). New catalog `browser` args are `hidden` and skipped by DecisionEngine ARGS signatures (decision.py:419), so ARGS render parity holds; it3 routes over catalog_v3 (no browser arg). Planner warm-up runs at serve start. Suite on main: 18 failed / 2018 passed / 108 skipped (same 18 MLX-stub failures). wip/local bf98333 = main in lane.
 
 ## Open P0/P1 (ranked)
 - brain-16 [P1] abs_level misreads times, durations, percentages and unrelated words — `ml/src/brain/orchestrator.py` (main@fb2cfd0@003d1bb)
@@ -17,4 +17,4 @@ Open: P0 0 / P1 8 / P2 8. main 8fb465c merged memory phase 1+2 (#50/#58, carries
 2. brain-43 (now on main): when _verify_done returns p_yes None, return 'unverified' (or retry once) instead of accepting a bare DONE.
 3. brain-41 + brain-40: re-run ARGS on the final transcript for free-text skills, with a larger decode budget.
 4. brain-27: confirm a grounded click whose target text names send/paper plane even without composer context.
-5. brain-9 (brain-44): only take a browser name from an 'in/with/using <browser>' or 'open <browser>' phrase, not from the search query.
+5. brain-44 (now on main): only take a browser name from an 'in/with/using <browser>' or 'open <browser>' phrase, not from the search query.
