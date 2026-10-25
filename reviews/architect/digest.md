@@ -1,6 +1,6 @@
-# architect digest - pass 71 (2026-10-25T04:45Z)
-Reviewed: main 82c9810 (observation_blind now also treats window-chrome-only AX trees as blind, so CEF apps such as Spotify take the screenshot+grounder path; all() over no elements keeps the old empty case), wip/local 5b656ef (= main), premiere-route-fix 7769c32 (243 tests pass). On main dc6f2f5..82c9810, orchestrator.py:992-1005 falls back to draft_email.parse_request when premiere_edit.parse_request is None, then dispatches those args to _brain_tool('premiere_edit'). premiere-route-fix removes that and puts the Premiere pre-route first. Merge it before the demo.
-Open: P0 0, P1 13, P2 8. No new findings and no status changes; the Premiere misroute already has a fix branch.
+# architect digest - pass 72 (2026-10-25T04:58Z)
+Reviewed: wip/local c156d18 on main 82c9810. It adds _goal_screen_relevant, which keeps unrelated screen text out of the planner context; logs Muselet-timer fallbacks; adds ClockAX.swift (reviewed by reading); and adds a turn-0 rejection of `ask` when the goal matches _PREF_VAGUE (some/any/anything/something...). Watch item, not filed: _PREF_VAGUE also matches goals like 'send something to Sam', where an ask for the missing recipient or content is legitimate. Only one rejection is made, and the confirm gate still blocks sends. Add a test for that before merging. Main is unchanged; premiere-route-fix is still unmerged.
+Open: P0 0, P1 13, P2 8. No new findings and no status changes.
 
 ## Open P0/P1 (ranked)
 - architect-45 [P1] Shipped LoRA planner's holdout .850 rests on a decontam gate that misses word-order paraphrases of holdout goals
@@ -24,4 +24,5 @@ Open: P0 0, P1 13, P2 8. No new findings and no status changes; the Premiere mis
 4. Fit VERIFY_P on the LoRA planner's traces, or turn VERIFY_DONE off for the demo (architect-33).
 
 5. Before the demo, smoke-test evals/live_premiere.jsonl on the Mac (Window > Timeline, Sequence > Apply Video Transition) and change cmd+t to the real shortcut in planner_system.md:46 (architect-26/35).
+
 
