@@ -1,6 +1,6 @@
 {
-  "pass": 70,
-  "ts": "2026-10-25T04:42:00Z",
+  "pass": 71,
+  "ts": "2026-10-25T04:55:00Z",
   "mode": "pulse",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
@@ -49,7 +49,7 @@
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
     "main": "82c9810",
-    "wip/local": "5b656ef",
+    "wip/local": "c156d18",
     "cloud/memory": "ba3dc0a",
     "cloud/memory-eval": "c05944e",
     "cloud/memory-lt": "cc056af",
@@ -116,5 +116,6 @@
   "notes_pass67": "main unchanged (4150ecb). fallback 2ef5805: is_messaging guard narrowed to compose/draft_email labels only. fix-same-tab: browser same_tab navigation, no router change. test-strategy adds evals/acceptance.jsonl (20 E2E cases, demo_script + user-session phrasings) and evals/replay/user_2026-10-24.jsonl; route traces now log text/skill. These are E2E behaviour suites, not router-metric sets; not in evalcheck.EVALS, so no claim should quote them as held-out router accuracy. Re-checked training-54/53/50/49 unchanged.",
   "notes_pass68": "main: #74 memory writes, #75 Notes pre-route (0 sealed matches, pass 66), #76 email reply, #79 replay/acceptance, #82 LoRA planner default + aux base 4B, b340f24 HobbyLM calc_checker PROVENANCE. Router tau/catalog unchanged. open-ended: prompts/app_hints.jsonl + evals/open_ended.jsonl share 0 4-grams with HobbyLM sealed r1-r4. Re-checked training-54/53/50/49 unchanged.",
   "notes_pass69": "main merged fallback, open-ended, fix-same-tab, fix-pending, hands-clock-verify, design-polish, premiere-demo. premiere_edit appended router:false (no route-ID shift for it2; it3 uses catalog_v3). Router tau/catalog_v3 unchanged. New training-55. Re-checked 54/53/50/49 unchanged.",
-  "notes_pass70": "main 82c9810: window-chrome-only AX treated as blind (grounder path), orchestrator only. premiere-route-fix: pre-route ordering/arg dispatch fix, orchestrator only. No router/training/eval/prompt change; training-55 unchanged. Re-checked 54/53/50/49 unchanged."
+  "notes_pass70": "main 82c9810: window-chrome-only AX treated as blind (grounder path), orchestrator only. premiere-route-fix: pre-route ordering/arg dispatch fix, orchestrator only. No router/training/eval/prompt change; training-55 unchanged. Re-checked 54/53/50/49 unchanged.",
+  "notes_pass71": "main unchanged 82c9810. wip/local c156d18: ClockAX.swift + fallback orchestrator/tests only; no router/training/eval/prompt change. Open findings unchanged."
 }

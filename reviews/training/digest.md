@@ -1,4 +1,4 @@
-# training lane digest — pass 70 (main 82c9810)
+# training lane digest — pass 71 (main 82c9810)
 
 Open: 1 P0, 15 P1, 18 P2. No new findings; training-55 (LoRA planner prompt drift) and training-54 still open.
 
