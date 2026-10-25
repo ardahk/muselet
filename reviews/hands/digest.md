@@ -1,6 +1,6 @@
-# hands — digest (Pass 71)
+# hands — digest (Pass 72)
 
-Open: 0 P0, 4 P1, 9 P2.
+Open: 0 P0, 4 P1, 10 P2.
 
 Ranked open P0/P1:
 0. P1 hands-36 (main e425cad via #86, ClockAX.swift:546-708): the Clock wheel key fallback clicks the wheel, then types digits and up to 70 HID arrow keys without re-checking Clock is frontmost or the wheel has focus. Keys can land in the user's frontmost app. Gate it before the demo.
@@ -14,6 +14,11 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 72:
+- main e8023b8 merged #87 (blind planner, reviewed in pass 71) and #88 (blind typing). New P2 hands-37: TextTarget.blindTree counts an empty or not-yet-populated window as blind, so type_text keystrokes into it instead of failing no_text_target.
+- cloud/agentic-loop 9b2e512 (brain only): a failed expect on a loading page re-polls `verify` every 0.25 s for up to 5 s (orchestrator.py:3315-3339, bounded, 15 s RPC timeout). This partly covers hands-26's slow-UI case for page loads, but `act` still strips `expect`, so non-page settles still get one verify.
+- wip/local 20055d1 matches main. No other branch moved.
 
 Pass 71:
 - wip/local 323d274 (on local main@c711320): blind-planner rework (finish.py finish_when criteria, batch cap 2, few-shot blind examples, IDE screen-context gate). There is no app/ diff against main e425cad, and no new RPC methods or fields; expect is only read locally (_last_expect_app_only). No HandsKit contract impact.
