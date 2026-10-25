@@ -1,5 +1,5 @@
-# architect digest - pass 66 (2026-10-25T03:28Z)
-Reviewed: main fa0f040 (design #70: Settings panel, Clock-only timers, clock hint removed; 7235a34: per-start memory DB for benchmark brains), wip/local 973a9b0 (snapshot on the pre-#70 base), design-polish bf4ae64 (Swift UI only, static review), and memory-writes d04e26c (person writes only from explicit my-X-is / X-is-my / call-me; episodes only for >=2 steps in a real app; 165 tests pass; holdout .617/.0195 unchanged). New: architect-44 (P1): working memory is not isolated per benchmark run or case. architect-42/43 still open (bench/hobbylm unchanged). Open: P0 0, P1 14, P2 8.
+# architect digest - pass 67 (2026-10-25T03:42Z)
+Reviewed: main 4150ecb (briefs only: user-test fixes, fallback-to-planner, test strategy), wip/local b7b7840, and the new fallback 6e40c3e (recoverable skill failure -> planner with screen context; _NO_FALLBACK gate; 23 tests pass), fix-apps-notes 1ccb123 (171 pass), fix-email-reply 805223b (81 pass), fix-pending dba9094 (38 pass), hands-clock-verify a4d6463 (Swift, static review) and memory-writes 88ccf06 (Forget Everything wipes rows/workflows/plan-bank demos; 17 pass). No new findings. architect-42/43/44 are still open on main (bench/hobbylm and working.py unchanged). Open: P0 0, P1 14, P2 8. Next pass: check that fallback never re-plans after a declined confirm or an irreversible failure.
 
 ## Open P1 (ranked)
 00000. architect-44 - Working memory not isolated across benchmark cases - ml/src/brain/orchestrator.py
