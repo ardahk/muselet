@@ -1,6 +1,6 @@
-# architect digest - pass 70 (2026-10-25T04:32Z)
-Reviewed: main dc6f2f5 (merged fallback, open-ended, fix-same-tab, fix-pending, hands-clock-verify, design-polish, premiere-demo: premiere_edit brain tool + OCR export poll), wip/local 6a1f942 (= main), premiere-demo a1c0f04. Main selected suites: 478 passed, 5 skipped, 2 xfailed, 38 subtests passed.
-Open: P0 0, P1 13, P2 8. Resolved: architect-46 (the merge kept the LoRA default). Updated: architect-26 (planner prompt still says cmd+t) and architect-35 (premiere_edit menu paths not probed). No new findings.
+# architect digest - pass 71 (2026-10-25T04:45Z)
+Reviewed: main 82c9810 (observation_blind now also treats window-chrome-only AX trees as blind, so CEF apps such as Spotify take the screenshot+grounder path; all() over no elements keeps the old empty case), wip/local 5b656ef (= main), premiere-route-fix 7769c32 (243 tests pass). On main dc6f2f5..82c9810, orchestrator.py:992-1005 falls back to draft_email.parse_request when premiere_edit.parse_request is None, then dispatches those args to _brain_tool('premiere_edit'). premiere-route-fix removes that and puts the Premiere pre-route first. Merge it before the demo.
+Open: P0 0, P1 13, P2 8. No new findings and no status changes; the Premiere misroute already has a fix branch.
 
 ## Open P0/P1 (ranked)
 - architect-45 [P1] Shipped LoRA planner's holdout .850 rests on a decontam gate that misses word-order paraphrases of holdout goals
@@ -24,3 +24,4 @@ Open: P0 0, P1 13, P2 8. Resolved: architect-46 (the merge kept the LoRA default
 4. Fit VERIFY_P on the LoRA planner's traces, or turn VERIFY_DONE off for the demo (architect-33).
 
 5. Before the demo, smoke-test evals/live_premiere.jsonl on the Mac (Window > Timeline, Sequence > Apply Video Transition) and change cmd+t to the real shortcut in planner_system.md:46 (architect-26/35).
+
