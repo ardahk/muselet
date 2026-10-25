@@ -1,4 +1,4 @@
-# bench digest — pass 94 (2026-10-25T12:30Z, main@2de65a9)
+# bench digest — pass 95 (2026-10-25T12:46Z, main@d09f4d8)
 
 P0: 0 | open P1: 15 | open P2: 25
 
@@ -138,3 +138,8 @@ Pass 94 (no new findings, no status changes): main unchanged; wip/local 9015e83.
 - A `click "<target>"` that exactly matches one enabled AX control is now pressed by ref, skipping the grounder (ambiguous -> grounder). It's safe, but served clicks use the grounder less than in the grounder benchmarks. Record click_ax counts if grounder numbers are quoted for the agent.
 - Tools-mode verify-done also uses a forced OCR context, which adds latency.
 - The Numbers tips were rewritten again (Organize > Sort): more prompt drift (bench-60/46).
+
+Pass 95 (no new findings): main 2de65a9..d09f4d8; wip/local 7b8f421..01a929c.
+- bench-54 widened: the revised README (a0ecf7e) quotes the planner at '.85 mean' (unweighted, no v2 caveat) and '~0.3 s/step' with no committed artifact. It still quotes route_v2 .945 (bench-58). The 'deterministic Decimal' line is still true on main, but becomes false when wip/local's engine deletion merges (bench-61).
+- The page-load signal (e2cb384) is now on main: latency from before and after it isn't comparable.
+- wip/local 264cc82 prefers AX refs for named clicks and changes hints again (bench-60).
