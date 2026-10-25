@@ -4139,9 +4139,12 @@ function run() {
 
         self._pref_ask_rejected = False
         self._content_ask_rejected = False
-        for turn in range(12):
+        # agentic tasks (apps / browser / open-ended / blind) get a real budget:
+        # the 35B thinks for seconds per step, 12 turns / 60 s cut tasks short
+        max_turns, max_s = (30, 300) if blind_task else (12, 60)
+        for turn in range(max_turns):
             self._planner_turn = turn
-            if time.perf_counter() - t_start > 60:
+            if time.perf_counter() - t_start > max_s:
                 break
             verify_mode = bool(
                 getattr(self, "verify_done", True) and
@@ -4680,6 +4683,15 @@ function run() {
                 # a blind_click_blocked refusal is recoverable, not a strike
                 web_ui = failure_detail == WEB_UI_ERROR
                 disabled_skill = failure_detail.startswith("skill disabled")
+                if blind_task and failure_detail.startswith("expect failed") \
+                        and n_executed:
+                    # agentic: the planner's own expect is a guess, not a
+                    # failure; it re-reads the screen next turn and the finish
+                    # evidence decides when the goal is reached
+                    trace["decisions"].append({"expect_soft": fail_key})
+                    last_failure_detail = failure_detail
+                    prev_had_failure = True
+                    continue
                 if not failure_detail.startswith("blind_click_blocked") \
                         and not disabled_skill and not web_ui:
                     fail_streak += 1
@@ -4707,7 +4719,7 @@ function run() {
                         prev_had_failure = True
                         continue
                     same = True         # escalation failed twice: stop
-                if same or fail_streak >= 3:
+                if same or fail_streak >= (5 if blind_task else 3):
                     trace["decisions"].append({"loop_guard": "same_action"
                                                if same else "3_failed_turns",
                                                "line": fail_key})
