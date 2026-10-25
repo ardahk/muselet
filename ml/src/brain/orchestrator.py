@@ -1188,7 +1188,7 @@ class Orchestrator:
                 and raw_args.get("level") not in (None, "") \
                 and abs_level(text) is None and not _num_runs(_level_toks(text)) \
                 and (delta := argfix.vague_delta(text)) is not None:
-            # "brighten it" with no number is relative; a model-made level is not (HobbyLM D04-D06)
+            # "brighten it" with no number is relative; a model-made level is not
             trace["decisions"].append({"relative_not_level": [raw_args.pop("level"), delta]})
             raw_args["delta"] = delta
         if label in ("set_volume", "set_brightness") and \
