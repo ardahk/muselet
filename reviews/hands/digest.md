@@ -1,4 +1,9 @@
-# hands — digest (pass 52)
+# hands — digest (pass 53)
+
+Pass 53:
+- main e9fb42d merged hands-clock (#55) and brain-9's named browsers. hands-28, hands-29 and hands-30 are now on main, unchanged (ClockAX.swift:409, :318/:424, :479). The #55 title says 'Clock in front', so hands-29 needs a lead decision: deliberate or not.
+- wip/local bf98333 and brain-9 327ef2c are main merges only.
+- hands-26 is still open (orchestrator.py:2542).
 
 Pass 52:
 - main 8fb465c merged ui-polish (#49, reviewed in pass 45), architect-27 (#65), memory phase 1/2, and BrainClient's ignore of the `memory` frame. That is fine for headless mode.
@@ -35,8 +40,8 @@ Static analysis only.
 Open: 0 P0, 3 P1, 7 P2.
 
 Open P0/P1, ranked:
-- P1 hands-28: an unverified Clock AX start is reported as a set timer that never fires (cloud/hands-clock app/Sources/HandsKit/ClockAX.swift, Skills.swift:925)
-- P1 hands-29: Clock AX start and cancel steal focus and never restore the prior app (cloud/hands-clock app/Sources/HandsKit/ClockAX.swift:316,421)
+- P1 hands-28: an unverified Clock AX start is reported as a set timer that never fires (main app/Sources/HandsKit/ClockAX.swift:409)
+- P1 hands-29: Clock AX start and cancel steal focus and never restore the prior app (main app/Sources/HandsKit/ClockAX.swift:318,424)
 - P1 hands-26: the brain strips `expect` from act, so HandsKit's expect polling never runs (ml/src/brain/orchestrator.py:1896; app/Sources/HandsKit/RPC.swift:173)
 
 Open P2: hands-31 (Premiere Timeline menu left open; now on main), hands-30 (Clock wheel stepping latency), hands-27, hands-25, hands-20, hands-16, hands-10.
