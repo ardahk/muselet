@@ -1,13 +1,15 @@
-# Planner review digest — pass 65 (2026-10-25T03:55Z)
+# Planner review digest — pass 66 (2026-10-25T04:15Z)
 
-Moved: cloud/fallback 6e40c3e→2ef5805; new cloud/fix-same-tab 065e65f, cloud/test-strategy 96c96d2. main/wip unchanged (4150ecb / b7b7840).
-- fallback 2ef5805: the messaging exclusion now applies only to compose_email/draft_email; a messaging utterance whose safe skill (e.g. open_app) fails can now hand off to the planner. The planner path still hits the planner-28 composer gate and send confirms, so no new finding; watch acc-demo-text-contact. planner-46 (Screen block above observation) unchanged -> still open.
-- fix-same-tab: with a browser frontmost on an http page, _PAGE_TASK utterances ("click ...", "open the first result", "add X to cart", "on this page") pre-route straight to _planner_loop with a hint; open_url/web_search get same_tab only inside such page tasks, and only when the requested browser matches the front one. Reasonable; the hint renders as 'Hint: likely act in the current ...' (cosmetic). No finding.
-- test-strategy: offline trace replay + screen-graded acceptance suite; orchestrator only adds ctx/text/skill to traces. No planner behavior change. No finding.
-- Re-checked on main 4150ecb: planner-40, planner-44, planner-45 unchanged.
+Moved: main 4150ecb→b340f24 (merges fix-apps-notes #?, fix-email-reply #76, test-strategy #79, memory-writes, planner LoRA ship #82), wip 94f6fe9 (=main), new cloud/planner-aux 387c3b4 (merged as #82), cloud/open-ended f3ed524.
+- RESOLVED planner-44: default planner = LoRA with THINK=0 (qwen think only for PLANNER=base).
+- RESOLVED planner-38: LoRA served with its training prompt shape (no few-shot, THINK=0); k=1 measured vs k=0 on holdouts with the mlx4 export.
+- RESOLVED planner-43 (for ship): decision uses holdouts, not dev_pass.
+- planner-aux: non-DSL generate/decide (memory rewrite, verify-done decide, web answer, missing-arg verify) go to base 4B aux, LoRA only plans. +~2.5 GB resident. OK.
+- open-ended: app_hints rendered into the dynamic user turn; open-ended redirect from risky/generic labels to planner; Spotify/Music AppleScript transport allowlist is anchored fullmatch, single target. No finding.
+- planner-45 partially mitigated on main (>=2 steps, real app); still no verified-DONE gate. planner-40 unchanged (self_verified x2). planner-46 still on cloud/fallback; now also a LoRA distribution shift.
 
-New: 0. Resolved: 0. Open: 0 P0, 12 P1, 8 P2.
-Lead decision: planner-46 before merging fallback (PLANNER_CONTEXT default); greedy think sampler; memory writes only after verified DONE.
+New: 0. Resolved: 3. Open: 0 P0, 9 P1, 8 P2.
+Lead decision: before merging fallback, keep the Screen block off for the LoRA (planner-46); gate memory writes on verified DONE (planner-45/40).
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
