@@ -1,4 +1,7 @@
-# hands — digest (Pass 60)
+# hands — digest (Pass 61)
+
+Pass 61:
+- No new findings. main 13d0486 (HobbyLM replay captures calendar events in the runner, bench only) has no app/ changes; wip/local unchanged. hands-26 (orchestrator.py:2556), hands-27 (BrainClient.swift:91) and hands-28 (ClockAX.swift:409) re-checked on main: still open. hands-32 unchanged.
 
 Pass 60:
 - No new findings. main 55e38f9 (HobbyLM replay records calendar precondition errors, bench only) and wip/local fd357b3 have no app/ changes. hands-26 (orchestrator.py:2556), hands-27 (BrainClient.swift:91) and hands-28 (ClockAX.swift:409) re-checked on main: still open. hands-32 unchanged.
