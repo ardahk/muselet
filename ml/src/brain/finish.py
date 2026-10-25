@@ -140,7 +140,7 @@ def cart_count(obs_text: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
-def evidence(goal: str, obs_text: str, baseline: int | None = None) -> bool:
+def progress_evidence(goal: str, obs_text: str, baseline: int | None = None) -> bool:
     """Programmatic done-check: goal reached per the post-action obs text."""
     g = goal.lower()
     if "timer" in g:

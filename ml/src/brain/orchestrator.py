@@ -3953,7 +3953,7 @@ function run() {
                                 _post = (obs_text + "\n" + str(_res.get(
                                     "diff_text") or "") + "\n" +
                                     str(_res.get("observed") or ""))
-                                from .finish import evidence as _fe, \
+                                from .finish import progress_evidence as _fe, \
                                     cart_count as _cc2
                                 _cur = _cc2(_post)
                                 if isinstance(self._cart_baseline, int) \
@@ -4025,7 +4025,7 @@ function run() {
                         _post = (obs_text + "\n" + str(_res.get(
                             "diff_text") or "") + "\n" +
                             str(_res.get("observed") or ""))
-                        from .finish import evidence as _fe, \
+                        from .finish import progress_evidence as _fe, \
                             cart_count as _cc2
                         _cur = _cc2(_post)
                         if isinstance(self._cart_baseline, int) \
