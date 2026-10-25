@@ -1,12 +1,10 @@
-# Planner review digest — pass 96
+# Planner review digest — pass 97
 
-Heads: main b00f679 (README architecture image only), wip/local 35aed2d (app resolver).
+Heads: main b00f679 (unchanged), wip/local aadf777 (CANVAS_APPS prefix).
 Open: 0 P0, 21 P1, 16 P2. New: 0. Resolved: 0.
 
 ## Reviewed, no issue
-- wip AppResolver now enumerates /Applications, /System/Applications and ~/Applications recursively (skipping package contents), so nested apps like "Adobe Premiere Pro 2026/Adobe Premiere Pro 2026.app" resolve. Exact name wins over substring; `apps` installed list uses the same walk.
-- wip orchestrator app resolution: strips ".app" and a trailing year, accepts only a unique candidate, else still asks "Which app?".
-- main README: image added; claims at lines 18 and 32 unchanged (planner-55).
+- wip CANVAS_APPS prefix "Adobe Premiere Pro" -> "Adobe Premiere": also covers "Adobe Premiere Pro (Beta)" and Premiere Rush/Elements, which are canvas UIs too. Test added in test_grounder_wire.py.
 
 ## Top open
 - planner-67 (P1, main): failed expect on an AXLoaded page re-polls verify up to 15 s; early exit reads a String as a dict. wip loop is correct; port it.
