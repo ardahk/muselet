@@ -1,15 +1,13 @@
-# Planner review digest — pass 66 (2026-10-25T04:15Z)
+# Planner review digest — pass 67 (2026-10-25T04:28Z)
 
-Moved: main 4150ecb→b340f24 (merges fix-apps-notes #?, fix-email-reply #76, test-strategy #79, memory-writes, planner LoRA ship #82), wip 94f6fe9 (=main), new cloud/planner-aux 387c3b4 (merged as #82), cloud/open-ended f3ed524.
-- RESOLVED planner-44: default planner = LoRA with THINK=0 (qwen think only for PLANNER=base).
-- RESOLVED planner-38: LoRA served with its training prompt shape (no few-shot, THINK=0); k=1 measured vs k=0 on holdouts with the mlx4 export.
-- RESOLVED planner-43 (for ship): decision uses holdouts, not dev_pass.
-- planner-aux: non-DSL generate/decide (memory rewrite, verify-done decide, web answer, missing-arg verify) go to base 4B aux, LoRA only plans. +~2.5 GB resident. OK.
-- open-ended: app_hints rendered into the dynamic user turn; open-ended redirect from risky/generic labels to planner; Spotify/Music AppleScript transport allowlist is anchored fullmatch, single target. No finding.
-- planner-45 partially mitigated on main (>=2 steps, real app); still no verified-DONE gate. planner-40 unchanged (self_verified x2). planner-46 still on cloud/fallback; now also a LoRA distribution shift.
+Moved: main b340f24→dc6f2f5 (merges fallback, fix-pending, premiere editor + OCR export poll, open-ended), wip 6a1f942, fallback 36b421e, fix-pending 09dadc0, fix-same-tab 0e38395 (merge of main), open-ended 0d687d2 (merge), new premiere-demo a1c0f04.
+- planner-46 now LIVE on main: PLANNER_CONTEXT=1 default, Screen block before observation, LoRA untrained on it.
+- planner-42 update: new premiere_edit tool confirms each op by default (MUSELET_PREMIERE_CONFIRM=each); per-project mode is opt-in.
+- fix-pending on main: confirm_interrupt wired only when the orchestrator provides it. OK.
+- planner-40 (self_verified x2) and planner-45 unchanged on main.
 
-New: 0. Resolved: 3. Open: 0 P0, 9 P1, 8 P2.
-Lead decision: before merging fallback, keep the Screen block off for the LoRA (planner-46); gate memory writes on verified DONE (planner-45/40).
+New: 0. Resolved: 0. Open: 0 P0, 9 P1, 8 P2.
+Lead decision: PLANNER_CONTEXT default for the LoRA (planner-46); Premiere confirm default for demo 4 (planner-42).
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
