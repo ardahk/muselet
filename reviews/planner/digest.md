@@ -1,4 +1,4 @@
-# planner lane — pass 53 (main e9fb42d, wip bf98333)
+# planner lane — pass 54 (main eb3e945, wip 3f21dc6)
 
 Open P0: none.
 
@@ -25,6 +25,12 @@ Highest-leverage next moves:
 - W9 is merged (planner-30/24 fixed). Next, narrow `\[` to JXA computed keys and drop `\\`, `set .* to` and `format` for Numbers reads (planner-37, planner-15), or the demo-3 planner path will ask for confirmation on reads.
 - brain-9 is on main: pick the browser from 'in/using X' context, not the first mention (planner-41).
 - Add `view` to open_folder in catalog.json and to the prompt example (planner-32). Fix rule 14 to say `expect focused #<ref>` (planner-31).
+
+Pass 54 notes:
+- main eb3e945 only adds the design brief. wip has no lane changes.
+- memory-llm-gate 6864386 skips the LLM rewrite when the dynamic context is empty ('llm-gated') and passes invalid output through. That cuts planner.complete calls; MEMORY_LLM is off by default anyway.
+- design b93bb50 removes the Clock-shortcut hint and the 'in Clock' reply suffix, and simplifies Skills.swift timers. No planner-path effect. docs-demo-3 and panel-hook-fix are outside this lane.
+- No open finding changed status.
 
 Pass 53 notes:
 - main e9fb42d merged brain-9 (#61: named browser, page wait, planner warm at startup), hands-clock (#55), the System One decisions LoRA (#39) and serve changes: it3 is the default router (user's call) and MEMORY_LLM defaults to 0, which resolves planner-39.
