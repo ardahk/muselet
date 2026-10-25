@@ -1,4 +1,8 @@
-# evals-safety digest (pass 78, 2026-10-25T06:23:45Z)
+# evals-safety digest (pass 79, 2026-10-25T06:39:29Z)
+
+New: -55 (P1) main commits absolute symlinks models and ml/.venv into /Users/arda/cal13.0 (.gitignore slash patterns miss symlinks).
+-54 (P0) unchanged.
+
 
 No change: agentic-apps merged main. -54 (P0) Spotify hint still on main.
 
