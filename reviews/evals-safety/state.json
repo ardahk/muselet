@@ -1,9 +1,9 @@
 {
-  "pass": 73,
-  "ts": "2026-10-25T05:06:54Z",
+  "pass": 74,
+  "ts": "2026-10-25T05:22:19Z",
   "last_reviewed": {
     "main": "e425cad",
-    "wip/local": "80c871c",
+    "wip/local": "323d274",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -89,6 +89,6 @@
     "cloud/premiere-demo": "a1c0f04",
     "cloud/premiere-route-fix": "7769c32"
   },
-  "next_id": 54,
-  "note": "pass 73: main e425cad = #86 merging wip c156d18 changes (context fence, ask guard, ClockAX). -52 resolved on main; -53 now on main. wip/local 80c871c = clean snapshot of 82c9810."
+  "next_id": 55,
+  "note": "pass 74: wip/local 323d274 (c711320 blind planner rework). New -54 few-shot leakage of oe-spotify-jazz. finish.py is prompt-only hint, not grading; batch cap 2 for blind tasks."
 }
