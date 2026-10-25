@@ -1,9 +1,9 @@
 {
-  "pass": 92,
-  "ts": "2026-10-25T12:20:00Z",
+  "pass": 93,
+  "ts": "2026-10-25T12:35:00Z",
   "last_reviewed": {
     "main": "2de65a9",
-    "wip/local": "9015e83",
+    "wip/local": "7b8f421",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -99,5 +99,5 @@
     "cloud/cool-tasks": "cfbec49",
     "cloud/native-tools": "6053e4e"
   },
-  "notes": "pass 92: only wip moved (9015e83 on 2900d4b). It drops the Numbers/Premiere/browser recipes from planner_system.md and rewrites the Numbers cheat sheet. NativeToolPlanner (ui_only, off by default) now runs window OCR every turn (2400 chars), which adds untimed per-turn latency in that mode only. No new bubble copy. No new findings; ux-31 (finance/advisor beats on the planner, now without the Numbers recipe) and ux-35 are still open on wip. main is unchanged, so ux-34 and ux-32 are still open."
+  "notes": "pass 93: only wip moved (7b8f421 on e781dc1). A grounded click \"<target>\" now resolves to an AX press when exactly one enabled control matches (good: faster, and no grounder prewarm wait, which mitigates ux-20 on those clicks). The finish check runs OCR again in ui_only mode (extra untimed latency, native-tools only). Screen context is skipped when Muselet or a chat IDE is frontmost. The Numbers sort tips are refined. No new bubble copy; no new findings. ux-31 and ux-35 are still open on wip; ux-34 and ux-32 are still open on main 2de65a9."
 }

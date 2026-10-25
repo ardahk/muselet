@@ -1,6 +1,6 @@
-# ux digest — pass 92
+# ux digest — pass 93
 
-Heads: main 2de65a9, wip 9015e83, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
+Heads: main 2de65a9, wip 7b8f421, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
 
 Counts: 0 P0, 2 P1, 15 P2 (ux-29 reopened, now on main: blind planner thinks 512 tokens every turn) (ux-29 resolved: the LoRA planner defaults to THINK=0). New in pass 63: ux-30 (fix-pending: speech that isn't a command during a confirm gets no feedback). ux-26 resolved by design #70 (main 2de65a9); ux-25 and ux-27 still live on main.
 Open P1:
@@ -46,3 +46,6 @@ Highest-leverage next moves:
 
 ## Pass 92
 - wip drops the Numbers SUMIF/sort recipe from the planner prompt, so the finance beat (ux-31) now depends on the planner working the steps out from live state. Rehearse it before the demo. Native-tools mode OCRs every turn (adds latency; off by default).
+
+## Pass 93
+- wip: an exact-label click now becomes an AX press (faster, and skips the grounder; partly mitigates ux-20). Nothing new.
