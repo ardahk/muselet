@@ -1,6 +1,6 @@
-# training lane digest — pass 88 (main ca73c12)
+# training lane digest — pass 89 (main b92677f)
 
-Open: 1 P0, 17 P1, 18 P2. New: training-59 (P1) pre-router regex refuse gate refuses route_v2 empty_trash phrasings and v2-shell-rm, is fitted to eval wording, and hits HobbyLM sealed r3 N11. Top: training-54, training-59, training-50.
+Open: 1 P0, 17 P1, 18 P2. No new findings. README (7e21fd4) claims it3 decontamination + .945 route_v2 (training-53) and planner .85 held-out as current (training-55). Top: training-54, training-59, training-50.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
