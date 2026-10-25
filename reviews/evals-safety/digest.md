@@ -1,4 +1,7 @@
-# evals-safety digest (pass 77, 2026-10-25T06:08:57Z)
+# evals-safety digest (pass 78, 2026-10-25T06:23:45Z)
+
+No change: agentic-apps merged main. -54 (P0) Spotify hint still on main.
+
 
 -54 (P0) now on main: Spotify hint resumes paused track; oe-spotify-jazz passes on wrong music. Few-shot leak half fixed.
 

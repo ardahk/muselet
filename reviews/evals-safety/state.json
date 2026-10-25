@@ -1,6 +1,6 @@
 {
-  "pass": 77,
-  "ts": "2026-10-25T06:08:57Z",
+  "pass": 78,
+  "ts": "2026-10-25T06:23:45Z",
   "last_reviewed": {
     "main": "e2f7e5e",
     "wip/local": "3f8e2f8",
@@ -89,8 +89,8 @@
     "cloud/premiere-demo": "a1c0f04",
     "cloud/premiere-route-fix": "7769c32",
     "cloud/agentic-loop": "dc7a063",
-    "cloud/agentic-apps": "523d2c1"
+    "cloud/agentic-apps": "1904638"
   },
   "next_id": 55,
-  "note": "pass 77: main e2f7e5e merges agentic-loop (finish gate, workflows), fix-thinking, premiere-route-fix. -54 leak half fixed, wrong-result half on main. agentic-apps 523d2c1 (AGENTIC_APPS=1 default): send press/enter still caught by general _DANGEROUS_LABEL/_enter_sends guard; new code only adds recipient to confirm summary. No new finding."
+  "note": "pass 78: only agentic-apps 1904638 = merge of main e2f7e5e (timer_control removed upstream, finish_criterion kwarg rename). No new lane behavior beyond pass 77; -54 Spotify hint inherited."
 }
