@@ -54,6 +54,14 @@ def test_click_target_with_expect_and_errors():
     ({"app": "Finder", "elements": []}, True),
     ({"app": "Finder", "elements": [{"ref": 1}]}, False),
     ({"app": "Adobe Premiere Pro 2025", "elements": [{"ref": 1}]}, True),
+    ({"app": "Adobe Premiere", "elements": [
+        {"ref": 1, "role": "button", "label": "Play"}]}, True),
+    ({"app": "  aDoBe PrEmIeRe  ", "elements": [
+        {"ref": 1, "role": "button", "label": "Play"}]}, True),
+    ({"app": "Adobe Premiere Pro", "elements": [
+        {"ref": 1, "role": "button", "label": "Play"}]}, True),
+    ({"app": "Adobe Premiere Pro 2026", "elements": [
+        {"ref": 1, "role": "button", "label": "Play"}]}, True),
     ({"app": "Final Cut Pro", "elements": [{"ref": 1}]}, True),
     ({"app": "figma", "elements": [{"ref": 1}]}, True),
     ({"app": "Blender", "elements": [{"ref": 1}]}, True),
@@ -81,6 +89,7 @@ def _obs(app, elements, text=None):
 @pytest.mark.parametrize("app,elements,hinted", [
     ("Finder", [], True),
     ("Adobe Premiere Pro 2025", [{"ref": 1, "role": "button", "label": "Play", "frame": [0, 0, 9, 9]}], True),
+    ("Adobe Premiere", [{"ref": 1, "role": "button", "label": "Play", "frame": [0, 0, 9, 9]}], True),
     ("Finder", [{"ref": 1, "role": "button", "label": "Back", "frame": [0, 0, 9, 9]}], False),
 ])
 def test_planner_user_message_gets_blind_hint(tmp_path, app, elements, hinted):

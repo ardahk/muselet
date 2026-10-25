@@ -644,7 +644,7 @@ def _cap12(s: str) -> str:
 
 # Apps whose UI is a canvas the AX tree can't see into (matched case-insensitively
 # as a prefix of the observed app name, so "Adobe Premiere Pro 2025" matches).
-CANVAS_APPS = ("Adobe Premiere Pro", "Final Cut Pro", "Figma", "Blender",
+CANVAS_APPS = ("Adobe Premiere", "Final Cut Pro", "Figma", "Blender",
                "Chess", "Minecraft", "Steam", "Roblox", "League of Legends",
                "Hearthstone", "World of Warcraft", "Factorio", "Stardew Valley")
 BLIND_HINT = ('Accessibility tree is empty here: act by description, e.g. '
