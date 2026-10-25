@@ -1,9 +1,9 @@
 {
-  "pass": 67,
-  "ts": "2026-10-25T04:39:00Z",
+  "pass": 68,
+  "ts": "2026-10-25T04:54:00Z",
   "last_reviewed": {
     "main": "82c9810",
-    "wip/local": "5b656ef",
+    "wip/local": "c156d18",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -89,5 +89,5 @@
     "cloud/premiere-demo": "a1c0f04",
     "cloud/premiere-route-fix": "7769c32"
   },
-  "notes": "pass 67: main 82c9810 treats chrome-only AX trees as blind, so Spotify and other CEF apps take the grounder path; updated ux-20 (cold load). premiere-route-fix 7769c32 is routing order only and adds no reply text."
+  "notes": "pass 68: wip c156d18. The planner now rejects a first-turn 'ask' on open-ended goals ('play some jazz'), which means fewer clarification questions (good). It only logs the Clock timer fallback, adds no bubble copy, and the open-ended regex also matches 'send something to Mom'; the confirm gate still covers sends. Screen text is withheld from the planner when the goal targets another app. No new findings."
 }

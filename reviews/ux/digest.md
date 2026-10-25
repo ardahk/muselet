@@ -1,6 +1,6 @@
-# ux digest — pass 67
+# ux digest — pass 68
 
-Heads: main 82c9810, wip 5b656ef, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
+Heads: main 82c9810, wip c156d18, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
 
 Counts: 0 P0, 1 P1, 13 P2 (ux-29 resolved: the LoRA planner defaults to THINK=0). New in pass 63: ux-30 (fix-pending: speech that isn't a command during a confirm gets no feedback). ux-26 resolved by design #70 (main 82c9810); ux-25 and ux-27 still live on main.
 Open P1:
