@@ -115,10 +115,6 @@ final class DebugHooks {
                 }
             case "panel":
                 Self.openPanel()
-                let page = info["page"] as? String ?? "home"
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    NotificationCenter.default.post(name: .museletPanelPage, object: page)
-                }
             case "automation_status":
                 // Automation consent per target, read without prompting
                 // (targets that aren't running read not_running = unknown).
