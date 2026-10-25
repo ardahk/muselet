@@ -1,6 +1,6 @@
 {
-  "pass": 85,
-  "ts": "2026-10-25T09:00:00Z",
+  "pass": 86,
+  "ts": "2026-10-25T09:14:00Z",
   "mode": "pulse",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
@@ -48,8 +48,8 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "4f94e42",
-    "wip/local": "52eb571",
+    "main": "2445a1d",
+    "wip/local": "6e7f50b",
     "cloud/memory": "ba3dc0a",
     "cloud/memory-eval": "c05944e",
     "cloud/memory-lt": "cc056af",
@@ -93,7 +93,7 @@
     "cloud/browser-flow": "485763f",
     "cloud/docs-final": "bf9118d",
     "cloud/agentic-fixes2": "104a411",
-    "cloud/cool-tasks": "4c84adc",
+    "cloud/cool-tasks": "e4def97",
     "cloud/native-tools": "6053e4e",
     "cloud/ui-progress": "a66166b"
   },
@@ -141,5 +141,6 @@
   "notes_pass82": "main: agentic apps/timers -> 35B planner, PLANNER=35b option, Spotify gated double-click + few-shot (non-eval goal). agentic-fixes2: orchestrator/agentic.py/dsl only. Router unchanged.",
   "notes_pass83": "main 73b8031: HandsKit Observe duplicate-ref crash fix only. agentic-fixes2 104a411: no prompt/skill/tool/training/eval changes. Router unchanged; open findings re-checked, no status change (training-58 cache-dependent default still at serve_brain.sh:81-82).",
   "notes_pass84": "main merged docs-final (bf9118d unchanged), agentic-fixes2, agentic loop 30 turns/300 s + soft expects, PLANNER=35b 350 obs nodes. Router unchanged.",
-  "notes_pass85": "main: demo-loop fixes (sendgate, web_ui_guard, enter_sends) + briefs; no lane files. native-tools: --planner-mode default dsl (alternative only). ui-progress: UI only. cool-tasks: note op (training-55). Router unchanged."
+  "notes_pass85": "main: demo-loop fixes (sendgate, web_ui_guard, enter_sends) + briefs; no lane files. native-tools: --planner-mode default dsl (alternative only). ui-progress: UI only. cool-tasks: note op (training-55). Router unchanged.",
+  "notes_pass86": "main: demo-loop6-9 (shopping/maps app_hints tip edits, email_open finish criterion); no router/training/eval change. REPORT still $0.84 (training-50). cool-tasks e4def97: no prompt/tool/skill change since 4c84adc; note op not on main yet. Open findings re-checked, no status change."
 }
