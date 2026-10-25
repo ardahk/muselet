@@ -568,6 +568,7 @@ class Orchestrator:
     # ---------- utterance ----------
 
     async def handle_utterance(self, text: str, ctx: dict | None = None) -> dict:
+        from .tools import draft_email
         original_text = text
         t0 = time.perf_counter()
         said_items = getattr(self.server, "said", None)
@@ -717,6 +718,10 @@ class Orchestrator:
                                          re.IGNORECASE) is not None):
                         outcome = await self._deliver_calc(
                             calc_result, trace, calculator=True)
+                    elif not comms.is_messaging(text) and (dargs :=
+                            draft_email.parse_request(
+                                text, {**self._ctx, **self._focus_ctx})) is not None:
+                        outcome = await self._brain_tool("draft_email", dargs, text)
                     elif self.engine is not None:
                         outcome = await self._engine_route(text, trace)
                     else:
@@ -734,7 +739,7 @@ class Orchestrator:
                         else:
                             from .tools import draft_email
                             dargs = None if comms.is_messaging(text) else \
-                                draft_email.parse_request(text, self._ctx)
+                                draft_email.parse_request(text, {**self._ctx, **self._focus_ctx})
                             if dargs is not None:
                                 trace["decisions"].append(
                                     {"draft_redirect": dargs})
@@ -1082,13 +1087,12 @@ class Orchestrator:
         from .planner import worker
         from . import comms
         messaging = comms.is_messaging(text)
-        if pre is None:
-            from .tools import draft_email
-            dargs = None if messaging else \
-                draft_email.parse_request(text, self._ctx)
-            if dargs is not None:
-                trace["decisions"].append({"draft_redirect": dargs})
-                return await self._brain_tool("draft_email", dargs, text)
+        from .tools import draft_email
+        dargs = None if messaging else \
+            draft_email.parse_request(text, {**self._ctx, **self._focus_ctx})
+        if dargs is not None:
+            trace["decisions"].append({"draft_redirect": dargs})
+            return await self._brain_tool("draft_email", dargs, text)
         # reuse a speculative route (+ARGS) when the final text matches the
         # last partial (architect-5a)
         if pre is None and self._collect is None:
