@@ -1,4 +1,4 @@
-# planner lane — pass 54 (main eb3e945, wip 3f21dc6)
+# planner lane — pass 55 (main e4594d9, wip fc5d595)
 
 Open P0: none.
 
@@ -25,6 +25,10 @@ Highest-leverage next moves:
 - W9 is merged (planner-30/24 fixed). Next, narrow `\[` to JXA computed keys and drop `\\`, `set .* to` and `format` for Numbers reads (planner-37, planner-15), or the demo-3 planner path will ask for confirmation on reads.
 - brain-9 is on main: pick the browser from 'in/using X' context, not the first mention (planner-41).
 - Add `view` to open_folder in catalog.json and to the prompt example (planner-32). Fix rule 14 to say `expect focused #<ref>` (planner-31).
+
+Pass 55 notes:
+- main e4594d9 has harness and live-case fixes only (live_t2 reads the URL from Zen too). memory-hotfix and memory-rules2 change memory rules and guards only; neither touches the planner, orchestrator, DSL, prompt, catalog or HandsKit act/expect.
+- No open finding changed: self_verified is still in main orchestrator.py (planner-40), so planner-45 and planner-44 are still open.
 
 Pass 54 notes:
 - main eb3e945 only adds the design brief. wip has no lane changes.
