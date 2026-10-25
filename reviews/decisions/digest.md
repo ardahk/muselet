@@ -1,6 +1,6 @@
-# decisions — digest (pass 78)
+# decisions — digest (pass 79)
 
-Heads: main 2de65a9 (soft expects now on every agentic task (36422a7) -> -41/-43 wider; cart count regex widened but the done path still accepts a pre-existing '1 item' (-46); address-bar key guard), wip 5b70519 (= main), cool-tasks cfbec49 (-42 still blocks). Counts: 0 P0, 14 P1, 16 P2. Budget: about $142.06 MTD estimated.
+Heads: main 2de65a9 (unchanged), wip 4db92e8 (local main@313fc46: fused expects stripped from act RPCs on agentic/progress tasks; the AXLoaded page signal is not used by finish evidence (-41); Numbers sort guard), cool-tasks cfbec49 (-42 still blocks). Counts: 0 P0, 14 P1, 16 P2. Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
