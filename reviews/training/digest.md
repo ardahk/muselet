@@ -1,6 +1,6 @@
-# training lane digest — pass 55 (main e9fb42d)
+# training lane digest — pass 56 (main eb3e945)
 
-Open: 0 P0, 15 P1, 17 P2. New: training-53 (P1) it3 is now the default router but has no committed sealed-set overlap report; run competitor benches with ROUTER=it2 until one exists.
+Open: 0 P0, 15 P1, 17 P2. No lane changes since pass 55; training-53 (it3 default without committed sealed-set overlap report) remains the top new item.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
