@@ -1,4 +1,4 @@
-# finance digest (Pass 58, 2026-10-25; main f5b4606; no lane changes since pass 52)
+# finance digest (Pass 59, 2026-10-25; main 55e38f9; no lane changes since pass 52)
 Open P0: none.
 Open P1:
 - finance-27: by default, planner retrieval now puts rule-8-violating Numbers demos (per-cell loops, `tell application "Numbers"`, cell press/type) into every Numbers planner prompt (ml/src/brain/plan_bank.py, tools/serve_brain.sh:31, evals/planner_scenarios_v2.jsonl:193,217,239).
