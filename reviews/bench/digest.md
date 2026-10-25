@@ -1,6 +1,6 @@
-# bench digest — pass 86 (2026-10-25T09:45Z, main@ca73c12)
+# bench digest — pass 87 (2026-10-25T10:00Z, main@b92677f)
 
-P0: 0 | open P1: 14 | open P2: 22
+P0: 0 | open P1: 14 | open P2: 23
 
 Ranked open P1:
 1. bench-44 LoRA planner shipped (efd2f3f) on uncommitted numbers. Pooled .731 vs .647; most of the gain is on v2-ho, whose screens were in training.
@@ -93,3 +93,8 @@ Pass 86: 1 new finding (bench-57, P2): the pre-routing destructive-refuse regex 
 - ui-progress merged (UI and progress text only).
 - wip/local 47f809a has no diff from main. cool-tasks 3937e6b is a merge of main; bench-56 is unchanged.
 - bench-50, bench-53, bench-54 and bench-55 are unchanged.
+
+Pass 87: 1 new finding (bench-58, P2): the new README quotes router .945 on route_v2, its selection set; route_v1_clean is .922, below it2's .942.
+- c37f6ee (MLX worker survives cancellation) is a reliability fix only.
+- bench-57 (wipe regex) and bench-54 (Devpost .850) are unchanged.
+- wip/local f1e504c has no diff from main.

@@ -1,9 +1,9 @@
 {
- "pass": 86,
- "ts": "2026-10-25T09:45Z",
+ "pass": 87,
+ "ts": "2026-10-25T10:00Z",
  "branches": {
-  "main": "ca73c12",
-  "wip/local": "47f809a",
+  "main": "b92677f",
+  "wip/local": "f1e504c",
   "cloud/bench": "f584cb2",
   "cloud/data-pipeline": "830ba35",
   "cloud/decisions": "ae36620",
