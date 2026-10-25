@@ -1,9 +1,8 @@
-# Planner review digest — pass 93 (2026-10-25T12:20Z)
+# Planner review digest — pass 94 (2026-10-25T12:34Z)
 
-main unchanged at 2de65a9. wip a6035fb→9015e83 (local): 2900d4b removes the app workflow recipes from planner_system.md (rules 1, 8-10 and 14 rewritten, Safari/Numbers examples dropped) and adds per-turn OCR context in tools mode.
-- OK: the confirm, data-not-instructions and done-alone rules (11-13) are kept, and there is a new prompt-contract test.
-- planner-31: the prompt no longer teaches `expect focused` without a ref (fixed on wip).
-- planner-46 (P2): tools mode now runs OCR every turn with 2400 chars of context, even when AX is full.
+main unchanged at 2de65a9. wip 9015e83→7b8f421 (local): e781dc1 refreshes the native-UI OCR context on re-observe, and grounded `click "<target>"` now resolves to `press #ref` when exactly one enabled AX control (button/radio/checkbox/popup/menuitem/link/tab/row) has that exact label. Right/double clicks and ambiguous labels fall back to the grounder.
+- OK: exact match with a uniqueness requirement and no substring matching (has tests). The press goes through the normal press path, so the sendgate and confirm checks still apply, and the Spotify double-click gate is untouched. This saves a grounder call for clicks the AX tree can resolve.
+- planner-46 (tools-mode OCR every turn) still applies.
 - planner-66 (finance unverified), planner-64 (Premiere unverified), planner-65, planner-59, planner-58, planner-63 and planner-60: unchanged.
 
 New: 0. Resolved: 0. Open: 0 P0, 20 P1, 16 P2.
