@@ -1,9 +1,9 @@
 {
-  "pass": 88,
-  "ts": "2026-10-25T10:47:00Z",
+  "pass": 89,
+  "ts": "2026-10-25T11:02:00Z",
   "last_reviewed": {
-    "main": "298526d",
-    "wip/local": "d409a32",
+    "main": "2de65a9",
+    "wip/local": "5b70519",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -99,5 +99,5 @@
     "cloud/cool-tasks": "cfbec49",
     "cloud/native-tools": "6053e4e"
   },
-  "notes": "pass 88: main 298526d samples think tokens with a GPU top-k (cuts per-token think overhead, which should shrink the ux-29/31 silent wait; not measured) and logs prefill_ms (enables the rehearsal timing asked for in ux-31). Observe always includes a focused text input (Gmail reply body), and MUSELET_NO_ESCALATE ignores the app's 35B toggle (the Settings toggle then silently does nothing; acceptable for experiments only). None adds bubble copy. ux-34 and ux-32 (README:32) are still unfixed. wip/local equals main; cool-tasks only merges main."
+  "notes": "pass 89: main 2de65a9 makes expects soft for all agentic app tasks (36422a7). That extends the ux-28 mitigation: app tasks can no longer stop on 'expect failed'. It also blocks cmd+L/cmd+T in browser tasks unless the user mentions the address bar (keeps Zen's URL overlay off the page; good for the demo look), widens the cart-count patterns, and adds a Premiere one-batch hint. None adds bubble copy. ux-34 (orchestrator.py:161) and ux-32 (README.md:32) are still unfixed. wip/local equals main."
 }

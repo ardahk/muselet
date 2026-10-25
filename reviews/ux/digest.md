@@ -1,8 +1,8 @@
-# ux digest — pass 88
+# ux digest — pass 89
 
-Heads: main 298526d, wip d409a32, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
+Heads: main 2de65a9, wip 5b70519, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
 
-Counts: 0 P0, 2 P1, 15 P2 (ux-29 reopened, now on main: blind planner thinks 512 tokens every turn) (ux-29 resolved: the LoRA planner defaults to THINK=0). New in pass 63: ux-30 (fix-pending: speech that isn't a command during a confirm gets no feedback). ux-26 resolved by design #70 (main 298526d); ux-25 and ux-27 still live on main.
+Counts: 0 P0, 2 P1, 15 P2 (ux-29 reopened, now on main: blind planner thinks 512 tokens every turn) (ux-29 resolved: the LoRA planner defaults to THINK=0). New in pass 63: ux-30 (fix-pending: speech that isn't a command during a confirm gets no feedback). ux-26 resolved by design #70 (main 2de65a9); ux-25 and ux-27 still live on main.
 Open P1:
 - ux-28: the failure bubble shows raw "Not finished: expect failed: …" (orchestrator.py:3061, 2065)
 Open P2, ranked:
@@ -18,11 +18,11 @@ Highest-leverage next moves:
 4. ux-14: ui('idle') after "Okay, cancelled", and reset the mood in onConfirmCancel (~0.25 h)
 5. ux-24: lead decision on the script gate
 
-- ux-31 (P2, now on main 298526d, AGENTIC_APPS=1 default): agentic-apps defaults on, so all 12 app skills (timer, message, email, notes, music, Premiere) run through the multi-turn planner with only 'thinking'. Lead decision: default off, or only after the native skill fails.
+- ux-31 (P2, now on main 2de65a9, AGENTIC_APPS=1 default): agentic-apps defaults on, so all 12 app skills (timer, message, email, notes, music, Premiere) run through the multi-turn planner with only 'thinking'. Lead decision: default off, or only after the native skill fails.
 
-- ux-29 update (main 298526d): the blind planner now defaults to the 35B whenever its weights are cached, still with 512 thinking tokens every turn. Measure Spotify and timer turn_ms, then decide the default.
+- ux-29 update (main 2de65a9): the blind planner now defaults to the 35B whenever its weights are cached, still with 512 thinking tokens every turn. Measure Spotify and timer turn_ms, then decide the default.
 
-- ux-31 now P1 (main 298526d): timer, reminder and email demo beats plan on the 35B with 512 thinking tokens, with no bubble. Rehearse beats 3-4 with turn_ms logged and decide.
+- ux-31 now P1 (main 2de65a9): timer, reminder and email demo beats plan on the 35B with 512 thinking tokens, with no bubble. Rehearse beats 3-4 with turn_ms logged and decide.
 - ux-32 (P2, docs-final): the demo script claims 4B LoRA ~0.3 s/step for app tasks, which no longer matches main.
 
 
