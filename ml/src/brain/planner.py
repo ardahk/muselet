@@ -453,7 +453,9 @@ class Planner:
         demos = self.plan_bank.retrieve(goal, observation, self.retrieval_k) if self.plan_bank else []
         ids = [demo.id or demo.goal for demo in demos]
         block = render_block(demos)
-        self.last_retrieval = {"ids": ids, "ms": (time.perf_counter() - started) * 1000}
+        self.last_retrieval = {"ids": ids,
+                               "goals": [demo.goal for demo in demos],
+                               "ms": (time.perf_counter() - started) * 1000}
         return block
 
     def user_content(self, goal: str, observation: str,

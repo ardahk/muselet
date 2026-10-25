@@ -114,7 +114,8 @@ async def serve(port: int = 8765, model: str | None = None,
                 planner_aux_model: str | None = "planner",
                 fallback_planner: bool = False,
                 planner_context: bool = False,
-                open_ended_route: bool = False):
+                open_ended_route: bool = False,
+                planner_blind: str = "base"):
     server = BrainServer(port=port)
     await server.start()
     engine = None
@@ -149,6 +150,25 @@ async def serve(port: int = 8765, model: str | None = None,
                 aux_path, engine,
                 {"few_shot": None, "constrain": False},
                 tag="planner-aux")
+    # blind/open-ended tasks plan with the base model (few-shot + think),
+    # reusing the aux weights so no extra load when aux == base.
+    orch.planner_blind = None
+    if planner is not None and planner_blind == "base":
+        aux_model = orch.planner_aux
+        blind_path = _resolve_model(
+            planner_aux_model if isinstance(planner_aux_model, str)
+            and planner_aux_model not in (None, "planner") else None)
+        blind_path = blind_path or getattr(aux_model, "model_path", None) \
+            or _resolve_model(None)
+        if blind_path:
+            orch.planner_blind = make_planner(
+                blind_path, engine,
+                {"few_shot": "prompts/planner_fewshot.md", "retrieval_k": 1,
+                 "retrieval_bank": "v2-tune", "think_budget": 512,
+                 "think_on": "all", "think_sampler": "qwen"},
+                tag="planner-blind")
+            print(f"[planner-blind] {blind_path} (base-config, "
+                  f"shared weights)", flush=True)
     orch.memory_enabled = memory_enabled
     orch.memory_llm = memory_llm
     orch.longterm_enabled = bool(longterm_enabled and memory_enabled)
@@ -380,6 +400,10 @@ def build_parser(argv=None):
     s.add_argument("--planner-context", choices=("on", "off"), default="off",
                    help="include request ctx and a compact screen summary on the planner's first turn")
     s.add_argument("--open-ended-route", choices=("on", "off"), default="off")
+    s.add_argument("--planner-blind", choices=("base", "planner"),
+                   default="base",
+                   help="planner for blind/open-ended tasks: base = aux model "
+                        "with few-shot + think 512; planner = shipped planner")
     s.add_argument("--planner-constrain", action=argparse.BooleanOptionalAction,
                    default=None, help="line-start DSL op constraint "
                    "(default: planner.PLANNER_CONSTRAIN_DEFAULT)")
@@ -448,7 +472,8 @@ def run_cmd(args, ap):
             planner_aux_model=args.planner_aux_model,
             fallback_planner=args.fallback_planner == "on",
             planner_context=args.planner_context == "on",
-            open_ended_route=args.open_ended_route == "on", **memory_kw))
+            open_ended_route=args.open_ended_route == "on",
+            planner_blind=args.planner_blind, **memory_kw))
     elif args.cmd == "eval-route":
         eval_route(args.model, args.cases, args.out,
                    tau=getattr(args, "tau", 0.55), args_model=args.args_model)

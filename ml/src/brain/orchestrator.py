@@ -133,6 +133,10 @@ _SCREEN_REF = re.compile(
 # credentials, missing required facts, irreversible choices.
 _PREF_VAGUE = re.compile(
     r"\b(?:some|any|anything|a few|something|whatever|whichever)\b", re.I)
+# screen text from these apps is agent/developer chatter, not task context
+_CHAT_IDE = frozenset(normalize_name(a) for a in (
+    "Devin", "Terminal", "iTerm2", "Warp", "Ghostty", "Visual Studio Code",
+    "Code", "Cursor", "Windsurf", "Xcode"))
 
 
 def fallback_recoverable(reason: str) -> bool:
@@ -561,7 +565,10 @@ def _cap12(s: str) -> str:
 CANVAS_APPS = ("Adobe Premiere Pro", "Final Cut Pro", "Figma", "Blender",
                "Chess", "Minecraft", "Steam", "Roblox", "League of Legends",
                "Hearthstone", "World of Warcraft", "Factorio", "Stardew Valley")
-BLIND_HINT = 'Accessibility tree is empty here: use click "<description>"'
+BLIND_HINT = ('Accessibility tree is empty here: act by description, e.g. '
+              'click "search field", click "green Play button of the top '
+              'result"; after clicking a text field, skill type_text '
+              'text="..."')
 DEFAULT_GROUNDER = {"model": "eyes-4b", "repo": None, "max_pixels": 1_000_000,
                     "zoom_frac": 0.4}
 
@@ -959,6 +966,7 @@ class Orchestrator:
                     from .tools import compose_text
                     if (page := self._page_task_for(text)):
                         self._page_task = page
+                        self._force_blind = True
                         trace["decisions"].append({"page_task": page})
                         outcome = await self._planner_loop(
                             text, trace,
@@ -1505,6 +1513,7 @@ class Orchestrator:
                 label, text, self.catalog.risk(label))
             if redirect is not None:
                 trace["open_ended"] = {"from": label, "hint": redirect.id}
+                self._force_blind = True
                 return await self._planner_loop(text, trace)
         if label == "ANSWER":
             return await self._answer(text, trace)
@@ -3396,6 +3405,8 @@ function run() {
         risks unrelated window text steering the plan."""
         if _SCREEN_REF.search(goal):
             return True
+        if normalize_name(app) in _CHAT_IDE:
+            return False
         target = None
         site = match_name(goal)
         if site:
@@ -3481,10 +3492,18 @@ function run() {
         last_exp_ok = False
         last_exp_source = None
         planner, escalated = self.planner, False
+        blind_task = fallback is not None or bool(
+            getattr(self, "_force_blind", False))
+        self._force_blind = False
+        batch_cap = 2 if blind_task else 5
         self._active_planner = planner
+        self._finish_when = None
 
         def update_last_evidence(action, result, verify_mode):
             nonlocal last_exp_ok, last_exp_source
+            exp = action.get("expect")
+            self._last_expect_app_only = bool(
+                exp and re.match(r'^app\s+"[^"]+"\s*$', exp.strip()))
             if not verify_mode:
                 last_exp_ok = bool(result.get("expect_ok"))
                 last_exp_source = "expect" if last_exp_ok else None
@@ -3547,10 +3566,23 @@ function run() {
             q: asyncio.Queue = asyncio.Queue()
             cancel = threading.Event()
             loop = asyncio.get_running_loop()
+            if observation_blind(self._last_obs):
+                blind_task = True
+            if blind_task and getattr(self, "planner_blind", None) \
+                    is not None and planner is not self.planner_blind:
+                planner = self.planner_blind
+                self._active_planner = planner
+                trace["decisions"].append(
+                    {"planner.model": "base", "turn": turn})
             plan_obs = obs_text
             if observation_blind(self._last_obs):
                 plan_obs = f"{obs_text}\n{BLIND_HINT}"
                 trace["decisions"].append({"blind_observation": turn})
+            if self._finish_when is None:
+                from .finish import finish_when
+                self._finish_when = finish_when(goal)
+            if self._finish_when:
+                plan_obs += "\nFinish when: " + self._finish_when
             login_page = bool(re.search(
                 r"\b(?:sign\s*in|sign-in|log\s*in|login|password)\b",
                 f"{self._last_obs.get('window', '') if self._last_obs else ''}\n"
@@ -3638,7 +3670,8 @@ function run() {
                     line = dl
                     n_actions += 1
                     # a new action line: flush the previous pending action
-                    if pending and not failed and not done_seen:
+                    if pending and not failed and not done_seen and \
+                            n_executed < batch_cap:
                         a = pending.pop(0)
                         r = await self._exec_one(a)
                         batch_log.append(r["_log"])
@@ -3689,7 +3722,8 @@ function run() {
                 cancel.set()   # stop the decode
                 raise
             # flush tail action(s)
-            while pending and not failed and not done_seen:
+            while pending and not failed and not done_seen and \
+                    n_executed < batch_cap:
                 a = pending.pop(0)
                 r = await self._exec_one(a)
                 batch_log.append(r["_log"])
@@ -3730,6 +3764,13 @@ function run() {
                 "decode_tok_s": round(info["decode_tok_s"], 1),
                 "tokens": info["tokens"],
                 "turn_ms": round((time.perf_counter() - turn_started) * 1000, 1)}
+            planner_turn["model"] = (
+                "base" if planner is getattr(self, "planner_blind", None)
+                else "escalate" if planner is self.planner_escalate
+                else "lora")
+            retrieved = getattr(planner, "last_retrieval", {})
+            if retrieved.get("goals"):
+                planner_turn["retrieved"] = list(retrieved["goals"])
             hint_ids = getattr(planner, "last_hint_ids", [])
             if hint_ids:
                 planner_turn["app_hints"] = list(hint_ids)
@@ -3764,6 +3805,16 @@ function run() {
                 verification_obs = None
                 verifier_unavailable = False
                 if verify_mode:
+                    app_only_exp = bool(last_exp_ok) and bool(
+                        getattr(self, "_last_expect_app_only", False))
+                    try:
+                        from .app_hints import _BARE_OPEN
+                        bare_open = bool(_BARE_OPEN.match(goal))
+                    except Exception:
+                        bare_open = False
+                    if last_exp_ok and app_only_exp and not bare_open:
+                        last_exp_ok = False
+                        last_exp_source = None
                     if last_exp_ok:
                         trace["decisions"].append({"planner.verify": {
                             "method": "expect",

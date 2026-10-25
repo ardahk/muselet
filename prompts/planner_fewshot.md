@@ -56,3 +56,30 @@ app: Finder | window: "Documents" | focused: none
 #3 radiobutton "as Icons" selected
 Reply:
 skill new_folder parent=~/Documents name="taxes"
+
+Goal: "play some jazz on Spotify"
+app: Spotify | window: "Spotify" | focused: none
+Accessibility tree is empty here: act by description.
+Finish when: jazz is playing
+Reply:
+url "spotify:search:jazz"
+click "green Play button of the top result"
+
+Goal: "play some jazz on Spotify"
+app: Spotify | window: "Spotify" | focused: none
+Accessibility tree is empty here: act by description.
+Finish when: jazz is playing
+Last batch:
+[ok] url "spotify:search:jazz"
+[ok] click "green Play button of the top result"
+Reply:
+script applescript """tell application "Spotify" to get player state"""
+
+Goal: "play some jazz on Spotify"
+app: Spotify | window: "Spotify" | focused: none
+Accessibility tree is empty here: act by description.
+Finish when: jazz is playing
+Last batch:
+[ok] script applescript -> playing
+Reply:
+done "Playing jazz on Spotify"
