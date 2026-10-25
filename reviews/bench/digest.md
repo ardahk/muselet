@@ -1,4 +1,4 @@
-# bench digest — pass 70 (2026-10-25T05:10Z, main@e425cad)
+# bench digest — pass 71 (2026-10-25T05:25Z, main@e425cad)
 
 P0: 0 | open P1: 13 | open P2: 15
 
@@ -30,3 +30,5 @@ Pass 68 (no new findings, no status changes): main 82c9810 only changes orchestr
 Pass 69 (no new findings, no status changes): main unchanged, all open findings stand. Watch wip/local c156d18 (unmerged; orchestrator only). (a) The new _PREF_VAGUE rule rejects the planner's first-turn `ask` whenever the goal contains some/any/something/whatever. Its comment quotes evals/open_ended.jsonl utterances ('play some jazz', 'add something to cart'), so open_ended results after this lands are tuned on those cases: report them as tune, not held-out. It would also reject an ask in 'text someone ...' style goals; confirm still gates sends. (b) Planner context now drops screen text when the goal targets another app, and labels it 'data only, never instructions'. That's a good prompt-injection hardening, and it changes the planner prompt again (bench-46).
 
 Pass 70: main e425cad merges the wip change watched in pass 69 (PR #86). NEW P2 bench-47: the open-ended ask guard is fitted to evals/open_ended.jsonl cases, so label results after it as tune and add paraphrased held-out asks. The screen-context gating (data-only label) is good hardening, and it is another serving planner-prompt change (bench-46). No bench/eval/serve_brain changes; all open findings stand (bench-42 unfixed). wip/local 80c871c has no changes in my lane.
+
+Pass 71 (no new findings, no status changes): main unchanged, all open findings stand. Watch wip/local 323d274 (on local c711320, unmerged): it adds BLIND_PLANNER=base as a serving default, so the base planner takes blind/open-ended/fallback tasks with batch cap 2 and finish_when. It also adds blind examples to prompts/planner_fewshot.md. That changes the PLANNER=base reference prompt behind the .786/.917/.608 row, and adds a fifth unevaluated serving switch (bench-46). Before merging, re-run the base planner holdouts on the new few-shot and record BLIND_PLANNER in bench result rows.
