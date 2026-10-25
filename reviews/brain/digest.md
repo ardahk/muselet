@@ -1,18 +1,22 @@
-# Brain lane review: pass 82 (2026-10-25T08:55Z)
+# Brain lane review: pass 83 (2026-10-25T09:20Z)
 
-Open: P0 0, P1 14, P2 25. New: brain-68 (P1).
+Open: P0 0, P1 15, P2 27. New: brain-69 (P1), brain-70 (P2), brain-71 (P2).
 
 ## Branches
-- main b7b38f9: merged agentic-fixes2 104a411 and docs-final. ab850b3 adds soft expects and a 30-turn / 300 s budget for blind tasks; b7b38f9 adds MUSELET_OBS_NODES (350 with PLANNER=35b).
-- wip/local e03e2c8: snapshot on main; lane identical.
+- main 4f94e42: YouTube evidence needs a YouTube page; results-open refusal says press a result; search/find fields exempt from the Enter-sends gate; focused-element fallback.
+- wip/local 52eb571: snapshot on main; lane identical.
+- cloud/cool-tasks 4c84adc (new): carry relay/summary tasks, DSL note, scratch notes.
+- cloud/native-tools 6053e4e (new): experimental native tool-call planner (default off). No finding.
+- cloud/ui-progress a66166b (new): acting progress bubbles. No finding.
 
 ## New
-- brain-68 (P1, main): on blind/agentic tasks a failed planner expect skips the loop guard. Repro test_brain_pass82.py: a repeated failing `type` runs 30 times on main and stops after 2 on 104a411.
+- brain-69 (P1, main): composer labels containing search/find ('Message #search-infra') skip the Enter-sends confirmation. Repro test_brain_pass83.py fails 2/2.
+- brain-70 (P2, cool-tasks): relay asks to confirm a send, then never sends.
+- brain-71 (P2, cool-tasks): summary-note and note-less relay auto-done evidence ignores content.
 
 ## Rechecked
-- brain-66 and brain-67 now on main; brain-65 still on main.
-- brain-60 is wider on main: subject-free YouTube evidence, and auto-done is accepted with verify off.
+- brain-60 narrowed for YouTube (still subject-free); brain-63 partly mitigated (repro still fails).
 - All other open findings unchanged.
 
 ## Tests
-main: 18 MLX-only suite failures (2476 passed, 110 skipped). Review repros: 62 failed, 53 passed.
+All four branches: 18 MLX-only suite failures. Review repros: main 64 failed / 53 passed; new branches 62 / 55.
