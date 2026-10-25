@@ -117,7 +117,7 @@ def test_llm_gate_and_invalid_reasons_are_recorded_in_followup_trace(
             {"query": "history"}, True, {"app": "Safari"}, t=time.time())
         planner.response = "open the second budget spreadsheet"
         trace = {"decisions": []}
-        invalid = await orch._memory_followup("the second one", trace)
+        invalid = await orch._memory_followup("the other one", trace)
         assert invalid.reason == "llm-invalid"
         assert trace["decisions"][-1]["memory.followup"]["reason"] == \
             "llm-invalid"
