@@ -1,6 +1,6 @@
-# bench digest — pass 81 (2026-10-25T08:30Z, main@73b8031)
+# bench digest — pass 82 (2026-10-25T08:45Z, main@b7b38f9)
 
-P0: 0 | open P1: 13 | open P2: 19
+P0: 0 | open P1: 14 | open P2: 20
 
 Ranked open P1:
 1. bench-44 LoRA planner shipped (efd2f3f) on uncommitted numbers. Pooled .731 vs .647; most of the gain is on v2-ho, whose screens were in training.
@@ -58,3 +58,9 @@ Pass 80: 1 new finding (bench-53, P2, cloud/agentic-fixes2 b9cd089): YouTube pla
 wip/local b8eeec4 differs only in Observe.swift.
 
 Pass 81 (no new findings, no status changes): main still 73b8031. agentic-fixes2 104a411 is a merge of main; bench-53 unchanged. wip/local 51d833a has no diff from main.
+
+Pass 82, 2 new findings:
+- bench-54 (P1): the merged Devpost text headlines the LoRA as 'mean .850 vs .770' without the pooled .731 or the v2-ho contamination caveat. Fix before the 09:00 PDT submission.
+- bench-55 (P2): ab850b3 makes planner expects soft on agentic tasks and raises the budget to 30 turns / 300 s, so done rests on the weak finish evidence (bench-50/53).
+Also: bench-53 is now on main (agentic-fixes2 merged). bench-52: PLANNER=35b also sets 350 observe nodes. wip/local e03e2c8 has no diff from main.
+Next moves: (1) fix the Devpost planner wording; (2) tighten timer-cancel and YouTube evidence; (3) gate bench-42; (4) pin and record ROUTER=it2, the planner, BLIND_PLANNER, AGENTIC_APPS and MUSELET_OBS_NODES on competitor runs; (5) commit the LoRA eval outputs.
