@@ -1192,7 +1192,8 @@ class Orchestrator:
             self.fallback_planner and self.planner is not None and
             not self._fallback_used and not self._planner_ran and
             self._collect is None and label != "send_message" and
-            not comms.is_messaging(text) and
+            not (label in ("compose_email", "draft_email") and
+                 comms.is_messaging(text)) and
             self._skill_risk(label, args) == "safe")
         if not eligible:
             return await run()

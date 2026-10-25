@@ -89,8 +89,8 @@ def _run(coro):
     return asyncio.run(coro)
 
 
-def test_recoverable_skill_failure_hands_goal_to_planner(tmp_path):
-    utterance = "launch TextEdit"
+@pytest.mark.parametrize("utterance", ["open text edit", "launch TextEdit"])
+def test_recoverable_skill_failure_hands_goal_to_planner(tmp_path, utterance):
     planner = FakePlanner([
         ['skill open_app app="TextEdit"'],
         ['done "Opened TextEdit"'],
@@ -221,6 +221,23 @@ def test_brain_tool_failure_handoff_drops_failure_ui(monkeypatch, tmp_path):
     assert planner.calls == 1
     assert "Couldn't open a reply in Mail" not in server.said
     assert "confused" not in server.uis
+
+
+def test_messaging_draft_email_failure_does_not_handoff(tmp_path):
+    utterance = "text mom that I'm late"
+    planner = FakePlanner([['done "Finished"']])
+    server, _, orch = _setup(tmp_path, {}, planner=planner)
+
+    async def failed_run():
+        await orch.server.say("Couldn't send that message")
+        return "failed"
+
+    result = _run(orch._with_fallback(
+        "draft_email", {}, utterance, {"decisions": []}, failed_run))
+
+    assert result == "failed"
+    assert planner.calls == 0
+    assert "Couldn't send that message" in server.said
 
 
 def test_success_flushes_reply_and_acting_ui_before_skill_rpc(tmp_path):
