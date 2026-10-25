@@ -157,6 +157,10 @@ _CHAT_IDE = frozenset(normalize_name(a) for a in (
     "Code", "Cursor", "Windsurf", "Xcode"))
 
 
+_DESTRUCTIVE_REQ = re.compile(
+    r"\b(?:erase|wipe|delete|remove|destroy|format|nuke|rm\s+-[rf]+)\b.*"
+    r"\b(?:every|all|entire)\b|"
+    r"\b(?:every|all)\s+files?\b", re.IGNORECASE | re.DOTALL)
 WEB_UI_ERROR = "use the page's search box: type into it and press return"
 _URL_SEARCH = re.compile(r"\?|/results\b|/s\?k=|/search\b", re.I)
 _URLISH = re.compile(
@@ -915,6 +919,13 @@ class Orchestrator:
                 if k in ctx:
                     self._focus_ctx[k] = ctx[k]
         self._utterance = text
+        # deterministic destructive-request refusal — before any routing
+        # (erase/wipe/format/delete ALL files anywhere)
+        if _DESTRUCTIVE_REQ.search(text):
+            trace["decisions"].append({"destructive_refuse": text[:80]})
+            await self.server.say("Sorry, I can't do that")
+            await self._end_ui("confused")
+            return "failed"
         outcome = "ok"
         try:
             await self.server.ui("thinking")
