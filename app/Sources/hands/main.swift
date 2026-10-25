@@ -81,13 +81,9 @@ struct ProbeCmd: ParsableCommand {
             if demo {
                 printJSON(TimerProbe.demo())
             } else {
-                let info = ClockTimers(runner: ShortcutsCLI()).info(refresh: true)
                 let axReady = ClockAX.liveReady()
-                var backend = info
-                backend["clock_ax_ready"] = axReady
-                backend["backend"] = ClockAX.backend(
-                    enabled: true, axReady: axReady,
-                    shortcutReady: info["clock_ready"] as? Bool ?? false)
+                let backend: [String: Any] = ["clock_ax_ready": axReady,
+                                              "backend": ClockAX.backend(axReady: axReady)]
                 printJSON(["timers": TimerSnapshot.read(),
                            "source": TimerSnapshot.directory.path, "backend": backend])
             }

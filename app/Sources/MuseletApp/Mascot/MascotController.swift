@@ -70,6 +70,7 @@ final class MascotController {
 
         view.onClick = { [weak self] in self?.poked() }
         view.onDragEnded = { [weak self] in self?.dragEnded() }
+        view.constrainOrigin = { MascotBounds.clamp($0, visibleFrames: NSScreen.screens.map(\.visibleFrame)) }
         view.onHover = { [weak self] h in
             guard let self else { return }
             if h { self.wake() }
@@ -108,7 +109,7 @@ final class MascotController {
         if let s = UserDefaults.standard.string(forKey: Self.originKey) {
             let p = NSPointFromString(s)
             if NSScreen.screens.contains(where: { $0.visibleFrame.insetBy(dx: -40, dy: -40).contains(p) }) {
-                panel.setFrameOrigin(p)
+                panel.setFrameOrigin(clamped(p))
                 onMoved?(anchorCG())
                 return
             }
@@ -116,10 +117,14 @@ final class MascotController {
         resetPosition()
     }
 
+    private func clamped(_ origin: NSPoint) -> NSPoint {
+        MascotBounds.clamp(origin, visibleFrames: NSScreen.screens.map(\.visibleFrame))
+    }
+
     func resetPosition() {
         guard let s = NSScreen.main ?? NSScreen.screens.first else { return }
         let vf = s.visibleFrame
-        panel.setFrameOrigin(NSPoint(x: vf.maxX - MascotView.size.width - 18, y: vf.minY + 10))
+        panel.setFrameOrigin(clamped(NSPoint(x: vf.maxX - MascotView.size.width - 18, y: vf.minY + 10)))
         onMoved?(anchorCG())
         layoutBubble()
         pill.layout()
@@ -128,9 +133,25 @@ final class MascotController {
     private func ensureOnScreen() {
         let c = NSPoint(x: panel.frame.midX, y: panel.frame.midY)
         if !NSScreen.screens.contains(where: { $0.frame.contains(c) }) { resetPosition() }
+        let p = clamped(panel.frame.origin)
+        if p != panel.frame.origin { panel.setFrameOrigin(p) }
         onMoved?(anchorCG())
         layoutBubble()
         pill.layout()
+    }
+
+    /// Debug hook `mascot_edge`: a drag far past one screen edge, through the drag clamp.
+    func debugDrag(toward edge: String) {
+        guard let vf = (panel.screen ?? NSScreen.main)?.visibleFrame else { return }
+        var p = panel.frame.origin
+        switch edge {
+        case "right": p.x = vf.maxX + 400
+        case "top": p.y = vf.maxY + 400
+        case "bottom": p.y = vf.minY - 400
+        default: p.x = vf.minX - 400
+        }
+        panel.setFrameOrigin(view.constrainOrigin?(p) ?? clamped(p))
+        dragEnded()
     }
 
     private func dragEnded() {
@@ -299,5 +320,30 @@ final class MascotController {
         y = max(vf.minY, min(y, vf.maxY - size.height))
         let frame = NSRect(x: x, y: y, width: size.width, height: size.height).integral
         if bubblePanel.frame != frame { bubblePanel.setFrame(frame, display: true) }
+    }
+}
+
+/// Keeps the whole kitten (`MascotView.kittenRect`, incl. the bubble anchor) inside a
+/// screen's `visibleFrame`: on drag (live), launch from the saved origin and screen changes.
+enum MascotBounds {
+    /// Window origin moved the least so the kitten fits the visible frame it overlaps
+    /// most (else the nearest one). No screens: unchanged.
+    static func clamp(_ origin: NSPoint, visibleFrames: [NSRect],
+                      kitten: CGRect = MascotView.kittenRect) -> NSPoint {
+        let k = kitten.offsetBy(dx: origin.x, dy: origin.y)
+        func area(_ r: NSRect) -> CGFloat {
+            let i = r.intersection(k)
+            return i.isNull ? 0 : i.width * i.height
+        }
+        func distance(_ r: NSRect) -> CGFloat {
+            hypot(max(r.minX - k.midX, 0, k.midX - r.maxX), max(r.minY - k.midY, 0, k.midY - r.maxY))
+        }
+        guard let vf = visibleFrames.max(by: { a, b in
+            let (aa, ab) = (area(a), area(b))
+            return aa == ab ? distance(a) > distance(b) : aa < ab
+        }) else { return origin }
+        let x = min(max(k.minX, vf.minX), vf.maxX - k.width)
+        let y = min(max(k.minY, vf.minY), vf.maxY - k.height)
+        return NSPoint(x: origin.x + (x - k.minX), y: origin.y + (y - k.minY))
     }
 }

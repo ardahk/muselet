@@ -18,54 +18,46 @@ enum Brand {
     static var tintColor: Color { Color(nsColor: tint) }
 }
 
-enum PanelPalette {
-    static let ginger = Color(nsColor: MascotPalette.ginger)
-    static let accent = dynamic(light: NSColor(srgbRed: 0.80, green: 0.42, blue: 0.14, alpha: 1),
-                                dark: MascotPalette.ginger)
-    static let ink = dynamic(light: NSColor(srgbRed: 0.30, green: 0.19, blue: 0.13, alpha: 1),
-                             dark: MascotPalette.creamLight)
-    static let card = dynamic(light: MascotPalette.creamLight.withAlphaComponent(0.62),
-                              dark: MascotPalette.cream.withAlphaComponent(0.07))
-    static let cardStroke = dynamic(light: MascotPalette.ginger.withAlphaComponent(0.22),
-                                   dark: MascotPalette.cream.withAlphaComponent(0.10))
-    static let hover = dynamic(light: MascotPalette.ginger.withAlphaComponent(0.14),
-                               dark: MascotPalette.ginger.withAlphaComponent(0.16))
-    static let wash = dynamic(light: MascotPalette.ginger.withAlphaComponent(0.10),
-                              dark: MascotPalette.ginger.withAlphaComponent(0.07))
-    static let avatarBack = dynamic(light: MascotPalette.cream.withAlphaComponent(0.9),
-                                    dark: MascotPalette.cream.withAlphaComponent(0.16))
-
-    private static func dynamic(light: NSColor, dark: NSColor) -> Color {
-        Color(nsColor: NSColor(name: nil) { a in
-            a.bestMatch(from: [.darkAqua, .vibrantDark]) != nil ? dark : light
-        })
-    }
-}
-
-/// Template menu-bar glyph: the cork-creature silhouette with eye cut-outs.
+/// Template menu-bar glyph: the kitten's head (round head + two ears) with the eyes
+/// cut out, from the mascot geometry in `MascotPaths`. Drawn as vectors at 18 pt, so
+/// @1x and @2x are crisp; macOS tints it (light/dark/highlighted).
 enum MenuBarIcon {
+    static let pointSize: CGFloat = 18
+
     static func make(recording: Bool) -> NSImage {
-        let size = NSSize(width: 18, height: 18)
-        let img = NSImage(size: size, flipped: false) { _ in
-            let body = MascotPaths.bodyPath(width: 13, height: 13.5, bottomRadius: 3.6, topRadius: 6.5)
-            let path = NSBezierPath(cgPath: body)
-            path.transform(using: AffineTransform(translationByX: 2.5, byY: 1.5))
-            NSColor.black.setFill()
-            path.fill()
-            // cap
-            let cap = NSBezierPath(roundedRect: NSRect(x: 6.5, y: 14.2, width: 5, height: 2.2), xRadius: 1.1, yRadius: 1.1)
-            cap.fill()
-            // eyes (cleared)
-            NSGraphicsContext.current?.compositingOperation = .clear
-            let eyeH: CGFloat = recording ? 4.2 : 3.4
-            NSBezierPath(roundedRect: NSRect(x: 6.2, y: 7.6, width: 1.9, height: eyeH), xRadius: 0.95, yRadius: 0.95).fill()
-            NSBezierPath(roundedRect: NSRect(x: 9.9, y: 7.6, width: 1.9, height: eyeH), xRadius: 0.95, yRadius: 0.95).fill()
-            if recording {
-                NSBezierPath(ovalIn: NSRect(x: 8.0, y: 3.6, width: 2.0, height: 2.2)).fill()
+        let img = NSImage(size: NSSize(width: pointSize, height: pointSize), flipped: false) { rect in
+            guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
+            let parts = headParts()
+            let box = parts.reduce(CGRect.null) { $0.union($1.boundingBoxOfPath) }
+            let k = (pointSize - 1) / max(box.width, box.height)
+            ctx.translateBy(x: rect.midX, y: rect.midY)
+            ctx.scaleBy(x: k, y: k)
+            ctx.translateBy(x: -box.midX, y: -box.midY)
+            ctx.setFillColor(NSColor.black.cgColor)
+            // One fill per part: the ear and head windings may differ.
+            for part in parts {
+                ctx.addPath(part)
+                ctx.fillPath()
+            }
+            ctx.setBlendMode(.clear)
+            let eye = recording ? MascotPaths.Eye.bounds.insetBy(dx: -1, dy: -1.5) : MascotPaths.Eye.bounds
+            for c in [MascotPaths.Eye.leftCenter, MascotPaths.Eye.rightCenter] {
+                ctx.fillEllipse(in: eye.offsetBy(dx: c.x, dy: c.y))
             }
             return true
         }
         img.isTemplate = true
+        img.accessibilityDescription = "Muselet"
         return img
+    }
+
+    /// Head blob plus both ears at their resting tilt (tips away from the centre).
+    static func headParts() -> [CGPath] {
+        let ears = [(MascotPaths.Ear.leftBase, MascotPaths.Ear.restTilt),
+                    (MascotPaths.Ear.rightBase, -MascotPaths.Ear.restTilt)].map { base, tilt -> CGPath in
+            var t = CGAffineTransform(translationX: base.x, y: base.y).rotated(by: tilt)
+            return MascotPaths.ear().copy(using: &t) ?? MascotPaths.ear()
+        }
+        return ears + [MascotPaths.body()]
     }
 }

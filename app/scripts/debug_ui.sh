@@ -16,7 +16,11 @@
 #   debug_ui.sh timer ["Tea"]                          # "Timer done" bubble (no timer runs)
 #   debug_ui.sh pill-hover [on|off]
 #   debug_ui.sh pill-typing open ["draft"] | close
-#   debug_ui.sh panel [home|settings]
+#   debug_ui.sh panel [open|close] [light|dark|system]  # menu-bar panel (Settings)
+#   debug_ui.sh perm-fake microphone|...|none          # show a permission as missing in the panel
+#   debug_ui.sh mascot-edge left|right|top|bottom      # drag the kitten past an edge (clamped)
+#   debug_ui.sh pill-slow on|off                       # 2 s typing open/close (mid-animation shots)
+#   debug_ui.sh icon-png DIR [recording]               # DIR/menubar-icon@1x.png, @2x.png
 set -euo pipefail
 cmd="${1:?cmd}"; shift || true
 json() { python3 -c 'import json,sys; print(json.dumps(dict(zip(sys.argv[1::2], sys.argv[2::2]))))' "$@"; }
@@ -57,11 +61,15 @@ case "$cmd" in
       *) echo "usage: debug_ui.sh pill-typing open [draft] | close" >&2; exit 2 ;;
     esac ;;
   panel)
-    page="${1:-home}"
-    case "$page" in
-      home|settings) info=$(json cmd panel page "$page") ;;
-      *) echo "usage: debug_ui.sh panel [home|settings]" >&2; exit 2 ;;
+    state="${1:-open}"
+    case "$state" in
+      open|close) info=$(json cmd panel state "$state" appearance "${2:-}") ;;
+      *) echo "usage: debug_ui.sh panel [open|close] [light|dark|system]" >&2; exit 2 ;;
     esac ;;
+  perm-fake)   info=$(json cmd perm_fake kind "${1:-none}") ;;
+  mascot-edge) info=$(json cmd mascot_edge edge "${1:-left}") ;;
+  pill-slow)   info=$(json cmd pill_slow on "$([ "${1:-on}" = off ] && echo false || echo true)") ;;
+  icon-png)    info=$(json cmd icon_png dir "${1:?dir}" recording "$([ "${2:-}" = recording ] && echo true || echo false)") ;;
   *) echo "unknown cmd $cmd" >&2; exit 2 ;;
 esac
 osascript -l JavaScript - "$info" <<'JXA'
