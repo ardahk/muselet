@@ -368,6 +368,8 @@ _APP_ALIASES = {"finder": "Finder", "chrome": "Google Chrome",
                 "premiere": "Adobe Premiere Pro",
                 "premiere pro": "Adobe Premiere Pro"}
 APPS_TTL_S = 60
+LAUNCH_AX_TIMEOUT_S = 2.0
+LAUNCH_AX_POLL_S = 0.1
 
 
 def app_in(text: str, names: list[str]) -> str | None:
@@ -496,6 +498,7 @@ class Orchestrator:
         self._utterance = ""
         self._diff_chain: list[str] | None = None
         self._apps: tuple[float, list[str]] | None = None   # (t, names)
+        self._launch_pending = False
         self._collect: list[str] | None = None   # compound: replies to join
         self._last_skill: tuple[str, dict, dict] | None = None
         self._compound_to_planner = False
@@ -699,10 +702,14 @@ class Orchestrator:
                     if memory_result and memory_result.changed:
                         text = memory_result.text
                         self._utterance = text
+                    from .tools import compose_text
                     if (msg := comms.parse_message(text)) is not None and \
                             msg.get("channel") in (None, "messages"):
                         trace["decisions"].append({"message_redirect": msg})
                         outcome = await comms.start(self, msg, text)
+                    elif (nargs := compose_text.parse_request(text)) is not None:
+                        trace["decisions"].append({"compose_redirect": nargs})
+                        outcome = await self._brain_tool("compose_text", nargs, text)
                     elif (calc_result := calc.result(text)) is not None and \
                             calc_result.value is not None and (
                             str(self._ctx.get("app", "")).casefold() == "calculator"
@@ -1383,6 +1390,51 @@ class Orchestrator:
             if key:
                 out.add(key)
         return out
+
+    async def _resolve_open(self, method: str, params: dict) -> dict | None:
+        skill = method == "skill" and params.get("name") == "open_app"
+        if not skill and not (method == "act" and params.get("op") == "open"):
+            return params
+        args = params.get("args", {}) if skill else params
+        name = str(args.get("app") or args.get("name") or args.get("target") or "")
+        names = await self._app_names()
+        if not names or self._apps is None:
+            return params
+        def key(value):
+            return re.sub(r"[\W_]+", "", re.sub(
+                r"\.app$", "", value, flags=re.IGNORECASE).lower())
+        by_key = {key(n): n for n in names}
+        resolved = name if name in names else by_key.get(key(name))
+        aliases = {"vscode": "Visual Studio Code", "chrome": "Google Chrome",
+                   "settings": "System Settings", "preferences": "System Settings"}
+        if resolved is None:
+            targets = {key(n) for n in self._NATIVE_APP_ALIASES.get(key(name), set())}
+            resolved = by_key.get(key(aliases.get(key(name), "")))
+            resolved = resolved or next((n for n in names if key(n) in targets), None)
+        if resolved is None:
+            await self.server.say("Which app?")
+            await self.server.ui("listening")
+            return None
+        args = dict(args, app=resolved)
+        return dict(params, args=args) if skill else args
+
+    def _note_launch(self, method: str, params: dict, result: dict):
+        if result.get("ok") and (
+                (method == "act" and params.get("op") == "open") or
+                (method == "skill" and params.get("name") == "open_app")):
+            self._launch_pending = True
+
+    async def _wait_launch_ax(self, obs: dict | None) -> dict | None:
+        self._launch_pending = False
+        try:
+            async with asyncio.timeout(LAUNCH_AX_TIMEOUT_S):
+                while obs and (obs.get("window_source") == "none" or
+                               not obs.get("elements")):
+                    await asyncio.sleep(LAUNCH_AX_POLL_S)
+                    obs = await self._observe_once() or obs
+        except TimeoutError:
+            pass
+        return obs
 
     _NATIVE_APP_ALIASES = {
         "zoom": {"zoom.us"},
@@ -2684,6 +2736,9 @@ function run() {
     async def _rpc_action(self, method: str, params: dict,
                           action: dict) -> dict:
         """send act/skill rpc; verify expect afterwards."""
+        params = await self._resolve_open(method, params)
+        if params is None:
+            return {"status": "awaiting_user"}
         if self._first_action_ms is None:
             self._first_action_ms = (time.perf_counter() - self._t_final) * 1000
         t = time.perf_counter()
@@ -2696,6 +2751,7 @@ function run() {
             return {"status": "failed", "error": str(e)}
         self.tracer.rpc(method, params, self._trace_res(res),
                         (time.perf_counter() - t) * 1000)
+        self._note_launch(method, params, res)
         if res.get("epoch"):
             self._last_epoch = res["epoch"]
         # act diffs chain into the next planner observation (skills and
@@ -2913,6 +2969,9 @@ function run() {
             if not verify_mode:
                 last_exp_ok = False
                 last_exp_source = None
+            if self._launch_pending:
+                diffs = None
+                next_obs = None
             if next_obs is not None:
                 obs = next_obs
                 next_obs = None
@@ -2938,6 +2997,12 @@ function run() {
                     self._last_obs = obs
                 elif not obs_text:
                     obs_text = "(no observation available)"
+            if self._launch_pending:
+                obs = await self._wait_launch_ax(self._last_obs)
+                if obs:
+                    self._last_obs = obs
+                    obs_text = str(obs.get("text") or "")
+                    obs_fresh = True
             if await self._permission_gate(
                     self._last_obs if obs_fresh else None, text):
                 return "awaiting_user"
@@ -3604,6 +3669,9 @@ function run() {
                 params["epoch"] = self._last_epoch
             t = time.perf_counter()
             try:
+                params = await self._resolve_open("act", params)
+                if params is None:
+                    return "awaiting_user"
                 res = await self.server.rpc("act", params, timeout=15)
             except RuntimeError as e:
                 self.tracer.rpc("act", params, {"error": str(e)},
@@ -3611,6 +3679,7 @@ function run() {
                 return await self._fail(str(e))
             self.tracer.rpc("act", params, self._trace_res(res),
                             (time.perf_counter() - t) * 1000)
+            self._note_launch("act", params, res)
             if res.get("epoch"):
                 self._last_epoch = res["epoch"]
             if not res.get("ok", False):
@@ -3750,12 +3819,17 @@ function run() {
                 (time.perf_counter() - self._t_final) * 1000
         t = time.perf_counter()
         try:
+            params = await self._resolve_open("skill", {"name": name, "args": args})
+            if params is None:
+                return "awaiting_user"
+            args = params["args"]
             res = await self.server.rpc(
                 "skill", {"name": name, "args": args}, timeout=45)
         except RuntimeError as e:
             res = {"ok": False, "error": str(e)}
         self.tracer.rpc("skill", {"name": name, "args": args},
                         self._trace_res(res), (time.perf_counter() - t) * 1000)
+        self._note_launch("skill", {"name": name}, res)
         if res.get("error") == "not_frontmost":
             if self.tracer.current is not None:
                 self.tracer.current["decisions"].append(

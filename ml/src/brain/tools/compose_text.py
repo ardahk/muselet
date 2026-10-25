@@ -17,6 +17,22 @@ SYSTEM = (
 )
 
 
+def parse_request(text: str) -> dict | None:
+    text = text.strip().rstrip(".!?")
+    match = re.fullmatch(
+        r"open\s+(?:up\s+)?(?:the\s+)?notes(?:\s+app)?\s*,?\s+"
+        r"(?:and(?:\s+then)?|then)\s+(?:write|make|create|draft)\s+(.+)",
+        text, re.IGNORECASE)
+    if match is None:
+        match = re.fullmatch(
+            r"(?:write|make|create|draft)\s+(.+?)\s+(?:in|on|into)\s+"
+            r"(?:(?:my|a|the)\s+)?(?:apple\s+)?notes(?:\s+app)?",
+            text, re.IGNORECASE)
+    if match is None:
+        return None
+    return {"target": "note", "topic": match.group(1).strip()}
+
+
 def _cap_words(text: str) -> str:
     lines = text.strip().splitlines()
     kept: list[str] = []
