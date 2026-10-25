@@ -1,6 +1,6 @@
-# training lane digest — pass 53 (main 0b83c3b)
+# training lane digest — pass 54 (main 8fb465c)
 
-Open: 0 P0, 14 P1, 17 P2. No new findings; it3 serve path intact after planner-verify merge; training-49/50 still open on main.
+Open: 0 P0, 14 P1, 17 P2. No new findings. training-47 and training-48 updated: it3's route_v2 lead and it2's new tau .35 both rest on near-dup-leaky sets.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
