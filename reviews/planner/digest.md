@@ -1,16 +1,14 @@
-# Planner review digest — pass 59 (2026-10-25T02:20Z)
+# Planner review digest — pass 60 (2026-10-25T02:35Z)
 
-Branches moved since pass 58: main 19d57fb→f5b4606, wip/local 8a197f8→c49bf0e.
-- main 69a9650: harness wait_disconnected latch (proxy slot release). Not planner path.
-- main f5b4606: comment-only orchestrator change + paraphrased brightness regression tests (keeps sealed HobbyLM utterances out of repo). No planner behavior change.
-- wip c49bf0e: main + bench/hobbylm/replay.py only. No finding.
-- Re-checked on main f5b4606: `self_verified` still DONE evidence (planner-40, 2 hits), THINK_SAMPLER default qwen (planner-44), planner-ok memory writes unchanged (planner-45).
+Branches moved since pass 59: main f5b4606→55e38f9, wip/local c49bf0e→fd357b3 (= main content).
+- main 55e38f9: bench/hobbylm/replay.py calendar precondition fix (ISO8601 parse of naive isoformat). Harness only; no planner/DSL/prompt/catalog/HandsKit/serve change. No finding.
+- Re-checked on main 55e38f9: `self_verified` still DONE evidence (planner-40, 2 hits), THINK_SAMPLER default qwen (planner-44), planner-ok memory writes unchanged (planner-45).
 
 New: 0. Resolved: 0. Open: 0 P0, 11 P1, 8 P2.
 Lead decision: greedy think sampler; persist memory/workflows only after verified DONE.
 
 ---
-## Open findings (unchanged from pass 56, re-checked pass 59)
+## Open findings (unchanged from pass 56, re-checked pass 60)
 
 Open P0: none.
 
