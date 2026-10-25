@@ -1062,8 +1062,12 @@ class Orchestrator:
                     if (pargs := premiere_edit.parse_request(
                             text, self._ctx)) is not None:
                         trace["decisions"].append({"premiere_redirect": pargs})
-                        outcome = await self._brain_tool(
-                            "premiere_edit", pargs, text)
+                        if self._agentic_app("premiere_edit"):
+                            outcome = await self._agentic_route(
+                                "premiere_edit", {}, text, trace)
+                        else:
+                            outcome = await self._brain_tool(
+                                "premiere_edit", pargs, text)
                     elif (page := self._page_task_for(text)):
                         self._page_task = page
                         self._force_blind = True
@@ -1133,7 +1137,7 @@ class Orchestrator:
                                     {"premiere_redirect": pargs})
                                 if self._agentic_app("premiere_edit"):
                                     outcome = await self._agentic_route(
-                                        "premiere_edit", pargs, text, trace)
+                                        "premiere_edit", {}, text, trace)
                                 else:
                                     outcome = await self._brain_tool(
                                         "premiere_edit", pargs, text)
@@ -1653,7 +1657,7 @@ class Orchestrator:
                 trace["decisions"].append({"premiere_redirect": pargs})
                 if self._agentic_app("premiere_edit"):
                     return await self._agentic_route(
-                        "premiere_edit", pargs, text, trace)
+                        "premiere_edit", {}, text, trace)
                 return await self._brain_tool("premiere_edit", pargs, text)
         from .tools import draft_email
         dargs = None if messaging else \
