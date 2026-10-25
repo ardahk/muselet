@@ -305,7 +305,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             TimerSettings.useClock = on
             self.rpc.skills.clock.enabled = on
             self.model.useClockTimers = on
-            self.model.log(.system, on ? "timers: Clock app when the shortcut is installed" : "timers: Muselet")
+            self.model.log(.system, on ? "timers: Clock app (Accessibility or shortcut)" : "timers: Muselet")
         }
         a.refreshTimerBackend = { [weak self] refresh in self?.refreshTimerBackend(refresh: refresh) }
         a.openShortcuts = { NSWorkspace.shared.open(TimerSettings.shortcutsURL) }

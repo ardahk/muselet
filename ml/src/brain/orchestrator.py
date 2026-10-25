@@ -292,6 +292,52 @@ def _clean_answer(answer) -> str:
 
 _STOPWORDS = {"the", "and", "was", "were", "for", "with", "that", "this",
               "from", "has", "have", "are", "its", "it's", "on", "in", "of"}
+_QUESTION_COMMAND_WORDS = {
+    "when", "what", "who", "whom", "whose", "where", "which", "why",
+    "how", "look", "find", "search", "google", "check", "did", "does",
+    "many", "much", "tell", "out",
+}
+
+
+def _content_words(question: str) -> set[str]:
+    return {word for word in re.findall(r"[a-z0-9']+", question.lower())
+            if len(word) > 2 and word not in _STOPWORDS and
+            word not in _QUESTION_COMMAND_WORDS}
+
+
+def named_browser(text: str) -> str | None:
+    text = str(text or "")
+    unambiguous = (
+        (r"google\s+chrome", "Google Chrome"),
+        (r"chrome", "Google Chrome"),
+        (r"safari", "Safari"),
+        (r"firefox", "Firefox"),
+        (r"microsoft\s+edge", "Microsoft Edge"),
+        (r"brave\s+browser", "Brave Browser"),
+        (r"zen\s+browser", "Zen"),
+        (r"vivaldi", "Vivaldi"),
+    )
+    mentions = []
+    for alias, name in unambiguous:
+        match = re.search(rf"\b{alias}\b", text, re.IGNORECASE)
+        if match:
+            mentions.append((match.start(), name))
+    context = (r"\b(?:in|on|with|using|via|through|open|launch|from|use)"
+               r"\s+(?:the\s+)?")
+    contextual = (
+        (r"arc", "Arc"), (r"edge", "Microsoft Edge"),
+        (r"brave", "Brave Browser"), (r"zen", "Zen"),
+        (r"opera", "Opera"),
+    )
+    matches = []
+    for alias, name in contextual:
+        for match in re.finditer(
+                rf"{context}\b{alias}\b(?:\s+browser\b)?", text,
+                re.IGNORECASE):
+            matches.append((match.start(), name))
+    if matches:
+        return max(matches, key=lambda match: match[0])[1]
+    return min(mentions, default=(0, None), key=lambda match: match[0])[1]
 
 
 _JOIN = re.compile(r",?\s+(and\s+then|then|and)\s+", re.IGNORECASE)
@@ -389,6 +435,10 @@ def observation_blind(obs: dict | None) -> bool:
 
 class Orchestrator:
     WEB_AX_WINDOW_S = 2.2     # Chrome's web AX tree lands ~2 s after a switch
+    WEB_PAGE_CAP_S = 3.0
+    WEB_PAGE_POLL_S = 0.25
+    WEB_PAGE_MIN_S = 1.0
+    WEB_RICH_CHARS = 1500
     COMPOUND_P = 0.75         # every clause must route this confidently
     VERIFY_P = 0.5
     MAX_RECOVERY = 2
@@ -434,6 +484,7 @@ class Orchestrator:
         self._answer_history: list[str] = []
         self._last_action_error = None
         self._comms: dict | None = None
+        self._warm_tasks: set[asyncio.Task] = set()
         self._clock_hint_said = False
         self._hint_task: asyncio.Task | None = None
         self._draft: dict | None = None
@@ -1345,6 +1396,38 @@ class Orchestrator:
         }
         return browsers.get(key)
 
+    def _with_browser(self, args: dict, text: str) -> dict:
+        browser = named_browser(text)
+        if not browser or "browser" in args:
+            return args
+        args = dict(args, browser=browser)
+        if self.tracer.current is not None:
+            self.tracer.current.setdefault("decisions", []).append(
+                {"browser_arg": browser})
+        return args
+
+    async def warm_planner(self, planner, tag: str = "planner"):
+        if not callable(getattr(planner, "warm", None)):
+            return
+        try:
+            from .planner import worker
+            info = await worker().submit_async(planner.warm)
+            print(f"[{tag}] warm {info['warm_ms']} ms", flush=True)
+            self.tracer.event(
+                "planner.warm",
+                {"planner": tag, "model": getattr(planner, "model_path", None),
+                 **info})
+        except Exception as e:  # noqa: BLE001 - warm-up must not interrupt serving
+            log.warning("[%s] planner warm failed: %s", tag, e)
+
+    def _schedule_warm_planner(self, planner, tag: str = "planner"):
+        if not callable(getattr(planner, "warm", None)):
+            return None
+        task = asyncio.create_task(self.warm_planner(planner, tag))
+        self._warm_tasks.add(task)
+        task.add_done_callback(self._warm_tasks.discard)
+        return task
+
     @classmethod
     def _goal_mentions_browser(cls, text: str, browser: str) -> bool:
         key = normalize_name(browser)
@@ -2205,6 +2288,8 @@ function run() {
             label, skill_args = await self._rewrite_app_skill(
                 a["name"], a.get("args", {}), goal,
                 trace if trace is not None else {"decisions": []})
+            if label in ("open_url", "web_search"):
+                skill_args = self._with_browser(skill_args, goal)
             a["name"], a["args"] = label, skill_args
             if label == "type_text" and not self._signin_gate(
                     a["args"].get("text"), trace=trace, goal=goal):
@@ -2350,6 +2435,7 @@ function run() {
                         "from": value, "url": url}
         if op == "url":
             a["url"] = fix_url(a.get("url") or "")
+            a = self._with_browser(a, goal)
             self._last_url = str(a.get("url") or "")
         params = {k: v for k, v in a.items() if k != "op"}
         params["op"] = op
@@ -2714,6 +2800,7 @@ function run() {
                 await worker().submit_async(self._unload_escalation)
                 return {"loaded": False}
             self.planner_escalate = planner
+            self._schedule_warm_planner(planner, "planner-escalate")
             return {"loaded": True}
 
     def _unload_escalation(self):
@@ -3451,6 +3538,8 @@ function run() {
             if op == "url":
                 a = dict(a)
                 a["url"] = fix_url(a.get("url") or "")
+                a = self._with_browser(
+                    a, self._current_goal or self._utterance or "")
                 self._last_url = a["url"]
             elif op == "open":
                 a = dict(a)
@@ -3475,6 +3564,8 @@ function run() {
                             "from": value, "url": url}
                 if op == "url":
                     a["url"] = fix_url(a.get("url") or "")
+                    a = self._with_browser(
+                        a, self._current_goal or self._utterance or "")
                     self._last_url = a["url"]
             params = {k: v for k, v in a.items() if k != "op"}
             params["op"] = op
@@ -3543,6 +3634,9 @@ function run() {
         trace = self.tracer.current or {"decisions": []}
         name, args = await self._rewrite_app_skill(
             name, args, self._utterance, trace)
+        if name in ("open_url", "web_search"):
+            args = self._with_browser(
+                args, self._current_goal or self._utterance or "")
         from . import comms
         if comms.is_messaging(self._utterance or "") and \
                 name in ("compose_email", "draft_email"):
@@ -3694,10 +3788,10 @@ function run() {
     CLOCK_HINT_DELAY_S = 3.0
 
     async def _clock_hint(self, result) -> None:
-        """Once per brain session: the timer fell back to Muselet because
-        the Clock shortcut is missing -> point at Settings. Said after the
-        timer reply has been read, unless a new request started meanwhile."""
+        """Once per brain session: a Muselet fallback lacked the Clock start
+        shortcut -> point at Settings after the reply, unless a new request started."""
         if self._clock_hint_said or not isinstance(result, dict) or \
+                result.get("backend") != "muselet" or \
                 result.get("fallback_reason") != "shortcut_missing":
             return
         self._clock_hint_said = True
@@ -3739,24 +3833,72 @@ function run() {
             return ""
 
     async def _web_answer(self, question: str, trace: dict) -> str:
-        """Answer a question from the search results page (brain-8): web
-        AX text (OCR only when it's thin) -> planner model, page = data."""
+        """Answer from a populated web results page; page text is data."""
         t = time.perf_counter()
         obs = await self._observe()
+        samples = 1
         page = ""
         if obs:
             self._last_obs = obs
             page = str(obs.get("text") or "")
+        previous_len = None
+        while True:
+            pending = bool(obs and obs.get("web_ax_pending"))
+            words = _content_words(question)
+            rich = not pending and len(page) >= self.WEB_RICH_CHARS and \
+                bool(words & set(re.findall(r"[a-z0-9']+", page.lower())))
+            elapsed = time.perf_counter() - t
+            if rich or (
+                    not pending and previous_len is not None and
+                    len(page) <= previous_len and
+                    elapsed >= self.WEB_PAGE_MIN_S):
+                break
+            if pending:
+                previous_len = None
+            else:
+                previous_len = len(page)
+            remaining = self.WEB_PAGE_CAP_S - elapsed
+            if remaining <= 0:
+                break
+            await asyncio.sleep(min(self.WEB_PAGE_POLL_S, remaining))
+            obs = await self._observe_once()
+            samples += 1
+            page = str((obs or {}).get("text") or "")
+            if obs:
+                self._last_obs = obs
+
+        wait_ms = round((time.perf_counter() - t) * 1000, 1)
+        ax_page = page
+        ocr_page = ""
+        if not rich:
+            ocr_page = await self._window_ocr_text()
+        content = _content_words(question)
+
+        def hits(text):
+            tokens = set(re.findall(r"[a-z0-9']+", text.lower()))
+            return len(content & tokens)
+
+        ax_hits, ocr_hits = hits(ax_page), hits(ocr_page)
         ocr_used = False
-        if len(page.strip()) < 200:
-            text = await self._window_ocr_text()
-            if len(text.strip()) > len(page.strip()):
-                page, ocr_used = text, True
-        excerpt = _page_excerpt(page, question)
+        if ax_hits and ocr_hits:
+            page = (_page_excerpt(ax_page, question, 1500) +
+                    "\n--- screen text (OCR) ---\n" +
+                    _page_excerpt(ocr_page, question, 1500))
+            ocr_used = "both"
+            excerpt = page
+        elif (ocr_hits, len(ocr_page)) > (ax_hits, len(ax_page)):
+            page = ocr_page
+            ocr_used = "ocr"
+            excerpt = _page_excerpt(page, question)
+        else:
+            page = ax_page
+            excerpt = _page_excerpt(page, question)
         self.tracer.stage("web_answer.observe",
                           (time.perf_counter() - t) * 1000)
         trace["decisions"].append({"web_answer": {
-            "chars": len(excerpt), "ocr": ocr_used}})
+            "chars": len(excerpt), "ocr": ocr_used,
+            "ax_chars": len(ax_page), "ocr_chars": len(ocr_page),
+            "wait_ms": wait_ms, "samples": samples}})
         answer = ""
         if excerpt.strip():
             from .planner import worker

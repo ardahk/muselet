@@ -232,15 +232,19 @@ struct SettingsView: View {
     }
 
     private var timerStatusText: String {
-        guard let s = model.clockTimers else { return "Checking Shortcuts…" }
-        if !s.ready { return "Muselet timers (shortcut missing)" }
-        return model.useClockTimers ? "Timers go to the Clock app" : "Muselet timers"
+        if !model.useClockTimers { return "Muselet timers" }
+        guard let s = model.clockTimers else { return "Checking timer setup…" }
+        if s.axReady { return "Timers go to the Clock app" }
+        if s.ready { return "Timers go to the Clock app (shortcut)" }
+        return "Muselet timers (allow Accessibility)"
     }
 
     @ViewBuilder private var timerBadge: some View {
-        switch model.clockTimers?.ready {
-        case true?: Badge(text: "Clock ready", color: .green)
-        case false?: Badge(text: "Shortcut missing", color: .orange)
+        switch model.clockTimers {
+        case let status? where status.axReady || status.ready:
+            Badge(text: "Clock ready", color: .green)
+        case .some(_):
+            Badge(text: "Not ready", color: .orange)
         case nil: Badge(text: "checking", color: .secondary)
         }
     }

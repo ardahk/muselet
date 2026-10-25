@@ -154,7 +154,11 @@ def score_confidence(dist: dict[str, float]) -> float:
     return max(0.0, 1.0 - 2.0 * mad / (count - 1))
 
 
-def build_answer(question: Question | dict[str, Any], dist: dict[str, float]) -> dict[str, Any]:
+def build_answer(
+    question: Question | dict[str, Any],
+    dist: dict[str, float],
+    confidence_distribution: dict[str, float] | None = None,
+) -> dict[str, Any]:
     """Convert an option distribution to the upstream answer shape."""
     if isinstance(question, Question):
         kind, options, descriptions = question.type, question.options, question.descriptions
@@ -163,6 +167,7 @@ def build_answer(question: Question | dict[str, Any], dist: dict[str, float]) ->
         options = list(question["options"])
         descriptions = question.get("descriptions", {})
     probs = normalize(dist, options)
+    confidence_probs = normalize(confidence_distribution, options) if confidence_distribution else probs
     if kind == "noul":
         p_true = probs["true"]
         return {"type": "noul", "noul": p_true, "probabilities": {"false": probs["false"], "true": p_true}}
@@ -171,14 +176,14 @@ def build_answer(question: Question | dict[str, Any], dist: dict[str, float]) ->
             "type": "choice",
             "choice": max(probs, key=probs.__getitem__),
             "probabilities": probs,
-            "confidence": choice_confidence(probs),
+            "confidence": choice_confidence(confidence_probs),
         }
     return {
         "type": "score",
         "score": score_value(probs),
         "legend": {level: descriptions.get(level) for level in options},
         "probabilities": probs,
-        "confidence": score_confidence(probs),
+        "confidence": score_confidence(confidence_probs),
     }
 
 

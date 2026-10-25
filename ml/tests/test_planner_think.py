@@ -285,6 +285,9 @@ def test_cli_and_offline_flags_old_summary_and_escalation_inheritance(monkeypatc
         def _speculative_route(self, text, ctx=None):
             pass
 
+        def _schedule_warm_planner(self, planner, tag="planner"):
+            pass
+
     async def inputs():
         yield "stop"
 

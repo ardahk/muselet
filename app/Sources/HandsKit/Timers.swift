@@ -11,8 +11,8 @@ public final class TimerRegistry {
         public let total: Double
         public let startedAt: Date
         public let firesAt: Date
-        /// "muselet" (fires here) or "clock" (a record of a Clock.app timer
-        /// started through the shortcut; it never fires here).
+        /// "muselet" (fires here), "clock" (shortcut), or "clock_ax"
+        /// (Clock.app Accessibility); Clock timers never fire here.
         public var backend: String = "muselet"
     }
 

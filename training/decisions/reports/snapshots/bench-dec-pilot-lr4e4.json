@@ -1,0 +1,35 @@
+{
+  "sampler": "tinker://35f28b5d-15fc-5eb5-ade8-86264f1d4c5f:train:0/sampler_weights/dec-pilot-lr4e4-final",
+  "calibration": {
+    "temperature_probs": 1.0,
+    "temperature_conf": 1.0
+  },
+  "confidence": "Probabilities use T_p. Choice/score confidence is computed from a separate distribution using T_c; noul returns calibrated P(true) and has no confidence field.",
+  "benchmark_runs": [
+    {
+      "command": [
+        "bash",
+        "bench/run_jevbench.sh",
+        "--url",
+        "http://127.0.0.1:8795",
+        "--model",
+        "dec-pilot-lr4e4"
+      ],
+      "stdout": "[jevbench] adapter=typesafe endpoint=http://127.0.0.1:8795 tasks=72 cap=$15.0 ledger=/home/ubuntu/repos/muselet/runs/bench/jevbench/20261024T171848Z/original/ledger.jsonl\n10/72 completed\n20/72 completed\n30/72 completed\n40/72 completed\n50/72 completed\n60/72 completed\n70/72 completed\n[jevbench] done: 72/72 attempted, 0 failed; charged=$0.0000\n[jevbench] adapter=typesafe endpoint=http://127.0.0.1:8795 tasks=48 cap=$15.0 ledger=/home/ubuntu/repos/muselet/runs/bench/jevbench/20261024T171848Z/easy/ledger.jsonl\n10/48 completed\n20/48 completed\n30/48 completed\n40/48 completed\n[jevbench] done: 48/48 attempted, 0 failed; charged=$0.0000\n[jevbench] adapter=typesafe endpoint=http://127.0.0.1:8795 tasks=111 cap=$15.0 ledger=/home/ubuntu/repos/muselet/runs/bench/jevbench/20261024T171848Z/hard/ledger.jsonl\n10/111 completed\n20/111 completed\n30/111 completed\n40/111 completed\n50/111 completed\n60/111 completed\n70/111 completed\n80/111 completed\n90/111 completed\n100/111 completed\n110/111 completed\n[jevbench] done: 111/111 attempted, 0 failed; charged=$0.0000\n{\n  \"original\": {\n    \"n\": 72,\n    \"scorable\": 72,\n    \"accuracy\": 0.8888888888888888,\n    \"brier\": 0.1330426280506781,\n    \"ece\": 0.05719283555236733,\n    \"valid_distributions\": 72,\n    \"latency\": {\n      \"n\": 72,\n      \"p50_s\": 6.491923280498668,\n      \"p95_s\": 7.4740537365516495\n    }\n  },\n  \"easy\": {\n    \"n\": 48,\n    \"scorable\": 48,\n    \"accuracy\": 1.0,\n    \"brier\": 0.00443120820266225,\n    \"ece\": 0.011662344814496595,\n    \"valid_distributions\": 48,\n    \"latency\": {\n      \"n\": 48,\n      \"p50_s\": 6.484072276000006,\n      \"p95_s\": 7.492326320249594\n    }\n  },\n  \"hard\": {\n    \"n\": 111,\n    \"scorable\": 111,\n    \"accuracy\": 0.6036036036036037,\n    \"brier\": 0.46285176267724304,\n    \"ece\": 0.12818741863660643,\n    \"valid_distributions\": 111,\n    \"latency\": {\n      \"n\": 111,\n      \"p50_s\": 6.490890982000565,\n      \"p95_s\": 7.50330815649977\n    }\n  },\n  \"total\": {\n    \"n\": 231,\n    \"scorable\": 231,\n    \"accuracy\": 0.7748917748917749,\n    \"brier\": 0.26479789121450475,\n    \"ece\": 0.06407625739581986,\n    \"valid_distributions\": 231,\n    \"latency\": {\n      \"n\": 231,\n      \"p50_s\": 6.490748493997671,\n      \"p95_s\": 7.497264022998934\n    }\n  }\n}\n/home/ubuntu/repos/muselet/runs/bench/jevbench/20261024T171848Z\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bash",
+        "bench/run_typed_decisions.sh",
+        "--url",
+        "http://127.0.0.1:8795",
+        "--model",
+        "dec-pilot-lr4e4"
+      ],
+      "stdout": "{\n  \"model\": \"dec-pilot-lr4e4\",\n  \"dataset\": \"LocalLLaMA/typed-decisions\",\n  \"revision\": \"80cb93ae477fdfc91e3b6114f7a281c444dda843\",\n  \"n_cases\": 400,\n  \"n_decisions\": 2000,\n  \"normalized_answers\": {\n    \"noul_from_value\": 0,\n    \"score_onehot_from_value\": 0\n  },\n  \"overall\": {\n    \"n\": 2000,\n    \"accuracy\": 0.6575,\n    \"kl_from_gold\": 0.40812185933423006,\n    \"brier\": 0.20150144678723658,\n    \"ece\": 0.07383779487796405\n  },\n  \"by_question_type\": {\n    \"choice\": {\n      \"n\": 600,\n      \"accuracy\": 0.6533333333333333,\n      \"kl_from_gold\": 0.46459590102067666,\n      \"brier\": 0.19508426381829413,\n      \"ece\": 0.06330515067740487\n    },\n    \"noul\": {\n      \"n\": 600,\n      \"accuracy\": 0.67,\n      \"kl_from_gold\": 0.3966741039730917,\n      \"brier\": 0.26011494821100356,\n      \"ece\": 0.14832346505877037\n    },\n    \"score\": {\n      \"n\": 800,\n      \"accuracy\": 0.65125,\n      \"kl_from_gold\": 0.3743521445902489,\n      \"brier\": 0.16235420794611816,\n      \"ece\": 0.04908959935293513\n    }\n  },\n  \"request_latency_s\": {\n    \"n\": 400,\n    \"p50\": 6.5925853834996815,\n    \"p95\": 6.821549205497467\n  }\n}\nruns/bench/typed_decisions/20261024T174442Z\n",
+      "stderr": ""
+    }
+  ],
+  "route_v1": "Not scored: route_v1 rows are utterance/context/label/args records, not System One state/questions requests. Scoring requires cloud route rendering and label-space mapping; that renderer was not duplicated."
+}

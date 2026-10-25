@@ -130,6 +130,7 @@ async def serve(port: int = 8765, model: str | None = None,
     esc = {**ESCALATE_OPTS, **{k: v for k, v in (planner_kw or {}).items()
                                if k.startswith("think_")}}
     orch.escalate_opts = esc
+    orch._schedule_warm_planner(planner)
     orch.escalate_model = escalate_model or \
         "mlx-community/Qwen3.6-35B-A3B-4bit"
     if grounder is not None:
@@ -145,6 +146,8 @@ async def serve(port: int = 8765, model: str | None = None,
     if planner and escalate_model:    # loaded now, kept resident
         orch.planner_escalate = make_planner(
             escalate_model, engine, esc, tag="planner-escalate")
+        orch._schedule_warm_planner(
+            orch.planner_escalate, "planner-escalate")
 
     async def on_utt(text: str, final: bool, ctx: dict | None = None):
         print(f"[utterance] {text} ctx={ctx}", flush=True)

@@ -31,6 +31,7 @@ public protocol Element: AnyObject {
     func isSettable(_ name: String) -> Bool
     /// Fetch a single attribute on demand (used sparingly, e.g. menu bar).
     func copySingleAttr(_ name: String) -> Any?
+    func actionNames() -> [String]
     /// Identity token for session bookkeeping (CFHash for AXUIElement).
     var stableId: Int { get }
     /// False once the underlying UI element is destroyed
@@ -41,6 +42,7 @@ public protocol Element: AnyObject {
 public extension Element {
     func setMessagingTimeout(_ seconds: Float) {}
     func copySingleAttr(_ name: String) -> Any? { nil }
+    func actionNames() -> [String] { [] }
     var stableId: Int { ObjectIdentifier(self).hashValue }
     func isAlive() -> Bool { true }
 }
@@ -107,6 +109,14 @@ public final class AXNode: Element {
     public func performAction(_ name: String) -> Bool {
         if !timeoutSet { setMessagingTimeout(0.25) }
         return AXUIElementPerformAction(el, name as CFString) == .success
+    }
+
+    public func actionNames() -> [String] {
+        if !timeoutSet { setMessagingTimeout(0.25) }
+        var names: CFArray?
+        guard AXUIElementCopyActionNames(el, &names) == .success,
+              let values = names as? [String] else { return [] }
+        return values
     }
 
     public func setAttr(_ name: String, _ value: Any?) -> Bool {

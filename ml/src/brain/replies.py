@@ -43,7 +43,7 @@ def _dur_words(v) -> str:
 
 
 # Once per brain session, after a start_timer fallback for a missing shortcut.
-CLOCK_HINT = "Add the Clock shortcut in Settings to use the Clock app"
+CLOCK_HINT = "Allow Accessibility or add the Clock shortcut in Settings"
 
 
 def _timer_text(a: dict, result) -> str:
