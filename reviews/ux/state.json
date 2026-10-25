@@ -1,9 +1,9 @@
 {
-  "pass": 66,
-  "ts": "2026-10-25T04:24:00Z",
+  "pass": 67,
+  "ts": "2026-10-25T04:39:00Z",
   "last_reviewed": {
-    "main": "dc6f2f5",
-    "wip/local": "6a1f942",
+    "main": "82c9810",
+    "wip/local": "5b656ef",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -86,7 +86,8 @@
     "cloud/test-strategy": "96c96d2",
     "cloud/open-ended": "0d687d2",
     "cloud/planner-aux": "387c3b4",
-    "cloud/premiere-demo": "a1c0f04"
+    "cloud/premiere-demo": "a1c0f04",
+    "cloud/premiere-route-fix": "7769c32"
   },
-  "notes": "pass 66: main dc6f2f5 merged fallback, open-ended, fix-same-tab, fix-pending, hands-clock-verify, design-polish, premiere-demo. Premiere copy is good: specific confirms ('Let Muselet edit <project>?', 'Premiere: export to Desktop?'), an 'Exporting\u2026' progress bubble, and actionable errors ('Select a clip first', 'Put the playhead on a cut first'). ux-25 and ux-30 are now live on main; ux-28 is still there (orchestrator.py:2642)."
+  "notes": "pass 67: main 82c9810 treats chrome-only AX trees as blind, so Spotify and other CEF apps take the grounder path; updated ux-20 (cold load). premiere-route-fix 7769c32 is routing order only and adds no reply text."
 }
