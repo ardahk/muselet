@@ -4,7 +4,7 @@ import pytest
 
 from brain.catalog import Catalog
 from brain.orchestrator import Orchestrator
-from brain.tools import premiere_edit
+from brain.tools import compose_text, draft_email, premiere_edit
 from brain.traces import Tracer
 from fakes import FakeServer
 
@@ -110,6 +110,11 @@ def test_project_confirmation_is_once_per_project_title(tmp_path, monkeypatch):
 def test_both_existing_redirect_sites_dispatch_premiere_edit(tmp_path, monkeypatch):
     orch = make_orch(tmp_path)
     calls = []
+
+    monkeypatch.setattr(compose_text, "parse_request", lambda _text: pytest.fail(
+        "Premiere redirect must precede compose_text"))
+    monkeypatch.setattr(draft_email, "parse_request", lambda *_args: pytest.fail(
+        "Premiere redirect must precede draft_email"))
 
     async def brain_tool(name, args, text):
         calls.append((name, args, text))

@@ -75,7 +75,10 @@ def make_planner(pmodel: str, engine=None, opts: dict | None = None,
                  tag: str = "planner"):
     from .planner import Planner
     planner = Planner(pmodel, Catalog.load(), engine=engine, **(opts or {}))
-    print(f"[{tag}] {pmodel} {planner.settings()}", flush=True)
+    if tag == "planner-aux":
+        print(f"[{tag}] {pmodel} (separate)", flush=True)
+    else:
+        print(f"[{tag}] {pmodel} {planner.settings()}", flush=True)
     return planner
 
 
@@ -106,7 +109,8 @@ async def serve(port: int = 8765, model: str | None = None,
                 memory_enabled: bool = True,
                 memory_llm: bool = True,
                 longterm_enabled: bool = True,
-                verify_done: bool = True):
+                verify_done: bool = True,
+                planner_aux_model: str | None = "planner"):
     server = BrainServer(port=port)
     await server.start()
     engine = None
@@ -121,6 +125,25 @@ async def serve(port: int = 8765, model: str | None = None,
         planner = make_planner(pmodel, engine, planner_kw)
     orch = Orchestrator(server, Catalog.load(), Tracer(), engine=engine)
     orch.planner = planner
+    if planner is None:
+        orch.planner_aux = None
+        print("[planner-aux] none", flush=True)
+    elif planner_aux_model is None or planner_aux_model == "planner":
+        orch.planner_aux = planner
+        print(f"[planner-aux] {pmodel} (shared)", flush=True)
+    else:
+        aux_path = _resolve_model(planner_aux_model)
+        if aux_path == pmodel:
+            orch.planner_aux = planner
+            print(f"[planner-aux] {aux_path} (shared)", flush=True)
+        elif aux_path is None:
+            orch.planner_aux = None
+            print("[planner-aux] none", flush=True)
+        else:
+            orch.planner_aux = make_planner(
+                aux_path, engine,
+                {"few_shot": None, "constrain": False},
+                tag="planner-aux")
     orch.memory_enabled = memory_enabled
     orch.memory_llm = memory_llm
     orch.longterm_enabled = bool(longterm_enabled and memory_enabled)
@@ -333,6 +356,13 @@ def build_parser(argv=None):
                    help="model for ARGS; default: same as --model")
     s.add_argument("--planner-model", default=None,
                    help="planner model; default: cached Qwen3.5-4B-4bit")
+    s.add_argument("--planner-aux-model",
+                   default="mlx-community/Qwen3.5-4B-4bit",
+                   metavar="PATH|planner",
+                   help=("model for non-planning text/decide calls (memory "
+                         "rewrite, verify-done, web answers, compose_text, "
+                         "email bodies, fallback answers); `planner` = reuse "
+                         "the planner model"))
     s.add_argument("--verify-done", choices=("on", "off"), default="on",
                    help="verify planner done (expect or model check) + bounded recovery; off = old behaviour")
     s.add_argument("--planner-constrain", action=argparse.BooleanOptionalAction,
@@ -398,7 +428,8 @@ def run_cmd(args, ap):
         asyncio.run(serve(
             args.port, m, args.planner_model, planner_opts(args),
             args_model=am, escalate_model=em, grounder=grounder_cfg(args),
-            verify_done=args.verify_done == "on", **memory_kw))
+            verify_done=args.verify_done == "on",
+            planner_aux_model=args.planner_aux_model, **memory_kw))
     elif args.cmd == "eval-route":
         eval_route(args.model, args.cases, args.out,
                    tau=getattr(args, "tau", 0.55), args_model=args.args_model)

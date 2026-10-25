@@ -240,6 +240,65 @@ def test_memory_request_delete_and_clear_protocol_shape(tmp_path):
     asyncio.run(run())
 
 
+def test_forget_everything_wipes_memories_workflows_and_plan_bank(
+        tmp_path, monkeypatch):
+    from brain.plan_bank import Demo, PlanBank
+
+    async def run():
+        db_path = tmp_path / "memory.db"
+        workflows_path = tmp_path / "workflows.jsonl"
+        monkeypatch.setenv("MUSELET_MEMORY_DB", str(db_path))
+        store = MemoryStore(db_path)
+        fact = store.upsert("fact", "tea", "green tea")
+        store.upsert("workflow", "morning routine", "open calendar")
+        workflows_path.write_text(
+            json.dumps({"goal": "open calendar", "source": "memory"}) + "\n",
+            encoding="utf-8")
+        server = FakeServer()
+        orch = Orchestrator(
+            server, Catalog.load(), Tracer(tmp_path / "traces"),
+            longterm_store=store)
+
+        def plan_bank():
+            class Planner:
+                pass
+
+            planner = Planner()
+            planner.plan_bank = PlanBank([
+                Demo("Open Calendar", "Finder", "user", "app: Finder",
+                     ["open Calendar"], source="memory"),
+                Demo("Open Notes", "Finder", "v2-tune", "app: Finder",
+                     ["open Notes"], source="v2"),
+            ])
+            return planner
+
+        orch.planner = plan_bank()
+        orch._last_memory_ids = [fact["id"]]
+        assert orch.memory_request({"op": "clear"}) == {"items": []}
+        assert store.list() == []
+        assert not workflows_path.exists()
+        assert [demo.source for demo in orch.planner.plan_bank.demos] == ["v2"]
+        assert orch._last_memory_ids == []
+
+        store.upsert("fact", "tea", "green tea")
+        store.upsert("workflow", "morning routine", "open calendar")
+        workflows_path.write_text(
+            json.dumps({"goal": "open calendar", "source": "memory"}) + "\n",
+            encoding="utf-8")
+        orch.planner = plan_bank()
+        orch._last_memory_ids = [1]
+        orch.memory = WorkingMemory()
+        server.confirm_yes = True
+        await orch.handle_utterance("forget everything", {"app": "Finder"})
+        assert store.list() == []
+        assert not workflows_path.exists()
+        assert [demo.source for demo in orch.planner.plan_bank.demos] == ["v2"]
+        assert orch._last_memory_ids == []
+        store.close()
+
+    asyncio.run(run())
+
+
 def test_voice_forget_requires_confirmation_and_supports_last_turn_ids(tmp_path):
     async def run():
         store = MemoryStore(tmp_path / "memory.db")
