@@ -1,9 +1,9 @@
 {
-  "pass": 69,
-  "ts": "2026-10-25T05:09:00Z",
+  "pass": 70,
+  "ts": "2026-10-25T05:25:00Z",
   "last_reviewed": {
     "main": "e425cad",
-    "wip/local": "80c871c",
+    "wip/local": "323d274",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -89,5 +89,5 @@
     "cloud/premiere-demo": "a1c0f04",
     "cloud/premiere-route-fix": "7769c32"
   },
-  "notes": "pass 69: main e425cad (#86) is identical to the wip c156d18 code reviewed in pass 68. wip 80c871c only edits a test. No new findings."
+  "notes": "pass 70: wip 323d274 adds the blind planner (base model, few-shot, think 512 on all turns, batch cap 2) for blind/open-ended/fallback tasks; reopened ux-29 for it. finish_when criteria and the app-only-expect verification tightening help accuracy and add no copy."
 }
