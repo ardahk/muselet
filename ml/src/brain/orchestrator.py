@@ -3384,9 +3384,17 @@ function run() {
                 if self.tracer.current is not None:
                     self.tracer.current.setdefault("decisions", []).append(
                         {"web_ui_guard": {"url": a["url"]}})
-                return {"status": "failed", "error": WEB_UI_ERROR,
+                # already on that site's results page -> press a result
+                pages = [self._last_ok_url,
+                         (self._page_task or {}).get("url"),
+                         self._focus_ctx.get("url")]
+                results_open = any(
+                    _URL_SEARCH.search(str(p) or "") for p in pages)
+                err = ("the search results are already open; press a "
+                       "result link" if results_open else WEB_UI_ERROR)
+                return {"status": "failed", "error": err,
                         "_no_strike": True,
-                        "_log": f"{dsl_line}-> failed: {WEB_UI_ERROR}"}
+                        "_log": f"{dsl_line}-> failed: {err}"}
             self._last_url = str(a.get("url") or "")
             in_task = (
                 not self._page_task and self._last_ok_url and
@@ -4122,6 +4130,7 @@ function run() {
         self._auto_evidence = False
         if not answer:
             self._task_notes = []
+        self._done_summary = None
         from . import dsl
         from .planner import worker
         goal = text
