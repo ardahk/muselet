@@ -1,9 +1,9 @@
 {
-  "pass": 97,
-  "ts": "2026-10-25T12:29:20Z",
+  "pass": 98,
+  "ts": "2026-10-25T12:46:21Z",
   "last_reviewed": {
-    "main": "2de65a9",
-    "wip/local": "7b8f421",
+    "main": "d09f4d8",
+    "wip/local": "01a929c",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -99,6 +99,6 @@
     "cloud/native-tools": "6053e4e",
     "cloud/ui-progress": "a66166b"
   },
-  "next_id": 60,
-  "note": "pass 97: main unchanged. wip/local 7b8f421 (local main@e781dc1): grounded click resolved to exact AX ref re-enters _exec_action as press (orchestrator.py:3351-3361), so _DANGEROUS_LABEL confirm at 3406 still applies; forced OCR context via fenced _planner_context_block when AX text <200 chars. No new finding."
+  "next_id": 61,
+  "note": "pass 98: main d09f4d8 (#130 AXLoaded page-load + README rebrand) -> new evals-safety-60. wip/local 01a929c (local main@264cc82): AX-first click docs, Numbers SORT/SORTBY cheat sheet + prompt-contract tests, no engine; no new finding."
 }
