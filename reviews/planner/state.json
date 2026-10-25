@@ -1,5 +1,5 @@
 {
- "pass": 78,
+ "pass": 79,
  "reviewed": {
   "cloud/advisor": "9432c30",
   "cloud/advisor-2": "0a65f75",
@@ -46,8 +46,8 @@
   "cloud/report": "dffa733",
   "cloud/report-2": "3c25e78",
   "cloud/w9-safety": "6aa332a",
-  "main": "cf33215",
-  "wip/local": "11da94c",
+  "main": "cef8797",
+  "wip/local": "c86fec4",
   "cloud/memory": "a8af560",
   "cloud/memory-eval": "c05944e",
   "cloud/memory-lt": "4794e8a",
@@ -91,7 +91,8 @@
   "cloud/agentic-apps": "1904638",
   "cloud/agentic-evidence": "1918cad",
   "cloud/app-knowhow": "c69dfec",
-  "cloud/browser-flow": "485763f"
+  "cloud/browser-flow": "485763f",
+  "cloud/docs-final": "bf9118d"
  },
- "ts": "2026-10-25T07:40:00Z"
+ "ts": "2026-10-25T07:55:00Z"
 }

@@ -1,14 +1,12 @@
-# Planner review digest — pass 78 (2026-10-25T07:40Z)
+# Planner review digest — pass 79 (2026-10-25T07:55Z)
 
-Moved: main 3a0860c→cf33215 (merged agentic-evidence, app-knowhow, browser-flow, obs-labels, control-labels #99); wip 11da94c (= main).
-- planner-52 (P1, new): Web UI guard blocks every same-host URL with '?' (youtube watch?v=, Sheets edit?gid=) and doesn't count it as a strike.
-- planner-50 (P1, worse): play goals now auto-finish on any Pause button, with no subject check.
-- planner-53 (P2, new): dial `type` reports ok without reaching the target; the focus fallback clicks a slider's centre.
-- planner-54 (P2, new): nearby-static-text labels cost AX IPC per sibling and can label icon buttons with the row text.
-- OK: timer_start auto-done now ignores editable label fields; the address-bar query guard only fires when the field already holds a URL.
-- planner-40/45/46/47/48/51 unchanged.
+Moved: main cf33215→cef8797 (5d135d0 agentic-fixes2 brief; cef8797 forces the 35B for agentic app tasks and timer controls); wip c86fec4 (= 5d135d0); new docs-final bf9118d (docs only).
+- planner-51 (P1, worse): every agentic app task and timer control now plans on the 35B with think 512 and batch cap 2. No numbers.
+- planner-55 (P2, new): docs-final says agentic-app turns stay on the LoRA, which contradicts main cef8797.
+- agentic-fixes2 brief (not landed): YouTube watch?v= play evidence would depend on planner-52, since the guard blocks same-host watch?v= urls. Dropping invalid expects would address planner-31.
+- planner-40/45/46/47/48/50/52/53/54 unchanged.
 
-New: 3 (1 P1, 2 P2). Resolved: 0. Open: 0 P0, 13 P1, 11 P2.
+New: 1 (P2). Resolved: 0. Open: 0 P0, 13 P1, 12 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
