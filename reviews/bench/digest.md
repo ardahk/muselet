@@ -1,6 +1,6 @@
-# bench digest — pass 85 (2026-10-25T09:30Z, main@85958b0)
+# bench digest — pass 86 (2026-10-25T09:45Z, main@ca73c12)
 
-P0: 0 | open P1: 14 | open P2: 21
+P0: 0 | open P1: 14 | open P2: 22
 
 Ranked open P1:
 1. bench-44 LoRA planner shipped (efd2f3f) on uncommitted numbers. Pooled .731 vs .647; most of the gain is on v2-ho, whose screens were in training.
@@ -87,3 +87,9 @@ Pass 85 (no new findings): main 2445a1d..85958b0.
 - 71badc3's shopping-never-reminder guard is fine.
 - wip/local 3d21638 has no diff from main. cool-tasks a77104e is a merge of main; bench-56 is unchanged.
 - bench-50, bench-53 and bench-54 are unchanged.
+
+Pass 86: 1 new finding (bench-57, P2): the pre-routing destructive-refuse regex (93ca931) is fitted to the live/acceptance wipe case. It also refuses route_v2 empty_trash cases 405/407/408/856 and planner v2 #127 (gold: confirm + move_to_trash), and router/planner evals don't exercise it.
+- native-tools merged with PLANNER_MODE=dsl as the default. Record the mode in result rows if tools is ever used.
+- ui-progress merged (UI and progress text only).
+- wip/local 47f809a has no diff from main. cool-tasks 3937e6b is a merge of main; bench-56 is unchanged.
+- bench-50, bench-53, bench-54 and bench-55 are unchanged.
