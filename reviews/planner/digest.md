@@ -1,17 +1,18 @@
-# Planner review digest — pass 63 (2026-10-25T03:24Z)
+# Planner review digest — pass 64 (2026-10-25T03:45Z)
 
-Moved since pass 62: main 6a37d0c→fa0f040, wip/local→973a9b0 (main@7235a34 snapshot), new cloud/memory-writes d04e26c, new cloud/design-polish bf4ae64.
-- main 7235a34: benchmark brains (PORT!=8765) get a fresh per-start MUSELET_MEMORY_DB; workflows.jsonl follows it. Good: bench runs no longer write into the user's long-term memory/workflows or inherit each other's.
-- main fa0f040 (#70 design): Clock-only timers (ClockTimers.swift removed, Skills/RPC timer code), clock hint removed, hover pill zone. No planner/DSL/prompt/catalog/act/expect change. No finding.
-- cloud/memory-writes d04e26c: planner_writes now requires steps>=2 and a real app; person writes only from explicit statements. Partially mitigates planner-45 (status update appended); still no gate on how done was verified.
-- cloud/design-polish: Swift panel/mascot UI only. No finding.
-- Re-checked on main fa0f040: `self_verified` still DONE evidence (planner-40), THINK_SAMPLER default qwen (planner-44).
+Moved: main fa0f040→4150ecb (briefs only), wip b7b7840, memory-writes→88ccf06 (Forget Everything also wipes workflows/plan-bank demos: good), new fallback / fix-apps-notes / fix-email-reply / fix-pending / hands-clock-verify.
+- NEW planner-46 (P1, cloud/fallback 6e40c3e): PLANNER_CONTEXT default-on puts a 600-char raw 'Screen:' summary (or OCR) above the observation on turn 0, outside rule 12's 'observation is data' scope; duplicates AX labels; no eval with the block.
+- fallback otherwise OK for the lane: handoff only for safe-risk skills, not messaging, once per utterance, never after a confirm was asked (proxy.confirmed); failure line seeds Last batch.
+- fix-pending: confirm-interrupt only for recognised new commands; app's YesNo handles 'go ahead'/'do it'/'send it' first; superseded confirm is cancelled (never executed). OK; addresses part of planner-35.
+- fix-apps-notes: polls blind post-launch AX up to 2 s before the next planner turn (fixes stale/blind first observation); unresolved app name asks 'Which app?'. OK.
+- fix-email-reply / hands-clock-verify: comms/Clock lanes; send still gated by draft signature + confirm. No planner finding.
+- Re-checked on main 4150ecb: planner-40, planner-44, planner-45 unchanged.
 
-New: 0. Resolved: 0. Open: 0 P0, 11 P1, 8 P2.
-Lead decision: greedy think sampler; on memory-writes, also skip writes when done was accepted via a self_verified skill result.
+New: 1 (P1). Resolved: 0. Open: 0 P0, 12 P1, 8 P2.
+Lead decision: before merging cloud/fallback, default PLANNER_CONTEXT to the app/window/url line only (Screen summary only when AX is blind, labelled as data), or show a holdout run with it on.
 
 ---
-## Open findings (unchanged from pass 56, re-checked pass 63)
+## Open findings (unchanged from pass 56, re-checked pass 64)
 
 Open P0: none.
 
