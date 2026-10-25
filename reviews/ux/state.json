@@ -1,9 +1,9 @@
 {
-  "pass": 76,
-  "ts": "2026-10-25T06:58:00Z",
+  "pass": 77,
+  "ts": "2026-10-25T07:33:00Z",
   "last_reviewed": {
-    "main": "3a0860c",
-    "wip/local": "83cf584",
+    "main": "cf33215",
+    "wip/local": "11da94c",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -94,5 +94,5 @@
     "cloud/app-knowhow": "c69dfec",
     "cloud/browser-flow": "485763f"
   },
-  "notes": "pass 76: main 3a0860c makes the blind planner default to the 35B (if cached) with think 512 on every turn; ux-29 updated (slower). agentic-evidence, app-knowhow and browser-flow add evidence rules, planner tips and URL guards with no new reply text beyond 'Message is ready; press Send when you want' (already reviewed). Outside lane: the 35B prewarm alongside the main brain should be checked against the AGENTS.md memory budget."
+  "notes": "pass 77: main cf33215 merged agentic-evidence, app-knowhow and browser-flow (reviewed in pass 76), plus HandsKit derived labels and slider value typing (hands lane). The only new copy is 'Message is ready; press Send when you want' (good). wip equals main for lane files. ux-29 and ux-31 are unchanged. No new findings."
 }
