@@ -50,8 +50,8 @@ struct OcrCmd: ParsableCommand {
 struct ProbeCmd: ParsableCommand {
     static var configuration = CommandConfiguration(
         commandName: "probe",
-        abstract: "Read-only probes: bluetooth | volume | brightness | symbols | skill-targets | applescript | automation | control-center | timers | session")
-    @Argument(help: "bluetooth | volume | brightness | symbols | skill-targets | applescript | automation | control-center | timers | session | contacts | windows")
+        abstract: "Read-only probes: bluetooth | volume | brightness | symbols | skill-targets | applescript | automation | control-center | timers | clock | session")
+    @Argument(help: "bluetooth | volume | brightness | symbols | skill-targets | applescript | automation | control-center | timers | clock | session | contacts | windows")
     var what: String
     @Option(help: "contacts: the search query")
     var query: String = ""
@@ -59,7 +59,7 @@ struct ProbeCmd: ParsableCommand {
     var bundleId: [String] = []
     @Flag(help: "applescript: time the old per-argument compile path instead")
     var legacy = false
-    @Flag(help: "control-center: open the panel to find the Bluetooth switch (never pressed; closed again)")
+    @Flag(help: "control-center: open the panel; clock: open Clock and select Timers (never starts or cancels)")
     var open = false
     @Flag(help: "timers: run start_timer / timers / timers_cancel in this process instead (nothing fires)")
     var demo = false
@@ -78,9 +78,21 @@ struct ProbeCmd: ParsableCommand {
         case "timers":
             // Live: the timers of running Muselet / `hands serve` processes
             // (their snapshot files). --demo: the RPC round trip in-process.
-            printJSON(demo ? TimerProbe.demo() : ["timers": TimerSnapshot.read(),
-                                                  "source": TimerSnapshot.directory.path,
-                                                  "backend": ClockTimers(runner: ShortcutsCLI()).info(refresh: true)])
+            if demo {
+                printJSON(TimerProbe.demo())
+            } else {
+                let info = ClockTimers(runner: ShortcutsCLI()).info(refresh: true)
+                let axReady = ClockAX.liveReady()
+                var backend = info
+                backend["clock_ax_ready"] = axReady
+                backend["backend"] = ClockAX.backend(
+                    enabled: true, axReady: axReady,
+                    shortcutReady: info["clock_ready"] as? Bool ?? false)
+                printJSON(["timers": TimerSnapshot.read(),
+                           "source": TimerSnapshot.directory.path, "backend": backend])
+            }
+        case "clock":
+            printJSON(ClockAXProbe.run(open: open))
         case "applescript":
             printJSON(legacy ? AppleScriptProbe.legacy() : AppleScriptProbe.handlers())
         case "automation":

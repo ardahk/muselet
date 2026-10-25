@@ -144,10 +144,13 @@ RPC methods (HandsKit):
 - `act {op:"keys", combo: brightness_up|brightness_down|volume_up|volume_down|mute|play_pause|next_track|previous_track}`
   posts media keys and reads the level back (`media_key, level_before, level, changed`, `muted`).
 - `act {op:"url", url, browser?}` opens in the named installed browser, or the default when unavailable.
-- `timers {clock_status?}` -> `{timers:[{id, label, total_s, left_s, minutes, fires_at, backend}], clock, backend}`;
-  `timers_cancel {id?}` -> `{cancelled, timers}` (`unknown_timer: <id>`; Clock timers without the cancel shortcut:
-  `unsupported`); `timer_backend {refresh?}` -> `{clock_ready, shortcuts, enabled, backend}`. `start_timer` goes to
-  Clock.app via the user's `Muselet Start Timer` shortcut, else falls back to Muselet's timer (docs/CLOCK_TIMERS.md). CLI: `hands probe timers`, `hands probe session` (screen_locked, display asleep, frontmost).
+- `timers {clock_status?}` -> `{timers:[{id, label, total_s, left_s, minutes, fires_at, backend}], clock, clock_ax?, backend}`;
+  `timers_cancel {id?}` -> `{cancelled, timers}` (`unknown_timer: <id>`; Clock AX cancellation falls back to
+  the optional Cancel shortcut, otherwise `unsupported` with `clock_ax_reasons`); `timer_backend {refresh?}` ->
+  `{clock_ready, clock_ax_ready, shortcuts, enabled, backend, cancel_ready, status_ready}`. `start_timer` tries
+  Clock.app over Accessibility, then the optional `Muselet Start Timer` shortcut, then Muselet's timer
+  (docs/CLOCK_TIMERS.md). CLI: `hands probe timers`, `hands probe clock [--open]`, `hands probe session`
+  (screen_locked, display asleep, frontmost).
 - `screenshot {window:true, max_pixels:1000000, region?}` -> `{path, width, height, origin:[x,y], scale}` (own windows excluded)
 - `verify {expect}` -> `{ok, observed}`
 - `ocr {path? | region?:[x,y,w,h]}` -> `{text, lines:[{text, frame}], ms}` (Apple Vision, accurate, en-US; region = screen points)

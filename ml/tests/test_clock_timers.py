@@ -1,5 +1,5 @@
-"""start_timer copy per backend (Clock app vs Muselet fallback) and the
-once-per-session "add the Clock shortcut" hint (docs/CLOCK_TIMERS.md)."""
+"""start_timer copy per backend and the once-per-session setup hint
+(docs/CLOCK_TIMERS.md)."""
 
 import asyncio
 
@@ -15,15 +15,22 @@ from fakes import FakeServer
 CLOCK = {"backend": "clock", "seconds": 600, "label": None, "ms": 420.0,
          "timer_id": "timer-abc"}
 MISSING = {"backend": "muselet", "fallback_reason": "shortcut_missing",
-           "seconds": 600, "timer_id": "timer-def"}
+           "clock_ax_reason": "wheel_s_stuck", "seconds": 600, "timer_id": "timer-def"}
 TIMEOUT = {"backend": "muselet", "fallback_reason": "shortcut_timeout",
            "seconds": 600, "timer_id": "timer-ghi"}
+AX_VERIFIED = {"backend": "clock_ax", "verified": True, "seconds": 600}
+AX_UNVERIFIED = {"backend": "clock_ax", "verified": False, "seconds": 600}
+AX_FALLBACK_FIELDS = {"backend": "clock_ax", "verified": False,
+                      "fallback_reason": "shortcut_missing",
+                      "clock_ax_reason": "wheel_s_stuck", "seconds": 600}
 
 TIMER = [{"op": "skill", "name": "start_timer", "args": {"duration": "600"}}]
 
 
 @pytest.mark.parametrize("result,want", [
     (CLOCK, "Timer set in Clock for 10 minutes"),
+    (AX_VERIFIED, "Timer set for 10 minutes"),
+    (AX_UNVERIFIED, "Timer set for 10 minutes"),
     (MISSING, "Timer set for 10 minutes"),
     (TIMEOUT, "Timer set for 10 minutes"),
     ({"backend": "muselet", "fallback_reason": "clock_off", "seconds": 90},
@@ -65,8 +72,10 @@ def test_missing_shortcut_hint_once_per_session(tmp_path):
     assert server.said.count("Timer set for 10 minutes") == 3
 
 
-@pytest.mark.parametrize("result", [CLOCK, TIMEOUT,
-                                    {"backend": "muselet", "fallback_reason": "clock_off"}])
+@pytest.mark.parametrize("result", [
+    CLOCK, TIMEOUT, AX_VERIFIED, AX_UNVERIFIED, AX_FALLBACK_FIELDS,
+    {"backend": "muselet", "fallback_reason": "clock_off"},
+])
 def test_no_hint_unless_shortcut_missing(tmp_path, result):
     o, server = _orch(tmp_path, [result])
     _run_all(o, 1)
