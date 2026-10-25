@@ -1,4 +1,7 @@
-# evals-safety digest (pass 82, 2026-10-25T07:45:45Z)
+# evals-safety digest (pass 83, 2026-10-25T08:09:15Z)
+
+-54 downgraded to P1: Spotify runtime path fixed by #101; eval check and non-Spotify play evidence still weak.
+
 
 docs-final carries -48 ($0.84 vs $5.84) and -49 (.574 labelled serving) into the demo docs.
 

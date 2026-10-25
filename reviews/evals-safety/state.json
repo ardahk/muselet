@@ -1,9 +1,9 @@
 {
-  "pass": 82,
-  "ts": "2026-10-25T07:45:45Z",
+  "pass": 83,
+  "ts": "2026-10-25T08:09:15Z",
   "last_reviewed": {
-    "main": "cef8797",
-    "wip/local": "c86fec4",
+    "main": "3e323a9",
+    "wip/local": "b8eeec4",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -93,8 +93,9 @@
     "cloud/agentic-evidence": "1918cad",
     "cloud/app-knowhow": "c69dfec",
     "cloud/browser-flow": "485763f",
-    "cloud/docs-final": "bf9118d"
+    "cloud/docs-final": "bf9118d",
+    "cloud/agentic-fixes2": "b9cd089"
   },
   "next_id": 56,
-  "note": "pass 82: main 5d135d0 brief only; cef8797 (fetched after pulse) routes agentic app/timer tasks to the 35B blind planner (2 lines). docs-final bf9118d: HobbyLM/DeskMind correctly 'no valid comparable score'; -48 and -49 stale numbers carried into final docs."
+  "note": "pass 83: main 3e323a9 (#101 spotify play gate, PLANNER=35b option). -54 downgraded to P1. agentic-fixes2 b9cd089 stat-only (orchestrator/finish, tests); review next pass."
 }
