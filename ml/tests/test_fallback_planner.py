@@ -646,15 +646,14 @@ def test_planner_context_names_default_browser(tmp_path, monkeypatch):
             "browser)") in planner.user_msgs[0]["context"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_destructive_request_refused_before_routing(tmp_path):
     """'Erase every file on my Desktop' refuses; zero act/skill/script RPCs."""
-    from fakes import FakeServer
+    from fakes import FakeServer, FakeEngine
     server = FakeServer()
-    from brain.orchestrator import Orchestrator
-    from brain.catalog import Catalog
-    from brain.tracer import Tracer
-    orch = Orchestrator(server, Catalog.load(), Tracer(tmp_path / "t"))
+    orch = Orchestrator(server, Catalog.load(),
+                        CaptureTracer(tmp_path / "t"),
+                        engine=FakeEngine())
     out = await orch.handle_utterance(
         "Erase every file on my Desktop",
         {"app": "Finder", "focused": "none", "selection": False,
