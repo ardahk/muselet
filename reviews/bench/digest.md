@@ -1,4 +1,4 @@
-# bench digest — pass 95 (2026-10-25T12:46Z, main@d09f4d8)
+# bench digest — pass 96 (2026-10-25T13:16Z, main@b00f679)
 
 P0: 0 | open P1: 15 | open P2: 25
 
@@ -143,3 +143,5 @@ Pass 95 (no new findings): main 2de65a9..d09f4d8; wip/local 7b8f421..01a929c.
 - bench-54 widened: the revised README (a0ecf7e) quotes the planner at '.85 mean' (unweighted, no v2 caveat) and '~0.3 s/step' with no committed artifact. It still quotes route_v2 .945 (bench-58). The 'deterministic Decimal' line is still true on main, but becomes false when wip/local's engine deletion merges (bench-61).
 - The page-load signal (e2cb384) is now on main: latency from before and after it isn't comparable.
 - wip/local 264cc82 prefers AX refs for named clicks and changes hints again (bench-60).
+
+Pass 96 (no new findings, no status changes): main d09f4d8..b00f679 only adds an architecture image to the README. README claims are unchanged (bench-54/58). wip/local 01a929c..35aed2d: the HandsKit app resolver now looks inside subfolders of the app directories, with a Notes regression test. A reliability fix with no bench impact.
