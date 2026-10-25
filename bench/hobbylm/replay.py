@@ -780,19 +780,9 @@ if before:
         and set(state["finder_window_ids"]) - set(before["finder_window_ids"])
     ):
         state["finder_path"] = helper.finder_path()
-    if kind in ("event", "none"):
-        start, end = (datetime.fromisoformat(value) for value in before["calendar_window"])
-        state["calendar_events"] = replay._calendar_events(helper, start, end)
-else:
-    if kind in ("screenshot", "none"):
-        location = replay._screenshot_location()
-        state["screenshot_location"] = str(location)
-        state["screenshot_files"] = replay._image_files(location)
-    if kind in ("event", "none"):
-        now, start, end = replay._calendar_window(helper)
-        state["calendar_now"] = now.isoformat()
-        state["calendar_window"] = [start.isoformat(), end.isoformat()]
-        state["calendar_events"] = replay._calendar_events(helper, start, end)
+    # calendar fields are filled by the runner process: EventKit access is
+    # granted to the runner, not to the hands-spawned script child.
+    state["calendar_pending"] = kind in ("event", "none")
 print(json.dumps(state, ensure_ascii=False, default=str))
 """
     python = python.replace(
@@ -864,6 +854,21 @@ class _HobbyRuntime(HandsRuntime):
             allow_inflight=self.proxy.capture.active,
         )
         self.final_state = json.loads(result["output"])
+        if self.final_state.pop("calendar_pending", False):
+            existing_window = (self.start_state or {}).get("calendar_window")
+            if existing_window:
+                window_start, window_end = (
+                    datetime.fromisoformat(value) for value in existing_window
+                )
+            else:
+                now, window_start, window_end = _calendar_window(self.helper)
+                self.final_state["calendar_now"] = now.isoformat()
+                self.final_state["calendar_window"] = [
+                    window_start.isoformat(), window_end.isoformat()
+                ]
+            self.final_state["calendar_events"] = _calendar_events(
+                self.helper, window_start, window_end
+            )
         if self.task["kind"] == "timer" and self.timer_after_snapshot:
             self.final_state["timers"] = [
                 item["minutes"] for item in self.timer_calls
