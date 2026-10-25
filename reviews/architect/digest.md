@@ -1,6 +1,6 @@
-# architect digest - pass 69 (2026-10-25T04:20Z)
-Reviewed: main b340f24 (memory-writes #74, apps-notes #75, email-reply #76, test-strategy #79, LoRA planner + aux model #82, calc provenance disclosed), wip/local 94f6fe9, open-ended fd87f69, planner-aux 387c3b4 (merged as #82). Tests: main 448 passed, 5 skipped, 4 xfailed; open-ended 184 passed.
-Open: P0 0, P1 13, P2 9. Resolved this pass: architect-43 (provenance disclosed) and architect-36 (qwen sampler off the default path). New: architect-45 (P1) and architect-46 (P2).
+# architect digest - pass 70 (2026-10-25T04:32Z)
+Reviewed: main dc6f2f5 (merged fallback, open-ended, fix-same-tab, fix-pending, hands-clock-verify, design-polish, premiere-demo: premiere_edit brain tool + OCR export poll), wip/local 6a1f942 (= main), premiere-demo a1c0f04. Main selected suites: 478 passed, 5 skipped, 2 xfailed, 38 subtests passed.
+Open: P0 0, P1 13, P2 8. Resolved: architect-46 (the merge kept the LoRA default). Updated: architect-26 (planner prompt still says cmd+t) and architect-35 (premiere_edit menu paths not probed). No new findings.
 
 ## Open P0/P1 (ranked)
 - architect-45 [P1] Shipped LoRA planner's holdout .850 rests on a decontam gate that misses word-order paraphrases of holdout goals
@@ -21,5 +21,6 @@ Open: P0 0, P1 13, P2 9. Resolved this pass: architect-43 (provenance disclosed)
 1. architect-45: re-score the LoRA vs the base planner on holdouts with the J>=.5 near-paraphrase items removed, and quote that number next to .850.
 2. architect-42: restore the screenshot start-state, then smoke-test one calc, one screenshot and one none case on the Mac.
 3. Run HobbyLM r4 with ROUTER=it2 MEMORY=0 LONGTERM=0 (architect-37/44), name the patched calc checker, and report passes/125 with skips, timeouts and ungradable cases counted as failures (architect-32/40).
-4. Rebase open-ended onto b340f24 before merging so it keeps the LoRA default (architect-46).
-5. Fit VERIFY_P on the LoRA planner's traces, or turn VERIFY_DONE off for the demo (architect-33).
+4. Fit VERIFY_P on the LoRA planner's traces, or turn VERIFY_DONE off for the demo (architect-33).
+
+5. Before the demo, smoke-test evals/live_premiere.jsonl on the Mac (Window > Timeline, Sequence > Apply Video Transition) and change cmd+t to the real shortcut in planner_system.md:46 (architect-26/35).
