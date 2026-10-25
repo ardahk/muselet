@@ -333,6 +333,7 @@ final class VoiceController {
         } else {
             mascot?.showBubble(text, style: .transcript)
         }
+        model.busy = true
         // The final frame always carries ctx: wait <= 200 ms for the
         // key-down capture, else send the fallback (app + online).
         let ctx = pressCtx
@@ -409,6 +410,7 @@ final class VoiceController {
         }
         if model.mood == .thinking || model.mood == .acting {
             brain?.sendCancel()
+            model.busy = false
             model.log(.system, "cancel sent (Esc)")
             model.mood = .idle
             mascot?.showBubble("Stopped.", style: .hint)

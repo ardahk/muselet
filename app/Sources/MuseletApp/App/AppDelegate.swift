@@ -115,6 +115,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case .busy where was != .busy: self.model.log(.error, "brain rejected us: another client is connected")
             case .offline where was == .connected:
                 self.model.log(.error, "brain disconnected")
+                self.model.busy = false
                 if self.model.pendingConfirm != nil {
                     self.model.pendingConfirm = nil
                     self.mascot.clearConfirmBubble()
@@ -149,6 +150,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         brain.onConfirm = { [weak self] id, summary in
             guard let self else { return }
             self.model.pendingConfirm = PendingConfirm(id: id, summary: summary)
+            self.model.busy = false
             self.model.log(.confirm, summary)
             self.mascot.wake()
             if !self.model.isRecording {
@@ -223,6 +225,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.log(.confirm, yes ? "confirmed" : "declined")
         mascot.showBubble(yes ? "On it." : "Okay, cancelled.", style: .hint)
         model.mood = yes ? .thinking : .idle
+        model.busy = yes
     }
 
     // MARK: panel actions

@@ -84,11 +84,10 @@ extension MascotView {
         // Accessories
         ring.opacity = m == .listening ? 0.55 : 0
         ring.transform = CATransform3DIdentity
-        dots.opacity = m == .thinking ? 1 : 0
         CATransaction.commit()
+        refreshDots()
 
         if m == .listening && !rm { startPulse() } else { stopPulse() }
-        if m == .thinking { startDots() } else { stopDots() }
         if m == .confused { popQuestion() } else { hideQuestion() }
         if m == .sleeping { startZees() } else { stopZees() }
         if m == .success && previous != .success { celebrate() }

@@ -22,7 +22,8 @@ from pathlib import Path
 import unicodedata
 from urllib.parse import urlsplit
 
-from . import argfix, calc, dsl, obsdiff, pathfind, replies, sendgate, slots
+from . import (argfix, calc, dsl, obsdiff, pathfind, progress, replies,
+               sendgate, slots)
 from .memory import MemoryStore, Resolution, WorkingMemory, resolve
 from .memory.working import site_for_url
 from .catalog import Catalog, CatalogError
@@ -4339,6 +4340,7 @@ function run() {
             fail_key = None              # normalized action line that failed
             failure_detail = ""
             no_strike = False
+            step_shown = False
             script_buf: list[str] | None = None   # multi-line """ block
             try:
                 while True:
@@ -4439,6 +4441,9 @@ function run() {
                     try:
                         acts = dsl.parse(line)
                         pending.extend(acts)
+                        if acts and not step_shown:
+                            step_shown = True
+                            await self._show_step(acts[0])
                     except Exception as e:
                         failed = True
                         res_status = "failed"
@@ -4995,6 +5000,15 @@ function run() {
     def _summary(self, name: str, args: dict) -> str:
         desc = (self.catalog.get(name) or {}).get("description", name)
         return desc
+
+    async def _show_step(self, action: dict) -> None:
+        """Progress bubble for the planner turn's first action."""
+        if isinstance(self.server, _DeferredServer):
+            return      # buffered bubbles would arrive late and read as replies
+        step = progress.step_phrase(
+            action, (self._last_obs or {}).get("elements"))
+        if step:
+            await self.server.ui("acting", step)
 
     async def _end_ui(self, mascot: str, bubble: str | None = None):
         """Final ui of a request carries `ms` (AGENTS.md): release-to-first-
