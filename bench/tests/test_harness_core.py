@@ -52,6 +52,19 @@ class HeldSlotTimeoutRuntime(FakeRuntime):
         raise HarnessTimeout("wait_for_utterance", False)
 
 
+class ScreenOCRRuntime:
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.calls = []
+
+    async def run_rpc(self, method, params, *, allow_inflight=False):
+        self.calls.append((method, params, allow_inflight))
+        result = self.responses.pop(0)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+
 def test_template_values_use_unpadded_dates_and_strict_next_friday():
     values = template_values(today=date(2026, 1, 2))
     assert values["tomorrow_ymd"] == "2026-1-3"
@@ -164,6 +177,41 @@ def test_trace_predicates_and_refused_outcome_use_recorded_evidence():
         from bench.harness.core import outcome_matches
 
         assert outcome_matches("refused", context["trace"])
+
+    asyncio.run(scenario())
+
+
+def test_screen_ocr_predicate_uses_screenshot_and_compares_ocr_text():
+    async def scenario():
+        screenshot = {"ok": True, "path": "/screens/one.png"}
+        ocr = {"ok": True, "lines": [{"text": "shot2 imported"}]}
+        runtime = ScreenOCRRuntime([screenshot, ocr])
+        predicate = {"ocr_screen": True, "contains": "shot2"}
+        passed = await evaluate_predicate(
+            predicate, runtime, {}, allow_inflight=True)
+        assert passed["passed"] and passed["actual"] == "shot2 imported"
+        assert passed["rpc_result"] == ocr
+        assert runtime.calls == [
+            ("screenshot", {"window": False, "max_pixels": 4_000_000}, True),
+            ("ocr", {"path": "/screens/one.png"}, True),
+        ]
+
+        runtime = ScreenOCRRuntime([
+            screenshot, {"ok": True, "text": "different screen"},
+        ])
+        failed = await evaluate_predicate(
+            {"ocr_screen": True, "equals": "expected"}, runtime, {})
+        assert failed["passed"] is False
+        assert failed["actual"] == "different screen"
+
+        runtime = ScreenOCRRuntime([RuntimeError("screenshot failed")])
+        error = await evaluate_predicate(
+            {"ocr_screen": True, "contains": "anything"}, runtime, {})
+        assert error["passed"] is False
+        assert error["error"] == "screenshot failed"
+        assert runtime.calls == [
+            ("screenshot", {"window": False, "max_pixels": 4_000_000}, False),
+        ]
 
     asyncio.run(scenario())
 

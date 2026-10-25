@@ -216,3 +216,62 @@ def test_export_poll_rejects_invalid_ftyp_and_times_out(
 
     monkeypatch.setattr(premiere_edit.asyncio, "sleep", no_sleep)
     assert asyncio.run(premiere_edit._wait_export(None, {})) is None
+
+
+def test_export_button_ocr_poll_finds_bottom_right_export_on_second_poll(
+        tmp_path, monkeypatch):
+    orch = make_orch(tmp_path)
+    responses = [
+        {"ok": True, "lines": [
+            {"text": "Export", "frame": [700, 300, 80, 30]},
+        ]},
+        {"ok": True, "lines": [
+            {"text": "Export", "frame": [700, 600, 80, 30]},
+            {"text": " Export ", "frame": [760, 850, 80, 30]},
+            {"text": "Export", "frame": [500, 850, 80, 30]},
+        ]},
+    ]
+    orch.server.handlers["ocr"] = lambda _params: responses.pop(0)
+
+    async def fixed_region(_orch):
+        return [100, 100, 1000, 800]
+
+    monkeypatch.setattr(premiere_edit, "_window_region", fixed_region)
+    sleeps = []
+
+    async def record_sleep(duration):
+        sleeps.append(duration)
+
+    monkeypatch.setattr(premiere_edit.asyncio, "sleep", record_sleep)
+
+    assert asyncio.run(premiere_edit._find_export_button(orch)) == (800, 865)
+    assert [method for method, _params in orch.server.rpcs] == ["ocr", "ocr"]
+    assert sleeps == [0.5]
+
+
+def test_export_button_ocr_timeout_fails_without_clicking(tmp_path, monkeypatch):
+    orch = make_orch(tmp_path)
+    monkeypatch.setattr(premiere_edit, "_desktop_mp4s", lambda: {})
+
+    async def no_op(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(premiere_edit, "_focus", no_op)
+    monkeypatch.setattr(premiere_edit, "_click_menu", no_op)
+
+    async def fixed_region(_orch):
+        return [100, 100, 1000, 800]
+
+    monkeypatch.setattr(premiere_edit, "_window_region", fixed_region)
+
+    find_export_button = premiere_edit._find_export_button
+
+    async def short_poll(_orch):
+        return await find_export_button(_orch, timeout=0.1)
+
+    monkeypatch.setattr(premiere_edit, "_find_export_button", short_poll)
+    with pytest.raises(premiere_edit.ToolError) as exc:
+        asyncio.run(premiere_edit._export(orch))
+    assert exc.value.say == "Couldn't find the Export button"
+    assert any(method == "ocr" for method, _params in orch.server.rpcs)
+    assert all(method == "ocr" for method, _params in orch.server.rpcs)

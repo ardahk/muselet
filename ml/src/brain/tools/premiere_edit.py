@@ -10,6 +10,7 @@ from pathlib import Path
 
 MEDIA_EXT = {".mp4", ".mov", ".m4v", ".mxf", ".wav", ".mp3", ".png", ".jpg"}
 POLL_S = 0.15
+EXPORT_OCR_POLL_S = 0.5
 NAME_RE = re.compile(r"[A-Za-z0-9 _.,'-]{1,40}\Z")
 
 
@@ -479,23 +480,11 @@ def _line_frame(line: dict) -> tuple[float, float] | None:
 async def _export(orch) -> str:
     before = _desktop_mp4s()
     await _focus(orch)
-    previous = set(await _window_names(orch))
     await _click_menu(orch, ("File", "Export", "Media..."))
-    if not await _wait_window(orch, "Export", 5, previous):
-        raise ToolError("Export window didn't open", "window timeout")
-    result = await _ocr_window(orch)
-    region = await _window_region(orch)
-    midpoint = region[0] + region[2] / 2
-    buttons = []
-    for line in result.get("lines", []):
-        if not isinstance(line, dict) or str(line.get("text", "")).strip() != "Export":
-            continue
-        center = _line_frame(line)
-        if center and center[0] >= midpoint:
-            buttons.append(center)
-    if not buttons:
+    button = await _find_export_button(orch)
+    if button is None:
         raise ToolError("Couldn't find the Export button", "OCR miss")
-    x, y = max(buttons, key=lambda center: center[1])
+    x, y = button
     await _rpc(orch, "act", {"op": "click", "x": int(x), "y": int(y)},
                "Couldn't click Export")
     await orch.server.ui("acting", "Exporting…")
@@ -506,6 +495,46 @@ async def _export(orch) -> str:
         "tool": "premiere_edit", "export_path": str(path), "verified": True,
     })
     return f"Exported {path.name}"
+
+
+async def _find_export_button(orch, timeout: float = 8.0) -> tuple[int, int] | None:
+    deadline = time.monotonic() + timeout
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        try:
+            region = await asyncio.wait_for(
+                _window_region(orch), timeout=remaining)
+        except asyncio.TimeoutError:
+            return None
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        try:
+            result = await asyncio.wait_for(
+                _rpc(orch, "ocr", {"region": region},
+                     "Couldn't read Premiere's export UI"),
+                timeout=remaining,
+            )
+        except asyncio.TimeoutError:
+            return None
+        midpoint = region[0] + region[2] / 2
+        bottom = region[1] + region[3] * 0.6
+        buttons = []
+        for line in result.get("lines", []):
+            if not isinstance(line, dict) or str(line.get("text", "")).strip() != "Export":
+                continue
+            center = _line_frame(line)
+            if center and center[0] >= midpoint and center[1] >= bottom:
+                buttons.append(center)
+        if buttons:
+            x, y = max(buttons, key=lambda center: center[1])
+            return int(x), int(y)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        await asyncio.sleep(min(EXPORT_OCR_POLL_S, remaining))
 
 
 async def run(orch, args: dict, utterance: str) -> str:

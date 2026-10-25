@@ -18,7 +18,7 @@ def test_premiere_live_turns_have_mechanical_preconditions_and_external_checks()
             assert checks
             assert any(
                 isinstance(check, dict)
-                and {"applescript", "jxa", "shell", "rpc"} & check.keys()
+                and {"applescript", "jxa", "shell", "rpc", "ocr_screen"} & check.keys()
                 for check in checks
             )
             assert all("trace_say" not in check for check in checks)
@@ -34,3 +34,5 @@ def test_premiere_live_turns_have_mechanical_preconditions_and_external_checks()
         "add a marker here called intro",
         "export a 1080p H.264 to the Desktop",
     ]
+    negative = next(case for case in cases if case["id"] == "premiere-negative-routing")
+    assert negative["confirm_reply"] is False

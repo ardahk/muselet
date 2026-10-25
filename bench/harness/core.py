@@ -211,6 +211,34 @@ async def evaluate_predicate(
         predicate = {
             key: value for key, value in predicate.items() if key != "int_at_least_saved"
         } | {"int_between": [bound, float("inf")]}
+    if "ocr_screen" in predicate:
+        try:
+            screenshot = await executor.run_rpc(
+                "screenshot",
+                {"window": False, "max_pixels": 4_000_000},
+                allow_inflight=allow_inflight,
+            )
+            path = screenshot.get("path")
+            if not path:
+                raise RuntimeError("screenshot RPC returned no path")
+            response = await executor.run_rpc(
+                "ocr", {"path": path}, allow_inflight=allow_inflight,
+            )
+            text = response.get("text")
+            if not isinstance(text, str):
+                text = "\n".join(
+                    str(line.get("text", "")) if isinstance(line, dict) else str(line)
+                    for line in response.get("lines", [])
+                )
+            passed, observed = _compare(text, predicate)
+            return {
+                "predicate": predicate, "passed": passed, "actual": observed,
+                "rpc_result": response,
+            }
+        except HarnessTimeout:
+            raise
+        except Exception as exc:
+            return {"predicate": predicate, "passed": False, "error": str(exc)}
     if "rpc" in predicate:
         try:
             response = await executor.run_rpc(
