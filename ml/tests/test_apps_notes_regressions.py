@@ -71,6 +71,15 @@ def test_exact_compound_text_edit(tmp_path):
     ("make a list on the notes", "a list"),
     ("create a template into notes", "a template"),
     ("draft a plan in a notes", "a plan"),
+    ("Open notes, and write a template about my day", "a template about my day"),
+    ("open the notes and make a list", "a list"),
+    ("open notes app and create a template", "a template"),
+    ("open the notes app, then draft a plan", "a plan"),
+    ("open up notes and write a poem", "a poem"),
+    ("open up the notes app, and then write a poem", "a poem"),
+    ("write a poem in my notes app", "a poem"),
+    ("write a poem in apple notes", "a poem"),
+    ("Draft a plan in Apple Notes app.", "a plan"),
 ])
 def test_notes_preroute_native_rpc(text, topic):
     class Writer:
@@ -92,7 +101,10 @@ def test_notes_preroute_native_rpc(text, topic):
 
 @pytest.mark.parametrize("text", ["", "open notes", "notes about X in TextEdit",
                                        "write notes about X in TextEdit",
-                                       "open notes and write", "write in notes"])
+                                       "open notes and write", "write in notes",
+                                       "write hello in textedit", "open the notes app",
+                                       "open up notes", "open notes,",
+                                       "write a poem in apple notes in textedit"])
 def test_notes_preroute_does_not_overmatch(text):
     from brain.tools.compose_text import parse_request
     assert parse_request(text) is None
