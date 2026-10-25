@@ -1,7 +1,7 @@
 {
   "lane": "finance",
-  "pass": 87,
-  "ts": "2026-10-25T10:26:24Z",
+  "pass": 88,
+  "ts": "2026-10-25T10:41:41Z",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
@@ -48,8 +48,8 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "430e59e",
-    "wip/local": "9f6aa0d",
+    "main": "298526d",
+    "wip/local": "d409a32",
     "cloud/memory": "a8af560",
     "cloud/memory-eval": "c05944e",
     "devin/1792872486-data-route-handoff": "seen",
@@ -97,11 +97,11 @@
     "cloud/browser-flow": "485763f",
     "cloud/docs-final": "bf9118d",
     "cloud/agentic-fixes2": "104a411",
-    "cloud/cool-tasks": "2fafa9e",
+    "cloud/cool-tasks": "cfbec49",
     "cloud/native-tools": "6053e4e",
     "cloud/ui-progress": "a66166b"
   },
   "next_id": 28,
-  "notes": "pass87: main 430e59e (fix-lane, style replies, obs pin inputs, Premiere hot-text): premiere_edit goes agentic when enabled, PLANNER=35b defaults RETRIEVAL_K=0/THINK=1024 (finance-27 note), mail/premiere hint text, HandsKit keeps focused/text inputs in truncated observations. No change to finance tools, open_ended_redirect hints, fallback eligibility, finish criteria or the refuse gate; finance-31/33/34/35 unchanged. cool-tasks 2fafa9e merges main. wip = main.",
+  "notes": "pass88: main 298526d: MUSELET_NO_ESCALATE ignores the app's 35B toggle (cli.py), GPU top-k think sampling + prefill timing (planner.py), HandsKit always includes a focused text input. No change to finance tools, open-ended hints, fallback eligibility, finish criteria, refuse gate or retrieval; finance-27/31/33/34/35 unchanged. cool-tasks cfbec49 merges main. wip = main.",
   "timestamp": "2026-10-25T05:37:35Z"
 }

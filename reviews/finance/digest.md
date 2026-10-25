@@ -1,4 +1,4 @@
-# finance digest (Pass 87, 2026-10-25; main 430e59e; P0 0, P1 5, P2 10)
+# finance digest (Pass 88, 2026-10-25; main 298526d; P0 0, P1 5, P2 10)
 
 > Pass 85 new: finance-35 (P2) destructive-request refuse gate (orchestrator.py:161/925) refuses 'Remove all the duplicate charges from my October budget', 'Format all the amounts in my budget as currency', 'Reconcile all files in my Finance folder'. Fix: require a file/folder/disk object next to the quantifier; 'format' only with disk/drive.
 
