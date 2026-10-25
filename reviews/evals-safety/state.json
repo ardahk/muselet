@@ -1,9 +1,9 @@
 {
-  "pass": 59,
-  "ts": "2026-10-25T01:15:20Z",
+  "pass": 60,
+  "ts": "2026-10-25T01:30:49Z",
   "last_reviewed": {
     "main": "9be963d",
-    "wip/local": "4d22445",
+    "wip/local": "7728b98",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -71,11 +71,11 @@
     "cloud/safety-planner28": "e3abc5e",
     "cloud/design": "b93bb50",
     "cloud/docs-demo-3": "c615c37",
-    "cloud/memory-llm-gate": "6864386",
+    "cloud/memory-llm-gate": "f6229d7",
     "cloud/panel-hook-fix": "ef35421",
     "cloud/memory-hotfix": "d932320",
     "cloud/memory-rules2": "03c3cd1"
   },
   "next_id": 50,
-  "note": "pass 59: main 9be963d. New -48 (spend understated in REPORT), -49 (memory holdout number predates #72 rules). proxy displacement of stale hands client OK. #72 guard: again/correction now checked against prior turn text."
+  "note": "pass 60: memory-llm-gate f6229d7 adds _valid token whitelist after allowed() (mitigates -44 except words sourced from Focus/Recent context); wip 7728b98 core._running_names prefers bundle id (all DocumentApps have bundle ids; ok), brightness relative delta fix."
 }
