@@ -1,14 +1,20 @@
-# Brain lane digest — pass 75 (2026-10-25T06:38Z)
+# Brain lane digest — pass 76 (2026-10-25T06:55Z)
 
-Open: **P0 0 / P1 12 / P2 17**. No new findings.
+Open: **P0 0 / P1 13 / P2 20**. New: brain-59 (main), brain-60, brain-61 (agentic-evidence), brain-62 (browser-flow). Moved to main: brain-57, brain-58.
 
 ## Branches
-- **cloud/agentic-apps 1904638**: merge of main e2f7e5e. Lane diff vs main is the 523d2c1 agentic diff plus only a finish -> finish_criterion kwarg rename. brain-57, brain-58 still open (repros fail).
-- main e2f7e5e, wip/local 3f8e2f8, agentic-loop dc7a063: unmoved.
+- **main de1070d**: merged agentic-apps, f30bf1d auto-done (timer/cart progress evidence), cart re-add refusal, loading text markers; test double fixed.
+- **wip/local 52e4b94**: snapshot on main; lane identical.
+- **cloud/agentic-evidence c4703c4** (on main): one evidence() for done + auto-done, app kinds auto-finish -> brain-60, brain-61.
+- **cloud/app-knowhow fc92f6b** (on dc40e17): route-hint tips; no finding.
+- **cloud/browser-flow c0421e6** (on dc40e17): default browser, in-task same tab, compound fallback -> brain-62.
 
-## Rechecks
-- All open findings unchanged on main; brain-57/58 unchanged on agentic-apps.
+## New
+- **brain-60 (P1)**: auto-done accepts done with no verification; email evidence with no body accepts a filled To: field.
+- **brain-59 (P2)**: timer cancel/stop auto-done fires with no Clock on screen.
+- **brain-61 (P2)**: user approves the send, brain stops and says "press Send".
+- **brain-62 (P2, code reading)**: compound fallback replays the whole utterance after earlier steps ran.
 
 ## Tests (MLX stub, Linux)
-- agentic-apps: 19 failed (18 MLX-only + stale make_planner stub in test_planner_think) / 2395 passed.
-- Review repros on agentic-apps: 51 failed / 52 passed (main's 49 + 2 pass74 repros).
+- main/wip 18 MLX-only / 2396 passed; agentic-evidence 19 (+stale stub) / 2434; app-knowhow 18 / 2376; browser-flow 18 / 2363.
+- Pass76 repros: main 2/2 timer fail; agentic-evidence 4/4 fail.
