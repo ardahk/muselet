@@ -80,8 +80,8 @@
     "cloud/ui-polish": "e8bceef",
     "cloud/w9-safety": "6aa332a",
     "devin/1792872486-data-route-handoff": "e6b8a71",
-    "main": "de1070d",
-    "wip/local": "52e4b94",
+    "main": "3a0860c",
+    "wip/local": "83cf584",
     "cloud/fix-same-tab": "0e38395",
     "cloud/open-ended": "0d687d2",
     "cloud/planner-aux": "387c3b4",
@@ -89,10 +89,15 @@
     "cloud/premiere-route-fix": "7769c32",
     "cloud/agentic-loop": "dc7a063",
     "cloud/agentic-apps": "1904638",
-    "cloud/agentic-evidence": "c4703c4",
-    "cloud/app-knowhow": "fc92f6b",
-    "cloud/browser-flow": "c0421e6"
+    "cloud/agentic-evidence": "1918cad",
+    "cloud/app-knowhow": "c69dfec",
+    "cloud/browser-flow": "485763f"
   },
-  "pass": 76,
-  "ts": "2026-10-25T06:55:00Z"
+  "pass": 77,
+  "ts": "2026-10-25T07:10:00Z",
+  "open_counts": {
+    "P0": 0,
+    "P1": 13,
+    "P2": 22
+  }
 }

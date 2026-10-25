@@ -1,20 +1,21 @@
-# Brain lane digest — pass 76 (2026-10-25T06:55Z)
+# Brain lane review: pass 77 (2026-10-25T07:10Z)
 
-Open: **P0 0 / P1 13 / P2 20**. New: brain-59 (main), brain-60, brain-61 (agentic-evidence), brain-62 (browser-flow). Moved to main: brain-57, brain-58.
+Open: P0 0, P1 13, P2 22. New: brain-63, brain-64.
 
 ## Branches
-- **main de1070d**: merged agentic-apps, f30bf1d auto-done (timer/cart progress evidence), cart re-add refusal, loading text markers; test double fixed.
-- **wip/local 52e4b94**: snapshot on main; lane identical.
-- **cloud/agentic-evidence c4703c4** (on main): one evidence() for done + auto-done, app kinds auto-finish -> brain-60, brain-61.
-- **cloud/app-knowhow fc92f6b** (on dc40e17): route-hint tips; no finding.
-- **cloud/browser-flow c0421e6** (on dc40e17): default browser, in-task same tab, compound fallback -> brain-62.
+- main 3a0860c: 35B blind planner (`--planner-blind escalate`), auto-picked by serve_brain.sh when cached (brain-64). Symlink untracking is outside the lane.
+- wip/local 83cf584: snapshot on main; lane identical.
+- cloud/agentic-evidence 1918cad: play and timer-start auto-done from the goal (brain-60 wider); stale test double fixed.
+- cloud/app-knowhow c69dfec: test-only lane change; no finding.
+- cloud/browser-flow 485763f: merged main (brain-57/58 now apply); web UI guard (brain-63).
 
 ## New
-- **brain-60 (P1)**: auto-done accepts done with no verification; email evidence with no body accepts a filled To: field.
-- **brain-59 (P2)**: timer cancel/stop auto-done fires with no Clock on screen.
-- **brain-61 (P2)**: user approves the send, brain stops and says "press Send".
-- **brain-62 (P2, code reading)**: compound fallback replays the whole utterance after earlier steps ran.
+- brain-63 (P2, browser-flow): the guard refuses result links with a query string on the current site (youtube watch?v=, amazon /dp/...?th=1). Repro: tests/test_brain_pass77.py.
+- brain-64 (P2, main, code reading): the blind planner becomes the 35B whenever it's in the HF cache. That means memory, think-512 latency and bench comparability depend on the machine.
 
-## Tests (MLX stub, Linux)
-- main/wip 18 MLX-only / 2396 passed; agentic-evidence 19 (+stale stub) / 2434; app-knowhow 18 / 2376; browser-flow 18 / 2363.
-- Pass76 repros: main 2/2 timer fail; agentic-evidence 4/4 fail.
+## Rechecked
+- brain-60 (P1): play auto-done now ignores the subject (any Pause button counts as done). Email To-field repro still fails.
+- brain-61, brain-59, brain-62, brain-57, brain-58, brain-50, brain-54, brain-55, brain-53, brain-52, brain-47/48/49, brain-42/43, brain-22: unchanged.
+
+## Tests
+18 MLX-only suite failures on every branch (Linux). Review repros failed: main 53, agentic-evidence 56, app-knowhow 51, browser-flow 55.

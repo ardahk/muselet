@@ -84,3 +84,12 @@ def test_approved_send_is_sent():
     pressed = [p for m, p in server.rpcs if m == "act" and
                str(p.get("ref", (p.get("action") or {}).get("ref"))) == "3"]
     assert pressed, (server.said if hasattr(server, "said") else server.rpcs)
+
+
+def test_play_progress_needs_the_requested_subject():
+    if "progress" not in inspect.signature(finish.evidence).parameters:
+        pytest.skip("no unified progress evidence on this branch")
+    text = 'app: Spotify | window: "Spotify"\n#5 button "Pause"\n' \
+           '#6 text "Now playing: White Noise Rain"'
+    assert not finish.evidence("play", "jazz", {"text": text},
+                               goal="play some jazz on spotify", progress=True)
