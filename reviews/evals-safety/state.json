@@ -1,9 +1,9 @@
 {
-  "pass": 92,
-  "ts": "2026-10-25T10:42:10Z",
+  "pass": 93,
+  "ts": "2026-10-25T10:57:29Z",
   "last_reviewed": {
-    "main": "298526d",
-    "wip/local": "d409a32",
+    "main": "2de65a9",
+    "wip/local": "5b70519",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -100,5 +100,5 @@
     "cloud/ui-progress": "a66166b"
   },
   "next_id": 59,
-  "note": "pass 92: main 298526d \u2014 #126 Observe always includes focused text input; #127 think sampler top-k on GPU then temp/top-p on survivors (same distribution as sample_logits top-k->top-p), logs prefill_ms/prompt_tokens (useful for per-stage latency); #128 MUSELET_NO_ESCALATE ignores app 35B toggle. -56/-57/-58 unchanged. cool-tasks cfbec49 = merge of main."
+  "note": "pass 93: main 2de65a9 \u2014 #131 soft expects extended to all agentic app tasks (-57 widened); #129 blocks cmd+L/cmd+T in browser tasks unless user asked for address bar/new tab (no_strike), cart-count regex accepts 'cart contains N items' / 'cart, N items' (cart finish evidence). -56/-58 unchanged."
 }
