@@ -1,4 +1,4 @@
-# bench digest — pass 62 (2026-10-25T03:10Z, main@6a37d0c)
+# bench digest — pass 63 (2026-10-25T03:25Z, main@fa0f040)
 
 P0: 0 | open P1: 13 | open P2: 11
 
@@ -25,3 +25,5 @@ Pass 60: new P2 bench-40 (unverified, needs Mac) HobbyLM EventKit date parse in 
 Pass 61 (no new findings): main 13d0486 = the wip fd357b3 change reviewed in pass 60 (end-state calendar read in the runner process, start window reused); fine. bench-40 still open: the Swift parseDate in _read_calendar_events is unchanged and the runner still passes aware+microsecond isoformat strings.
 
 Pass 62: NEW P1 bench-41: 6a37d0c patched vendored calc_checker.swift without updating PROVENANCE.md; verify_provenance raises, so replay.py won't start. Fix: add a harness-patch row with both hashes, rebuild calc_checker, then grade calc for both systems and drop --exclude-kind calc (closes bench-16's calc part).
+
+Pass 63 (no new findings): bench-41 still blocks replay at fa0f040 (provenance hash re-checked). 7235a34 is a good isolation change: bench brains (PORT != 8765) get a fresh MUSELET_MEMORY_DB per start, so user memory isn't touched. Watch (unverified): the store is per brain start, not per case, so long-term memories written in one HobbyLM/live case can carry into later cases in the same run. HobbyLM has no memory, so reset the store per case or report memory hits. fa0f040 design (Clock-only timers) touches no bench/eval code; re-check bench-20 timer gradability on the next r4 run. memory-writes and design-polish don't touch my lane.
