@@ -1,6 +1,6 @@
-# decisions — digest (pass 60)
+# decisions — digest (pass 61)
 
-Heads: main e8023b8 (#87 blind planner, #88 blind typing; decisions-37 P0 still live; decisions-40 redirect still ungated and now forces the blind base planner), wip 20055d1 = main, cloud/agentic-loop 9b2e512 (new decisions-41). Budget: about $142.06 MTD estimated.
+Heads: main fe2de69 (grounder path only; decisions-37 P0 still live; decisions-40 still ungated), wip 422399a (planner-LoRA parity samples regenerated, +22 prompt tokens, catalog reverted: new decisions-42 P2), cloud/agentic-loop 9b2e512 unmerged (decisions-41). Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
