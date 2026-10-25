@@ -136,19 +136,60 @@ final class DebugHooks {
         }
     }
 
+    /// Opens the MenuBarExtra panel. SwiftUI keeps its window after the first close
+    /// (isVisible can stay true while it is hidden), so "open" means drawn on screen, and
+    /// a stale window is presented directly rather than toggled through the status item.
     static func openPanel() {
-        let panelIsVisible = NSApp.windows.contains {
-            $0.className.contains("MenuBarExtraWindow") && $0.isVisible
-        }
-        guard !panelIsVisible else { return }
-        guard let button = NSApp.windows
-            .filter({ $0.className.contains("NSStatusBarWindow") })
-            .compactMap({ statusBarButton(in: $0.contentView) })
-            .first else {
+        let windows = panelWindows()
+        FileLog.shared.raw("debug panel: " + (windows.isEmpty ? "no window" : windows.map(describe).joined(separator: "; ")))
+        if windows.contains(where: isOnScreen) { return }
+        guard let button = statusButton() else {
             FileLog.shared.raw("debug panel: status bar button not found")
             return
         }
+        if let w = windows.first { present(w, under: button); return }
         button.performClick(nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            let after = panelWindows()
+            if after.contains(where: isOnScreen) { FileLog.shared.raw("debug panel: opened via click"); return }
+            if let w = after.first { present(w, under: button) }
+            else { FileLog.shared.raw("debug panel: no window after click") }
+        }
+    }
+
+    private static func panelWindows() -> [NSWindow] {
+        NSApp.windows.filter { $0.className.contains("MenuBarExtraWindow") }
+    }
+
+    private static func statusButton() -> NSStatusBarButton? {
+        NSApp.windows.filter { $0.className.contains("NSStatusBarWindow") }
+            .compactMap { statusBarButton(in: $0.contentView) }.first
+    }
+
+    static func isOnScreen(_ w: NSWindow) -> Bool {
+        w.isVisible && w.alphaValue > 0.01 && w.occlusionState.contains(.visible)
+            && w.frame.width > 1 && NSScreen.screens.contains { $0.frame.intersects(w.frame) }
+    }
+
+    private static func describe(_ w: NSWindow) -> String {
+        "visible=\(w.isVisible) alpha=\(w.alphaValue) occluded=\(!w.occlusionState.contains(.visible)) "
+            + "key=\(w.isKeyWindow) frame=\(NSStringFromRect(w.frame))"
+    }
+
+    /// Top-centred under the status item (clamped to the screen), then key + front.
+    private static func present(_ w: NSWindow, under button: NSStatusBarButton) {
+        if let bw = button.window {
+            let item = bw.convertToScreen(button.convert(button.bounds, to: nil))
+            var x = item.midX - w.frame.width / 2
+            if let vf = (bw.screen ?? NSScreen.main)?.visibleFrame {
+                x = min(max(x, vf.minX + 8), vf.maxX - w.frame.width - 8)
+            }
+            w.setFrameTopLeftPoint(NSPoint(x: x, y: item.minY - 1))
+        }
+        w.alphaValue = 1
+        NSApp.activate()
+        w.makeKeyAndOrderFront(nil)
+        FileLog.shared.raw("debug panel: presented directly " + describe(w))
     }
 
     private static func statusBarButton(in view: NSView?) -> NSStatusBarButton? {
