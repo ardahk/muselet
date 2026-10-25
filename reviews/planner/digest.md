@@ -1,8 +1,9 @@
-# planner lane — pass 51 (main 0b83c3b, wip e4f4331)
+# planner lane — pass 52 (main 8fb465c, wip fe6c209)
 
 Open P0: none.
 
 Open P1 (ranked):
+- planner-45: Memory saves planner 'ok' outcomes as workflows even when done was a false accept (ml/src/brain/orchestrator.py)
 - planner-44: Think ship picks qwen sampler on a one-task edge, +0.85 s p50/step (cloud/handoff/notes/planner_think_eval.md)
 - planner-43: Planner LoRA dev split is random by id, so templated siblings leak (training/planner_lora/common.py on main)
 - planner-42: architect-27 asks every Premiere command again, even after a planner confirm (ml/src/brain/orchestrator.py on cloud/safety-architect27)
@@ -15,7 +16,8 @@ Open P1 (ranked):
 9. planner-6: premiere_command unimplemented; catalog args mismatch the UXP bridge (app/Sources/HandsKit/Skills.swift)
 
 Highest-leverage next moves:
-- When THINK ships in serve_brain, use t512 greedy rather than qwen: same accuracy within one task, -0.85 s p50 and -2.1 s p95 per step (planner-44).
+- Gate memory and workflow writes on a verified done (not the skill-ok shortcut), and frame memory lines as data (planner-45, planner-40).
+- THINK=512 qwen is now the serve default; switch to greedy: same accuracy within one task, -0.85 s p50 and -2.1 s p95 per step (planner-44).
 - LoRA (now on main): use v2-holdout/live as the ship number, measured on the mlx4 export under the exact serve flags. Treat dev_pass 0.98 as in-distribution and don't quote it (planner-43, planner-38).
 - architect-27: ask only for export (maybe the cut too), and let a planner confirm count, so demo 4 doesn't ask 3-6 times (planner-42).
 - planner-verify is on main: drop the skill-ok = done-evidence rule (planner-40). Keep the decide-based verify, which also takes care of most of planner-33.
@@ -23,6 +25,11 @@ Highest-leverage next moves:
 - W9 is merged (planner-30/24 fixed). Next, narrow `\[` to JXA computed keys and drop `\\`, `set .* to` and `format` for Numbers reads (planner-37, planner-15), or the demo-3 planner path will ask for confirmation on reads.
 - brain-9: pick the browser from 'in/using X' context, not the first mention (planner-41).
 - Add `view` to open_folder in catalog.json and to the prompt example (planner-32). Fix rule 14 to say `expect focused #<ref>` (planner-31).
+
+Pass 52 notes:
+- main 8fb465c: THINK=512 qwen is on by default (planner-44 is live), memory phase 1+2 and architect-27 are merged (planner-42 is on main), and the it2 tau dropped from .65 to .35 (router lane).
+- Memory phase 2 writes planner successes as workflow demos and episodes (planner-45). Person memory and the denylist filter (_filter_demos) look fine. comms and typing goals are excluded from writes.
+- hands-clock: the Clock AX timer lane is mostly outside this lane; no planner-path issues.
 
 Pass 51 notes:
 - main 0b83c3b merged planner-verify (#54, VERIFY_DONE on by default) and planner-28 (#66). planner-28 is resolved; planner-40 and planner-33's remainder are now on main.
