@@ -1,4 +1,4 @@
-# hands — digest (Pass 70)
+# hands — digest (Pass 71)
 
 Open: 0 P0, 4 P1, 9 P2.
 
@@ -14,6 +14,10 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 71:
+- wip/local 323d274 (on local main@c711320): blind-planner rework (finish.py finish_when criteria, batch cap 2, few-shot blind examples, IDE screen-context gate). There is no app/ diff against main e425cad, and no new RPC methods or fields; expect is only read locally (_last_expect_app_only). No HandsKit contract impact.
+- main and all cloud/* are unchanged. Open findings re-checked and unchanged.
 
 Pass 70:
 - main e425cad merged #86 (P0: screen-context gating, open-ended ask guard, Clock wheel keyboard fallback). Its app/ diff is identical to wip c156d18, so hands-36 (P1) and the hands-30 timeout update now apply to main.
