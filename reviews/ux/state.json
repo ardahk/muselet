@@ -1,9 +1,9 @@
 {
-  "pass": 78,
-  "ts": "2026-10-25T07:49:00Z",
+  "pass": 79,
+  "ts": "2026-10-25T08:12:00Z",
   "last_reviewed": {
-    "main": "cef8797",
-    "wip/local": "c86fec4",
+    "main": "3e323a9",
+    "wip/local": "b8eeec4",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -93,7 +93,8 @@
     "cloud/agentic-evidence": "1918cad",
     "cloud/app-knowhow": "c69dfec",
     "cloud/browser-flow": "485763f",
-    "cloud/docs-final": "bf9118d"
+    "cloud/docs-final": "bf9118d",
+    "cloud/agentic-fixes2": "b9cd089"
   },
-  "notes": "pass 78: main cef8797 forces agentic app tasks onto the 35B blind planner; ux-31 raised to P1 (demo beats 3-4 speed). New ux-32: the docs-final demo script still claims 4B LoRA ~0.3 s/step for app tasks."
+  "notes": "pass 79: main 3e323a9 adds an opt-in PLANNER=35b (every planner task on the 35B) and Spotify play via a gated title double-click with player-state evidence; no new bubble copy. agentic-fixes2 b9cd089 has no reply-text changes. ux-29, ux-31 (P1) and ux-32 are unchanged. If PLANNER=35b is picked for the demo, ux-31 spreads to every planner task. No new findings."
 }
