@@ -1,6 +1,6 @@
 # bench digest — pass 66 (2026-10-25T04:15Z, main@b340f24)
 
-P0: 0 | open P1: 13 | open P2: 13
+P0: 0 | open P1: 13 | open P2: 14
 
 Ranked open P1:
 1. bench-44 LoRA planner shipped (efd2f3f) on uncommitted numbers. Gain is on v2-ho, whose screens were in training. Pooled .731 vs .647, not 'mean .850'.
