@@ -1,6 +1,6 @@
-# hands — digest (Pass 88)
+# hands — digest (Pass 89)
 
-Open: 0 P0, 7 P1, 18 P2.
+Open: 0 P0, 7 P1, 19 P2.
 
 Ranked open P0/P1:
 -1. P1 hands-38 (main e2f7e5e via a615f00, ClockAX.swift:523-552): the Clock cancel falls back to `live.first` and presses a stale detail-pane Cancel after a fixed 80 ms. It can cancel a user's own Clock timer and still report success. Fix before the demo.
@@ -15,6 +15,12 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 89:
+- New P2 hands-49: the focused text input is added to observations with no check that it is inside the observed window, and its parent walk has no deadline.
+- planner sample_row (8512116): GPU argpartition top-k, then temp/top-p in numpy on the k survivors. Same distribution (only the RNG stream differs); prefill_ms/prompt_tokens added to traces. OK.
+- MUSELET_NO_ESCALATE=1 (3c59fdc) makes the brain ignore the app's escalate toggle. OK; os is imported.
+- wip/local matches main; cool-tasks cfbec49 only merges main. hands-43/44/46/47/48 are unchanged.
 
 Pass 88:
 - New P2 hands-47: the Adobe hot-text type path is a blind click, cmd+a and keystrokes with no edit-mode or value check.
