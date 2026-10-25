@@ -160,7 +160,17 @@ async def serve(port: int = 8765, model: str | None = None,
     # blind/open-ended tasks plan with the base model (few-shot + think),
     # reusing the aux weights so no extra load when aux == base.
     orch.planner_blind = None
-    if planner is not None and planner_blind == "base":
+    if planner is not None and planner_blind == "escalate":
+        orch.planner_blind = make_planner(
+            escalate_model or "mlx-community/Qwen3.6-35B-A3B-4bit", engine,
+            {**ESCALATE_OPTS, "retrieval_k": 1, "retrieval_bank": "v2-tune",
+             "app_hints": bool((planner_kw or {}).get("app_hints")),
+             "think_budget": 512, "think_on": "all", "think_sampler": "qwen"},
+            tag="planner-blind", agentic_apps=agentic_apps)
+        orch._schedule_warm_planner(orch.planner_blind, "planner-blind")
+        print(f"[planner-blind] {orch.planner_blind.model_path} "
+              f"(escalate)", flush=True)
+    elif planner is not None and planner_blind == "base":
         aux_model = orch.planner_aux
         blind_path = _resolve_model(
             planner_aux_model if isinstance(planner_aux_model, str)
@@ -412,7 +422,7 @@ def build_parser(argv=None):
     s.add_argument("--open-ended-route", choices=("on", "off"), default="off")
     s.add_argument("--agentic-apps", choices=("on", "off"), default="on",
                    help="operate app skills through the planner")
-    s.add_argument("--planner-blind", choices=("base", "planner"),
+    s.add_argument("--planner-blind", choices=("base", "planner", "escalate"),
                    default="base",
                    help="planner for blind/open-ended tasks: base = aux model "
                         "with few-shot + think 512; planner = shipped planner")
