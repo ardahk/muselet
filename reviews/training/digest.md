@@ -1,6 +1,6 @@
-# training lane digest — pass 86 (main 2445a1d)
+# training lane digest — pass 87 (main 85958b0)
 
-Open: 1 P0, 16 P1, 18 P2. No new findings. Top: training-54, training-50 (REPORT $0.84 vs $5.84), training-58.
+Open: 1 P0, 16 P1, 18 P2. No new findings. training-55 updated (shopping few-shot mirrors oe-amazon-cart); training-58 updated (a524768 soft expects for all finish-criterion tasks). Top: training-54, training-50, training-58.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
