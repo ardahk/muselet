@@ -1,9 +1,9 @@
 {
-  "pass": 80,
-  "ts": "2026-10-25T08:30:00Z",
+  "pass": 81,
+  "ts": "2026-10-25T08:45:00Z",
   "last_reviewed": {
-    "main": "73b8031",
-    "wip/local": "51d833a",
+    "main": "b7b38f9",
+    "wip/local": "e03e2c8",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -96,5 +96,5 @@
     "cloud/docs-final": "bf9118d",
     "cloud/agentic-fixes2": "104a411"
   },
-  "notes": "pass 80: main 73b8031 only changes Observe.swift so duplicate refs no longer crash the app. That fixes a crash that would have ended the demo after a permission prompt; no new reply text. Correction to pass 79: agentic-fixes2 had not been fully read then. Now read in full (b9cd089 plus a merge of main): (1) app task hints now carry the exact text to type; (2) a planner ask for content the user already gave is rejected internally and doesn't count as a failure; (3) invalid expect predicates are dropped and traced; (4) a pending task no longer resumes when the user switched apps; (5) adds YouTube watch-page and site-loading checks that count the task done. All of this is internal; it adds no reply text, and the failure strings stay inside the planner loop. It reduces wrong 'which text?' bubbles, which helps UX. Open findings unchanged: ux-31/ux-28 P1, ux-29."
+  "notes": "pass 81: main b7b38f9 merged agentic-fixes2 (reviewed in pass 80) and docs-final. ab850b3 gives agentic tasks 30 turns / 300 s with soft expects -> new ux-33. b7b38f9 lets PLANNER=35b observe 350 AX nodes; that is an opt-in setting and adds no reply text. ux-32 moves to main (demo_script.md:53 still says 4B LoRA ~0.3 s per step). wip/local equals main. Open: ux-31 and ux-28 P1."
 }
