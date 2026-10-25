@@ -292,7 +292,7 @@ def test_cli_and_offline_flags_old_summary_and_escalation_inheritance(monkeypatc
     async def inputs():
         yield "stop"
 
-    def make_planner(model, engine, opts, tag="planner"):
+    def make_planner(model, engine, opts, tag="planner", **_kw):
         captured.setdefault("planner_opts", []).append((model, dict(opts), tag))
         return object()
 

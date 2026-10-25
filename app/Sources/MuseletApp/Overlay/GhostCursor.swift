@@ -253,31 +253,16 @@ final class GhostCursor: HandsDelegate {
             rect = r.insetBy(dx: -5, dy: -5)
         }
         let radius = isPoint ? 14 : min(10, rect.height / 2)
+        _ = radius
+        // user preference: no box highlight around the target — cursor only
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         highlight.removeAllAnimations()
         highlight.frame = rect
         highlight.path = CGPath(roundedRect: CGRect(origin: .zero, size: rect.size),
                                 cornerWidth: radius, cornerHeight: radius, transform: nil)
-        highlight.strokeColor = Brand.tint.cgColor
-        highlight.shadowColor = Brand.tint.cgColor
-        highlight.fillColor = Brand.tint.withAlphaComponent(0.10).cgColor
-        highlight.opacity = 1
+        highlight.opacity = 0
         CATransaction.commit()
-
-        let pop = CASpringAnimation(keyPath: "transform.scale")
-        pop.fromValue = 1.14
-        pop.toValue = 1.0
-        pop.damping = 16
-        pop.stiffness = 320
-        pop.mass = 1
-        pop.duration = pop.settlingDuration
-        let fadeIn = CABasicAnimation(keyPath: "opacity")
-        fadeIn.fromValue = 0
-        fadeIn.toValue = 1
-        fadeIn.duration = 0.12
-        highlight.add(pop, forKey: "pop")
-        highlight.add(fadeIn, forKey: "fadeIn")
 
         // Chip: "press · Back"
         let verb = Self.verb(op)
