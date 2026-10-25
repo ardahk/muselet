@@ -1,14 +1,12 @@
-# Planner review digest — pass 80 (2026-10-25T08:20Z)
+# Planner review digest — pass 81 (2026-10-25T08:35Z)
 
-Moved: main cef8797→3e323a9 (#101 spotify-play; PLANNER=35b opt-in); wip b8eeec4 (= main); new agentic-fixes2 b9cd089 (not on main).
-- planner-50 (P1, partly fixed): the wrong Spotify track is no longer accepted; genre and 'X by <artist>' goals now can never verify.
-- planner-56 (P1, new, fixes2): YouTube play evidence accepts any watch?v= page and never checks which video.
-- planner-57 (P2, new, fixes2): the content-ask guard rejects 'Which contact should I message?', and `about` is passed as exact text to type.
-- planner-31 (P1, fixes2): invalid expects are now dropped and the action runs unverified; the prompt is still unfixed.
-- OK: PLANNER=35b is opt-in; a pending task is dropped when the app changes; the double-click is gated by subject words in OCR.
-- planner-40/45/46/47/48/51/52/53/54/55 unchanged.
+Moved: main 3e323a9→73b8031 (Observe keep-first for duplicate refs); wip 51d833a (= main); agentic-fixes2 104a411 (merge of main, not yet on main).
+- planner-58 (P1, new): the duplicate-ref crash is hidden, not fixed. Two elements can still share a ref, and press #N acts on the first.
+- planner-56 (P1, fixes2): unchanged. YouTube play evidence doesn't check which video.
+- planner-57 (P2, fixes2) and planner-31 (expect dropped, action runs unverified): unchanged.
+- planner-40/45/46/47/48/50/51/52/53/54/55 unchanged on main.
 
-New: 2 (1 P1, 1 P2). Resolved: 0. Open: 0 P0, 14 P1, 13 P2.
+New: 1 (P1). Resolved: 0. Open: 0 P0, 15 P1, 13 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
