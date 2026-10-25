@@ -1,4 +1,4 @@
-# hands — digest (Pass 95)
+# hands — digest (Pass 96)
 
 Open: 0 P0, 7 P1, 21 P2.
 
@@ -15,6 +15,12 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 96 (main b00f679 README only; wip/local 35aed2d uncommitted on 264cc82; no new findings):
+- AppResolver (Act.swift:913-965) now recursively enumerates /Applications, /System/Applications and ~/Applications. It skips package contents and hidden folders, so nested vendor bundles (Adobe Premiere Pro 2026/…app) resolve. The `apps` RPC uses the same walk. Exact names win over substrings across all roots, and substring matches are path-sorted within each root. Tests cover this (Swift, not compiled here).
+  - Watch: there's no depth limit, so big non-package vendor folders are walked in full. `apps` has a 3 s RPC timeout (cached 60 s), and open_app walks it synchronously. Time `hands probe apps` once on the demo Mac. Not a finding yet.
+- Brain `_resolve_app` fallback strips `.app` and a trailing year ("Adobe Premiere Pro 2026"), and only takes a unique match. Fine.
+- All open findings unchanged (hands-43/44/50/51 still present on heads).
 
 Pass 95 (main d09f4d8 #130 page-load; wip/local 01a929c):
 - New P2 hands-51: the firstWebArea BFS (up to 400 nodes, no deadline) runs on every observe, including non-browser apps, which always pay the full scan.
