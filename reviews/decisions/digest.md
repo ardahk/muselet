@@ -1,6 +1,6 @@
-# decisions — digest (pass 71)
+# decisions — digest (pass 72)
 
-Heads: main 4f94e42 (2c0430e youtube-page guard is dead on the orchestrator path: _finish_evidence passes no goal=; -37 P0, -40/-41/-43/-38 P1, -42/-44/-45 P2 live), wip 52eb571 (= main), cool-tasks 4c84adc (relay/summary_note evidence; scratch notes are dynamic-only), native-tools 6053e4e (default dsl, opt-in), ui-progress a66166b (no decisions surface). Budget: about $142.06 MTD estimated.
+Heads: main 2445a1d (hint text + email_open evidence on observed AX only; -37 P0, -40/-41/-43/-38 P1, -42/-44/-45 P2 live; _finish_evidence still passes no goal=), wip 6e7f50b (main + one hint line), cool-tasks e4def97 (main merge). Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
