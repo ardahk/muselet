@@ -6,18 +6,21 @@ Everything is traced and the app gets ui/say messages.
 
 import asyncio
 import concurrent.futures
+import functools
 import gc
 import inspect
 import json
 import logging
 import math
 import os
+import plistlib
 import re
 import subprocess
 import threading
 import time
 from pathlib import Path
 import unicodedata
+from urllib.parse import urlsplit
 
 from . import argfix, calc, dsl, obsdiff, pathfind, replies, sendgate, slots
 from .memory import MemoryStore, Resolution, WorkingMemory, resolve
@@ -152,6 +155,23 @@ _LOADING_TITLE = re.compile(
 _CHAT_IDE = frozenset(normalize_name(a) for a in (
     "Devin", "Terminal", "iTerm2", "Warp", "Ghostty", "Visual Studio Code",
     "Code", "Cursor", "Windsurf", "Xcode"))
+
+
+WEB_UI_ERROR = "use the page's search box: type into it and press return"
+_URL_SEARCH = re.compile(r"\?|/results\b|/s\?k=|/search\b", re.I)
+_URLISH = re.compile(
+    r"^(?:https?://\S+|(?:[\w-]+\.)+[a-z]{2,}(?::\d+)?(?:/\S*)?)$", re.I)
+_ADDRESS_BAR = re.compile(
+    r"address|enter (?:a )?(?:url|address|website)|^search\W*$|"
+    r"search (?:or|with)\b|\burl\b", re.I)
+
+
+def url_host(url: str) -> str:
+    try:
+        host = urlsplit(url if "://" in url else "https://" + url).hostname
+    except ValueError:
+        return ""
+    return (host or "").casefold().removeprefix("www.")
 
 
 def fallback_recoverable(reason: str) -> bool:
@@ -463,6 +483,31 @@ def _content_words(question: str) -> set[str]:
     return {word for word in re.findall(r"[a-z0-9']+", question.lower())
             if len(word) > 2 and word not in _STOPWORDS and
             word not in _QUESTION_COMMAND_WORDS}
+
+
+_DEFAULT_BROWSER_IDS = {
+    "app.zen-browser.zen": "Zen", "com.apple.safari": "Safari",
+    "com.google.chrome": "Google Chrome", "org.mozilla.firefox": "Firefox",
+    "company.thebrowser.browser": "Arc", "com.brave.browser": "Brave Browser",
+    "com.microsoft.edgemac": "Microsoft Edge",
+}
+
+
+@functools.lru_cache(maxsize=1)
+def default_browser() -> str | None:
+    """The macOS default https handler's app name (LaunchServices), or None."""
+    path = Path.home() / ("Library/Preferences/com.apple.LaunchServices/"
+                          "com.apple.launchservices.secure.plist")
+    try:
+        with open(path, "rb") as f:
+            handlers = plistlib.load(f).get("LSHandlers") or []
+        for entry in handlers:
+            if str(entry.get("LSHandlerURLScheme") or "").casefold() == "https":
+                bundle = str(entry.get("LSHandlerRoleAll") or "").casefold()
+                return _DEFAULT_BROWSER_IDS.get(bundle)
+    except Exception:  # noqa: BLE001 - missing/unreadable plist -> unknown
+        return None
+    return None
 
 
 def named_browser(text: str) -> str | None:
@@ -2019,6 +2064,21 @@ class Orchestrator:
         }
         return browsers.get(key)
 
+    @classmethod
+    def _browser_key(cls, value: str) -> str:
+        key = normalize_name(cls._browser_name(value) or value)
+        return key.removeprefix("google").removesuffix("browser")
+
+    def _default_browser_rewrite(self, value: str,
+                                 trace: dict | None) -> str | None:
+        """Default browser when an unrequested browser `value` differs."""
+        default = default_browser()
+        if not default or self._browser_key(default) == self._browser_key(value):
+            return None
+        if trace is not None:
+            trace["browser_default_rewrite"] = {"from": value, "to": default}
+        return default
+
     def _with_browser(self, args: dict, text: str) -> dict:
         browser = named_browser(text)
         if not browser or "browser" in args:
@@ -2123,7 +2183,9 @@ class Orchestrator:
             found = match_name(text)
             url = fix_url(found[1] if found else "www.google.com")
             trace["browser_rewrite"] = {"from": app, "url": url}
-            return "open_url", {"url": url}
+            default = self._default_browser_rewrite(app, trace)
+            return "open_url", {"url": url,
+                                **({"browser": default} if default else {})}
         return label, args
 
     async def _compound(self, text: str, trace: dict) -> str | None:
@@ -2174,6 +2236,8 @@ class Orchestrator:
         self._spec_fut, self._spec_norm = None, ""
         self._spec_gen += 1
         self._collect = []
+        can_fallback = (self.fallback_planner and self.planner is not None and
+                        not self._fallback_used and not self._planner_ran)
         try:
             for i, c in enumerate(parts):
                 if i in followups:
@@ -2212,18 +2276,42 @@ class Orchestrator:
                     continue
                 row = next(row for row in routed if row[0] == i)
                 _, _, label, _ = row
-                if (self.catalog.get(label) or {}).get("args"):
+                step_args = {}
+                has_args = bool((self.catalog.get(label) or {}).get("args"))
+                if has_args:
                     ext = await worker().submit_async(
                         self.engine.args, label, c, dict(self._ctx))
                     trace["decisions"].append(
                         {"args_ms": ext.get("ms", {}).get("args_ms"),
                          "raw": ext.get("_raw")})
-                    out = await self._run_skill(label, {
-                        k: v for k, v in ext.items()
-                        if k not in ("ms", "_raw", "missing")}, c, trace)
-                else:
-                    out = await self.execute_actions(
-                        [{"op": "skill", "name": label, "args": {}}])
+                    step_args = {k: v for k, v in ext.items()
+                                 if k not in ("ms", "_raw", "missing")}
+                real = self.server
+                proxy = _DeferredServer(real) if can_fallback and \
+                    self._skill_risk(label, step_args) == "safe" else None
+                self.server = proxy or real
+                self._fail_reason = None
+                try:
+                    if has_args:
+                        out = await self._run_skill(label, step_args, c, trace)
+                    else:
+                        out = await self.execute_actions(
+                            [{"op": "skill", "name": label, "args": {}}])
+                finally:
+                    self.server = real
+                if out != "ok" and proxy is not None:
+                    reason = self._fail_reason or \
+                        (proxy.said[-1] if proxy.said else "")
+                    if out == "failed" and not proxy.confirmed and \
+                            fallback_recoverable(reason):
+                        proxy.drop()
+                        self._collect = None
+                        trace["decisions"].append({"compound_fallback": {
+                            "step": i, "skill": label}})
+                        return await self._fallback_to_planner(
+                            label, step_args, text, trace, reason)
+                if proxy is not None:
+                    await proxy.flush()
                 if out != "ok":
                     return out
             said = self._collect
@@ -2563,6 +2651,30 @@ function run() {
             if e.get("ref") == ref:
                 return e.get("label", "")
         return ""
+
+    def _hand_built_search(self, url: str, front: str) -> bool:
+        """A planner search/query url on the site the browser already shows."""
+        if not sendgate.is_browser(front) or not _URL_SEARCH.search(url):
+            return False
+        pages = [self._last_ok_url, (self._page_task or {}).get("url")]
+        if sendgate.is_browser(self._ctx.get("app")):
+            pages.append(self._focus_ctx.get("url"))
+        hosts = {url_host(str(p)) for p in pages if p}
+        return bool(url_host(url) and url_host(url) in hosts)
+
+    def _address_bar_query(self, a: dict) -> bool:
+        """Typing a non-URL query into a browser's address/search bar."""
+        if not sendgate.is_browser((self._last_obs or {}).get("app")):
+            return False
+        element = self._element_for_ref(a.get("ref")) or {}
+        if element.get("role") not in ("combobox", "textfield"):
+            return False
+        names = " ".join(str(element.get(k) or "")
+                         for k in ("label", "placeholder"))
+        value = str(element.get("value") or "").strip()
+        text = str(a.get("text") or "").strip()
+        return bool(_ADDRESS_BAR.search(names.strip()) and
+                    _URLISH.match(value) and text and not _URLISH.match(text))
 
     def _element_for_ref(self, ref):
         if ref is None or not self._last_obs:
@@ -3117,6 +3229,13 @@ function run() {
         if op == "click":
             return {"status": "failed", "error": "no screenshot attached",
                     "_log": f"{dsl_line}-> failed: no screenshot attached"}
+        if op == "type" and self._address_bar_query(a):
+            if self.tracer.current is not None:
+                self.tracer.current.setdefault("decisions", []).append(
+                    {"web_ui_guard": {"type": str(a.get("text") or "")[:80]}})
+            return {"status": "failed", "error": WEB_UI_ERROR,
+                    "_no_strike": True,
+                    "_log": f"{dsl_line}-> failed: {WEB_UI_ERROR}"}
         if op in ("press", "type", "keys"):
             # injection + danger guard: destructive labels need a confirm
             needs = False
@@ -3178,16 +3297,42 @@ function run() {
                 if self.tracer.current is not None:
                     self.tracer.current["browser_rewrite"] = {
                         "from": value, "url": url}
+                default = self._default_browser_rewrite(
+                    value, self.tracer.current)
+                if default:
+                    a["browser"] = default
         if op == "url":
             a["url"] = fix_url(a.get("url") or "")
             if str(a["url"]).partition(":")[0].casefold() not in APP_SCHEMES:
                 a = self._with_browser(a, goal)
+            front = str((self._last_obs or {}).get("app") or "")
+            if self._hand_built_search(a["url"], front):
+                if self.tracer.current is not None:
+                    self.tracer.current.setdefault("decisions", []).append(
+                        {"web_ui_guard": {"url": a["url"]}})
+                return {"status": "failed", "error": WEB_UI_ERROR,
+                        "_no_strike": True,
+                        "_log": f"{dsl_line}-> failed: {WEB_UI_ERROR}"}
             self._last_url = str(a.get("url") or "")
-            if self._page_task:
+            in_task = (
+                not self._page_task and self._last_ok_url and
+                sendgate.is_browser(front) and
+                str(a["url"]).startswith(("http://", "https://")) and
+                not _NEW_TAB.search(goal) and
+                (not a.get("browser") or
+                 self._browser_key(a["browser"]) == self._browser_key(front)))
+            if self._page_task or in_task:
                 browser = {"browser": a["browser"]} if a.get("browser") else {}
-                args = self._same_tab_args(
-                    "open_url", {"url": a["url"], **browser}, goal,
-                    self.tracer.current or {"decisions": []})
+                if in_task:
+                    args = {"url": a["url"], "browser": front,
+                            "same_tab": True}
+                    if self.tracer.current is not None:
+                        self.tracer.current.setdefault(
+                            "decisions", []).append({"same_tab_task": front})
+                else:
+                    args = self._same_tab_args(
+                        "open_url", {"url": a["url"], **browser}, goal,
+                        self.tracer.current or {"decisions": []})
                 r = await self._rpc_action(
                     "skill", {"name": "open_url", "args": args}, a)
                 r["_log"] = (
@@ -3764,6 +3909,10 @@ function run() {
         parts = [f'{name} "{value}"'
                  for name, value in (("app", app), ("window", window),
                                      ("url", url)) if value]
+        default = default_browser()
+        if default:
+            parts.append(f"Default browser: {default} "
+                         "(use it unless the user names another browser)")
         if parts:
             context.append("Context at request: " + " | ".join(parts))
 
@@ -4374,9 +4523,10 @@ function run() {
                 # loop guard: same action failing twice in a row, or three
                 # failed turns -> ask the user instead of burning turns;
                 # a blind_click_blocked refusal is recoverable, not a strike
+                web_ui = failure_detail == WEB_UI_ERROR
                 disabled_skill = failure_detail.startswith("skill disabled")
                 if not failure_detail.startswith("blind_click_blocked") \
-                        and not disabled_skill:
+                        and not disabled_skill and not web_ui:
                     fail_streak += 1
                 same = not disabled_skill and fail_key is not None and \
                     fail_key == prev_fail_key
@@ -4386,7 +4536,7 @@ function run() {
                     else "action_error")
                 last_failure_detail = failure_detail
                 spent = False
-                if verify_mode and not disabled_skill:
+                if verify_mode and not disabled_skill and not web_ui:
                     spent = not await self._recover(
                         trace, recovery_reason, failure_detail)
                 if self.planner_escalate is not None and fail_streak >= 2 \
@@ -4734,6 +4884,10 @@ function run() {
                     if self.tracer.current is not None:
                         self.tracer.current["browser_rewrite"] = {
                             "from": value, "url": url}
+                    default = self._default_browser_rewrite(
+                        value, self.tracer.current)
+                    if default:
+                        a["browser"] = default
                 if op == "url":
                     a["url"] = fix_url(a.get("url") or "")
                     a = self._with_browser(
