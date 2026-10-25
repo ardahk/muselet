@@ -1,9 +1,9 @@
 {
-  "pass": 69,
-  "ts": "2026-10-25T04:05:38Z",
+  "pass": 70,
+  "ts": "2026-10-25T04:20:59Z",
   "last_reviewed": {
-    "main": "b340f24",
-    "wip/local": "94f6fe9",
+    "main": "dc6f2f5",
+    "wip/local": "6a1f942",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -77,16 +77,17 @@
     "cloud/memory-rules2": "03c3cd1",
     "cloud/design-polish": "bf4ae64",
     "cloud/memory-writes": "88ccf06",
-    "cloud/fallback": "2ef5805",
+    "cloud/fallback": "36b421e",
     "cloud/fix-apps-notes": "1ccb123",
     "cloud/fix-email-reply": "805223b",
-    "cloud/fix-pending": "dba9094",
+    "cloud/fix-pending": "09dadc0",
     "cloud/hands-clock-verify": "a4d6463",
     "cloud/test-strategy": "96c96d2",
-    "cloud/fix-same-tab": "065e65f",
-    "cloud/open-ended": "fd87f69",
-    "cloud/planner-aux": "387c3b4"
+    "cloud/fix-same-tab": "0e38395",
+    "cloud/open-ended": "0d687d2",
+    "cloud/planner-aux": "387c3b4",
+    "cloud/premiere-demo": "a1c0f04"
   },
   "next_id": 53,
-  "note": "pass 69: main b340f24 ships LoRA planner (THINK=0, k=1) scored on v1-ho/v1-ho2/v2-ho .857/1.000/.692 by pre-registered rule -> -45,-47 resolved. acceptance+replay on main, still outside decontam (-46). fallback not merged; -52 open. open-ended touches planner_offline.py, not deep-reviewed."
+  "note": "pass 70: main dc6f2f5 merges open-ended, fix-same-tab, fix-pending, hands-clock-verify, design-polish, premiere-demo. Premiere diff: no eval/Function/0.0.0.0 added. planner_offline gains --app-hints (default off). fallback 36b421e still unfenced screen context (-52), not merged."
 }
