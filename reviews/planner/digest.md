@@ -1,12 +1,10 @@
-# Planner review digest — pass 74 (2026-10-25T06:16Z)
+# Planner review digest — pass 75 (2026-10-25T06:30Z)
 
-Moved: main fe2de69→e2f7e5e (agentic-loop + fix-thinking + premiere-route-fix + timer controls merged), wip 3f8e2f8 (= main), agentic-loop dc7a063 (on main), new cloud/agentic-apps 523d2c1.
-- planner-51 (P1, new, agentic-apps): default-on routing of app skills (timer/calendar/reminder/notes/messages/email/premiere) through the planner, with native skills hidden from it. One-shot System-1 commands become multi-turn GUI flows; no numbers.
-- planner-50 (P1) now on main: bare Spotify `play` + subject-blind play evidence.
-- planner-45 (P1) on main: workflow gate excludes app-only but still accepts 'skill' evidence.
-- planner-48 (page tasks forced to base+qwen think) unchanged at orchestrator.py:994/1591. premiere-route-fix is merged (draft_email→premiere_edit bug fixed on main).
+Moved: cloud/agentic-apps 523d2c1→1904638 only (merge of origin/main; timer_control removed upstream on that branch, finish evidence merged). main e2f7e5e unchanged.
+- planner-51 (P1): still default-on (cli.py:413 default "on"; serve_brain.sh:79 AGENTIC_APPS:-1).
+- Re-checked on main e2f7e5e: planner-40/45/46/47/48/50 unchanged.
 
-New: 1 P1. Resolved: 0. Open: 0 P0, 12 P1, 9 P2.
+New: 0. Resolved: 0. Open: 0 P0, 12 P1, 9 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
