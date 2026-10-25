@@ -1,6 +1,6 @@
-# bench digest — pass 82 (2026-10-25T08:45Z, main@b7b38f9)
+# bench digest — pass 83 (2026-10-25T09:00Z, main@4f94e42)
 
-P0: 0 | open P1: 14 | open P2: 20
+P0: 0 | open P1: 14 | open P2: 21
 
 Ranked open P1:
 1. bench-44 LoRA planner shipped (efd2f3f) on uncommitted numbers. Pooled .731 vs .647; most of the gain is on v2-ho, whose screens were in training.
@@ -64,3 +64,11 @@ Pass 82, 2 new findings:
 - bench-55 (P2): ab850b3 makes planner expects soft on agentic tasks and raises the budget to 30 turns / 300 s, so done rests on the weak finish evidence (bench-50/53).
 Also: bench-53 is now on main (agentic-fixes2 merged). bench-52: PLANNER=35b also sets 350 observe nodes. wip/local e03e2c8 has no diff from main.
 Next moves: (1) fix the Devpost planner wording; (2) tighten timer-cancel and YouTube evidence; (3) gate bench-42; (4) pin and record ROUTER=it2, the planner, BLIND_PLANNER, AGENTIC_APPS and MUSELET_OBS_NODES on competitor runs; (5) commit the LoRA eval outputs.
+
+Pass 83: 1 new finding (bench-56, P2, cloud/cool-tasks): summary_note evidence passes on any open Notes note with 15+ words. Before merge, require a new note and a link to the source.
+- bench-53 is partly mitigated by 2c0430e (must be on a YouTube page); subject and stale-URL gaps remain.
+- Main sendgate 05d42d2: find/search fields no longer count as send targets. Looks fine; a composer label containing 'search' or 'find' would skip confirm (unverified, low risk).
+- native-tools: PLANNER_MODE=tools is opt-in (default dsl). If used in benchmarks, record it in result rows.
+- cool-tasks adds broad app-hint triggers ('place', 'restaurant', 'summarize', 'temperature'): more prompt drift for bench-46.
+- ui-progress is UI only. wip/local 52eb571 has no diff from main.
+- bench-54 (Devpost .850) is unchanged on main.
