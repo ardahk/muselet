@@ -263,8 +263,24 @@ def evidence(kind: str, subject: str = "", obs: dict | str | None = None,
             st = norm_words(str(script_stdout or ""))
             return "playing" in st and (not subject or
                                         norm_words(subject) in st)
+        page_url = str(obs.get("url") or url or "")
+        watch_url = bool(re.search(
+            r"(?:https?://)?(?:www\.)?youtube\.com/watch\?v=",
+            page_url, re.IGNORECASE))
+        if not title:
+            match = re.search(r'\bwindow:\s*"([^"]*)"', text)
+            title = match.group(1) if match else ""
+        title = re.sub(
+            r"\s+-\s+(?:Google Chrome|Chrome|Safari|Firefox|"
+            r"Microsoft Edge|Edge|Brave|Arc|Zen|Opera)\s*$",
+            "", title.strip(), flags=re.IGNORECASE)
+        normalized_title = " ".join(title.casefold().split())
+        search_title = normalized_title == " ".join(
+            f"{subject} - YouTube".casefold().split()) or (
+                normalized_title.endswith(" - youtube") and not watch_url)
         return any(_PAUSE.match(label.strip()) for label in labels) or \
-            "playing" in str(script_stdout or "").lower()
+            "playing" in str(script_stdout or "").lower() or \
+            watch_url and not search_title
     if kind == "timer":
         return _timer_evidence(goal, text)
     if kind == "timer_start":

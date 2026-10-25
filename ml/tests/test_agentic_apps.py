@@ -42,11 +42,13 @@ def _run(coro):
         "title": "Lunch", "start": "tomorrow", "end": "later",
         "location": "Cafe"},
      "use the Calendar app; new event titled Lunch; starts tomorrow; "
-     "end later; location Cafe"),
+     "end later; location Cafe; type exactly: \"Lunch\""),
     ("create_reminder", {"title": "Call Sam", "due": "tomorrow"},
-     "use the Reminders app; reminder Call Sam; due tomorrow"),
+     "use the Reminders app; reminder Call Sam; due tomorrow; "
+     "type exactly: \"Call Sam\""),
     ("new_note", {"title": "List", "body": "milk", "ms": 4, "_raw": "x"},
-     "use the Notes app; new note titled List; text: milk"),
+     "use the Notes app; new note titled List; text: milk; "
+     "type exactly: \"milk\""),
     ("compose_text", {"topic": "packing", "target": "Notes"},
      "use the Notes app (or Notes); write a new note about packing"),
     ("play_music", {"query": "jazz"},
@@ -54,13 +56,14 @@ def _run(coro):
     ("todays_agenda", {}, "use the Calendar app; read today's events back to the user"),
     ("send_message", {"to": "Caleb", "body": "hi"},
      "use the Messages app; recipient Caleb; message: hi; "
-     "ask to confirm before sending"),
+     "ask to confirm before sending; type exactly: \"hi\""),
     ("compose_email", {"to": "Sam", "subject": "Hi", "body": "Hello"},
      "use the Mail app; to Sam; subject Hi; body: Hello; "
-     "leave it as a draft, don't send"),
+     "leave it as a draft, don't send; type exactly: \"Hello\""),
     ("draft_email", {"to": "Sam", "about": "schedule"},
      "the email is open in the browser/Mail; write a draft reply to Sam "
-     "about schedule in the reply box; don't send"),
+     "about schedule in the reply box; don't send; "
+     "type exactly: \"schedule\""),
     ("premiere_command", {"command": "play_toggle", "ms": 2},
      "use Adobe Premiere Pro; command play_toggle"),
 ])

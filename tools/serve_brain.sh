@@ -49,7 +49,7 @@ IT2=models/route-4b-it2-mlx4
 IT3=models/route-4b-it3-mlx4
 case "${ROUTER:-}" in it2) ROUTER=$IT2 ;; it3) ROUTER=$IT3 ;; r2) ROUTER=$R2 ;; r1) ROUTER=$R1 ;; base) ROUTER=$BASE ;; esac
 BIG=mlx-community/Qwen3.6-35B-A3B-4bit
-case "${PLANNER:-}" in lora) PLANNER=$LORA ;; base) PLANNER=$BASE ;; 35b) PLANNER=$BIG; BLIND_PLANNER=${BLIND_PLANNER:-planner} ;; esac
+case "${PLANNER:-}" in lora) PLANNER=$LORA ;; base) PLANNER=$BASE ;; 35b) PLANNER=$BIG; BLIND_PLANNER=${BLIND_PLANNER:-planner}; export MUSELET_OBS_NODES=${MUSELET_OBS_NODES:-350} ;; esac
 if [ -z "${ROUTER:-}" ]; then
   if [ -f "$IT3/config.json" ]; then ROUTER=$IT3; elif [ -f "$IT2/config.json" ]; then ROUTER=$IT2; elif [ -f "$R2/config.json" ]; then ROUTER=$R2; elif [ -f "$R1/config.json" ]; then ROUTER=$R1; else ROUTER=$BASE; fi
 fi
