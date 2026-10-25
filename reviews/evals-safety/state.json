@@ -1,9 +1,9 @@
 {
-  "pass": 75,
-  "ts": "2026-10-25T05:37:41Z",
+  "pass": 76,
+  "ts": "2026-10-25T05:53:16Z",
   "last_reviewed": {
-    "main": "e8023b8",
-    "wip/local": "20055d1",
+    "main": "fe2de69",
+    "wip/local": "422399a",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -91,5 +91,5 @@
     "cloud/agentic-loop": "9b2e512"
   },
   "next_id": 55,
-  "note": "pass 75: main e8023b8 merges #87 blind planner (-54 now on main) and #88 blind typing (Swift). agentic-loop 9b2e512: done gate via finish.evidence; play evidence = any Pause button or 'playing' in script stdout, subject not checked; gate rejects only the first done. Runtime gate, not bench grading; watch if used as benchmark success."
+  "note": "pass 76: main fe2de69 serve_brain uses local eyes-4b MLX grounder if present (no lazy download). wip/local 422399a: Spotify demos/hints switched to `tell Spotify to play` -> -54 escalated to P0 (resumes old track, passes oe-spotify-jazz check)."
 }

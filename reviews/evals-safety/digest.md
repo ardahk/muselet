@@ -1,4 +1,7 @@
-# evals-safety digest (pass 75, 2026-10-25T05:37:41Z)
+# evals-safety digest (pass 76, 2026-10-25T05:53:16Z)
+
+-54 escalated to P0 on wip/local: Spotify recipe `tell Spotify to play` resumes the paused track and passes oe-spotify-jazz's playing-only check.
+
 
 -54 (P1) now on main via #87.
 
