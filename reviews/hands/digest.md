@@ -1,4 +1,4 @@
-# hands — digest (Pass 90)
+# hands — digest (Pass 91)
 
 Open: 0 P0, 7 P1, 19 P2.
 
@@ -15,6 +15,11 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 91 (wip/local 4db92e8 only; main unchanged):
+- hands-44 status: soft-expect tasks now strip `expect` from act entirely, so the app never checks it.
+- Page-load signal (e2cb384): observe returns web_loaded/web_busy from the first AXWebArea. firstWebArea is a BFS of up to 400 nodes with copySingleAttr on every observe and no deadline (latency, like hands-41). The brain now does one extra observe after every browser press, typed enter or Return, and polls up to 15 s while AXLoaded=false or AXElementBusy=true. Hypothesis, not verified: on SPAs/streaming pages (YouTube, Gmail) AXElementBusy may stay true, so each press waits the full 15 s. Worth one timing check on the demo Mac.
+- Numbers sort guard (blocks AppleScript cell rewrites on sort goals): OK. Panel drops the Models section; the persisted escalate value is still sent in config. Premiere clipSpeed is now treated as hot text and shows its value (helps hands-47's readback, but the type path still doesn't verify).
 
 Pass 90 (no new findings; 2 status updates):
 - hands-44 widened: soft expects now apply to every agentic app task (36422a7).
