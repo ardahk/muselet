@@ -1,6 +1,6 @@
-# architect digest - pass 74 (2026-10-25T05:28Z)
-Reviewed: wip/local 323d274 on main e425cad (unchanged). It adds --planner-blind (default base): blind and open-ended tasks plan with the base model plus few-shot, k=1 and THINK=512 with the qwen sampler, sharing the aux weights. It also adds a rule-based end-state criterion and +19 lines in planner_fewshot.md. Watch: this puts qwen thinking (architect-36: ~853 ms/step slower than greedy for a tied result) back on the default path for blind and open-ended tasks. The split has no recorded holdout or latency measurement against LoRA-only. Measure it, and consider THINK_SAMPLER=greedy, before merging. Static review only this pass; tests were not run. premiere-route-fix is still unmerged.
-Open: P0 0, P1 13, P2 8. No new findings and no status changes.
+# architect digest - pass 75 (2026-10-25T05:45Z)
+Reviewed main e8023b8 (#87 blind planner + finish_when, #88 blind keystroke typing; Swift reviewed by reading), wip/local 20055d1 (same as main) and agentic-loop 9b2e512. agentic-loop adds a page-load expect re-poll (up to 5 s), a finish-evidence gate for play/cart/search/directions, and evidence-gated workflow writes. Workflows are merged into retrieval only when LONGTERM is on; benchmarks must run LONGTERM=0 (see architect-44). Tests: main 217 passed, agentic-loop 57 passed. New: architect-47 (P2), the unmeasured blind-planner default. premiere-route-fix is still unmerged.
+Open: P0 0, P1 13, P2 9.
 
 ## Open P0/P1 (ranked)
 - architect-45 [P1] Shipped LoRA planner's holdout .850 rests on a decontam gate that misses word-order paraphrases of holdout goals
@@ -24,6 +24,7 @@ Open: P0 0, P1 13, P2 8. No new findings and no status changes.
 4. Fit VERIFY_P on the LoRA planner's traces, or turn VERIFY_DONE off for the demo (architect-33).
 
 5. Before the demo, smoke-test evals/live_premiere.jsonl on the Mac (Window > Timeline, Sequence > Apply Video Transition) and change cmd+t to the real shortcut in planner_system.md:46 (architect-26/35).
+
 
 
 
