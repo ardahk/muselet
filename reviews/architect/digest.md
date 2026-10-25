@@ -1,5 +1,5 @@
-# architect digest - pass 77 (2026-10-25T06:15Z)
-Reviewed: main e2f7e5e (merges premiere-route-fix, which closes the draft_email -> premiere_edit misroute, plus fix-thinking and agentic-loop dc7a063), wip/local 3f8e2f8 (same as main) and agentic-apps 523d2c1. Tests: main 232 passed, agentic-apps 94 passed. architect-48 is now on main. New: architect-49 (P1): agentic-apps is on by default and moves start_timer/create_event and 10 other app skills onto the planner, which covers 38/125 r4 tasks.
+# architect digest - pass 78 (2026-10-25T06:30Z)
+Reviewed: agentic-apps 1904638 (merges main e2f7e5e; the timer_control skill is removed and timer controls go back to the planner with the Clock hint). Main e2f7e5e and wip/local 3f8e2f8 are unchanged. Tests: agentic-apps 147 passed. Re-checked architect-48 on 1904638: 'set a timer for 10 minutes to stop the oven' -> cancel, so it is still open. Re-checked architect-49: --agentic-apps still defaults to on (cli.py:413, serve_brain.sh:79@1904638), so it is still open. No new findings.
 Open: P0 0, P1 15, P2 9.
 
 ## Open P0/P1 (ranked)
@@ -24,6 +24,7 @@ Open: P0 0, P1 15, P2 9.
 4. Fit VERIFY_P on the LoRA planner's traces, or turn VERIFY_DONE off for the demo (architect-33).
 
 5. Before the demo, smoke-test evals/live_premiere.jsonl on the Mac (Window > Timeline, Sequence > Apply Video Transition) and change cmd+t to the real shortcut in planner_system.md:46 (architect-26/35).
+
 
 
 
