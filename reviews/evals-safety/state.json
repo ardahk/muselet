@@ -1,9 +1,9 @@
 {
-  "pass": 86,
-  "ts": "2026-10-25T08:56:03Z",
+  "pass": 87,
+  "ts": "2026-10-25T09:10:22Z",
   "last_reviewed": {
-    "main": "4f94e42",
-    "wip/local": "52eb571",
+    "main": "2445a1d",
+    "wip/local": "6e7f50b",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -95,10 +95,10 @@
     "cloud/browser-flow": "485763f",
     "cloud/docs-final": "bf9118d",
     "cloud/agentic-fixes2": "104a411",
-    "cloud/cool-tasks": "4c84adc",
+    "cloud/cool-tasks": "e4def97",
     "cloud/native-tools": "6053e4e",
     "cloud/ui-progress": "a66166b"
   },
   "next_id": 57,
-  "note": "pass 86: main 4f94e42 \u2014 #103 youtube play evidence requires youtube window/url (narrows -54); #107 sendgate search/find early return -> new evals-safety-56 P0; #109 enter_sends focused-element fallback. cool-tasks 981b797: scratch notes of on-screen text fed back as 'Scratch ... type from it' without data-only label (watch); send still confirm-gated. native-tools 6053e4e: opt-in; each tool call -> one DSL line through unchanged _planner_loop gates. ui-progress: UI only."
+  "note": "pass 87: main 2445a1d \u2014 #110 sendgate adds 'ask gmail' (-56 still open); #111 email_open finish evidence = Reply button + sender words anywhere in observation (does not check 'latest'; runtime only, watch); #112-114 maps/shopping hints only. cool-tasks e4def97 = merge of main. wip/local hint-only delta."
 }

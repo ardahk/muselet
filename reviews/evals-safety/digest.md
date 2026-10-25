@@ -1,6 +1,6 @@
-# evals-safety digest (pass 86, 2026-10-25T08:56:03Z)
+# evals-safety digest (pass 87, 2026-10-25T09:10:22Z)
 
-NEW P0 evals-safety-56: sendgate skips Enter confirm when composer label contains search/find.
+evals-safety-56 (P0) still open on main 2445a1d (#110 only added 'ask gmail').
 
 
 -54 downgraded to P1: Spotify runtime path fixed by #101; eval check and non-Spotify play evidence still weak.
