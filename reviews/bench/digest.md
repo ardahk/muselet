@@ -1,6 +1,6 @@
-# bench digest — pass 98 (2026-10-25T14:50Z, main@b00f679)
+# bench digest — pass 99 (2026-10-25T15:40Z, main@32c0ad4)
 
-P0: 0 | open P1: 15 | open P2: 25
+P0: 0 | open P1: 15 | open P2: 27
 
 Ranked open P1:
 1. bench-44 LoRA planner shipped (efd2f3f) on uncommitted numbers. Pooled .731 vs .647; most of the gain is on v2-ho, whose screens were in training.
@@ -154,3 +154,18 @@ Pass 98 (no new findings, no status changes): main is unchanged. wip/local aadf7
 - A second Shift+3 for the same Premiere window is now refused (orchestrator.py:4416-4446@73f8136), and the Premiere tips were rewritten (prompts/app_hints.jsonl:18@73f8136). This is a live-failure guard, but it is one more prompt change that hasn't been re-run (bench-60).
 - Native-tool (ui_only) planners no longer rebuild the observation from diffs, so they re-observe after every batch (orchestrator.py:4816@73f8136). Native-tool step latency isn't comparable with earlier runs.
 - The Numbers app hint still lists the deleted `finance_review`/`advisor_prep` skills (prompts/app_hints.jsonl:20@73f8136). Added as evidence on bench-61.
+
+Pass 99: main b00f679..32c0ad4 merges the wip/local work (engine deletion, prompt rewrite, AX clicks, Premiere fixes) and adds docs for a deployed override. wip/local 69261f5 is identical to main.
+- NEW bench-62 (P1): the deployed demo planner (base 4B native tools, THINK=1024, no few-shot or retrieval, 350 nodes, OCR every turn) has no pass-rate or latency number, and planner_offline can't run tools mode. The ship gate (p50 <= 3 s) is unverified.
+- NEW bench-63 (P2): the last full pytest run didn't finish and showed untriaged failures (REPORT.md:59-62).
+- bench-54 downgraded to P1->P2: README now labels the LoRA .85 as an offline config, but the figure is still unpooled, with no overlap caveat.
+- bench-61 partially fixed: README and claims are updated; REPORT:295-296, live_t1:41-42 and the Numbers hint are still stale.
+- bench-59: the deployment sets MUSELET_NO_ESCALATE=1, so the hidden setting is ignored on the demo Mac only.
+- bench-36: the deployed override pins it3, so competitor runs must set ROUTER=it2 explicitly.
+
+Next moves (pass 99):
+1. Measure the exact deployed planner env (pooled pass rate + step p50) vs LoRA-DSL, and add tools mode to planner_offline (bench-62).
+2. Finish and triage the full pytest run before quoting any number from 32c0ad4 (bench-63).
+3. Competitor runs: ROUTER=it2, with the router/planner/env recorded per row (bench-36).
+4. Fix the stale finance rows/hint (bench-61); put route_v1_clean .922 next to .945 (bench-58).
+5. Fix bench-42 before the next acceptance run.
