@@ -1,14 +1,17 @@
-# Planner review digest — pass 62 (2026-10-25T03:06Z)
+# Planner review digest — pass 63 (2026-10-25T03:24Z)
 
-Branches moved since pass 61: main 13d0486→6a37d0c, wip/local fd357b3→9571a9e (= main content).
-- main 6a37d0c: HobbyLM harness calc_checker.swift reads macOS 27 Calculator display (AXScrollArea StandardInputView). Bench-only; no planner/DSL/prompt/catalog/HandsKit/serve change. No finding.
-- Re-checked on main 6a37d0c: `self_verified` still DONE evidence (planner-40, 2 hits), THINK_SAMPLER default qwen (planner-44), planner-ok memory writes unchanged (planner-45).
+Moved since pass 62: main 6a37d0c→fa0f040, wip/local→973a9b0 (main@7235a34 snapshot), new cloud/memory-writes d04e26c, new cloud/design-polish bf4ae64.
+- main 7235a34: benchmark brains (PORT!=8765) get a fresh per-start MUSELET_MEMORY_DB; workflows.jsonl follows it. Good: bench runs no longer write into the user's long-term memory/workflows or inherit each other's.
+- main fa0f040 (#70 design): Clock-only timers (ClockTimers.swift removed, Skills/RPC timer code), clock hint removed, hover pill zone. No planner/DSL/prompt/catalog/act/expect change. No finding.
+- cloud/memory-writes d04e26c: planner_writes now requires steps>=2 and a real app; person writes only from explicit statements. Partially mitigates planner-45 (status update appended); still no gate on how done was verified.
+- cloud/design-polish: Swift panel/mascot UI only. No finding.
+- Re-checked on main fa0f040: `self_verified` still DONE evidence (planner-40), THINK_SAMPLER default qwen (planner-44).
 
 New: 0. Resolved: 0. Open: 0 P0, 11 P1, 8 P2.
-Lead decision: greedy think sampler; persist memory/workflows only after verified DONE.
+Lead decision: greedy think sampler; on memory-writes, also skip writes when done was accepted via a self_verified skill result.
 
 ---
-## Open findings (unchanged from pass 56, re-checked pass 62)
+## Open findings (unchanged from pass 56, re-checked pass 63)
 
 Open P0: none.
 
