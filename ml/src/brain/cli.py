@@ -73,9 +73,13 @@ def planner_opts(args) -> dict:
 
 
 def make_planner(pmodel: str, engine=None, opts: dict | None = None,
-                 tag: str = "planner"):
+                 tag: str = "planner", agentic_apps: bool = False):
     from .planner import Planner
-    planner = Planner(pmodel, Catalog.load(), engine=engine, **(opts or {}))
+    catalog = Catalog.load()
+    planner_opts = dict(opts or {})
+    if agentic_apps:
+        planner_opts["hidden_skills"] = catalog.app_skills()
+    planner = Planner(pmodel, catalog, engine=engine, **planner_opts)
     if tag == "planner-aux":
         print(f"[{tag}] {pmodel} (separate)", flush=True)
     else:
@@ -115,7 +119,8 @@ async def serve(port: int = 8765, model: str | None = None,
                 fallback_planner: bool = False,
                 planner_context: bool = False,
                 open_ended_route: bool = False,
-                planner_blind: str = "base"):
+                planner_blind: str = "base",
+                agentic_apps: bool = True):
     server = BrainServer(port=port)
     await server.start()
     engine = None
@@ -127,9 +132,11 @@ async def serve(port: int = 8765, model: str | None = None,
     planner = None
     pmodel = _resolve_model(planner_model)
     if pmodel:
-        planner = make_planner(pmodel, engine, planner_kw)
+        planner = make_planner(pmodel, engine, planner_kw,
+                               agentic_apps=agentic_apps)
     orch = Orchestrator(server, Catalog.load(), Tracer(), engine=engine,
                         open_ended_route=open_ended_route)
+    orch.agentic_apps = agentic_apps
     orch.planner = planner
     if planner is None:
         orch.planner_aux = None
@@ -149,11 +156,21 @@ async def serve(port: int = 8765, model: str | None = None,
             orch.planner_aux = make_planner(
                 aux_path, engine,
                 {"few_shot": None, "constrain": False},
-                tag="planner-aux")
+                tag="planner-aux", agentic_apps=agentic_apps)
     # blind/open-ended tasks plan with the base model (few-shot + think),
     # reusing the aux weights so no extra load when aux == base.
     orch.planner_blind = None
-    if planner is not None and planner_blind == "base":
+    if planner is not None and planner_blind == "escalate":
+        orch.planner_blind = make_planner(
+            escalate_model or "mlx-community/Qwen3.6-35B-A3B-4bit", engine,
+            {**ESCALATE_OPTS, "retrieval_k": 1, "retrieval_bank": "v2-tune",
+             "app_hints": bool((planner_kw or {}).get("app_hints")),
+             "think_budget": 512, "think_on": "all", "think_sampler": "qwen"},
+            tag="planner-blind", agentic_apps=agentic_apps)
+        orch._schedule_warm_planner(orch.planner_blind, "planner-blind")
+        print(f"[planner-blind] {orch.planner_blind.model_path} "
+              f"(escalate)", flush=True)
+    elif planner is not None and planner_blind == "base":
         aux_model = orch.planner_aux
         blind_path = _resolve_model(
             planner_aux_model if isinstance(planner_aux_model, str)
@@ -166,7 +183,7 @@ async def serve(port: int = 8765, model: str | None = None,
                 {"few_shot": "prompts/planner_fewshot.md", "retrieval_k": 1,
                  "retrieval_bank": "v2-tune", "think_budget": 512,
                  "think_on": "all", "think_sampler": "qwen"},
-                tag="planner-blind")
+                tag="planner-blind", agentic_apps=agentic_apps)
             print(f"[planner-blind] {blind_path} (base-config, "
                   f"shared weights)", flush=True)
     orch.memory_enabled = memory_enabled
@@ -177,7 +194,8 @@ async def serve(port: int = 8765, model: str | None = None,
     orch.planner_context = planner_context
     print(f"[planner] verify_done={'on' if verify_done else 'off'} "
           f"fallback={'on' if fallback_planner else 'off'} "
-          f"context={'on' if planner_context else 'off'}",
+          f"context={'on' if planner_context else 'off'} "
+          f"agentic_apps={'on' if agentic_apps else 'off'}",
           flush=True)
     esc = {**ESCALATE_OPTS, **{k: v for k, v in (planner_kw or {}).items()
                                if k.startswith("think_")}}
@@ -198,7 +216,8 @@ async def serve(port: int = 8765, model: str | None = None,
     server.on_hello = on_hello
     if planner and escalate_model:    # loaded now, kept resident
         orch.planner_escalate = make_planner(
-            escalate_model, engine, esc, tag="planner-escalate")
+            escalate_model, engine, esc, tag="planner-escalate",
+            agentic_apps=agentic_apps)
         orch._schedule_warm_planner(
             orch.planner_escalate, "planner-escalate")
 
@@ -401,7 +420,9 @@ def build_parser(argv=None):
     s.add_argument("--planner-context", choices=("on", "off"), default="off",
                    help="include request ctx and a compact screen summary on the planner's first turn")
     s.add_argument("--open-ended-route", choices=("on", "off"), default="off")
-    s.add_argument("--planner-blind", choices=("base", "planner"),
+    s.add_argument("--agentic-apps", choices=("on", "off"), default="on",
+                   help="operate app skills through the planner")
+    s.add_argument("--planner-blind", choices=("base", "planner", "escalate"),
                    default="base",
                    help="planner for blind/open-ended tasks: base = aux model "
                         "with few-shot + think 512; planner = shipped planner")
@@ -474,7 +495,8 @@ def run_cmd(args, ap):
             fallback_planner=args.fallback_planner == "on",
             planner_context=args.planner_context == "on",
             open_ended_route=args.open_ended_route == "on",
-            planner_blind=args.planner_blind, **memory_kw))
+            planner_blind=args.planner_blind,
+            agentic_apps=args.agentic_apps == "on", **memory_kw))
     elif args.cmd == "eval-route":
         eval_route(args.model, args.cases, args.out,
                    tau=getattr(args, "tau", 0.55), args_model=args.args_model)

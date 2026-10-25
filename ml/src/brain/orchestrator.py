@@ -673,6 +673,8 @@ class Orchestrator:
         self.engine = engine
         self.tau = tau
         self.open_ended_route = open_ended_route
+        self.agentic_apps = False
+        self._agentic = None
         self.memory_enabled = True
         self.memory_llm = True
         self.memory = WorkingMemory(path=Path("runs/memory/working.json"))
@@ -874,6 +876,7 @@ class Orchestrator:
         original_text = text
         t0 = time.perf_counter()
         self._page_task = None
+        self._agentic = None
         said_items = getattr(self.server, "said", None)
         said_before = len(said_items) if isinstance(said_items, list) else 0
         self._t_final = t0
@@ -1013,10 +1016,15 @@ class Orchestrator:
                     name = direct["skill"]
                     args = dict(direct.get("args") or {})
                     self._utterance = memory_result.text
-                    outcome = await self._with_fallback(
-                        name, args, memory_result.text, trace,
-                        lambda: self.execute_actions(
-                            [{"op": "skill", "name": name, "args": args}]))
+                    if self._agentic_app(name):
+                        outcome = await self._agentic_route(
+                            name, args, memory_result.text, trace)
+                    else:
+                        outcome = await self._with_fallback(
+                            name, args, memory_result.text, trace,
+                            lambda: self.execute_actions(
+                                [{"op": "skill", "name": name,
+                                  "args": args}]))
                     if outcome == "ok":
                         parts = " ".join(
                             f'{k}="{v}"' if isinstance(v, str) and " " in v
@@ -1046,13 +1054,23 @@ class Orchestrator:
                     elif (msg := comms.parse_message(text)) is not None and \
                             msg.get("channel") in (None, "messages"):
                         trace["decisions"].append({"message_redirect": msg})
-                        outcome = await comms.start(self, msg, text)
+                        if self._agentic_app("send_message"):
+                            outcome = await self._agentic_route(
+                                "send_message",
+                                {"to": msg.get("to"), "body": msg.get("body")},
+                                text, trace)
+                        else:
+                            outcome = await comms.start(self, msg, text)
                     elif (nargs := compose_text.parse_request(text)) is not None:
                         trace["decisions"].append({"compose_redirect": nargs})
-                        outcome = await self._with_fallback(
-                            "compose_text", nargs, text, trace,
-                            lambda: self._brain_tool(
-                                "compose_text", nargs, text))
+                        if self._agentic_app("compose_text"):
+                            outcome = await self._agentic_route(
+                                "compose_text", nargs, text, trace)
+                        else:
+                            outcome = await self._with_fallback(
+                                "compose_text", nargs, text, trace,
+                                lambda: self._brain_tool(
+                                    "compose_text", nargs, text))
                     elif (calc_result := calc.result(text)) is not None and \
                             calc_result.value is not None and (
                             str(self._ctx.get("app", "")).casefold() == "calculator"
@@ -1063,10 +1081,14 @@ class Orchestrator:
                     elif not comms.is_messaging(text) and (dargs :=
                             draft_email.parse_request(
                                 text, {**self._ctx, **self._focus_ctx})) is not None:
-                        outcome = await self._with_fallback(
-                            "draft_email", dargs, text, trace,
-                            lambda: self._brain_tool(
-                                "draft_email", dargs, text))
+                        if self._agentic_app("draft_email"):
+                            outcome = await self._agentic_route(
+                                "draft_email", dargs, text, trace)
+                        else:
+                            outcome = await self._with_fallback(
+                                "draft_email", dargs, text, trace,
+                                lambda: self._brain_tool(
+                                    "draft_email", dargs, text))
                     elif self.engine is not None:
                         outcome = await self._engine_route(text, trace)
                     else:
@@ -1087,8 +1109,12 @@ class Orchestrator:
                             if pargs is not None:
                                 trace["decisions"].append(
                                     {"premiere_redirect": pargs})
-                                outcome = await self._brain_tool(
-                                    "premiere_edit", pargs, text)
+                                if self._agentic_app("premiere_edit"):
+                                    outcome = await self._agentic_route(
+                                        "premiere_edit", pargs, text, trace)
+                                else:
+                                    outcome = await self._brain_tool(
+                                        "premiere_edit", pargs, text)
                             else:
                                 from .tools import draft_email
                                 dargs = None if comms.is_messaging(text) else \
@@ -1096,8 +1122,12 @@ class Orchestrator:
                                 if dargs is not None:
                                     trace["decisions"].append(
                                         {"draft_redirect": dargs})
-                                    outcome = await self._brain_tool(
-                                        "draft_email", dargs, text)
+                                    if self._agentic_app("draft_email"):
+                                        outcome = await self._agentic_route(
+                                            "draft_email", dargs, text, trace)
+                                    else:
+                                        outcome = await self._brain_tool(
+                                            "draft_email", dargs, text)
                                 else:
                                     await self._observe()
                                     await self.server.say("I can't do that yet")
@@ -1151,8 +1181,12 @@ class Orchestrator:
                         if self._last_skill else (
                             ("planner", {}) if self._planner_ran else (None, {}))
                     safe_text = original_text
+                    agentic_skill = (self._agentic or {}).get("skill")
                     if skill in {"send_message", "compose_email",
                                  "draft_email", "compose_text", "type_text"} \
+                            or agentic_skill in {
+                                "send_message", "compose_email",
+                                "draft_email", "compose_text"} \
                             or comms.is_messaging(original_text):
                         safe_text = ""
                     writes = extract_writes(
@@ -1538,6 +1572,36 @@ class Orchestrator:
                 return action
         return None
 
+    def _agentic_app(self, name) -> bool:
+        return bool(self.agentic_apps) and self.catalog.kind(name) == "app"
+
+    async def _agentic_route(self, name, args, text, trace) -> str:
+        from . import agentic
+        from .finish import app_finish
+
+        args = {
+            key: value for key, value in dict(args or {}).items()
+            if key not in {"ms", "_raw", "missing", "confirmed"}
+            and value not in (None, "")
+        }
+        self._agentic = {"skill": name, "args": args}
+        trace["agentic_app"] = {"skill": name, "args": args}
+        trace.setdefault("decisions", []).append(
+            {"agentic_app": {"skill": name, "args": args}})
+        out = await self._planner_loop(
+            text, trace, hint=agentic.hint(name, args),
+            finish_criterion=app_finish(name, args))
+        if out == "ok":
+            parts = " ".join(
+                f'{key}="{value}"' if isinstance(value, str) and " " in value
+                else f"{key}={value}" for key, value in args.items())
+            self._ctx["last_action"] = f"{name} {parts}".strip()
+            if self.engine is not None:
+                self.engine.last_action = self._ctx["last_action"]
+            if name == "start_timer":
+                self._last_timer_at = time.time()
+        return out
+
     async def _engine_route(self, text: str, trace: dict, pre=None) -> str:
         from .planner import worker
         from . import comms
@@ -1556,12 +1620,18 @@ class Orchestrator:
             pargs = premiere_edit.parse_request(text, self._ctx)
             if pargs is not None:
                 trace["decisions"].append({"premiere_redirect": pargs})
+                if self._agentic_app("premiere_edit"):
+                    return await self._agentic_route(
+                        "premiere_edit", pargs, text, trace)
                 return await self._brain_tool("premiere_edit", pargs, text)
         from .tools import draft_email
         dargs = None if messaging else \
             draft_email.parse_request(text, {**self._ctx, **self._focus_ctx})
         if dargs is not None:
             trace["decisions"].append({"draft_redirect": dargs})
+            if self._agentic_app("draft_email"):
+                return await self._agentic_route(
+                    "draft_email", dargs, text, trace)
             return await self._with_fallback(
                 "draft_email", dargs, text, trace,
                 lambda: self._brain_tool("draft_email", dargs, text))
@@ -1627,6 +1697,27 @@ class Orchestrator:
             await self.server.say("Sorry, I can't do that")
             await self._end_ui("confused")
             return "failed"
+        if label not in ("ANSWER", "ASK") and self._agentic_app(label):
+            spec = self.catalog.get(label) or {}
+            if not spec.get("args"):
+                raw_args = {}
+            elif spec_ext is not None:
+                raw_args = {
+                    key: value for key, value in spec_ext.items()
+                    if key not in ("ms", "_raw", "missing")
+                }
+            else:
+                ext = await worker().submit_async(
+                    self.engine.args, label, text, dict(self._ctx))
+                trace["decisions"].append({
+                    "args_ms": ext.get("ms", {}).get("args_ms"),
+                    "raw": ext.get("_raw"), "skill": label,
+                    "spec_args": False})
+                raw_args = {
+                    key: value for key, value in ext.items()
+                    if key not in ("ms", "_raw", "missing")
+                }
+            return await self._agentic_route(label, raw_args, text, trace)
         if self.open_ended_route:
             from .app_hints import open_ended_redirect
             redirect = open_ended_redirect(
@@ -1684,6 +1775,9 @@ class Orchestrator:
                 "body": raw_args.get("body") or raw_args.get("about"),
             }
             label = "send_message"
+        if self._agentic_app(label):
+            return await self._agentic_route(
+                label, raw_args, text, trace)
         if label == "send_message":
             return await comms.start(
                 self, {"to": raw_args.get("to"),
@@ -2123,6 +2217,7 @@ class Orchestrator:
             routed_for_trace.append([c, r.top, round(r.p_top, 3)])
             if not spec or spec.get("executor") == "brain" or \
                     r.top == "send_message" or \
+                    self._agentic_app(r.top) or \
                     r.p_top < self.COMPOUND_P:
                 self._reject_compound(parts, routed_for_trace, trace)
                 return None
@@ -2668,7 +2763,32 @@ function run() {
         """Short summary naming the object, preserving full trash paths."""
         op = a["op"]
         if op == "confirm":
-            return _cap12(str(a.get("summary") or "Continue?").strip('"'))
+            summary = str(a.get("summary") or "Continue?").strip('"')
+            agentic = self._agentic or {}
+            if agentic.get("skill") in ("send_message", "compose_email"):
+                args = agentic.get("args") or {}
+                recipient = str(args.get("to") or "")
+                if recipient and recipient.casefold() not in summary.casefold():
+                    return await self._confirm_summary({
+                        "op": "skill", "name": agentic["skill"],
+                        "args": args})
+            return _cap12(summary)
+        agentic = self._agentic or {}
+        if agentic.get("skill") in ("send_message", "compose_email") and \
+                (agentic.get("args") or {}).get("to"):
+            sends = (
+                op == "press" and bool(re.search(
+                    r"\bsend\b", self._label_of(a.get("ref")),
+                    re.IGNORECASE)) or
+                op == "keys" and
+                str(a.get("combo", "")).casefold() in self._ENTER_COMBOS and
+                self._enter_sends(observed_focus=True) or
+                op == "type" and bool(a.get("enter")) and
+                self._enter_sends(a.get("ref")))
+            if sends:
+                return await self._confirm_summary({
+                    "op": "skill", "name": agentic["skill"],
+                    "args": agentic["args"]})
         if op == "skill":
             n, ar = a["name"], a.get("args", {})
             if n == "premiere_command":
@@ -2983,6 +3103,11 @@ function run() {
             await asyncio.sleep(a["ms"] / 1000)
             return {"status": "ok", "_log": f"{dsl_line}-> ok"}
         if op == "skill":
+            name = a.get("name")
+            if self.agentic_apps and self.catalog.kind(name) == "app":
+                why = "skill disabled: operate the app's UI"
+                return {"status": "failed", "error": why,
+                        "_log": f"{dsl_line}-> failed: {why}"}
             self._diff_chain = None
             a = dict(a)
             a.get("args", {}).pop("confirmed", None)   # model can't self-confirm
@@ -3835,7 +3960,8 @@ function run() {
     async def _planner_loop(self, text: str, trace: dict,
                             hint: str | None = None,
                             answer: str | None = None,
-                            fallback: str | None = None) -> str:
+                            fallback: str | None = None,
+                            finish_criterion: str | None = None) -> str:
         """System 2: observe -> plan(stream) -> execute -> replan.
         12 turns / 60 s. Returns final outcome."""
         if self.planner is None:
@@ -3875,7 +4001,7 @@ function run() {
         self._force_blind = False
         batch_cap = 2 if blind_task else 5
         self._active_planner = planner
-        self._finish_when = None
+        self._finish_when = finish_criterion
         self._done_evidence = None
         self._last_script_stdout = ""
         self._last_ok_url = ""
@@ -4398,17 +4524,19 @@ function run() {
                 # failed turns -> ask the user instead of burning turns;
                 # a blind_click_blocked refusal is recoverable, not a strike
                 web_ui = failure_detail == WEB_UI_ERROR
-                if not failure_detail.startswith("blind_click_blocked") and \
-                        not web_ui:
+                disabled_skill = failure_detail.startswith("skill disabled")
+                if not failure_detail.startswith("blind_click_blocked") \
+                        and not disabled_skill and not web_ui:
                     fail_streak += 1
-                same = fail_key is not None and fail_key == prev_fail_key
+                same = not disabled_skill and fail_key is not None and \
+                    fail_key == prev_fail_key
                 recovery_reason = (
                     "no_action" if not n_actions else
                     "expect" if failure_detail.startswith("expect failed")
                     else "action_error")
                 last_failure_detail = failure_detail
                 spent = False
-                if verify_mode and not web_ui:
+                if verify_mode and not disabled_skill and not web_ui:
                     spent = not await self._recover(
                         trace, recovery_reason, failure_detail)
                 if self.planner_escalate is not None and fail_streak >= 2 \
@@ -4436,7 +4564,7 @@ function run() {
                     return await self._honest_failure(
                         text, goal, trace, actions_log, obs_text,
                         failure_detail, recovery_reason)
-                prev_fail_key = fail_key
+                prev_fail_key = None if disabled_skill else fail_key
                 prev_had_failure = True
                 continue          # replan with fresh observation
             fail_streak, prev_fail_key = 0, None
@@ -4856,6 +4984,9 @@ function run() {
             args = {"to": args.get("to"),
                     "body": args.get("body") or args.get("about")}
             name = "send_message"
+        if self._agentic_app(name):
+            return await self._agentic_route(
+                name, args, self._utterance or "", trace)
         if name == "send_message":
             return await comms.start(
                 self, {"to": args.get("to"), "body": args.get("body")},

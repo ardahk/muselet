@@ -1,8 +1,10 @@
 from datetime import datetime
+from types import SimpleNamespace
 
 import pytest
 
 from brain.catalog import Catalog, CatalogError
+from brain.planner import Planner, catalog_desc
 
 
 @pytest.fixture(scope="module")
@@ -17,6 +19,36 @@ def test_loads(cat):
     assert cat.skills["quit_app"]["risk"] == "confirm_if_unsaved"
     names = {o["name"] for o in cat.special_options}
     assert {"MULTI_STEP", "ASK", "REFUSE", "ANSWER"} <= names
+
+
+def test_skill_kinds(cat):
+    app_skills = {
+        "start_timer", "create_event", "create_reminder", "new_note",
+        "compose_text", "play_music", "todays_agenda", "send_message",
+        "compose_email", "draft_email", "premiere_command", "premiere_edit",
+    }
+    assert all(cat.kind(name) in {"system", "app", "analysis"}
+               for name in cat.skills)
+    assert cat.app_skills() == app_skills
+
+
+def test_hidden_app_skills_leave_system_controls_visible(cat):
+    desc = catalog_desc(cat, lambda _: "", hidden=cat.app_skills())
+    for name in cat.app_skills():
+        assert f"{name}(" not in desc
+    for name in ("open_app", "type_text", "open_url"):
+        assert f"{name}(" in desc
+
+    engine = SimpleNamespace(
+        model_path="fake", model=None, tokenizer=None, body=None,
+        lm_head=None, rr=None)
+    planner = Planner(
+        "fake", cat, engine=engine, few_shot=None,
+        hidden_skills=cat.app_skills())
+    for name in cat.app_skills():
+        assert f"{name}(" not in planner.system
+    for name in ("open_app", "type_text", "open_url"):
+        assert f"{name}(" in planner.system
 
 
 def test_validate_ok(cat):
