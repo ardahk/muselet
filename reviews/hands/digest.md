@@ -1,4 +1,7 @@
-# hands — digest (Pass 56)
+# hands — digest (Pass 57)
+
+Pass 57:
+- No new findings. wip/local 7728b98 and cloud/memory-llm-gate f6229d7 have no app/ changes; main unchanged at 9be963d. All open findings unchanged (hands-26/27/28/29/30/31/32).
 
 Pass 56:
 - No new findings. main 9be963d (memory rules #71/#72, docs-demo-3 #68, bench proxy now replaces a stale HandsKit connection instead of rejecting the new one) and wip/local 4d22445 have no app/ changes. hands-26 (orchestrator.py:2542), hands-27 (BrainClient.swift:91) and hands-28 (ClockAX.swift:409) re-checked on main: still open. hands-32 (cloud/design b93bb50) unchanged.
