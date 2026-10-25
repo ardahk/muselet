@@ -1,7 +1,7 @@
 {
   "lane": "finance",
-  "pass": 96,
-  "ts": "2026-10-25T13:44:52Z",
+  "pass": 97,
+  "ts": "2026-10-25T14:48:40Z",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
@@ -49,7 +49,7 @@
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
     "main": "b00f679",
-    "wip/local": "aadf777",
+    "wip/local": "73f8136",
     "cloud/memory": "a8af560",
     "cloud/memory-eval": "c05944e",
     "devin/1792872486-data-route-handoff": "seen",
@@ -102,6 +102,6 @@
     "cloud/ui-progress": "a66166b"
   },
   "next_id": 28,
-  "notes": "pass96: main b00f679 unchanged. wip/local aadf777 grounder-wire one-liner; finance-36 still P0 wip only.",
+  "notes": "pass97: main b00f679 unchanged. wip/local 73f8136 Premiere focus guard + obsdiff value roles; finance-36 still P0 wip only.",
   "timestamp": "2026-10-25T05:37:35Z"
 }

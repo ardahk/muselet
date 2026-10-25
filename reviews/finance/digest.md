@@ -1,6 +1,6 @@
-# finance digest (Pass 96, 2026-10-25; main b00f679; wip aadf777; P0 1, P1 5, P2 10)
+# finance digest (Pass 97, 2026-10-25; main b00f679; wip 73f8136; P0 1, P1 5, P2 10)
 
-> Pass 96: no finance change (wip aadf777 grounder one-liner). Pass 95: no finance change (main b00f679 README image; wip 35aed2d app-name resolver). Pass 94: main d09f4d8 still has the engines (finance-36 not merged); README line 16 'all math is deterministic Decimal' is true on main, false on wip. Pass 93: wip 7b8f421 adds no finance path. Pass 92: wip 9015e83 2900d4b also strips the bundle-ID/bounded-range Numbers rule and finance_review preference from planner_system.md ("no hidden app workflow tools"). main unchanged.
+> Pass 97: no finance change (wip 73f8136 Premiere-only). Pass 96: wip aadf777 grounder one-liner. Pass 95: no finance change (main b00f679 README image; wip 35aed2d app-name resolver). Pass 94: main d09f4d8 still has the engines (finance-36 not merged); README line 16 'all math is deterministic Decimal' is true on main, false on wip. Pass 93: wip 7b8f421 adds no finance path. Pass 92: wip 9015e83 2900d4b also strips the bundle-ID/bounded-range Numbers rule and finance_review preference from planner_system.md ("no hidden app workflow tools"). main unchanged.
 
 > Pass 91 NEW P0 finance-36 (wip only): a2004d9 deletes ml/src/brain/finance, advisor and the finance_review/advisor_prep tools; their labels now go to the AI planner. Do not merge before the deadline, or restore behind a flag; README/devpost/REPORT still claim the deterministic engines.
 
