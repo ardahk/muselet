@@ -1,9 +1,9 @@
 {
-  "pass": 70,
-  "ts": "2026-10-25T04:20:59Z",
+  "pass": 71,
+  "ts": "2026-10-25T04:37:40Z",
   "last_reviewed": {
-    "main": "dc6f2f5",
-    "wip/local": "6a1f942",
+    "main": "82c9810",
+    "wip/local": "5b656ef",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -86,8 +86,9 @@
     "cloud/fix-same-tab": "0e38395",
     "cloud/open-ended": "0d687d2",
     "cloud/planner-aux": "387c3b4",
-    "cloud/premiere-demo": "a1c0f04"
+    "cloud/premiere-demo": "a1c0f04",
+    "cloud/premiere-route-fix": "7769c32"
   },
   "next_id": 53,
-  "note": "pass 70: main dc6f2f5 merges open-ended, fix-same-tab, fix-pending, hands-clock-verify, design-polish, premiere-demo. Premiere diff: no eval/Function/0.0.0.0 added. planner_offline gains --app-hints (default off). fallback 36b421e still unfenced screen context (-52), not merged."
+  "note": "pass 71: main 82c9810 observation_blind treats window-chrome-only AX trees as blind (empty list still blind; no grading/safety change). premiere-route-fix 7769c32 pre-routes premiere_edit before page tasks, removes draft_email args being dispatched to premiere_edit. wip/local snapshot only."
 }
