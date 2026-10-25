@@ -163,8 +163,9 @@ async def serve(port: int = 8765, model: str | None = None,
     if planner is not None and planner_blind == "escalate":
         orch.planner_blind = make_planner(
             escalate_model or "mlx-community/Qwen3.6-35B-A3B-4bit", engine,
-            {**ESCALATE_OPTS, **{k: v for k, v in (planner_kw or {}).items()
-                                if k.startswith("think_")}},
+            {**ESCALATE_OPTS, "retrieval_k": 1, "retrieval_bank": "v2-tune",
+             "app_hints": bool((planner_kw or {}).get("app_hints")),
+             "think_budget": 512, "think_on": "all", "think_sampler": "qwen"},
             tag="planner-blind", agentic_apps=agentic_apps)
         orch._schedule_warm_planner(orch.planner_blind, "planner-blind")
         print(f"[planner-blind] {orch.planner_blind.model_path} "
