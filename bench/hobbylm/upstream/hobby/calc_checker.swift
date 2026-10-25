@@ -10,7 +10,11 @@ func attr(_ e: AXUIElement, _ a: String) -> AnyObject? {
 func children(_ e: AXUIElement) -> [AXUIElement] { (attr(e, kAXChildrenAttribute) as? [AXUIElement]) ?? [] }
 func find(_ e: AXUIElement, depth: Int = 0) -> String? {
     if depth > 10 { return nil }
-    if (attr(e, kAXRoleAttribute) as? String) == "AXScrollArea", (attr(e, kAXDescriptionAttribute) as? String) == "Input" {
+    // macOS 27 Calculator dropped the "Input" description: the display is now an AXScrollArea with
+    // AXIdentifier "StandardInputView;value:<n>" holding the AXStaticText "Edit field" (Muselet harness patch).
+    let ident = (attr(e, "AXIdentifier") as? String) ?? ""
+    if (attr(e, kAXRoleAttribute) as? String) == "AXScrollArea",
+       (attr(e, kAXDescriptionAttribute) as? String) == "Input" || ident.hasPrefix("StandardInputView") {
         for c in children(e) where (attr(c, kAXRoleAttribute) as? String) == "AXStaticText" {
             return attr(c, kAXValueAttribute) as? String
         }
