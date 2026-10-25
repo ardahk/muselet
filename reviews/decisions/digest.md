@@ -1,6 +1,6 @@
-# decisions — digest (pass 82)
+# decisions — digest (pass 83)
 
-Heads: main 2de65a9 (unchanged), wip 7b8f421 (local main@e781dc1: tools-mode planners now OCR the screen every turn and in _verify_done, with no latency or pass-rate measurement (-44, P2; opt-in); finish.py unchanged (-41); -48 defaults unchanged), cool-tasks cfbec49 (-42 still blocks). Counts: 0 P0, 15 P1, 16 P2.
+Heads: main d09f4d8 (#130 page-load signal merged, but evidence() ignores it and still uses the planner's URL (-41); README branding only), wip 01a929c (local main@264cc82: Numbers tips/tests; -48 defaults unchanged), cool-tasks cfbec49 (-42 still blocks). Counts: 0 P0, 15 P1, 16 P2.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
