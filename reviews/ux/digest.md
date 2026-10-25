@@ -1,6 +1,6 @@
-# ux digest — pass 95
+# ux digest — pass 96
 
-Heads: main 2de65a9, wip 35aed2d, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
+Heads: main 2de65a9, wip aadf777, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
 
 Counts: 0 P0, 2 P1, 15 P2 (ux-29 reopened, now on main: blind planner thinks 512 tokens every turn) (ux-29 resolved: the LoRA planner defaults to THINK=0). New in pass 63: ux-30 (fix-pending: speech that isn't a command during a confirm gets no feedback). ux-26 resolved by design #70 (main 2de65a9); ux-25 and ux-27 still live on main.
 Open P1:
@@ -55,3 +55,6 @@ Highest-leverage next moves:
 
 ## Pass 95
 - ux-36 (P2, new): on wip, the recursive app lookup's substring fallback can open a helper app (e.g. Acrobat Distiller). Rank the matches and cache the scan.
+
+## Pass 96
+- wip: a one-line widening of the Premiere canvas-app prefix. Nothing new.

@@ -1,9 +1,9 @@
 {
-  "pass": 95,
-  "ts": "2026-10-25T13:22:00Z",
+  "pass": 96,
+  "ts": "2026-10-25T13:50:00Z",
   "last_reviewed": {
     "main": "b00f679",
-    "wip/local": "35aed2d",
+    "wip/local": "aadf777",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -99,5 +99,5 @@
     "cloud/cool-tasks": "cfbec49",
     "cloud/native-tools": "6053e4e"
   },
-  "notes": "pass 95: main b00f679 adds only a README architecture image (README.md:32's 4B/0.3 s claim, ux-32, is still there). wip 35aed2d: a recursive app resolver (ux-36 new, P2) and brain-side app-name normalisation (strips .app and a year suffix; 'Which app?' if ambiguous: fine). ux-34 is still open on main."
+  "notes": "pass 96: only wip moved (aadf777): CANVAS_APPS prefix widened to 'Adobe Premiere' (now also matches e.g. Premiere Rush, which is fine), plus a test. No copy change, no new findings. Open: ux-34/ux-32 on main b00f679; ux-31/ux-35/ux-36 on wip."
 }
