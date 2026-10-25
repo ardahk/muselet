@@ -1,6 +1,6 @@
-# decisions — digest (pass 52)
+# decisions — digest (pass 53)
 
-Heads: main 4150ecb (fix briefs only; decisions-37 P0 still live), wip b7b7840 (= main). New: decisions-39 P2 on cloud/fix-pending (router tau reused as supersede gate). cloud/fallback defaults the planner fallback on, which widens decisions-37. Budget: about $142.06 MTD estimated.
+Heads: main 4150ecb / wip b7b7840 unmoved (decisions-37 P0 still live). cloud/fallback 2ef5805 widens planner fallback to app-open requests; cloud/test-strategy adds evals/acceptance.jsonl + evals/replay/user_2026-10-24.jsonl, not in decontam (decisions-24). Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
