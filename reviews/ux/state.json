@@ -1,6 +1,6 @@
 {
-  "pass": 63,
-  "ts": "2026-10-25T03:38:00Z",
+  "pass": 64,
+  "ts": "2026-10-25T03:52:00Z",
   "last_reviewed": {
     "main": "4150ecb",
     "wip/local": "b7b7840",
@@ -77,11 +77,13 @@
     "cloud/memory-rules2": "03c3cd1",
     "cloud/design-polish": "bf4ae64",
     "cloud/memory-writes": "88ccf06",
-    "cloud/fallback": "6e40c3e",
+    "cloud/fallback": "2ef5805",
     "cloud/fix-apps-notes": "1ccb123",
     "cloud/fix-email-reply": "805223b",
     "cloud/fix-pending": "dba9094",
-    "cloud/hands-clock-verify": "a4d6463"
+    "cloud/hands-clock-verify": "a4d6463",
+    "cloud/fix-same-tab": "065e65f",
+    "cloud/test-strategy": "96c96d2"
   },
-  "notes": "pass 63: main 4150ecb is briefs only. New: ux-30 (fix-pending, speech ignored silently during a confirm). ux-29 updated (fallback adds silent planner steps). Copy fine: fix-apps-notes 'Which app?', fix-email-reply 'Which email? Open it, then ask me again', hands-clock-verify 'Timer set in Clock for X' and 'Timer set for X in Muselet'."
+  "notes": "pass 64: fallback 2ef5805 (3-line tweak), fix-same-tab 065e65f (same-tab browsing routing, no new bubble text), test-strategy 96c96d2 (small orchestrator hook) add no lane copy. main/wip unchanged. Open findings unchanged."
 }
