@@ -1,6 +1,6 @@
-# training lane digest — pass 60 (main 19d57fb)
+# training lane digest — pass 61 (main f5b4606)
 
-Open: 1 P0, 15 P1, 17 P2. NEW P0 training-54 (outside lane): a1fd57f hard-codes HobbyLM sealed r4 D04/D05 wording into argfix.py; r4 scores are no longer held-out.
+Open: 1 P0, 15 P1, 17 P2. training-54 (P0) still open: f5b4606 paraphrased the tests, but argfix.py keeps the sealed-r4 words; report r4 without D04-D06.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
