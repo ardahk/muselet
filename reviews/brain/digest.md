@@ -1,3 +1,20 @@
+# Brain lane review: pass 90 (2026-10-25T11:12Z)
+
+Open: P0 0, P1 16, P2 30. No new IDs; brain-73 widened.
+
+## Branches
+- main 2de65a9: 4bf7a41 refuses cmd+L/cmd+T in browsers and reads more cart-count labels; 36422a7 soft expects for every agentic app task.
+- wip/local 5b70519: snapshot on main; lane identical.
+- cloud/cool-tasks cfbec49: unchanged.
+
+## Rechecked
+- brain-73 (P1) widened: failed expects now return ok on any agentic app task, even without a finish criterion. New repro test_brain_pass90.py fails on 2de65a9, passes on 298526d.
+- brain-67 context: the new cmd+L refusal is _no_strike, so repeats skip the loop guard.
+- Everything else unchanged.
+
+## Tests
+main 18 MLX-only suite failures, 2529 passed. Review repros: main 76 / 53.
+
 # Brain lane review: pass 89 (2026-10-25T10:58Z)
 
 Open: P0 0, P1 16, P2 30. No new findings.
