@@ -1,11 +1,13 @@
-# Planner review digest — pass 87 (2026-10-25T10:02Z)
+# Planner review digest — pass 88 (2026-10-25T10:36Z)
 
-Moved: main ca73c12→b92677f (#121: MLX worker skips cancelled futures; generic_decide temperature defaults; README added); wip f1e504c (= main).
-- OK: the worker fix is correct. set_running_or_notify_cancel skips cancelled requests, so the worker thread survives.
-- planner-55 (P2): the new README repeats the docs mismatch. It says the 35B is only for web pages and blind screens, says every step has an expect check, and says destructive requests are refused without caveat.
-- planner-63 (destructive refuse regex), planner-59 (soft expects), planner-60 (search/find sendgate) and planner-56 (YouTube video not checked): unchanged.
+Moved: main b92677f→430e59e (#122 fix-lane: Premiere goes agentic, 35B think 1024 and retrieval off; #123 style replies; #124 truncated observations keep focused/text inputs; #125 Adobe hot-text typing); wip 9f6aa0d (= main); cool-tasks 2fafa9e (merge of main).
+- planner-64 (P1, new): with AGENTIC_APPS on by default, Premiere marker/cut/export requests go to the 35B GUI loop with args {}. There is no finish criterion, no export file check, and the deterministic tool is skipped.
+- planner-48 (P1): 35B think budget doubled to 1024, with no latency numbers.
+- planner-57 (P2): the style check also catches content words like 'short' and 'nice'.
+- OK: pinning focused/text inputs past the node cap; hot-text typing (Swift, not compiled here).
+- planner-63, planner-59, planner-60 and planner-56 unchanged.
 
-New: 0. Resolved: 0. Open: 0 P0, 18 P1, 15 P2.
+New: 1 P1. Resolved: 0. Open: 0 P0, 19 P1, 15 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
