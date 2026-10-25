@@ -1,6 +1,6 @@
-# bench digest — pass 91 (2026-10-25T11:30Z, main@2de65a9)
+# bench digest — pass 92 (2026-10-25T12:00Z, main@2de65a9)
 
-P0: 0 | open P1: 14 | open P2: 24
+P0: 0 | open P1: 15 | open P2: 25
 
 Ranked open P1:
 1. bench-44 LoRA planner shipped (efd2f3f) on uncommitted numbers. Pooled .731 vs .647; most of the gain is on v2-ho, whose screens were in training.
@@ -122,3 +122,9 @@ Pass 91: main unchanged; wip/local 5b70519..4db92e8 (not merged).
 - bench-55: fused act expects are now stripped on soft-expect tasks. The Premiere hint adds a planner-side Speed re-check, which is still not harness evidence.
 - Page-load signal (AXLoaded/AXElementBusy): `wait` returns early once the page is loaded, and navigation waits up to 15 s. Latency from before and after e2cb384 isn't comparable.
 - The Numbers sort guard and hint come from a live failure, not the eval wording. They change the prompt for the holdout case h-numbers-sort ("sort the transactions by amount"), whose accept rule is `script applescript` (bench-46).
+
+Pass 92: main unchanged; wip/local 4db92e8..a6035fb (a2004d9, user override: finance/advisor engines deleted).
+- NEW bench-60 (P1): the served planner now runs without few-shot examples or a retrieved example, and app skills are hidden. Every planner number (.850/.731/.770, 2.6 s, 6.0 s) was measured on a different prompt. Re-run before merge.
+- NEW bench-61 (P2): README and REPORT still claim deterministic Decimal finance. The finance results came from the deleted engines; re-run the finance acceptance cases on the planner path.
+- AGENTIC_APPS can no longer be turned off. That's per the user override, so it's not a finding.
+- bench-59 still applies: the stored escalate value is still sent.
