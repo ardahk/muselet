@@ -682,6 +682,33 @@ public final class Hands {
             records = Array(records.prefix(maxNodes)) + pinned
             truncated = true
         }
+        // A focused text input the walk never reached (deep web DOMs such as
+        // Gmail's reply body, past maxDepth) is still added.
+        if let axApp = (appEl as? AXNode)?.el {
+            var fe: CFTypeRef?
+            if AXUIElementCopyAttributeValue(axApp, kAXFocusedUIElementAttribute as CFString, &fe) == .success,
+               let fe {
+                let fnode = AXNode(fe as! AXUIElement)
+                let a = fnode.copyAttrs()
+                if let role = kRoleMap[a.role ?? ""], ["textarea", "textfield", "combobox"].contains(role),
+                   !records.contains(where: { sameElement($0.element, fnode) }) {
+                    var web = false
+                    var p = fnode.copySingleAttr(kAXParentAttribute as String) as? Element
+                    for _ in 0..<60 {
+                        guard let cur = p else { break }
+                        if cur.copyAttrs().role == "AXWebArea" { web = true; break }
+                        p = cur.copySingleAttr(kAXParentAttribute as String) as? Element
+                    }
+                    var label = Walker.label(of: a, role: role)
+                    if label.isEmpty { label = role }
+                    records.append(ElementRecord(
+                        ref: 0, role: role, label: label, value: a.value as? String,
+                        enabled: a.enabled, selected: a.selected ?? false,
+                        focused: true, frame: a.frame, checked: nil,
+                        inWebArea: web, element: fnode))
+                }
+            }
+        }
         obs.truncated = truncated
 
         // Window session: same app+window ELEMENT keeps stable refs (titles
