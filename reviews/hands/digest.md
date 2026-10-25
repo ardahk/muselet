@@ -1,9 +1,9 @@
-# hands — digest (Pass 73)
+# hands — digest (Pass 74)
 
 Open: 0 P0, 5 P1, 10 P2.
 
 Ranked open P0/P1:
--1. P1 hands-38 (wip/local 422399a, ClockAX.swift:523-552): the Clock cancel rework falls back to `live.first` and presses a stale detail-pane Cancel after a fixed 80 ms. It can cancel a user's own Clock timer and still report success. Don't merge as-is.
+-1. P1 hands-38 (main e2f7e5e via a615f00, ClockAX.swift:523-552): the Clock cancel falls back to `live.first` and presses a stale detail-pane Cancel after a fixed 80 ms. It can cancel a user's own Clock timer and still report success. Fix before the demo.
 0. P1 hands-36 (main e425cad via #86, ClockAX.swift:546-708): the Clock wheel key fallback clicks the wheel, then types digits and up to 70 HID arrow keys without re-checking Clock is frontmost or the wheel has focus. Keys can land in the user's frontmost app. Gate it before the demo.
 1. P1 hands-34 (main dc6f2f5, Launch.swift:224-232): fix-same-tab merged unchanged. Same-tab open_url/web_search posts cmd+L, waits a fixed 80 ms, then types the URL plus Return without checking the address bar has focus. The brain uses it by default whenever a browser is frontmost.
 2. P1 hands-29 (main, ClockAX.swift): Clock start and cancel bring Clock to the front and never switch back, and there's no opt-out.
@@ -15,6 +15,11 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 74:
+- main e2f7e5e merged agentic-loop (page-load re-poll, finish gate, Spotify: no pixel clicks), fix-thinking (grounder prewarm, blind_click_blocked, timer_control), premiere-route-fix, and a615f00, whose ClockAX change is identical to wip 422399a. So hands-38 (P1) is now on main.
+- cloud/agentic-apps 523d2c1 (brain and catalog): adds a `kind` key to the skills/catalog.json entries. Swift reads the catalog untyped (Skills.swift:32-41), so an extra key is harmless; there are no app/ changes and no RPC changes.
+- wip/local 3f8e2f8 matches main for app/. Other open findings re-checked and unchanged.
 
 Pass 73:
 - main fe2de69: serve_brain.sh now uses the local eyes-4b MLX grounder. No app/ change.
