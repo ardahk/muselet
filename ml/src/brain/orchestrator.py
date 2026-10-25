@@ -1614,7 +1614,7 @@ class Orchestrator:
             return await self._planner_loop(
                 text, trace,
                 hint="the timer is in the Clock app's Timers tab; "
-                     "use its Pause/Resume/Cancel buttons")
+                     "press its Pause/Resume/Cancel button once, then done")
         if pre is None:
             from .tools import premiere_edit
             pargs = premiere_edit.parse_request(text, self._ctx)
@@ -3882,7 +3882,7 @@ function run() {
         try:
             from .app_hints import match_hints
             for hint in match_hints(goal):
-                if not hint.generic:
+                if not hint.generic and hint.target:
                     return hint.id
         except Exception:  # noqa: BLE001 - hints optional
             pass

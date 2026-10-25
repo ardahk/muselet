@@ -1,3 +1,4 @@
+import re
 import sys
 from pathlib import Path
 
@@ -129,3 +130,82 @@ def test_load_hints_returns_fresh_lists_from_cached_default():
     first = load_hints()
     first.clear()
     assert load_hints()
+
+
+@pytest.mark.parametrize(("goal", "app", "route_hint", "expected"), [
+    ("set a timer for 10 minutes", "", "", "clock"),
+    ("pause the timer", "Clock", "the timer is in the Clock app's Timers tab", "clock"),
+    ("pause it", "Clock", "", "clock"),
+    ("remind me to call mom at 5", "", "", "reminders"),
+    ("add milk", "", "use the Reminders app; reminder milk", "reminders"),
+    ("make a note about the trip", "", "", "notes"),
+    ("write down groceries", "", "use the Notes app; new note; text: eggs", "notes"),
+    ("add an event lunch tomorrow at 3pm", "", "", "calendar"),
+    ("text mom I'm running late", "", "", "messages"),
+    ("tell Caleb hi", "", "use the Messages app; recipient Caleb", "messages"),
+    ("reply to this email saying thanks", "", "", "mail"),
+    ("say thanks", "Google Chrome",
+     "the email is open in the browser/Mail; write a draft reply", "mail"),
+    ("directions to SFO", "", "", "apple_maps"),
+    ("add a marker here", "Adobe Premiere Pro", "", "premiere"),
+    ("cut the clip", "", "use Adobe Premiere Pro; op cut", "premiere"),
+])
+def test_app_knowhow_entries_selected(goal, app, route_hint, expected):
+    picked = [h.id for h in match_hints(goal, app, route_hint=route_hint)]
+    assert picked[0] == expected
+
+
+def test_app_knowhow_route_hint_beats_goal_words_and_app_is_word_matched():
+    # agentic hint names the app; goal words naming another app come second
+    picked = [h.id for h in match_hints(
+        "text about the meeting", "",
+        route_hint="use the Notes app; new note")]
+    assert picked[0] == "notes"
+    assert "messages" not in [h.id for h in match_hints("edit this", "TextEdit")]
+
+
+def test_app_knowhow_tips_are_short_and_never_pixel_click_user_data():
+    rows = {hint.id: hint for hint in load_hints()}
+    for hid in ("clock", "reminders", "notes", "calendar", "messages",
+                "mail", "apple_maps", "premiere"):
+        assert 2 <= len(rows[hid].tips) <= 5, hid
+        assert len(render_hints([rows[hid]])) <= 1200
+    for hid in ("spotify", "mail", "messages", "notes", "calendar",
+                "reminders", "finder_files", "rename_files", "system_settings"):
+        for tip in rows[hid].tips:
+            assert not re.search(r'\bclick\s+(["\d#<]|the\b|on\b)', tip), (hid, tip)
+    assert any("ONCE" in tip for tip in rows["clock"].tips)
+    assert all("confirm" in " ".join(rows[h].tips) for h in ("messages", "mail"))
+
+
+def test_app_knowhow_entries_do_not_redirect_or_name_cross_app_targets():
+    from brain.orchestrator import Orchestrator
+    assert getattr(open_ended_redirect("find_file", "find the text file", None), "id", None) \
+        != "messages"
+    assert open_ended_redirect(
+        "start_timer", "set a timer for 5 minutes", "safe") is None
+    assert Orchestrator._goal_named_target("reply to this email") is None
+    assert Orchestrator._goal_named_target("add a marker in premiere") is None
+    assert Orchestrator._goal_named_target("pause the timer") == "clock"
+
+
+def test_planner_prompt_uses_route_hint_for_app_tips():
+    planner = _prompt_planner(True)
+    content = planner.user_content(
+        "pause it", "app: Clock | window: \"Clock\"", None,
+        hint="the timer is in the Clock app's Timers tab")
+    assert planner.last_hint_ids[0] == "clock"
+    assert "press that button ONCE" in content
+
+
+def test_clock_and_reminders_tips_cover_live_failures():
+    rows = {hint.id: hint for hint in load_hints()}
+    clock = " ".join(rows["clock"].tips)
+    assert "LABEL" in clock and "never type the duration there" in clock
+    assert "check the wheel shows them" in clock
+    reminders = " ".join(rows["reminders"].tips)
+    assert "Never create a second reminder" in reminders
+    assert "Call mom at 5pm" in reminders and "info (i)" in reminders
+    for hid in ("clock", "reminders"):
+        assert len(render_hints([rows[hid]])) <= 1200
+    assert len(render_hints(match_hints("remind me to call mom at 5pm"))) <= 1200
