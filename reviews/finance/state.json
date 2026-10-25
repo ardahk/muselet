@@ -1,7 +1,7 @@
 {
   "lane": "finance",
-  "pass": 78,
-  "ts": "2026-10-25T07:45:07Z",
+  "pass": 79,
+  "ts": "2026-10-25T08:08:43Z",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
@@ -48,8 +48,8 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "5d135d0",
-    "wip/local": "c86fec4",
+    "main": "3e323a9",
+    "wip/local": "b8eeec4",
     "cloud/memory": "a8af560",
     "cloud/memory-eval": "c05944e",
     "devin/1792872486-data-route-handoff": "seen",
@@ -95,9 +95,10 @@
     "cloud/agentic-evidence": "1918cad",
     "cloud/app-knowhow": "c69dfec",
     "cloud/browser-flow": "485763f",
-    "cloud/docs-final": "bf9118d"
+    "cloud/docs-final": "bf9118d",
+    "cloud/agentic-fixes2": "b9cd089"
   },
   "next_id": 28,
-  "notes": "pass78: main 5d135d0 adds only the builder_agentic_fixes2 brief. wip c86fec4 sets _force_blind for app tasks (planner path only; brain tools unaffected). docs-final bf9118d is docs only and makes no finance-number changes; its claims about the brain-tool path depend on finance-33/31 being fixed.",
+  "notes": "pass79: main 3e323a9 adds PLANNER=35b (opt-in), runs agentic app tasks/timer controls on the 35B blind planner, Spotify play evidence and norm_words. agentic-fixes2 b9cd089 only adds YouTube play evidence. No change to open_ended_redirect hints, fallback eligibility, criterion() search kind or finance code, so finance-31/33/34 are unchanged. wip = main.",
   "timestamp": "2026-10-25T05:37:35Z"
 }
