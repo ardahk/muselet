@@ -1,5 +1,5 @@
-# architect digest - pass 60 (2026-10-25T01:40Z)
-Reviewed: main 9be963d (unchanged), wip/local 7728b98 (brightness relative_not_level fix for HobbyLM r4 D04-D06, harness bundle-id launch detection), memory-llm-gate f6229d7 (rebased on main; 58/58 memory tests; holdout .617/.0195, same as main with LLM off). New: architect-40 (P1): the sealed r4 run 20261025T004223Z happened, and its failures were then patched with the sealed utterances added as tests verbatim. Quote the first run only. architect-39 is unchanged on main.
+# architect digest - pass 61 (2026-10-25T01:55Z)
+Reviewed: main 19d57fb (a1fd57f brightness relative_not_level + bundle-id launch detection; #69 memory LLM gate, MEMORY_LLM still 0) and wip/local 8a197f8 (memory rules +421 lines: URL query extraction and site search; docs/claims refresh). Tests: main 414 passed / 3 skipped; wip 408 passed / 3 skipped. Memory holdout (rules + long-term) is .617 / .0195 on both main and wip, so the rules.py rewrite on wip adds no holdout gain. wip claims/REPORT still quote memory .574, but measured holdout is .617 (an understatement, not an overclaim). architect-40 is now on main. architect-39: proxy.py unchanged, still open. No new findings.
 
 ## Open P1 (ranked)
 00. architect-40 - Sealed r4 failures patched post-hoc; rerun = tuned-on-test - ml/src/brain/orchestrator.py
