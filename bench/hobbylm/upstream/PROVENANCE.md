@@ -31,7 +31,7 @@
 | `data/hobbymac-regex-sealed-r4.json` | `93c99129719fa1cb477a466256d225984aba81746d3ef8574881f0a638f62246` |
 | `data/hobbymac-regex-sealed.json` | `f6123a63b443c73e5c235063565a15c32c8bf39b111b0a54dc57ed6b58223391` |
 | `hobby/brightness.swift` | `bbd0a5cbe5da8df3eec7c79360790bd1868b3fabe120ffaceb9770d193ebe592` |
-| `hobby/calc_checker.swift` | `13e751ad7a015e947734d91a21d29f7c3d6bf0d4837b2039ca03175e31a7dbc1` |
+| `hobby/calc_checker.swift` | `f991cad815e02dabb58a5deae06707a13b3a5aaa4ffe961e860ff9e3b6be3f44` |
 | `hobby/calendar_tool.py` | `bc2197b879440dbdcae7062be48b3ab1f1324c45cbfeec347ae03293425f9403` |
 | `hobby/checker.swift` | `41c3c0ce6886697cf23e6bb9d4aad6b1949cfbf9a5c29f5683076d12ff91606d` |
 | `hobby/hobbymac_data.py` | `38b4155aa848e1d507c060839a5515596424f9e5502aee67a55365430eecde53` |
@@ -40,3 +40,5 @@
 | `hobby/mcp_client.py` | `d709a47bf541d8d9bb578c59f01874cea8ce4d6eeb1233ab7e9e67a41fed293b` |
 | `hobby/media_key.swift` | `6f2857e16b4bcc3742591338587b2b430ced2e8a7b5130a664f72012b12057dc` |
 | `scripts/setup.sh` | `23c6c5914a36303dccee7e4db11eeb5e1355639bd9bd620a118f3324ce516b22` |
+
+- `hobby/calc_checker.swift` is patched (Muselet, 6a37d0c): macOS 27 Calculator's display is an AXScrollArea with AXIdentifier `StandardInputView;value:<n>` and no `Input` description; the original condition is kept. Same element, same value.

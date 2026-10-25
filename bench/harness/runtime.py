@@ -137,7 +137,7 @@ class HandsRuntime:
         await self._start_client(list(utterances), timeout_s=timeout_s)
         await self._wait_for("wait_for_utterance", self.proxy.wait_for_utterance)
 
-    def begin_turn(self, confirm_reply: bool | None) -> None:
+    def begin_turn(self, confirm_reply: bool | str | None) -> None:
         self.proxy.begin_turn(confirm_reply)
 
     async def wait_next_turn(self, timeout_s: float = 20) -> bool:
