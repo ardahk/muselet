@@ -1,3 +1,21 @@
+# Brain lane review: pass 95 (2026-10-25T13:00Z)
+
+Open: P0 0, P1 16, P2 34. New: brain-79 (P2, main).
+
+## Branches
+- main d09f4d8: merges e2cb384 (AXLoaded page-load signal) without wip's de6319c follow-up.
+- wip/local 01a929c: 264cc82 fixes the AX-click tests; Numbers hint gains formula facts.
+- cloud/cool-tasks cfbec49: unchanged.
+
+## New
+- brain-79 (P2, main): main suite red (test_loading_title_repolls_until_expect_passes, 2 == 4) because _repoll_loading hard-codes a 0.1 s cadence instead of LOAD_POLL_S; duplicated _page_loading tail runs after every page-load wait.
+
+## Rechecked
+brain-76 now on main (wait 1500 returns after 151 ms). brain-78 widened by the Numbers hint change. Pass-94 delete-test note closed.
+
+## Tests
+main 19 failed (18 MLX + 1), 2532 passed. wip 106 failed (18 MLX + 88), 2233 passed. Review repros 77 / 53 on both.
+
 # Brain lane review: pass 94 (2026-10-25T12:45Z)
 
 Open: P0 0, P1 16, P2 33. No new findings.
