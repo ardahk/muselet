@@ -1,3 +1,20 @@
+# Brain lane review: pass 92 (2026-10-25T12:10Z)
+
+Open: P0 0, P1 16, P2 32. New: brain-77 (P2, wip/local).
+
+## Branches
+- main 2de65a9 and cloud/cool-tasks cfbec49: unchanged.
+- wip/local a6035fb: adds a2004d9, removing the finance/advisor engines; app intents always go to the planner and --agentic-apps is ignored.
+
+## New
+- brain-77 (P2, wip/local): suite goes from 18 to 106 failures; the 88 new ones include Premiere named-confirm, send-confirm and confirm-denied tests. The send_message and premiere_command confirm blocks in _exec_action are now unreachable.
+
+## Notes
+brain-57 opt-out removed. serve_brain.sh base planner now defaults to no few-shot and no retrieval (differs from its documented reference config).
+
+## Tests
+wip/local 106 failed (18 MLX-only + 88 new), 2197 passed. Review repros 77 / 53 (unchanged).
+
 # Brain lane review: pass 91 (2026-10-25T11:40Z)
 
 Open: P0 0, P1 16, P2 31. New: brain-76 (P2, wip/local).
