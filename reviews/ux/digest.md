@@ -1,8 +1,8 @@
-# ux digest — pass 75
+# ux digest — pass 76
 
-Heads: main de1070d, wip 52e4b94, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
+Heads: main 3a0860c, wip 83cf584, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
 
-Counts: 0 P0, 1 P1, 15 P2 (ux-29 reopened, now on main: blind planner thinks 512 tokens every turn) (ux-29 resolved: the LoRA planner defaults to THINK=0). New in pass 63: ux-30 (fix-pending: speech that isn't a command during a confirm gets no feedback). ux-26 resolved by design #70 (main de1070d); ux-25 and ux-27 still live on main.
+Counts: 0 P0, 1 P1, 15 P2 (ux-29 reopened, now on main: blind planner thinks 512 tokens every turn) (ux-29 resolved: the LoRA planner defaults to THINK=0). New in pass 63: ux-30 (fix-pending: speech that isn't a command during a confirm gets no feedback). ux-26 resolved by design #70 (main 3a0860c); ux-25 and ux-27 still live on main.
 Open P1:
 - ux-28: the failure bubble shows raw "Not finished: expect failed: …" (orchestrator.py:3061, 2065)
 Open P2, ranked:
@@ -18,4 +18,6 @@ Highest-leverage next moves:
 4. ux-14: ui('idle') after "Okay, cancelled", and reset the mood in onConfirmCancel (~0.25 h)
 5. ux-24: lead decision on the script gate
 
-- ux-31 (P2, now on main de1070d, AGENTIC_APPS=1 default): agentic-apps defaults on, so all 12 app skills (timer, message, email, notes, music, Premiere) run through the multi-turn planner with only 'thinking'. Lead decision: default off, or only after the native skill fails.
+- ux-31 (P2, now on main 3a0860c, AGENTIC_APPS=1 default): agentic-apps defaults on, so all 12 app skills (timer, message, email, notes, music, Premiere) run through the multi-turn planner with only 'thinking'. Lead decision: default off, or only after the native skill fails.
+
+- ux-29 update (main 3a0860c): the blind planner now defaults to the 35B whenever its weights are cached, still with 512 thinking tokens every turn. Measure Spotify and timer turn_ms, then decide the default.

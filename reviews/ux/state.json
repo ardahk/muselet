@@ -1,9 +1,9 @@
 {
-  "pass": 75,
-  "ts": "2026-10-25T06:43:00Z",
+  "pass": 76,
+  "ts": "2026-10-25T06:58:00Z",
   "last_reviewed": {
-    "main": "de1070d",
-    "wip/local": "52e4b94",
+    "main": "3a0860c",
+    "wip/local": "83cf584",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -90,9 +90,9 @@
     "cloud/premiere-route-fix": "7769c32",
     "cloud/agentic-loop": "dc7a063",
     "cloud/agentic-apps": "1904638",
-    "cloud/agentic-evidence": "c4703c4",
-    "cloud/app-knowhow": "fc92f6b",
-    "cloud/browser-flow": "c0421e6"
+    "cloud/agentic-evidence": "1918cad",
+    "cloud/app-knowhow": "c69dfec",
+    "cloud/browser-flow": "485763f"
   },
-  "notes": "pass 75: main de1070d merged agentic-apps (default on; ux-31 now live) and autodone (programmatic timer/cart finish evidence). agentic-evidence c4703c4 adds good copy, 'Message is ready; press Send when you want', and sets the mascot back to idle. app-knowhow and browser-flow add planner tips and routing only, no reply text. No new findings."
+  "notes": "pass 76: main 3a0860c makes the blind planner default to the 35B (if cached) with think 512 on every turn; ux-29 updated (slower). agentic-evidence, app-knowhow and browser-flow add evidence rules, planner tips and URL guards with no new reply text beyond 'Message is ready; press Send when you want' (already reviewed). Outside lane: the 35B prewarm alongside the main brain should be checked against the AGENTS.md memory budget."
 }
