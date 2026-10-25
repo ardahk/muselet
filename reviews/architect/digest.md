@@ -1,6 +1,6 @@
-# architect digest - pass 76 (2026-10-25T06:00Z)
-Reviewed: main fe2de69 (serve_brain pins the local eyes-4b MLX grounder, which removes the 3 GB lazy download mid-request; fine). wip/local 422399a adds a grounder prewarm thread, a blind-click block in user-data apps (Spotify/Music/Finder/Mail...), timer pause/resume/cancel routing and finish criteria, and a ClockAX change (Swift, reviewed by reading). wip tests: 184 passed. New: architect-48 (P1, wip): the timer-control pre-route sends 'set a timer ... to stop X' to a cancel task; fix before merging. premiere-route-fix is still unmerged.
-Open: P0 0, P1 14, P2 9.
+# architect digest - pass 77 (2026-10-25T06:15Z)
+Reviewed: main e2f7e5e (merges premiere-route-fix, which closes the draft_email -> premiere_edit misroute, plus fix-thinking and agentic-loop dc7a063), wip/local 3f8e2f8 (same as main) and agentic-apps 523d2c1. Tests: main 232 passed, agentic-apps 94 passed. architect-48 is now on main. New: architect-49 (P1): agentic-apps is on by default and moves start_timer/create_event and 10 other app skills onto the planner, which covers 38/125 r4 tasks.
+Open: P0 0, P1 15, P2 9.
 
 ## Open P0/P1 (ranked)
 - architect-45 [P1] Shipped LoRA planner's holdout .850 rests on a decontam gate that misses word-order paraphrases of holdout goals
@@ -24,6 +24,7 @@ Open: P0 0, P1 14, P2 9.
 4. Fit VERIFY_P on the LoRA planner's traces, or turn VERIFY_DONE off for the demo (architect-33).
 
 5. Before the demo, smoke-test evals/live_premiere.jsonl on the Mac (Window > Timeline, Sequence > Apply Video Transition) and change cmd+t to the real shortcut in planner_system.md:46 (architect-26/35).
+
 
 
 
