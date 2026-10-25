@@ -48,6 +48,7 @@ Hackathon deadline: Cal Hacks submission Sun Oct 25 2026, 09:00 PDT. Tinker budg
   holdouts v1-ho/v1-ho2/v2-ho .857/1.000/.692 (mean .850), step p50 ~0.3 s. `PLANNER=base` selects the
   base 4B with few-shot, retrieval k=1, THINK=512 qwen (.786/.917/.608, mean .770 @ 2.6 s); THINK=512 is
   the base-planner default only. 35B-A3B escalation remains available via `--planner-model` or `ESCALATE=1`.
+  Offline planner bench: `evals/planner_offline.py` (tune / holdout / holdout2 sets; never tune on holdouts).
 - Planner auxiliary model: base 4B handles non-DSL generation/decide calls so the LoRA only plans; +1 resident
   4B is ~2.5 GB, and `PLANNER_AUX=planner` reuses the planner. Verified done + bounded recovery (`VERIFY_DONE`);
   working/long-term memory (`MEMORY`, `LONGTERM`; `MEMORY_LLM` rewrite off).
