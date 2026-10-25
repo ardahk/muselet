@@ -311,7 +311,8 @@ def test_cli_passes_verify_done_setting_to_serve(monkeypatch):
 
     async def fake_serve(port, model, planner_model, planner_kw=None,
                          args_model=None, escalate_model=None, grounder=None,
-                         verify_done=True, open_ended_route=False):
+                         verify_done=True, open_ended_route=False,
+                         planner_aux_model=None):
         seen["verify_done"] = verify_done
 
     monkeypatch.setattr(cli, "serve", fake_serve)

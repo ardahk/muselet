@@ -73,7 +73,7 @@ def _wall_time() -> str:
 @dataclass
 class CaseCapture:
     case_id: str = ""
-    confirm_reply: bool | None = None
+    confirm_reply: bool | str | None = None   # True/False answer, None = unexpected, "hold"
     frames: list[dict[str, Any]] = field(default_factory=list)
     utterance_monotonic: float | None = None
     utterance_wall: str | None = None
@@ -81,6 +81,7 @@ class CaseCapture:
     terminal_monotonic: float | None = None
     confirm_count: int = 0
     confirm_cancelled: bool = False
+    held_confirms: list[str] = field(default_factory=list)   # confirm_reply "hold": left open
     confirm_asked_unexpectedly: bool = False
     safety_blocked: bool = False
     safety_blocks: list[dict[str, Any]] = field(default_factory=list)
@@ -113,6 +114,7 @@ class CaseCapture:
             "first_action_latency_s": elapsed,
             "confirm_count": self.confirm_count,
             "confirm_cancelled": self.confirm_cancelled,
+            "held_confirms": list(self.held_confirms),
             "confirm_asked_unexpectedly": self.confirm_asked_unexpectedly,
             "safety_blocked": self.safety_blocked,
             "safety_blocks": list(self.safety_blocks),
@@ -196,7 +198,7 @@ class BenchProxy:
     async def begin_case(
         self,
         case_id: str,
-        confirm_reply: bool | None,
+        confirm_reply: bool | str | None,
         *,
         allow_confirm_skills: set[str] | None = None,
     ) -> None:
@@ -310,7 +312,7 @@ class BenchProxy:
         """Forward one final utterance; hold later ones until `release_held_utterance`."""
         self.capture.turn_budget = 1
 
-    def begin_turn(self, confirm_reply: bool | None) -> None:
+    def begin_turn(self, confirm_reply: bool | str | None) -> None:
         capture = self.capture
         capture.confirm_reply = confirm_reply
         capture.utterance_monotonic = capture.utterance_wall = None
@@ -605,6 +607,20 @@ class BenchProxy:
             if frame.get("t") == "confirm":
                 self.capture.confirm_count += 1
                 reply = self.capture.confirm_reply
+                if reply == "hold":
+                    # the user ignores the confirm and speaks the next command
+                    self.capture.held_confirms.append(str(frame.get("id")))
+                    self.capture.frames.append({
+                        "direction": "proxy_observation",
+                        "monotonic": time.monotonic(),
+                        "wall_time": _wall_time(),
+                        "frame": {"t": "confirm_held", "id": frame.get("id")},
+                    })
+                    if self.capture.terminal_monotonic is None:
+                        self.capture.terminal_monotonic = time.monotonic()
+                        self.capture.active = False
+                        self.capture.terminal_event.set()
+                    continue
                 if reply is None:
                     self.capture.confirm_asked_unexpectedly = True
                     reply = False
@@ -622,8 +638,9 @@ class BenchProxy:
                 await brain.send(json.dumps(response))
                 continue
             if frame.get("t") == "confirm_cancel":
-                self.capture.confirm_cancelled = True
-                if self.capture.terminal_monotonic is None:
+                held = str(frame.get("id")) in self.capture.held_confirms
+                self.capture.confirm_cancelled |= not held
+                if not held and self.capture.terminal_monotonic is None:
                     self.capture.terminal_monotonic = time.monotonic()
                     self.capture.active = False
                     self.capture.terminal_event.set()
@@ -631,7 +648,8 @@ class BenchProxy:
                     "direction": "proxy_observation",
                     "monotonic": time.monotonic(),
                     "wall_time": _wall_time(),
-                    "frame": {"t": "confirm_cancel", "id": frame.get("id")},
+                    "frame": {"t": "confirm_cancel", "id": frame.get("id"),
+                              "held": held},
                 })
             if frame.get("t") == "rpc":
                 method = frame.get("method")

@@ -50,8 +50,29 @@ def _load_suite(path: Path) -> list[dict[str, Any]]:
             error = _turns_error(case)
             if error:
                 raise ValueError(f"{path}:{line_number}: {case_id}: {error}")
+        error = _screen_grade_error(case)
+        if error:
+            raise ValueError(f"{path}:{line_number}: {case_id}: {error}")
         cases.append(case)
     return cases
+
+
+SCREEN_SOURCES = ("applescript", "jxa", "shell", "rpc")
+
+
+def _screen_grade_error(case: dict[str, Any]) -> str | None:
+    """`"grade": "screen"` (evals/acceptance.jsonl): pass/fail is read from the
+    screen (AX / System Events / files / HandsKit state), never the brain's reply."""
+    if case.get("grade") != "screen":
+        return None
+    turns = case.get("turns") or []
+    checks = list(case.get("check", [])) + [c for t in turns for c in t.get("check", [])]
+    if any(isinstance(c, dict) and "trace_say" in c for c in checks):
+        return "screen-graded case grades on trace_say (the brain's claim)"
+    final = list(case.get("check", [])) + (list(turns[-1].get("check", [])) if turns else [])
+    if not any(isinstance(c, dict) and any(k in c for k in SCREEN_SOURCES) for c in final):
+        return "screen-graded case needs a final AX/System Events/file/rpc-state check"
+    return None
 
 
 def _turns_error(case: dict[str, Any]) -> str | None:
@@ -63,8 +84,10 @@ def _turns_error(case: dict[str, Any]) -> str | None:
     for number, turn in enumerate(turns, 1):
         if not isinstance(turn, dict) or not str(turn.get("utterance", "")).strip():
             return f"turn {number} has no utterance"
-        if turn.get("confirm_reply", None) not in (None, True, False):
-            return f"turn {number} confirm_reply must be null, true or false"
+        if turn.get("confirm_reply", None) not in (None, True, False, "hold"):
+            return f"turn {number} confirm_reply must be null, true, false or \"hold\""
+        if turn.get("confirm_reply") == "hold" and number == len(turns):
+            return "the last turn cannot hold a confirm"
         if not isinstance(turn.get("check", []), list):
             return f"turn {number} check must be a list"
         wait_s = turn.get("wait_s", 1.0)

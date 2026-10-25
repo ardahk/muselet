@@ -368,6 +368,8 @@ _APP_ALIASES = {"finder": "Finder", "chrome": "Google Chrome",
                 "premiere": "Adobe Premiere Pro",
                 "premiere pro": "Adobe Premiere Pro"}
 APPS_TTL_S = 60
+LAUNCH_AX_TIMEOUT_S = 2.0
+LAUNCH_AX_POLL_S = 0.1
 
 
 def app_in(text: str, names: list[str]) -> str | None:
@@ -462,6 +464,7 @@ class Orchestrator:
         self._focus_ctx = {}
         self._planner_ran = False
         self.planner = None
+        self.planner_aux = None
         self.planner_escalate = None    # opt-in bigger planner (loop guard)
         self.escalate_opts = None
         self._escalate_lock = asyncio.Lock()
@@ -498,6 +501,7 @@ class Orchestrator:
         self._utterance = ""
         self._diff_chain: list[str] | None = None
         self._apps: tuple[float, list[str]] | None = None   # (t, names)
+        self._launch_pending = False
         self._collect: list[str] | None = None   # compound: replies to join
         self._last_skill: tuple[str, dict, dict] | None = None
         self._compound_to_planner = False
@@ -506,6 +510,12 @@ class Orchestrator:
         self.grounder = None        # brain.grounder.Grounder, built on first use
         self.screens: list | None = None    # app `hello` screens (backing scale)
         self.verify_done = True
+
+    def _text_model(self, planner=None):
+        """Model for non-DSL text/decide calls: the escalation planner keeps its own; otherwise the aux model (base 4B), else the planner."""
+        if planner is not None and planner is self.planner_escalate:
+            return planner
+        return self.planner_aux or self.planner
 
     # ---------- v0 router ----------
 
@@ -567,6 +577,7 @@ class Orchestrator:
     # ---------- utterance ----------
 
     async def handle_utterance(self, text: str, ctx: dict | None = None) -> dict:
+        from .tools import draft_email
         original_text = text
         t0 = time.perf_counter()
         said_items = getattr(self.server, "said", None)
@@ -581,6 +592,8 @@ class Orchestrator:
         previous_memory_ids = list(self._last_memory_ids)
         self._last_memory_ids = []
         trace = self.tracer.begin(text)
+        if ctx:
+            trace["ctx"] = dict(ctx)     # offline replay (brain.replay)
         # utterance-frame ctx wins (app/focused/selection/online)
         if ctx:
             for k in ("app", "focused", "selection", "online"):
@@ -701,10 +714,14 @@ class Orchestrator:
                     if memory_result and memory_result.changed:
                         text = memory_result.text
                         self._utterance = text
+                    from .tools import compose_text
                     if (msg := comms.parse_message(text)) is not None and \
                             msg.get("channel") in (None, "messages"):
                         trace["decisions"].append({"message_redirect": msg})
                         outcome = await comms.start(self, msg, text)
+                    elif (nargs := compose_text.parse_request(text)) is not None:
+                        trace["decisions"].append({"compose_redirect": nargs})
+                        outcome = await self._brain_tool("compose_text", nargs, text)
                     elif (calc_result := calc.result(text)) is not None and \
                             calc_result.value is not None and (
                             str(self._ctx.get("app", "")).casefold() == "calculator"
@@ -712,6 +729,10 @@ class Orchestrator:
                                          re.IGNORECASE) is not None):
                         outcome = await self._deliver_calc(
                             calc_result, trace, calculator=True)
+                    elif not comms.is_messaging(text) and (dargs :=
+                            draft_email.parse_request(
+                                text, {**self._ctx, **self._focus_ctx})) is not None:
+                        outcome = await self._brain_tool("draft_email", dargs, text)
                     elif self.engine is not None:
                         outcome = await self._engine_route(text, trace)
                     else:
@@ -729,7 +750,7 @@ class Orchestrator:
                         else:
                             from .tools import draft_email
                             dargs = None if comms.is_messaging(text) else \
-                                draft_email.parse_request(text, self._ctx)
+                                draft_email.parse_request(text, {**self._ctx, **self._focus_ctx})
                             if dargs is not None:
                                 trace["decisions"].append(
                                     {"draft_redirect": dargs})
@@ -824,7 +845,7 @@ class Orchestrator:
         reason = result.reason
         if (reason and reason not in {"llm-gated", "llm-invalid"} and
                 result.path == "none" and self.memory_llm and
-                self.planner is not None):
+                self._text_model() is not None):
             try:
                 from .memory.rewrite import (
                     STATIC, dynamic, has_context, llm_rewrite,
@@ -836,7 +857,7 @@ class Orchestrator:
                 else:
                     prompt = STATIC + context
                     output = await worker().submit_async(
-                        self.planner.complete, prompt, 40)
+                        self._text_model().complete, prompt, 40)
                     result = llm_rewrite(
                         text, self.memory, focus_ctx, now,
                         lambda _prompt, _tokens: output, 40, memory=rows)
@@ -888,6 +909,11 @@ class Orchestrator:
             if row.get("id") not in self._last_memory_ids:
                 self._last_memory_ids.append(row["id"])
 
+    def _workflows_path(self) -> Path:
+        db = os.environ.get("MUSELET_MEMORY_DB")
+        return Path(db).with_name("workflows.jsonl") if db else \
+            Path.home() / "Library/Application Support/Muselet/workflows.jsonl"
+
     def _planner_memory_writes(self, goal: str, trace: dict) -> list[dict]:
         from . import comms
         from .memory.policy import allowed_value, planner_writes
@@ -929,9 +955,7 @@ class Orchestrator:
         writes = planner_writes(goal, str(app or "unknown"), len(actions))
         if not filtered:
             return [row for row in writes if row["type"] == "episode"]
-        db = os.environ.get("MUSELET_MEMORY_DB")   # benchmark brains keep their memory out of the user's store
-        path = Path(db).with_name("workflows.jsonl") if db else \
-            Path.home() / "Library/Application Support/Muselet/workflows.jsonl"
+        path = self._workflows_path()
         normalized = normalize(goal)
         try:
             existing = [json.loads(line) for line in
@@ -961,6 +985,21 @@ class Orchestrator:
             planner.plan_bank = PlanBank(bank_demos + [demo])
         return writes
 
+    def _forget_everything(self) -> None:
+        self.longterm.clear()
+        try:
+            self._workflows_path().unlink(missing_ok=True)
+        except OSError:
+            log.exception("workflow memory deletion failed")
+        planner = self.planner
+        bank = getattr(planner, "plan_bank", None) if planner else None
+        if bank:
+            demos = [demo for demo in bank.demos if demo.source != "memory"]
+            if len(demos) != len(bank.demos):
+                from .plan_bank import PlanBank
+                planner.plan_bank = PlanBank(demos)
+        self._last_memory_ids.clear()
+
     async def _handle_memory_request(self, request, last_ids: list[int]) -> str:
         kind, query = request
         if kind == "remember":
@@ -982,9 +1021,8 @@ class Orchestrator:
                 return "ok"
             confirmed = await self._confirm_memory("Forget everything?")
             if confirmed:
-                self.longterm.clear()
+                self._forget_everything()
                 await self.server.say("Forgotten.")
-                self._last_memory_ids.clear()
                 await self._end_ui("success")
             else:
                 await self.server.say("Okay, I won't forget everything.")
@@ -1034,7 +1072,7 @@ class Orchestrator:
                 pass
             rows = self.longterm.list(limit=100)
         elif op == "clear":
-            self.longterm.clear()
+            self._forget_everything()
             rows = []
         else:
             rows = []
@@ -1060,13 +1098,12 @@ class Orchestrator:
         from .planner import worker
         from . import comms
         messaging = comms.is_messaging(text)
-        if pre is None:
-            from .tools import draft_email
-            dargs = None if messaging else \
-                draft_email.parse_request(text, self._ctx)
-            if dargs is not None:
-                trace["decisions"].append({"draft_redirect": dargs})
-                return await self._brain_tool("draft_email", dargs, text)
+        from .tools import draft_email
+        dargs = None if messaging else \
+            draft_email.parse_request(text, {**self._ctx, **self._focus_ctx})
+        if dargs is not None:
+            trace["decisions"].append({"draft_redirect": dargs})
+            return await self._brain_tool("draft_email", dargs, text)
         # reuse a speculative route (+ARGS) when the final text matches the
         # last partial (architect-5a)
         if pre is None and self._collect is None:
@@ -1097,6 +1134,7 @@ class Orchestrator:
         self._spec_gen += 1
         top5 = sorted(res.probs.items(), key=lambda kv: -kv[1])[:5]
         trace["decisions"].append({"route_probs": top5, "p_top": res.p_top,
+                                   "text": text,
                                    "route_ms": res.ms.get("route_ms"),
                                    "spec_hit": spec_hit})
         label = res.top
@@ -1152,7 +1190,7 @@ class Orchestrator:
             ext = await worker().submit_async(
                 self.engine.args, label, text, dict(self._ctx))
         trace["decisions"].append({"args_ms": ext.get("ms", {}).get("args_ms"),
-                                   "raw": ext.get("_raw"),
+                                   "raw": ext.get("_raw"), "skill": label,
                                    "spec_args": spec_ext is not None})
         raw_args = {k: v for k, v in ext.items()
                     if k not in ("ms", "_raw", "missing")}
@@ -1375,6 +1413,51 @@ class Orchestrator:
             if key:
                 out.add(key)
         return out
+
+    async def _resolve_open(self, method: str, params: dict) -> dict | None:
+        skill = method == "skill" and params.get("name") == "open_app"
+        if not skill and not (method == "act" and params.get("op") == "open"):
+            return params
+        args = params.get("args", {}) if skill else params
+        name = str(args.get("app") or args.get("name") or args.get("target") or "")
+        names = await self._app_names()
+        if not names or self._apps is None:
+            return params
+        def key(value):
+            return re.sub(r"[\W_]+", "", re.sub(
+                r"\.app$", "", value, flags=re.IGNORECASE).lower())
+        by_key = {key(n): n for n in names}
+        resolved = name if name in names else by_key.get(key(name))
+        aliases = {"vscode": "Visual Studio Code", "chrome": "Google Chrome",
+                   "settings": "System Settings", "preferences": "System Settings"}
+        if resolved is None:
+            targets = {key(n) for n in self._NATIVE_APP_ALIASES.get(key(name), set())}
+            resolved = by_key.get(key(aliases.get(key(name), "")))
+            resolved = resolved or next((n for n in names if key(n) in targets), None)
+        if resolved is None:
+            await self.server.say("Which app?")
+            await self.server.ui("listening")
+            return None
+        args = dict(args, app=resolved)
+        return dict(params, args=args) if skill else args
+
+    def _note_launch(self, method: str, params: dict, result: dict):
+        if result.get("ok") and (
+                (method == "act" and params.get("op") == "open") or
+                (method == "skill" and params.get("name") == "open_app")):
+            self._launch_pending = True
+
+    async def _wait_launch_ax(self, obs: dict | None) -> dict | None:
+        self._launch_pending = False
+        try:
+            async with asyncio.timeout(LAUNCH_AX_TIMEOUT_S):
+                while obs and (obs.get("window_source") == "none" or
+                               not obs.get("elements")):
+                    await asyncio.sleep(LAUNCH_AX_POLL_S)
+                    obs = await self._observe_once() or obs
+        except TimeoutError:
+            pass
+        return obs
 
     _NATIVE_APP_ALIASES = {
         "zoom": {"zoom.us"},
@@ -1753,10 +1836,10 @@ class Orchestrator:
             )
             return await self._deliver_calc(
                 parsed, trace, calculator=calculator)
-        if self.planner is not None:
+        if self._text_model() is not None:
             from .planner import worker
             ans = await worker().submit_async(
-                self.planner.generate,
+                self._text_model().generate,
                 "Answer in at most 12 words.",
                 f'Question: "{text}"', 48)
             await self.server.say(ans or "I don't know")
@@ -2068,7 +2151,7 @@ function run() {
                             obs_text: str) -> str:
         fallback = "the goal isn't visible on screen yet"
         planner = self._active_planner or self.planner
-        if not callable(getattr(planner, "generate", None)):
+        if not callable(getattr(self._text_model(planner), "generate", None)):
             return fallback
         action_lines = [line[:160] for line in actions_log[-12:]]
         user = (f'Goal: "{goal}"\nActions taken:\n'
@@ -2077,7 +2160,8 @@ function run() {
         try:
             from .planner import worker
             answer = await worker().submit_async(
-                planner.generate, VERIFY_MISSING_SYSTEM, user, 24)
+                self._text_model(planner).generate,
+                VERIFY_MISSING_SYSTEM, user, 24)
         except Exception as e:  # noqa: BLE001 - missing-text model is optional
             log.warning("verification missing-text generation failed: %s", e)
             return fallback
@@ -2120,7 +2204,8 @@ function run() {
         started = time.perf_counter()
         try:
             from .planner import worker
-            probs = await worker().submit_async(planner.decide, state, question)
+            probs = await worker().submit_async(
+                self._text_model(planner).decide, state, question)
             p_yes = float(probs.get("true", 0.0))
         except Exception as e:  # noqa: BLE001 - verifier unavailable
             ms = (time.perf_counter() - started) * 1000
@@ -2677,6 +2762,9 @@ function run() {
     async def _rpc_action(self, method: str, params: dict,
                           action: dict) -> dict:
         """send act/skill rpc; verify expect afterwards."""
+        params = await self._resolve_open(method, params)
+        if params is None:
+            return {"status": "awaiting_user"}
         if self._first_action_ms is None:
             self._first_action_ms = (time.perf_counter() - self._t_final) * 1000
         t = time.perf_counter()
@@ -2689,6 +2777,7 @@ function run() {
             return {"status": "failed", "error": str(e)}
         self.tracer.rpc(method, params, self._trace_res(res),
                         (time.perf_counter() - t) * 1000)
+        self._note_launch(method, params, res)
         if res.get("epoch"):
             self._last_epoch = res["epoch"]
         # act diffs chain into the next planner observation (skills and
@@ -2925,6 +3014,9 @@ function run() {
             if not verify_mode:
                 last_exp_ok = False
                 last_exp_source = None
+            if self._launch_pending:
+                diffs = None
+                next_obs = None
             if next_obs is not None:
                 obs = next_obs
                 next_obs = None
@@ -2950,6 +3042,12 @@ function run() {
                     self._last_obs = obs
                 elif not obs_text:
                     obs_text = "(no observation available)"
+            if self._launch_pending:
+                obs = await self._wait_launch_ax(self._last_obs)
+                if obs:
+                    self._last_obs = obs
+                    obs_text = str(obs.get("text") or "")
+                    obs_fresh = True
             if await self._permission_gate(
                     self._last_obs if obs_fresh else None, text):
                 return "awaiting_user"
@@ -3623,6 +3721,9 @@ function run() {
                 params["epoch"] = self._last_epoch
             t = time.perf_counter()
             try:
+                params = await self._resolve_open("act", params)
+                if params is None:
+                    return "awaiting_user"
                 res = await self.server.rpc("act", params, timeout=15)
             except RuntimeError as e:
                 self.tracer.rpc("act", params, {"error": str(e)},
@@ -3630,6 +3731,7 @@ function run() {
                 return await self._fail(str(e))
             self.tracer.rpc("act", params, self._trace_res(res),
                             (time.perf_counter() - t) * 1000)
+            self._note_launch("act", params, res)
             if res.get("epoch"):
                 self._last_epoch = res["epoch"]
             if not res.get("ok", False):
@@ -3769,12 +3871,17 @@ function run() {
                 (time.perf_counter() - self._t_final) * 1000
         t = time.perf_counter()
         try:
+            params = await self._resolve_open("skill", {"name": name, "args": args})
+            if params is None:
+                return "awaiting_user"
+            args = params["args"]
             res = await self.server.rpc(
                 "skill", {"name": name, "args": args}, timeout=45)
         except RuntimeError as e:
             res = {"ok": False, "error": str(e)}
         self.tracer.rpc("skill", {"name": name, "args": args},
                         self._trace_res(res), (time.perf_counter() - t) * 1000)
+        self._note_launch("skill", {"name": name}, res)
         if res.get("error") == "not_frontmost":
             if self.tracer.current is not None:
                 self.tracer.current["decisions"].append(
@@ -3833,7 +3940,7 @@ function run() {
         return "ok"
 
     def _web_question(self, text: str | None) -> bool:
-        return bool(text) and self.planner is not None and \
+        return bool(text) and self._text_model() is not None and \
             self._ctx.get("online") is True and question_like(text)
 
     async def _window_ocr_text(self) -> str:
@@ -3934,7 +4041,8 @@ function run() {
                     "Answer from the page, or NOT_FOUND:")
             try:
                 answer = await worker().submit_async(
-                    self.planner.generate, WEB_ANSWER_SYSTEM, user, 48)
+                    self._text_model().generate,
+                    WEB_ANSWER_SYSTEM, user, 48)
             except Exception as e:   # noqa: BLE001 - model error = fallback
                 log.warning("web answer failed: %s", e)
                 answer = ""

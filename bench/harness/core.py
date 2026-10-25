@@ -11,6 +11,7 @@ import asyncio
 import inspect
 import json
 import math
+import os
 import re
 import time
 from datetime import date, datetime, timezone
@@ -69,6 +70,10 @@ def template_values(
         "sandbox": str(sandbox or Path.home() / "MuseletSandbox"),
         "tomorrow_ymd": _ymd(date.fromordinal(today.toordinal() + 1)),
         "next_friday_ymd": _ymd(next_friday),
+        # acceptance suite: a contact who agreed to the demo, and the bench brain's
+        # MUSELET_MEMORY_DB (empty -> those cases SKIP on their precondition)
+        "demo_contact": os.environ.get("MUSELET_DEMO_CONTACT", ""),
+        "memory_db": os.environ.get("MUSELET_MEMORY_DB", ""),
     }
 
 
@@ -211,6 +216,15 @@ async def evaluate_predicate(
         predicate = {
             key: value for key, value in predicate.items() if key != "int_at_least_saved"
         } | {"int_between": [bound, float("inf")]}
+    if "int_equals_saved" in predicate:
+        name = predicate["int_equals_saved"]
+        try:
+            bound = float(context.get("saved", {})[name])
+        except (KeyError, TypeError, ValueError):
+            return {"predicate": predicate, "passed": False, "error": f"no saved value {name!r}"}
+        predicate = {
+            key: value for key, value in predicate.items() if key != "int_equals_saved"
+        } | {"int_between": [bound, bound]}
     if "rpc" in predicate:
         try:
             response = await executor.run_rpc(
@@ -515,6 +529,16 @@ async def _run_turns(
             "started_wall": started_wall,
         })
         if timed_out:
+            # a timeout is not an outcome: read the screen anyway so the report shows
+            # what the user would have seen (turn checks, then the case's final checks)
+            context = {
+                "capture": capture, "trace": trace, "utterance": utterance,
+                "started_wall": started_wall, "saved": saved,
+            }
+            record["timeout_observations"] = await evaluate_predicates(
+                list(turn.get("check", [])) + list(case.get("check", [])), runtime, context,
+                allow_inflight=True,
+            )
             turns_ok = False
             break
         passed = True
