@@ -1,4 +1,6 @@
-# finance digest (Pass 97, 2026-10-25; main b00f679; wip 73f8136; P0 1, P1 5, P2 10)
+# finance digest (Pass 98, 2026-10-25; main 32c0ad4; wip 69261f5; P0 1, P1 2, P2 4)
+
+> Pass 98: engine removal (a2004d9) is on main 32c0ad4 under a user override recorded in AGENTS.md; finance-36 accepted. NEW P0 finance-37: pitch/devpost.md:28-33,52-54, docs/REPORT.md:295-296 and pitch/claims.md:190-193,221 still claim deterministic Decimal engines / 'model never does arithmetic' and cite deleted files; README.md:16 and REPORT.md:11 already say AI-planned. Fix before 16:00Z submission. Closed as moot: 15, 17, 23, 24, 25, 28, 31, 33. Fixed: 27. Still open and now the only guard on finance results: 34 (finish criteria), 30 (verified-done context), 32 (no receipts acceptance case).
 
 > Pass 97: no finance change (wip 73f8136 Premiere-only). Pass 96: wip aadf777 grounder one-liner. Pass 95: no finance change (main b00f679 README image; wip 35aed2d app-name resolver). Pass 94: main d09f4d8 still has the engines (finance-36 not merged); README line 16 'all math is deterministic Decimal' is true on main, false on wip. Pass 93: wip 7b8f421 adds no finance path. Pass 92: wip 9015e83 2900d4b also strips the bundle-ID/bounded-range Numbers rule and finance_review preference from planner_system.md ("no hidden app workflow tools"). main unchanged.
 
