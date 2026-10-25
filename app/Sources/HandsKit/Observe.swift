@@ -263,6 +263,26 @@ public enum Walker {
             }
         }
         var all = interactive + labeled
+        // unlabeled controls pick the nearest static text directly above
+        // (x-centre inside its width, gap <= 80pt) or directly left
+        // (y-centre inside its height, gap <= 120pt)
+        let statics = all.filter { $0.role == "text" && !$0.label.isEmpty }
+        for i in all.indices where all[i].label.isEmpty ||
+            all[i].label.lowercased() == all[i].role {
+            let f = all[i].frame
+            var best: (String, CGFloat)?
+            for t in statics where t.ref != all[i].ref {
+                let tf = t.frame
+                let above = tf.midX >= f.minX - 2 && tf.midX <= f.maxX + 2 &&
+                    f.minY - tf.maxY >= 0 && f.minY - tf.maxY <= 80
+                let left = tf.midY >= f.minY - 2 && tf.midY <= f.maxY + 2 &&
+                    f.minX - tf.maxX >= 0 && f.minX - tf.maxX <= 120
+                guard above || left else { continue }
+                let d = above ? f.minY - tf.maxY : f.minX - tf.maxX
+                if best == nil || d < best!.1 { best = (t.label, d) }
+            }
+            if let b = best { all[i].label = b.0 }
+        }
         for i in all.indices { all[i].ref = i + 1 }   // provisional; Hands reassigns
         return (all, truncated)
     }
@@ -279,6 +299,12 @@ public enum Serializer {
         var s = "#\(e.ref) \(e.role) \"\(esc(e.label))\""
         if let v = e.value as? String, (e.role == "textfield" || e.role == "textarea" || e.role == "combobox") {
             s += " value=\"\(esc(v))\""
+        } else if ["slider", "stepper", "incrementor", "picker"].contains(e.role) {
+            if let n = e.value as? NSNumber {
+                s += " value=\"\(n)\""
+            } else if let v = e.value as? String, !v.isEmpty {
+                s += " value=\"\(esc(v))\""
+            }
         }
         if let c = e.checked { s += c ? " checked" : " unchecked" }
         if e.selected { s += " selected" }
