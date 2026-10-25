@@ -1,9 +1,9 @@
 {
-  "pass": 85,
-  "ts": "2026-10-25T08:41:02Z",
+  "pass": 86,
+  "ts": "2026-10-25T08:56:03Z",
   "last_reviewed": {
-    "main": "b42117b",
-    "wip/local": "e03e2c8",
+    "main": "4f94e42",
+    "wip/local": "52eb571",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -94,8 +94,11 @@
     "cloud/app-knowhow": "c69dfec",
     "cloud/browser-flow": "485763f",
     "cloud/docs-final": "bf9118d",
-    "cloud/agentic-fixes2": "104a411"
+    "cloud/agentic-fixes2": "104a411",
+    "cloud/cool-tasks": "4c84adc",
+    "cloud/native-tools": "6053e4e",
+    "cloud/ui-progress": "a66166b"
   },
-  "next_id": 56,
-  "note": "pass 85: main b7b38f9 merged docs-final (-48/-49 now on main) and agentic-fixes2. ab850b3: blind/agentic tasks get 30 turns/300 s, failed planner expects are soft (orchestrator.py:4686-4694: no strike, no recovery; batch still stops at the failed expect; Send still confirm-gated); loop guard at 5 failures. b7b38f9: PLANNER=35b observes 350 AX nodes. No latency/accuracy measurement for either. No new finding."
+  "next_id": 57,
+  "note": "pass 86: main 4f94e42 \u2014 #103 youtube play evidence requires youtube window/url (narrows -54); #107 sendgate search/find early return -> new evals-safety-56 P0; #109 enter_sends focused-element fallback. cool-tasks 981b797: scratch notes of on-screen text fed back as 'Scratch ... type from it' without data-only label (watch); send still confirm-gated. native-tools 6053e4e: opt-in; each tool call -> one DSL line through unchanged _planner_loop gates. ui-progress: UI only."
 }
