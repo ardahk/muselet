@@ -1,6 +1,6 @@
-# hands — digest (Pass 79)
+# hands — digest (Pass 80)
 
-Open: 0 P0, 5 P1, 13 P2.
+Open: 0 P0, 5 P1, 14 P2.
 
 Ranked open P0/P1:
 -1. P1 hands-38 (main e2f7e5e via a615f00, ClockAX.swift:523-552): the Clock cancel falls back to `live.first` and presses a stale detail-pane Cancel after a fixed 80 ms. It can cancel a user's own Clock timer and still report success. Fix before the demo.
@@ -15,6 +15,11 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 80:
+- main 3e323a9 merged #101 spotify-play and cef8797. That puts the 35B on every agentic-app and timer-control task (the wip change from pass 79, now on main), and adds PLANNER=35b. No app/ change. In Spotify, grounded `click ... double` is now allowed through `_click_target`; the blind-click OCR subject gate still applies, so I'm accepting it. Spotify play evidence runs a read-only AppleScript through the act RPC. It needs the subject in the track name, so expect some false "couldn't verify" results on vague goals.
+- cloud/agentic-fixes2 b9cd089: the brain's valid_predicate (`_PRED_RE`) matches Swift Expect.parse (title~/focused/value/app/appears/gone), so dropping a predicate the app would reject is consistent. New P2 hands-42: the YouTube watch-URL evidence depends on a URL the app's observe never returns. It does nothing on the press-a-link flow, and ctx.url can make it pass on an old page.
+- wip/local matches main. Re-checked hands-26/34/36/38/39/40/41: unchanged.
 
 Pass 79 (no new findings; open counts unchanged):
 - main 5d135d0 adds only the agentic-fixes2 brief. Item 2 (drop a bad expect in the brain rather than fail the act) matches the app, which rejects bad predicates before acting (Act.swift parse-up-front). No app change is needed.
