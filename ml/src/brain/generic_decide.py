@@ -180,6 +180,7 @@ class GenericMLXDecider:
         from mlx_lm.models.cache import make_prompt_cache
 
         self = cls.__new__(cls)
+        self.temperature_probs = self.temperature_conf = 1.0
         self.mx, self.model = mx, model
         self.body, self.lm_head = split_model(model)
         self.renderer = GenericRenderer(model_path)
