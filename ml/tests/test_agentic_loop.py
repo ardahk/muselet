@@ -170,8 +170,8 @@ def test_results_page_done_rejected_then_video_click_accepted(tmp_path):
     assert state["playing"]
     verifies = [d["planner.verify"] for d in trace["decisions"]
                 if "planner.verify" in d]
-    assert verifies[-1]["method"] == "finish"
-    assert orch._done_evidence == "finish"
+    assert verifies[-1]["method"] == "auto"
+    assert orch._done_evidence == "auto"
     assert planner.decide_calls == []
     assert {"planner.recover": {"round": 1, "reason": "finish"}} in \
         trace["decisions"]

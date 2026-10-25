@@ -379,7 +379,8 @@ _CMD_VERB = re.compile(
     r"delete|trash|empty|lock|sleep|restart|enable|disable|switch|change|"
     r"toggle|check|tell|read|summari[sz]e|translate|convert|calculate|compute|"
     r"minimi[sz]e|maximi[sz]e|hide|zoom|bookmark|download|save|print|record|"
-    r"clear|reset)\b", re.IGNORECASE)
+    r"clear|reset|trim|cut|crop|split|edit|export|import|render|"
+    r"speed\s+up|slow\s+down|undo|redo)\b", re.IGNORECASE)
 _SITE_VERB = re.compile(
     r"^(?:go to|visit|navigate to|pull up|open)\s+", re.IGNORECASE)
 _CALC_CUE = re.compile(
@@ -387,6 +388,9 @@ _CALC_CUE = re.compile(
     r"times|divided|percent of|square root)\b|[+*/×÷=]", re.IGNORECASE)
 _DEICTIC = re.compile(
     r"\b(?:it|them)\b|\b(?:this|that|the\s+\w+)\s+one\b", re.IGNORECASE)
+_CONTENT_ASK = re.compile(
+    r"\b(what|which)\b.*\b(write|say|type|text|reply|message|body|content|"
+    r"search|put|enter)\b", re.IGNORECASE)
 
 
 def permission_prompt(obs: dict | None) -> dict | None:
@@ -837,6 +841,12 @@ class Orchestrator:
             return None
         if not _CMD_VERB.match(value):
             return None
+        pending_app = str((self._pending_task or {}).get("app") or "").strip()
+        incoming_app = str((ctx or {}).get("app") or
+                           self._ctx.get("app") or "").strip()
+        if pending_app and incoming_app and \
+                pending_app.casefold() != incoming_app.casefold():
+            return "app_changed"
 
         plan = self.route(value)
         if plan.get("kind") == "skill":
@@ -2728,10 +2738,8 @@ function run() {
             trace["signin_gate"] = label or role
             trace.setdefault("decisions", []).append(
                 {"signin_gate": label or role})
-        self._pending_task = {
-            "goal": goal or self._current_goal or self._utterance,
-            "t": time.time(),
-        }
+        self._pending_task = self._pending_task_state(
+            goal or self._current_goal or self._utterance)
         return False
 
     def _enter_sends(self, ref=None, *, observed_focus=False) -> bool:
@@ -2752,6 +2760,10 @@ function run() {
     def _app_name(self) -> str:
         return (self._last_obs or {}).get("app") or self._ctx.get("app") \
             or "this app"
+
+    def _pending_task_state(self, goal: str, **extra) -> dict:
+        app = (self._last_obs or {}).get("app") or self._ctx.get("app")
+        return {"goal": goal, "t": time.time(), "app": app, **extra}
 
     def _skill_risk(self, name: str, args: dict) -> str:
         risk = self.catalog.risk(name)
@@ -2972,7 +2984,7 @@ function run() {
         trace["decisions"].append({"planner.recover": {
             "round": self._recover_round, "reason": reason,
             "exhausted": True}})
-        self._pending_task = {"goal": text, "t": time.time()}
+        self._pending_task = self._pending_task_state(text)
         bubble = " ".join(f"Not finished: {missing}".split()[:12])
         await self.server.say(bubble)
         await self._end_ui("confused")
@@ -2980,6 +2992,7 @@ function run() {
 
     async def _exec_one(self, a: dict) -> dict:
         """Execute one DSL action; `_log` is its Last-batch line."""
+        self._drop_invalid_expect(a)
         legacy = "script -> " if a["op"] == "script" else _repr_line(a) + "-> "
         act = _log_act(a)
         try:
@@ -3018,6 +3031,19 @@ function run() {
             else str(r.get("status", "?"))
         r["_log"] = self._batch_line(act, res, log)
         return r
+
+    def _drop_invalid_expect(self, action: dict) -> None:
+        raw = action.get("expect")
+        if raw is None:
+            return
+        valid = dsl.valid_predicate(raw)
+        if valid is not None:
+            action["expect"] = valid
+            return
+        action.pop("expect", None)
+        if self.tracer.current is not None:
+            self.tracer.current.setdefault("decisions", []).append({
+                "expect_dropped": {"expect": raw, "action": _log_act(action)}})
 
     @staticmethod
     def _permission_post_obs(before: dict | None, result: dict) -> dict | None:
@@ -3072,7 +3098,18 @@ function run() {
                         "error": "ask rejected: goal is open-ended; "
                                  "pick a reasonable default (top result) "
                                  "instead of asking for preferences",
+                        "_no_strike": True,
                         "_log": f"{dsl_line}-> ask rejected: open-ended goal"}
+            if self._agentic and not getattr(
+                    self, "_content_ask_rejected", False):
+                from . import agentic
+                value = agentic.content(self._agentic.get("args") or {})
+                if value and _CONTENT_ASK.search(a.get("question") or ""):
+                    self._content_ask_rejected = True
+                    error = f'ask rejected: the text is: "{value}" — type it'
+                    return {"status": "failed", "error": error,
+                            "_no_strike": True,
+                            "_log": f"{dsl_line}-> {error}"}
             await self.server.say(a["question"])
             await self.server.ui("listening")
             return {"status": "awaiting_user", "_log": f"{dsl_line}-> ask"}
@@ -3686,10 +3723,26 @@ function run() {
         if not self._browser_name(app):
             return False
         text = str(obs.get("text") or "")
+        bare_title = re.sub(r"^\(\d+\)\s*", "", title)
+        bare_title = re.sub(
+            r"\s+-\s+(?:Google Chrome|Chrome|Safari|Firefox|"
+            r"Microsoft Edge|Edge|Brave|Arc|Zen|Opera)\s*$",
+            "", bare_title, flags=re.IGNORECASE).strip()
+        host = urlsplit(str(obs.get("url") or "")).hostname or ""
+        labels = {re.sub(r"[^a-z0-9]", "", host.split(".")[-2].casefold())
+                  if len(host.split(".")) >= 2 else ""}
+        host_key = host.casefold().removeprefix("www.")
+        labels.update(
+            re.sub(r"[^a-z0-9]", "", name.casefold())
+            for name, site in SITES.items()
+            if (urlsplit(f"https://{site}").hostname or "").casefold()
+            .removeprefix("www.") == host_key)
+        title_key = re.sub(r"[^a-z0-9]", "", bare_title.casefold())
+        site_loading = bool(host and title_key and title_key in labels)
         return (not title or bool(self._browser_name(title)) or bool(
             _LOADING_TITLE.search(title)) or bool(
             re.search(r"Waiting for \S+|Transferring data from", text,
-                      re.IGNORECASE)))
+                      re.IGNORECASE)) or site_loading)
 
     async def _repoll_loading(self, exp: str, vres: dict) -> tuple[dict, bool]:
         """Failed expect while the page loads: re-verify every LOAD_POLL_S
@@ -3950,7 +4003,7 @@ function run() {
             self._last_obs = obs
         obs = obs or self._last_obs or {}
         args = {"obs": obs, "script_stdout": self._last_script_stdout,
-                "url": self._last_ok_url}
+                "url": self._last_ok_url or self._ctx.get("url")}
         ok = evidence(kind, subject, **args)
         if not ok and kind == "cart":
             ok = evidence(kind, subject, ocr=await self._window_ocr_text(),
@@ -3959,7 +4012,8 @@ function run() {
             "kind": kind, "visible": ok}})
         return ok, what
 
-    def _auto_done(self, goal: str, action: dict, post: str) -> str | None:
+    async def _auto_done(self, goal: str, action: dict,
+                         post: str) -> str | None:
         """Return done/awaiting_user when progress evidence proves completion."""
         from .finish import cart_count, evidence
 
@@ -3977,10 +4031,24 @@ function run() {
         visible = evidence(
             kind, subject,
             obs={"text": post,
-                 "focused_ref": (self._last_obs or {}).get("focused_ref")},
-            script_stdout=self._last_script_stdout, goal=goal, args=args,
+                 "focused_ref": (self._last_obs or {}).get("focused_ref"),
+                 "window": (self._last_obs or {}).get("window"),
+                 "url": (self._last_obs or {}).get("url")},
+            script_stdout=self._last_script_stdout,
+            url=self._last_ok_url or self._ctx.get("url"),
+            goal=goal, args=args,
             baseline=baseline if isinstance(baseline, int) else None,
             confirmed=self._confirm_asked, progress=True)
+        if not visible and kind == "play":
+            fresh = await self._observe()
+            if fresh:
+                self._last_obs = fresh
+                visible = evidence(
+                    kind, subject,
+                    obs={**fresh, "text": str(fresh.get("text") or post)},
+                    script_stdout=self._last_script_stdout,
+                    url=self._last_ok_url or self._ctx.get("url"),
+                    goal=goal, args=args, progress=True)
         if visible and (kind == "cart" or not self._evidence_base):
             return "awaiting_user" if kind == "message" else "done"
         return None
@@ -4057,6 +4125,7 @@ function run() {
                     "expect" if expect_ok else "skill" if skill_ok else None)
 
         self._pref_ask_rejected = False
+        self._content_ask_rejected = False
         for turn in range(12):
             self._planner_turn = turn
             if time.perf_counter() - t_start > 60:
@@ -4118,8 +4187,11 @@ function run() {
                         kind, subject,
                         obs={"text": obs_text,
                              "focused_ref": (self._last_obs or {}).get(
-                                 "focused_ref")},
+                                 "focused_ref"),
+                             "window": (self._last_obs or {}).get("window"),
+                             "url": (self._last_obs or {}).get("url")},
                         script_stdout=self._last_script_stdout,
+                        url=self._last_ok_url or self._ctx.get("url"),
                         goal=goal, args=args, progress=True)
             blind_obs = observation_blind(self._last_obs)
             untargeted = blind_obs and not self._blind_is_target(
@@ -4210,6 +4282,7 @@ function run() {
             n_actions = 0
             fail_key = None              # normalized action line that failed
             failure_detail = ""
+            no_strike = False
             script_buf: list[str] | None = None   # multi-line """ block
             try:
                 while True:
@@ -4230,7 +4303,16 @@ function run() {
                         continue
                     if re.match(r"^(expect|#)", line):
                         if pending and line.startswith("expect"):
-                            pending[-1]["expect"] = line[7:].strip()
+                            raw_expect = line[7:].strip()
+                            valid_expect = dsl.valid_predicate(raw_expect)
+                            if valid_expect:
+                                pending[-1]["expect"] = valid_expect
+                            elif self.tracer.current is not None:
+                                self.tracer.current.setdefault(
+                                    "decisions", []).append({
+                                        "expect_dropped": {
+                                            "expect": raw_expect,
+                                            "action": _log_act(pending[-1])}})
                         continue
                     dl = dsl.action_line(line, self.catalog.skills)
                     if dl is None:
@@ -4273,7 +4355,7 @@ function run() {
                                 post_acc += "\n" + str(_res.get(
                                     "diff_text") or "") + "\n" + str(
                                         _res.get("observed") or "")
-                                auto_result = self._auto_done(
+                                auto_result = await self._auto_done(
                                     goal, a, post_acc)
                                 if auto_result:
                                     kind = self._progress[0]
@@ -4294,6 +4376,7 @@ function run() {
                                               if r.get("_terminal_failure")
                                               else r["status"])
                                 fail_key = _action_key(a)
+                                no_strike = bool(r.get("_no_strike"))
                                 loading_fail = bool(r.get("_loading"))
                                 failure_detail = str(
                                     r.get("error") or res_status)
@@ -4345,7 +4428,7 @@ function run() {
                         post_acc += "\n" + str(_res.get(
                             "diff_text") or "") + "\n" + str(
                                 _res.get("observed") or "")
-                        auto_result = self._auto_done(
+                        auto_result = await self._auto_done(
                             goal, a, post_acc)
                         if auto_result:
                             kind = self._progress[0]
@@ -4365,6 +4448,7 @@ function run() {
                                       if r.get("_terminal_failure")
                                       else r["status"])
                         fail_key = _action_key(a)
+                        no_strike = bool(r.get("_no_strike"))
                         loading_fail = bool(r.get("_loading"))
                         failure_detail = str(r.get("error") or res_status)
                         cancel.set()
@@ -4401,7 +4485,7 @@ function run() {
                 and len(lo.get("elements") or []) < 150 else None
             self._diff_chain = None
             if res_status == "awaiting_user":
-                self._pending_task = {"goal": text, "t": time.time()}
+                self._pending_task = self._pending_task_state(text)
                 if auto_awaiting_user:
                     await self.server.say(
                         "Message is ready; press Send when you want")
@@ -4534,7 +4618,7 @@ function run() {
                         next_obs = verification_obs
                         continue
                 else:
-                    accepted = n_executed == 0 and (
+                    accepted = self._auto_evidence or n_executed == 0 and (
                         prev_expect_ok or obs_fresh and (
                             not prev_had_failure or done_rejected))
                     if accepted and prev_expect_ok:
@@ -4566,6 +4650,9 @@ function run() {
             if res_status == "failed" or failed or not n_actions:
                 last_exp_ok = False
                 last_exp_source = None
+                if no_strike:
+                    prev_had_failure = False
+                    continue
                 if loading_fail and not loading_strike_used:
                     # a page still loading isn't a planner mistake: replan
                     # once without a loop-guard strike or recovery round
@@ -4611,7 +4698,7 @@ function run() {
                     trace["decisions"].append({"loop_guard": "same_action"
                                                if same else "3_failed_turns",
                                                "line": fail_key})
-                    self._pending_task = {"goal": text, "t": time.time()}
+                    self._pending_task = self._pending_task_state(text)
                     await self.server.say("I'm stuck on that, can you help?")
                     await self._end_ui("confused")
                     return "awaiting_user"
@@ -4795,8 +4882,8 @@ function run() {
             trace["permission_prompt_gate"] = hit
             trace["decisions"].append({"permission_prompt_gate": hit})
         log.info("permission_prompt_gate: %s", hit)
-        self._pending_task = {"goal": goal, "t": time.time(),
-                              "permission_gate": True, "reroute": reroute}
+        self._pending_task = self._pending_task_state(
+            goal, permission_gate=True, reroute=reroute)
         await self.server.say(PERMISSION_ASK)
         await self.server.ui("listening")
         return True
@@ -4870,6 +4957,7 @@ function run() {
         unverified = False        # an act ran without a passing expect
         gate_checked = False
         for a in actions:
+            self._drop_invalid_expect(a)
             op = a["op"]
             if op == "skill":
                 r = await self._skill(a)

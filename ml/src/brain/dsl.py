@@ -133,6 +133,12 @@ def parse_predicate(s: str, line: int) -> str:
     return t
 
 
+def valid_predicate(s: str) -> str | None:
+    """Return a stripped predicate if valid, otherwise None."""
+    t = str(s).strip()
+    return t if _PRED_RE.fullmatch(t) else None
+
+
 def parse(text: str) -> list[dict]:
     """Parse a DSL batch. Raises DSLError with .line set."""
     lines = text.split("\n")
