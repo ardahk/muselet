@@ -1,13 +1,13 @@
-# decisions — digest (pass 62)
+# decisions — digest (pass 63)
 
-Heads: main e2f7e5e (agentic-loop merged: decisions-41 now LIVE; decisions-37 P0 live; decisions-40 ungated), wip 3f8e2f8 = main, cloud/agentic-apps 523d2c1 (new decisions-43 P1; decisions-42 moved here). Budget: about $142.06 MTD estimated.
+Heads: main e2f7e5e unmoved (decisions-37 P0, -40, -41 live), wip 3f8e2f8 = main, cloud/agentic-apps 1904638 (merged main; decisions-43 default-on redirect unchanged; decisions-42 LoRA prefix with hidden skills still untested). Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
 1. decisions-37 P0 LIVE on main: inline() lacks temperature attrs -> planner done-verifier always errors, verify silently off — ml/src/brain/generic_decide.py:177-190@e9fb42d
 2. decisions-40 P1 open_ended_redirect overrides correct routes (route_v1_clean 4/103, route_v2 64/955 with gold labels) LIVE on main (now 3/103, 46/955) — ml/src/brain/orchestrator.py:1502-1508@e425cad
 3. decisions-41 P1 LIVE on main: finish-evidence 'search' done accepted from the planner's own URL (_last_ok_url) and a mis-cut subject; bypasses expect + model verify — ml/src/brain/finish.py:112@e2f7e5e
-4. decisions-43 P1 (cloud/agentic-apps) default-on agentic apps redirect all app-kind routes to the planner: 22/103 route_v1_clean, 290/955 route_v2; route/e2e claims no longer describe the shipped path — orchestrator.py _agentic_route@523d2c1
+4. decisions-43 P1 (cloud/agentic-apps) default-on agentic apps redirect all app-kind routes to the planner: 22/103 route_v1_clean, 290/955 route_v2; route/e2e claims no longer describe the shipped path — orchestrator.py:1655@1904638
 5. decisions-38 P1 route claims fixed by #68 except claims.md:200 'default tau 0.55' — pitch/claims.md
 6. decisions-32 P1 Full run fails its gate; TD +.0065 vs DeskMind is within noise, test-selected — training/decisions/HANDOFF.md:7-8,82-89
 7. decisions-5 P1 4-bit MLX export has no logit parity check vs Tinker; Tinker numbers can't be carried over — training/decisions/export.py
