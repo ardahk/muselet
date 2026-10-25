@@ -1,8 +1,7 @@
-# architect digest - pass 100 (2026-10-25T15:00Z)
-Reviewed: main b00f679 (unchanged); wip/local 73f8136 (local main@264cc82 plus uncommitted work). (1) obsdiff.render_line now renders values for slider/stepper/incrementor/picker and Premiere HotText/clipSpeed buttons, matching Swift Serializer.line (Observe.swift:308-315, isHotTextButton:13-15@73f8136), so diff-rebuilt observations stay equal to fresh ones. (2) Premiere guard: a repeated `keys shift+3` in the same app/window with no action in between fails with a "focus not verified" error instead of re-sending (resets after any other action, a window change, a failed send, or a new task). (3) ui_only planners (35B/native) skip diff chaining and observe fresh each turn. (4) Premiere hint shortened. All four look right. No cloud branch moved.
-Watch, not filed: (3) adds a fresh observe plus forced OCR on every ui_only turn; the latency cost is unmeasured (same question as OCR-every-turn). Recursive app search cost (pass 98) is also still unmeasured.
-Tests (Linux, wip 73f8136, --timeout=30, test_planner_think.py ignored): 88 failed, 2199 passed, 111 skipped, 2 xfailed; same failure set as aadf777. main still red on test_loading_title_repolls_until_expect_passes (64).
-Open: P0 0, P1 23, P2 15. No new findings. Re-checked (ran): 63, 62, 57, 58, 54; 64, 65, 55, 53, 51, 61, 48 untouched by this diff.
+# architect digest - pass 101 (2026-10-25T15:50Z)
+Reviewed: main 32c0ad4 — local main pushed (de6319c..32c0ad4: finance/advisor engine deletion, planner prompt/defaults, AX-ref clicks, Numbers/Premiere fixes, recursive app discovery, docs reconcile). wip/local 69261f5 has the same tree as main. Docs now separate script defaults from a deployed override (base 4B native-tools planner, THINK=1024, RETRIEVAL_K=0, FEWSHOT=none, escalation off) and caveat historical numbers. No cloud branch moved.
+Tests (Linux, main 32c0ad4, --timeout=30, test_planner_think.py ignored): 88 failed, 2199 passed, 111 skipped, 2 xfailed — the red wip suite is now on main.
+Open: P0 0, P1 23, P2 14. No new findings. Resolved: 64 (LOAD_POLL_S used; AGENTS.md still says .25 s, code is 0.1). Updated: 63 (now on main), 61 (deployed config unmeasured), 45 (README route_v2 .945). Re-checked (ran): 62, 57, 58, 54.
 
 ## Open P0/P1 (ranked)
 1. architect-63: wip suite red (88) and hangs; Premiere confirm-timeout safety tests among them.
