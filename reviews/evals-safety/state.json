@@ -1,9 +1,9 @@
 {
-  "pass": 98,
-  "ts": "2026-10-25T12:46:21Z",
+  "pass": 99,
+  "ts": "2026-10-25T13:14:52Z",
   "last_reviewed": {
-    "main": "d09f4d8",
-    "wip/local": "01a929c",
+    "main": "b00f679",
+    "wip/local": "35aed2d",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -100,5 +100,5 @@
     "cloud/ui-progress": "a66166b"
   },
   "next_id": 61,
-  "note": "pass 98: main d09f4d8 (#130 AXLoaded page-load + README rebrand) -> new evals-safety-60. wip/local 01a929c (local main@264cc82): AX-first click docs, Numbers SORT/SORTBY cheat sheet + prompt-contract tests, no engine; no new finding."
+  "note": "pass 99: main b00f679 README architecture image only. wip/local 35aed2d: AppResolver recursive /Applications scan (skips .app/.framework descendants) incl ~/Applications in installed list; orchestrator year-suffix app name match only when unique candidate. No new finding."
 }
