@@ -23,15 +23,20 @@ _FAVORITE = re.compile(
 _PREFER = re.compile(
     r"^(?:remember\s+)?i\s+prefer\s+(.+?)\s+for\s+(.+?)\s*[.!]?$",
     re.IGNORECASE)
-_PERSON_IS = re.compile(
-    r"^(?:remember\s+)?(?:my\s+)?(?P<key>[A-Za-z][\w'-]*"
-    r"(?:\s+[A-Za-z][\w'-]*)?)\s+is\s+"
-    r"(?P<value>[A-Za-z][\w'-]*(?:\s+[A-Za-z][\w'-]*){0,2})[.!]?$",
+_NAME = r"[A-Za-z][\w'-]*(?:\s+[A-Za-z][\w'-]*){0,2}"
+_MY_PERSON_IS = re.compile(
+    rf"^(?:remember\s+(?:that\s+)?)?my\s+(?P<key>[A-Za-z][\w'-]*"
+    rf"(?:\s+[A-Za-z][\w'-]*)?)\s+is\s+(?P<value>{_NAME})[.!]?$",
+    re.IGNORECASE)
+_PERSON_IS_MY = re.compile(
+    rf"^(?:remember\s+(?:that\s+)?)?(?P<value>{_NAME})\s+is\s+my\s+"
+    r"(?P<key>[A-Za-z][\w'-]*(?:\s+[A-Za-z][\w'-]*)?)[.!]?$",
     re.IGNORECASE)
 _CALL_PERSON = re.compile(
-    r"^call\s+(?:my\s+)?(?P<key>[A-Za-z][\w'-]*)\s+"
-    r"(?P<value>[A-Za-z][\w'-]+(?:\s+[A-Za-z][\w'-]+){1,2})[.!]?$",
+    r"^(?:from\s+now\s+on\s+)?call\s+(?P<key>me|my\s+[A-Za-z][\w'-]*)\s+"
+    r"(?P<value>[A-Za-z][\w'-]+(?:\s+[A-Za-z][\w'-]+){0,2})[.!]?$",
     re.IGNORECASE)
+_PLACEHOLDER_APPS = {"", "none", "unknown", "null", "n/a"}
 _CORRECTION = re.compile(
     r"^(?:no,?\s+)?i\s+meant\s+(.+?)\s*[.!?]?$", re.IGNORECASE)
 
@@ -61,6 +66,17 @@ def _write(type: str, key: str, value: str) -> dict | None:
     return {"type": type, "key": key, "value": value}
 
 
+def _person_write(value: str) -> dict | None:
+    for pattern in (_MY_PERSON_IS, _PERSON_IS_MY, _CALL_PERSON):
+        match = pattern.fullmatch(value)
+        if match:
+            key = re.sub(r"^my\s+", "", match.group("key"),
+                         flags=re.IGNORECASE)
+            key = "user name" if key.casefold() == "me" else key
+            return _write("person", key, match.group("value"))
+    return None
+
+
 def memory_command(text: str) -> MemoryCommand | None:
     value = str(text or "").strip()
     match = _FAVORITE.fullmatch(value)
@@ -78,17 +94,7 @@ def memory_command(text: str) -> MemoryCommand | None:
                 key = " ".join(_normalized(fact).split()[:6])
                 write = _write("fact", key, fact)
             else:
-                match = _PERSON_IS.fullmatch(value)
-                if match:
-                    key = re.sub(r"^my\s+", "", match.group("key"),
-                                 flags=re.IGNORECASE)
-                    write = _write("person", key, match.group("value"))
-                else:
-                    match = _CALL_PERSON.fullmatch(value)
-                    if not match:
-                        return None
-                    write = _write("person", match.group("key"),
-                                   match.group("value"))
+                write = _person_write(value)
     if write is None:
         return None
     return MemoryCommand("remember", "Got it, I'll remember that.", write)
@@ -139,12 +145,13 @@ def extract_writes(text: str, *, skill: str | None = None,
 
 
 def planner_writes(goal: str, app: str, steps: int) -> list[dict]:
+    """Episodes/workflows only for successful multi-step tasks in a real app."""
     normalized = _normalized(goal)
-    if not normalized or not allowed_value(goal):
+    app = str(app or "").strip()
+    if not normalized or not allowed_value(goal) or int(steps) < 2 or \
+            app.casefold() in _PLACEHOLDER_APPS:
         return []
     episode = _write(
-        "episode", normalized, f"{goal.strip()} → ok ({int(steps)} steps, "
-        f"{str(app or 'unknown')})")
-    workflow = _write(
-        "workflow", normalized, f"{int(steps)} steps in {str(app or 'unknown')}")
+        "episode", normalized, f"{goal.strip()} → ok ({int(steps)} steps, {app})")
+    workflow = _write("workflow", normalized, f"{int(steps)} steps in {app}")
     return [row for row in (episode, workflow) if row]
