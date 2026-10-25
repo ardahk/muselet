@@ -1,9 +1,9 @@
 {
-  "pass": 82,
-  "ts": "2026-10-25T09:00:00Z",
+  "pass": 83,
+  "ts": "2026-10-25T09:14:00Z",
   "last_reviewed": {
-    "main": "4f94e42",
-    "wip/local": "52eb571",
+    "main": "2445a1d",
+    "wip/local": "6e7f50b",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -96,8 +96,8 @@
     "cloud/docs-final": "bf9118d",
     "cloud/agentic-fixes2": "104a411",
     "cloud/ui-progress": "a66166b",
-    "cloud/cool-tasks": "4c84adc",
+    "cloud/cool-tasks": "e4def97",
     "cloud/native-tools": "6053e4e"
   },
-  "notes": "pass 82: main 4f94e42 adds demo-loop fixes: YouTube play evidence needs a YouTube page; search fields never trigger the Enter-send confirm (fewer false confirm cards, good UX); the web_ui_guard error tells the planner to press a result; done_summary is reset per task. None adds bubble copy. ui-progress a66166b adds per-turn step bubbles and a busy flag for the dots -> partly mitigates ux-29/31/33 (status rows appended). cool-tasks 4c84adc adds relay/summary carry tasks (alt demo beats 8a-8c) that reuse 'Message is ready\u2026'; no new copy issues. native-tools 6053e4e is an opt-in planner mode (default dsl) with no UX surface. wip/local equals main. No new findings."
+  "notes": "pass 83: main 2445a1d (demo-loop5-9): an email_open finish check (Reply control + sender visible); Gmail's 'Ask Gmail' field excluded from the send gate (no false confirm card); shopping/maps app hints. None adds bubble copy. wip/local differs only in an app_hints line; cool-tasks e4def97 only merges main. Open findings unchanged; ui-progress (a66166b) is still unmerged. No new findings."
 }
