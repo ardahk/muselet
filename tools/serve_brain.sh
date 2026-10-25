@@ -27,6 +27,12 @@
 # Usage: PORT=... ROUTER=... ARGS_MODEL=... PLANNER=... TAU=... RETRIEVAL_K=... THINK=... THINK_ON=... THINK_SAMPLER=... ESCALATE=... VERIFY_DONE=... MEMORY=... MEMORY_LLM=... LONGTERM=... tools/serve_brain.sh [extra brain serve flags]
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
+# Brains on any port but the app's :8765 (benchmarks) get a fresh memory store per start, so test utterances never
+# reach the user's long-term memory and no case inherits memories from another run.
+if [ "${PORT:-8765}" != "8765" ] && [ -z "${MUSELET_MEMORY_DB:-}" ]; then
+  export MUSELET_MEMORY_DB="$PWD/runs/memory/bench-${PORT}-$(date +%Y%m%dT%H%M%S)/memory.db"
+  mkdir -p "$(dirname "$MUSELET_MEMORY_DB")"
+fi
 BASE=mlx-community/Qwen3.5-4B-4bit
 R1=models/route-4b-main-mlx4
 R2=models/route-4b-main-mlx4-r2
