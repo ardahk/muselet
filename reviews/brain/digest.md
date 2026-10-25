@@ -1,3 +1,21 @@
+# Brain lane review: pass 89 (2026-10-25T10:58Z)
+
+Open: P0 0, P1 16, P2 30. No new findings.
+
+## Branches
+- main 298526d: 8512116 think sampling with GPU top-k (sample_row) plus prefill_ms/prompt_tokens in think meta; 3c59fdc MUSELET_NO_ESCALATE=1 ignores the app's 35B toggle. Swift observe change outside the lane.
+- wip/local d409a32: snapshot on main; lane identical.
+- cloud/cool-tasks cfbec49: merges main through e2aa40c; carry unchanged.
+
+## Verified
+sample_row matches sample_logits in distribution (same support, TV 0.007 over 60k draws; greedy = argmax). Notes: seeded think samples change across this commit; prompt_tokens counts only the post-cache dynamic prompt.
+
+## Rechecked
+All open findings unchanged; repro failure sets identical to pass 88.
+
+## Tests
+18 MLX-only suite failures (main 2528, cool-tasks 2544 passed). Review repros: main 75 / 53, cool-tasks 75 / 53.
+
 # Brain lane review: pass 88 (2026-10-25T10:42Z)
 
 Open: P0 0, P1 16, P2 30. New: brain-75 (P2).
