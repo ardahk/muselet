@@ -1,5 +1,5 @@
 {
- "pass": 78,
+ "pass": 79,
  "last_reviewed": {
   "main": "eb3e945",
   "wip/local": "3f21dc6",
@@ -74,8 +74,8 @@
   "cloud/panel-hook-fix": "ef35421"
  },
  "branches": {
-  "main": "cf33215",
-  "wip/local": "11da94c",
+  "main": "5d135d0",
+  "wip/local": "c86fec4",
   "cloud/memory-hotfix": "d932320",
   "cloud/memory-rules2": "03c3cd1",
   "cloud/memory-llm-gate": "f6229d7",
@@ -96,7 +96,8 @@
   "cloud/agentic-apps": "1904638",
   "cloud/agentic-evidence": "1918cad",
   "cloud/app-knowhow": "c69dfec",
-  "cloud/browser-flow": "485763f"
+  "cloud/browser-flow": "485763f",
+  "cloud/docs-final": "bf9118d"
  },
- "ts": "2026-10-25T07:40:00Z"
+ "ts": "2026-10-25T07:55:00Z"
 }

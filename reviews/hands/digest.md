@@ -1,4 +1,4 @@
-# hands — digest (Pass 78)
+# hands — digest (Pass 79)
 
 Open: 0 P0, 5 P1, 13 P2.
 
@@ -15,6 +15,12 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 79 (no new findings; open counts unchanged):
+- main 5d135d0 adds only the agentic-fixes2 brief. Item 2 (drop a bad expect in the brain rather than fail the act) matches the app, which rejects bad predicates before acting (Act.swift parse-up-front). No app change is needed.
+- wip/local c86fec4 sets `_force_blind` for every agentic-app and timer-control task, so all Clock start, pause and cancel planning now runs on the 35B (think 512). It's reset per planner loop (orchestrator.py:4033), so it doesn't leak to the next task. This slows the demo timer step and keeps the 35B always hot (memory). It also contradicts docs-final ("other agentic-app turns stay on the LoRA").
+- cloud/docs-final bf9118d: the AGENTS timers RPC text is now correct (clock_ax/muselet, no Shortcuts). Claims that rely on open findings: "Clock Pause/Resume row ends the task" (hands-39 residual), "same tab" (hands-34), demo step 3 timer and cleanup "cancel the Clock timer" (hands-40 wheel typing, hands-36, hands-38). Have the presenter cancel the timer by hand, or keep no user Clock timers on the demo Mac.
+- Re-checked hands-26/34/36/38/39/40/41: unchanged on main.
 
 Pass 78:
 - main cf33215 merged #99 control-labels, obs-labels, browser-flow, agentic-evidence and app-knowhow.
