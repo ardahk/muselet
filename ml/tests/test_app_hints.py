@@ -196,3 +196,16 @@ def test_planner_prompt_uses_route_hint_for_app_tips():
         hint="the timer is in the Clock app's Timers tab")
     assert planner.last_hint_ids[0] == "clock"
     assert "press that button ONCE" in content
+
+
+def test_clock_and_reminders_tips_cover_live_failures():
+    rows = {hint.id: hint for hint in load_hints()}
+    clock = " ".join(rows["clock"].tips)
+    assert "LABEL" in clock and "never type the duration there" in clock
+    assert "check the wheel shows them" in clock
+    reminders = " ".join(rows["reminders"].tips)
+    assert "Never create a second reminder" in reminders
+    assert "Call mom at 5pm" in reminders and "info (i)" in reminders
+    for hid in ("clock", "reminders"):
+        assert len(render_hints([rows[hid]])) <= 1200
+    assert len(render_hints(match_hints("remind me to call mom at 5pm"))) <= 1200
