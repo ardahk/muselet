@@ -911,25 +911,55 @@ func openAppNamed(_ name: String) throws -> pid_t {
 }
 
 enum AppResolver {
-    static func url(forAppNamed name: String) -> URL? {
-        let fm = FileManager.default
-        let dirs = ["/Applications", "/System/Applications",
-                    NSHomeDirectory() + "/Applications"]
-        let wanted = name.lowercased()
-        for d in dirs {
-            guard let items = try? fm.contentsOfDirectory(atPath: d) else { continue }
-            for i in items where i.hasSuffix(".app") {
-                let base = String(i.dropLast(4)).lowercased()
-                if base == wanted { return URL(fileURLWithPath: d + "/" + i) }
+    static let applicationDirectories: [URL] = [
+        URL(fileURLWithPath: "/Applications"),
+        URL(fileURLWithPath: "/System/Applications"),
+        URL(fileURLWithPath: NSHomeDirectory() + "/Applications"),
+    ]
+
+    static func installedAppURLs(
+        in directories: [URL] = applicationDirectories) -> [URL] {
+        var urls: [URL] = []
+        for dir in directories {
+            guard let e = FileManager.default.enumerator(
+                at: dir, includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles, .skipsPackageDescendants])
+            else { continue }
+            var found: [URL] = []
+            for case let url as URL in e {
+                if url.lastPathComponent.hasPrefix(".") {
+                    e.skipDescendants()
+                    continue
+                }
+                switch url.pathExtension.lowercased() {
+                case "app":
+                    found.append(url)
+                    e.skipDescendants()
+                case "framework", "bundle":
+                    e.skipDescendants()
+                default:
+                    break
+                }
             }
+            urls += found.sorted { $0.path < $1.path }
         }
-        for d in dirs {
-            guard let items = try? fm.contentsOfDirectory(atPath: d) else { continue }
-            for i in items where i.hasSuffix(".app") {
-                let base = String(i.dropLast(4)).lowercased()
-                if base.contains(wanted) { return URL(fileURLWithPath: d + "/" + i) }
-            }
+        return urls
+    }
+
+    static func url(forAppNamed name: String,
+                    directories: [URL] = applicationDirectories) -> URL? {
+        var wanted = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if wanted.lowercased().hasSuffix(".app") {
+            wanted = String(wanted.dropLast(4))
         }
+        wanted = wanted.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !wanted.isEmpty else { return nil }
+        let lowered = wanted.lowercased()
+        let apps = installedAppURLs(in: directories)
+        for u in apps where u.deletingPathExtension()
+            .lastPathComponent.lowercased() == lowered { return u }
+        for u in apps where u.deletingPathExtension()
+            .lastPathComponent.lowercased().contains(lowered) { return u }
         return nil
     }
 }

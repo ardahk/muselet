@@ -2043,6 +2043,22 @@ class Orchestrator:
             resolved = by_key.get(key(aliases.get(key(name), "")))
             resolved = resolved or next((n for n in names if key(n) in targets), None)
         if resolved is None:
+            clean = re.sub(r"\.app$", "", str(name),
+                           flags=re.IGNORECASE).strip()
+            canonical = _APP_ALIASES.get(_norm(clean), clean)
+            resolved = by_key.get(key(canonical))
+            if resolved is None:
+                wanted = key(canonical)
+                candidates = []
+                for n in names:
+                    base = re.sub(r"\.app$", "", str(n), flags=re.IGNORECASE)
+                    base = re.sub(r"\s+\d{4}$", "", base).strip()
+                    if wanted and key(base) == wanted and \
+                            n not in candidates:
+                        candidates.append(n)
+                if len(candidates) == 1:
+                    resolved = candidates[0]
+        if resolved is None:
             await self.server.say("Which app?")
             await self.server.ui("listening")
             return None
