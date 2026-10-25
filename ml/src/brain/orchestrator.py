@@ -886,6 +886,11 @@ class Orchestrator:
             if row.get("id") not in self._last_memory_ids:
                 self._last_memory_ids.append(row["id"])
 
+    def _workflows_path(self) -> Path:
+        db = os.environ.get("MUSELET_MEMORY_DB")
+        return Path(db).with_name("workflows.jsonl") if db else \
+            Path.home() / "Library/Application Support/Muselet/workflows.jsonl"
+
     def _planner_memory_writes(self, goal: str, trace: dict) -> list[dict]:
         from . import comms
         from .memory.policy import allowed_value, planner_writes
@@ -927,9 +932,7 @@ class Orchestrator:
         writes = planner_writes(goal, str(app or "unknown"), len(actions))
         if not filtered:
             return [row for row in writes if row["type"] == "episode"]
-        db = os.environ.get("MUSELET_MEMORY_DB")   # benchmark brains keep their memory out of the user's store
-        path = Path(db).with_name("workflows.jsonl") if db else \
-            Path.home() / "Library/Application Support/Muselet/workflows.jsonl"
+        path = self._workflows_path()
         normalized = normalize(goal)
         try:
             existing = [json.loads(line) for line in
@@ -959,6 +962,21 @@ class Orchestrator:
             planner.plan_bank = PlanBank(bank_demos + [demo])
         return writes
 
+    def _forget_everything(self) -> None:
+        self.longterm.clear()
+        try:
+            self._workflows_path().unlink(missing_ok=True)
+        except OSError:
+            log.exception("workflow memory deletion failed")
+        planner = self.planner
+        bank = getattr(planner, "plan_bank", None) if planner else None
+        if bank:
+            demos = [demo for demo in bank.demos if demo.source != "memory"]
+            if len(demos) != len(bank.demos):
+                from .plan_bank import PlanBank
+                planner.plan_bank = PlanBank(demos)
+        self._last_memory_ids.clear()
+
     async def _handle_memory_request(self, request, last_ids: list[int]) -> str:
         kind, query = request
         if kind == "remember":
@@ -980,9 +998,8 @@ class Orchestrator:
                 return "ok"
             confirmed = await self._confirm_memory("Forget everything?")
             if confirmed:
-                self.longterm.clear()
+                self._forget_everything()
                 await self.server.say("Forgotten.")
-                self._last_memory_ids.clear()
                 await self._end_ui("success")
             else:
                 await self.server.say("Okay, I won't forget everything.")
@@ -1032,7 +1049,7 @@ class Orchestrator:
                 pass
             rows = self.longterm.list(limit=100)
         elif op == "clear":
-            self.longterm.clear()
+            self._forget_everything()
             rows = []
         else:
             rows = []
