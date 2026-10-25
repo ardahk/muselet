@@ -1,6 +1,6 @@
-# hands — digest (Pass 91)
+# hands — digest (Pass 92)
 
-Open: 0 P0, 7 P1, 19 P2.
+Open: 0 P0, 7 P1, 20 P2.
 
 Ranked open P0/P1:
 -1. P1 hands-38 (main e2f7e5e via a615f00, ClockAX.swift:523-552): the Clock cancel falls back to `live.first` and presses a stale detail-pane Cancel after a fixed 80 ms. It can cancel a user's own Clock timer and still report success. Fix before the demo.
@@ -15,6 +15,11 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 92 (wip/local a6035fb only; main unchanged):
+- a2004d9 deletes the finance/advisor engines (-5.3k lines), following the user override in AGENTS.md. Every app/analysis intent now always goes to the agentic planner, and tools.run is a shim to _agentic_route.
+- New P2 hands-50: planner_system.md rule 8 and the numbers hint still point the planner at the now-hidden skill finance_review.
+- Demo risk (lead): the finance and advisor segments now depend on the 35B planner writing Numbers AppleScript live, with soft or stripped expects (hands-44). Rehearse both on the demo Mac before merging.
 
 Pass 91 (wip/local 4db92e8 only; main unchanged):
 - hands-44 status: soft-expect tasks now strip `expect` from act entirely, so the app never checks it.
