@@ -1,9 +1,10 @@
-# Planner review digest — pass 89 (2026-10-25T10:50Z)
+# Planner review digest — pass 90 (2026-10-25T11:03Z)
 
-Moved: main 430e59e→298526d (#126 always include a focused text input; #127 GPU top-k think sampler and prefill timing; #128 MUSELET_NO_ESCALATE); wip d409a32 (= main); cool-tasks cfbec49 (merge of main).
-- planner-58 (P1): likely root cause found. Provisional refs restart at 1 for each root, so multi-root observations (scope app, windowless fallback) collide in Differ.match and give two elements the same ref. Fix: renumber across roots before matching.
-- OK: sample_row matches sample_logits (top-k on raw logits equals top-k on logits/temp); the focused input is appended after the cap with a unique provisional ref; NO_ESCALATE only ignores the app toggle.
-- planner-64 (Premiere agentic, args dropped), planner-63 (refuse regex), planner-59 (soft expects) and planner-60 (sendgate): unchanged.
+Moved: main 298526d→2de65a9 (#129 blocks cmd+L/cmd+T in browser tasks and reads more cart labels; #131 soft expects for agentic apps and a one-batch, no-expect Premiere hint); wip 5b70519 (= main).
+- planner-64 (P1, worse): a Premiere request now has no expects, a soft batch and no finish criterion, so nothing verifies marker, cut or export.
+- planner-59 (P1, wider): soft expects now cover every agentic app task.
+- OK: the address-bar hotkey guard (browser only, the user can still ask for 'new tab'); the cart-count regex has tests and rejects '1 in cart, <product>'.
+- planner-58 (ref numbering per root), planner-63 (refuse regex) and planner-60 (sendgate): unchanged.
 
 New: 0. Resolved: 0. Open: 0 P0, 19 P1, 15 P2.
 
