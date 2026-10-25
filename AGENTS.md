@@ -147,9 +147,9 @@ RPC methods (HandsKit):
 - `timers {clock_status?}` -> `{timers:[{id, label, total_s, left_s, minutes, fires_at, backend}], clock_ax?, backend}`;
   `timers_cancel {id?}` -> `{cancelled, timers}` (`unknown_timer: <id>`; a failed Clock AX cancel is `unsupported`
   with `clock_ax_reasons`); `timer_backend {}` -> `{clock_ax_ready, backend: "clock_ax"|"muselet"}`. `start_timer`
-  drives Clock.app over Accessibility (`clock_ax`); if that fails, Muselet's own timer silently (no Shortcuts,
-  no setting; docs/CLOCK_TIMERS.md). CLI: `hands probe timers`, `hands probe clock [--open]`, `hands probe session`
-  (screen_locked, display asleep, frontmost).
+  drives Clock.app over Accessibility (`clock_ax`); an unverified start falls back to Muselet
+  (`verified:false`, both timer reasons `start_unverified`, `clock_ax_steps`; docs/CLOCK_TIMERS.md).
+  CLI: `hands probe timers`, `hands probe clock [--open]`, `hands probe session` (screen_locked, display asleep, frontmost).
 - `screenshot {window:true, max_pixels:1000000, region?}` -> `{path, width, height, origin:[x,y], scale}` (own windows excluded)
 - `verify {expect}` -> `{ok, observed}`
 - `ocr {path? | region?:[x,y,w,h]}` -> `{text, lines:[{text, frame}], ms}` (Apple Vision, accurate, en-US; region = screen points)
