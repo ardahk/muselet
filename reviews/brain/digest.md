@@ -1,16 +1,20 @@
-# Brain lane review: pass 79 (2026-10-25T08:00Z)
+# Brain lane review: pass 80 (2026-10-25T08:25Z)
 
-Open: P0 0, P1 13, P2 22. No new findings.
+Open: P0 0, P1 13, P2 25. New: brain-65, brain-66, brain-67.
 
 ## Branches
-- main: pulse head 5d135d0 is a brief only. Reviewed through cef8797, which landed after the pulse: agentic app tasks and timer controls now plan with the blind planner (the 35B when cached, otherwise base 4B with think 512).
-- wip/local c86fec4: snapshot on main@5d135d0; its only lane diff is cef8797.
-- cloud/docs-final bf9118d (new): docs only, outside the lane. Its AGENTS.md says agentic-app turns stay on the LoRA, which cef8797 contradicts.
+- main 3e323a9: #101 Spotify play (gated double-click, accent folding, player-state done check) and opt-in PLANNER=35b.
+- wip/local b8eeec4: snapshot on main; lane identical.
+- cloud/agentic-fixes2 b9cd089 (new, on cef8797): content hints, content-ask rejection, pending-task app check, invalid-expect drop, site-title loading, YouTube play evidence.
+
+## New
+- brain-65 (P2, main): the Spotify done check needs the subject in the track name. Artist, genre and playlist requests are always "not finished". Repro: test_brain_pass80.py, 3/3 fail.
+- brain-66 (P2, agentic-fixes2): the draft_email hint says 'type exactly: "the meeting"' for the topic. Repro fails.
+- brain-67 (P2, agentic-fixes2, code reading): _no_strike refusals skip the same-action loop guard, so repeats run to the 12-turn/60 s cap.
 
 ## Rechecked
-- brain-64 (P2): wider. All app tasks now use the blind planner, and the trace still logs "base" when the 35B ran.
-- brain-57 (P1): the LoRA no longer plans agentic app tasks, but the hidden-skill loop repro still fails.
-- brain-60 (P1), brain-58 (P1), brain-59/61/62/63 and older findings: unchanged.
+- brain-60 (P1): main's Spotify play now checks the subject; other play targets and the email To field don't. fixes2 adds subject-free YouTube evidence and accepts auto-done with verify off.
+- All other open findings: unchanged.
 
 ## Tests
-18 MLX-only suite failures, 2471 passed. Review repros on main: 58 failed, 52 passed (same as pass 78).
+18 MLX-only suite failures on main (2471 passed) and fixes2 (2477). Review repros: main 60 failed, 53 passed; fixes2 59 failed, 55 passed.
