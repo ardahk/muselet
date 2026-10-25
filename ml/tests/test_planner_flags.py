@@ -295,7 +295,7 @@ def test_cli_defaults():
     assert args.longterm is True
     assert cli.planner_opts(args) == {"done_alone": True,
                                       "few_shot": "prompts/planner_fewshot.md",
-                                      "history": "dsl"}
+                                      "history": "dsl", "app_hints": False}
 
 
 def test_cli_memory_flags_and_planner_recent_prompt():
@@ -335,7 +335,8 @@ def test_cli_flags_parse():
         "serve", "--no-planner-constrain", "--no-planner-done-alone",
         "--planner-fewshot", "none", "--planner-history", "dsl"])
     assert cli.planner_opts(args) == {"constrain": False, "done_alone": False,
-                                      "few_shot": None, "history": "dsl"}
+                                      "few_shot": None, "history": "dsl",
+                                      "app_hints": False}
     args, _ = cli.build_parser(["serve", "--planner-constrain",
                                 "--planner-fewshot", "x.md"])
     assert cli.planner_opts(args)["constrain"] is True
@@ -366,7 +367,8 @@ def test_serve_cmd_passes_planner_opts(monkeypatch):
 
     async def fake_serve(port, model, planner_model, planner_kw=None,
                          args_model=None, escalate_model=None, grounder=None,
-                         verify_done=True, planner_aux_model=None):
+                         verify_done=True, open_ended_route=False,
+                         planner_aux_model=None):
         got.update(planner_kw)
 
     monkeypatch.setattr(cli, "serve", fake_serve)
@@ -374,7 +376,8 @@ def test_serve_cmd_passes_planner_opts(monkeypatch):
     cli.run_cmd(*cli.build_parser(["serve", "--planner-history", "dsl",
                                    "--no-planner-constrain"]))
     assert got == {"constrain": False, "done_alone": True,
-                   "few_shot": "prompts/planner_fewshot.md", "history": "dsl"}
+                   "few_shot": "prompts/planner_fewshot.md", "history": "dsl",
+                   "app_hints": False}
 
 
 def test_serve_cmd_passes_memory_toggles(monkeypatch):
@@ -524,7 +527,8 @@ def test_cli_escalate_flag(monkeypatch):
 
     async def fake_serve(port, model, pmodel, pkw, args_model=None,
                          escalate_model=None, grounder=None,
-                         verify_done=True, planner_aux_model=None):
+                         verify_done=True, open_ended_route=False,
+                         planner_aux_model=None):
         seen["esc"] = escalate_model
 
     monkeypatch.setattr(cli, "serve", fake_serve)

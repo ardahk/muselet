@@ -21,7 +21,7 @@ import unicodedata
 from . import argfix, calc, dsl, obsdiff, pathfind, replies, sendgate, slots
 from .memory import MemoryStore, Resolution, WorkingMemory, resolve
 from .catalog import Catalog, CatalogError
-from .sites import SITES, fix_url, match_name, normalize_name
+from .sites import APP_SCHEMES, SITES, fix_url, match_name, normalize_name
 from .traces import Tracer
 
 log = logging.getLogger("brain.orchestrator")
@@ -543,12 +543,14 @@ class Orchestrator:
 
     def __init__(self, server, catalog: Catalog | None = None,
                  tracer: Tracer | None = None, engine=None, tau: float = 0.55,
-                 longterm_store: MemoryStore | None = None):
+                 longterm_store: MemoryStore | None = None,
+                 open_ended_route: bool = False):
         self.server = server
         self.catalog = catalog or Catalog.load()
         self.tracer = tracer or Tracer()
         self.engine = engine
         self.tau = tau
+        self.open_ended_route = open_ended_route
         self.memory_enabled = True
         self.memory_llm = True
         self.memory = WorkingMemory(path=Path("runs/memory/working.json"))
@@ -1333,6 +1335,13 @@ class Orchestrator:
             await self.server.say("Sorry, I can't do that")
             await self._end_ui("confused")
             return "failed"
+        if self.open_ended_route:
+            from .app_hints import open_ended_redirect
+            redirect = open_ended_redirect(
+                label, text, self.catalog.risk(label))
+            if redirect is not None:
+                trace["open_ended"] = {"from": label, "hint": redirect.id}
+                return await self._planner_loop(text, trace)
         if label == "ANSWER":
             return await self._answer(text, trace)
         if label == "ASK":
@@ -2716,7 +2725,8 @@ function run() {
                         "from": value, "url": url}
         if op == "url":
             a["url"] = fix_url(a.get("url") or "")
-            a = self._with_browser(a, goal)
+            if str(a["url"]).partition(":")[0].casefold() not in APP_SCHEMES:
+                a = self._with_browser(a, goal)
             self._last_url = str(a.get("url") or "")
         params = {k: v for k, v in a.items() if k != "op"}
         params["op"] = op
@@ -3001,6 +3011,19 @@ function run() {
     _SCRIPT_APPS_READ = {
         "com.apple.numbers", "numbers", "music", "calendar", "system events"}
     _SCRIPT_APPS_LIMITED = {"finder", "safari"}
+    _SPOTIFY_SAFE = re.compile(
+        r"""^tell\s+application\s+["']spotify["']\s+to\s+"""
+        r"""(?:play|pause|playpause|next\s+track|previous\s+track|"""
+        r"""(?:get\s+)?(?:player\s+state|name\s+of\s+current\s+track|"""
+        r"""artist\s+of\s+current\s+track)|"""
+        r"""play\s+track\s+["']spotify:[^"'\r\n]+["'])$""",
+        re.IGNORECASE,
+    )
+    _MUSIC_MEDIA_SAFE = re.compile(
+        r"""^tell\s+application\s+["']music["']\s+to\s+"""
+        r"""(?:play|pause|playpause|next\s+track|previous\s+track)$""",
+        re.IGNORECASE,
+    )
     _READ_VERBS = re.compile(
         r"\b(get|count|exists|reveal|open)\b", re.IGNORECASE)
     _NUMBERS_OK = re.compile(
@@ -3023,6 +3046,12 @@ function run() {
         targets.update(t.lower() for t in re.findall(
             r'\bApplication\s*\(\s*[\'"]([^\'"]+)[\'"]',
             code, re.IGNORECASE))
+        if "spotify" in targets:
+            return not (lang == "applescript" and targets == {"spotify"} and
+                        self._SPOTIFY_SAFE.fullmatch(code))
+        if (lang == "applescript" and targets == {"music"} and
+                self._MUSIC_MEDIA_SAFE.fullmatch(code)):
+            return False
         allowed = self._SCRIPT_APPS_READ | self._SCRIPT_APPS_LIMITED
         if not targets or not targets <= allowed:
             return True
@@ -3280,6 +3309,7 @@ function run() {
                     "chars": len(block), "ocr": used_ocr}
                 if _accepts(planner.plan, "context"):
                     plan_kwargs["context"] = block
+            turn_started = time.perf_counter()
             fut = worker().submit(
                 planner.plan, goal, plan_obs, last_batch, q, loop,
                 cancel, **plan_kwargs)
@@ -3415,11 +3445,16 @@ function run() {
                         failure_detail = str(r.get("error") or res_status)
                         cancel.set()
             info = await asyncio.wrap_future(fut)
-            trace["decisions"].append({
+            planner_turn = {
                 "planner_turn": turn, "lines": lines,
                 "ttft_ms": round(info["ttft_ms"], 1),
                 "decode_tok_s": round(info["decode_tok_s"], 1),
-                "tokens": info["tokens"]})
+                "tokens": info["tokens"],
+                "turn_ms": round((time.perf_counter() - turn_started) * 1000, 1)}
+            hint_ids = getattr(planner, "last_hint_ids", [])
+            if hint_ids:
+                planner_turn["app_hints"] = list(hint_ids)
+            trace["decisions"].append(planner_turn)
             if info.get("think"):
                 trace["decisions"].append({
                     "planner.think": {"turn": turn, **info["think"]}})
@@ -3871,8 +3906,9 @@ function run() {
             if op == "url":
                 a = dict(a)
                 a["url"] = fix_url(a.get("url") or "")
-                a = self._with_browser(
-                    a, self._current_goal or self._utterance or "")
+                if str(a["url"]).partition(":")[0].casefold() not in APP_SCHEMES:
+                    a = self._with_browser(
+                        a, self._current_goal or self._utterance or "")
                 self._last_url = a["url"]
             elif op == "open":
                 a = dict(a)

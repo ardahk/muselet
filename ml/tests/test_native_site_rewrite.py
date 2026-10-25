@@ -3,10 +3,24 @@ import asyncio
 import pytest
 
 from brain.orchestrator import Orchestrator
+from brain.sites import APP_SCHEMES, fix_url
 from fakes import FakeServer
 
 
 INSTALLED = ["Slack", "zoom.us", "Microsoft Teams", "Microsoft Outlook"]
+
+
+@pytest.mark.parametrize("scheme", APP_SCHEMES)
+def test_fix_url_preserves_app_url_schemes(scheme):
+    value = f" {scheme.upper()}:search:jazz "
+    assert fix_url(value) == value.strip()
+
+
+@pytest.mark.parametrize("scheme", [
+    "tel", "facetime", "sms", "mailto", "javascript", "file",
+])
+def test_fix_url_does_not_pass_through_other_schemes(scheme):
+    assert fix_url(f"{scheme}:123") == f"https://{scheme}.com:123"
 
 
 @pytest.mark.parametrize("entry", ["skill", "planner", "execute"])
@@ -94,4 +108,21 @@ def test_open_non_site_app_does_not_rewrite_from_goal(entry):
             await orch.execute_actions([action])
         acts = [p for method, p in server.rpcs if method == "act"]
         assert acts == [{"op": "open", "app": "Notes"}]
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("entry", ["planner", "execute"])
+def test_app_scheme_url_does_not_receive_browser_arg(entry):
+    async def scenario():
+        server = FakeServer()
+        orch = Orchestrator(server)
+        orch._current_goal = "play jazz on spotify in chrome"
+        action = {"op": "url", "url": "spotify:search:jazz"}
+        if entry == "planner":
+            await orch._exec_action(action)
+        else:
+            await orch.execute_actions([action])
+        acts = [params for method, params in server.rpcs if method == "act"]
+        assert acts[-1]["url"] == "spotify:search:jazz"
+        assert "browser" not in acts[-1]
     asyncio.run(scenario())

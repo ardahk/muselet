@@ -31,7 +31,8 @@
 #             (ship rule .85 / .02 not met by any mode)
 #   verify-done = done needs a passing expect or a model check on a fresh observation; VERIFY_DONE=off restores the old rule
 #   fallback = a recoverable skill/brain-tool failure hands the goal once to the planner with the failure as Last batch (FALLBACK_PLANNER=0 restores the error bubble); PLANNER_CONTEXT=1 adds ctx app/window/url + a screen summary (OCR when AX is thin) to the planner's first turn
-# Usage: PORT=... ROUTER=... ARGS_MODEL=... PLANNER=... FEWSHOT=... PLANNER_AUX=... TAU=... RETRIEVAL_K=... THINK=... THINK_ON=... THINK_SAMPLER=... ESCALATE=... VERIFY_DONE=... FALLBACK_PLANNER=... PLANNER_CONTEXT=... MEMORY=... MEMORY_LLM=... LONGTERM=... tools/serve_brain.sh [extra brain serve flags]
+#   open-ended = APP_HINTS/OPEN_ENDED route free-form asks to the planner's open-ended path
+# Usage: PORT=... ROUTER=... ARGS_MODEL=... PLANNER=... FEWSHOT=... PLANNER_AUX=... TAU=... RETRIEVAL_K=... THINK=... THINK_ON=... THINK_SAMPLER=... APP_HINTS=... OPEN_ENDED=... ESCALATE=... VERIFY_DONE=... FALLBACK_PLANNER=... PLANNER_CONTEXT=... MEMORY=... MEMORY_LLM=... LONGTERM=... tools/serve_brain.sh [extra brain serve flags]
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 # Brains on any port but the app's :8765 (benchmarks) get a fresh memory store per start, so test utterances never
@@ -73,6 +74,8 @@ args=(--port "${PORT:-8765}" --model "$ROUTER" --tau "$TAU" --args-model "$ARGS_
       --planner-model "$PLANNER" --planner-fewshot "$FEWSHOT"
       --planner-aux-model "${PLANNER_AUX:-$BASE}"
       --planner-retrieval-k "${RETRIEVAL_K:-1}"
+      --planner-app-hints "$([ "${APP_HINTS:-1}" = "0" ] && echo off || echo on)"
+      --open-ended-route "$([ "${OPEN_ENDED:-1}" = "0" ] && echo off || echo on)"
       --planner-think "$THINK" --planner-think-on "${THINK_ON:-all}"
       --planner-think-sampler "${THINK_SAMPLER:-qwen}"
       --verify-done "${VERIFY_DONE:-on}"

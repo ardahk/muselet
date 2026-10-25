@@ -541,14 +541,15 @@ class Runner:
     def __init__(self, model: str, system_extra: str | None,
                  retrieval_k: int = 0, retrieval_bank: str = "v2-tune",
                  think_budget: int = 0, think_on: str = "all",
-                 think_sampler: str = "greedy"):
+                 think_sampler: str = "greedy", app_hints: bool = False):
         from brain.catalog import Catalog
         from brain.planner import Planner
         self.p = Planner(model, Catalog.load(), few_shot=None,
                          retrieval_k=retrieval_k, retrieval_bank=retrieval_bank,
                          think_budget=think_budget, think_on=think_on,
-                         think_sampler=think_sampler)
+                         think_sampler=think_sampler, app_hints=app_hints)
         self.retrieval_k, self.retrieval_bank = retrieval_k, retrieval_bank
+        self.app_hints = app_hints
         if system_extra:
             self.p.system += "\n\n" + system_extra
         tok = self.p.tokenizer
@@ -718,6 +719,7 @@ def summarize(tag, model, knobs, rows) -> dict:
     knobs.setdefault("think", 0)
     knobs.setdefault("think_on", "all")
     knobs.setdefault("think_sampler", "greedy")
+    knobs.setdefault("app_hints", False)
     optional = {
         "ttft_ms_mean": (statistics.mean, 1),
         "prompt_tokens_mean": (statistics.mean, 1),
@@ -782,6 +784,7 @@ def build_parser():
     ap.add_argument("--think", type=int, default=0)
     ap.add_argument("--think-on", choices=("all", "retry"), default="all")
     ap.add_argument("--think-sampler", choices=("greedy", "qwen"), default="greedy")
+    ap.add_argument("--app-hints", action="store_true")
     ap.add_argument("--list", action="store_true")
     return ap
 
@@ -806,7 +809,7 @@ def main():
     r = Runner(a.model, "\n\n".join(Path(f).read_text() for f in a.system_extra) if a.system_extra else None,
                retrieval_k=a.retrieval_k, retrieval_bank=a.retrieval_bank,
                think_budget=a.think, think_on=a.think_on,
-               think_sampler=a.think_sampler)
+               think_sampler=a.think_sampler, app_hints=a.app_hints)
     r.turn(scen[0], argparse.Namespace(**vars(a), seed=0))      # warm-up (prefix cache + kernels), not scored
     rows = []
     for seed in range(a.seeds if a.temp > 0 else 1):
@@ -827,7 +830,7 @@ def main():
     summary = summarize(a.tag, a.model, {k: getattr(a, k) for k in
                         ("constrain", "done_alone", "temp", "top_p", "top_k", "seeds", "history",
                          "system_extra", "retrieval_k", "retrieval_bank", "think", "think_on",
-                         "think_sampler")}, rows)
+                         "think_sampler", "app_hints")}, rows)
     out_dir = ROOT / "runs" / "planner_offline"
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / f"{a.tag}.json").write_text(json.dumps({"summary": summary, "rows": rows}, indent=1))

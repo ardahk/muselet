@@ -86,6 +86,10 @@ SITES: dict[str, str] = {
     "espn": "espn.com", "nfl": "nfl.com", "nba": "nba.com",
 }
 
+APP_SCHEMES = (
+    "spotify", "maps", "dict", "stocks", "x-apple.systempreferences", "slack",
+)
+
 
 def _host_key(host: str) -> str:
     return normalize_name(host.split(":", 1)[0].rstrip("."))
@@ -121,6 +125,8 @@ def fix_url(value: str) -> str:
     raw = str(value or "").strip()
     if not raw:
         return "https://"
+    if raw.partition(":")[0].casefold() in APP_SCHEMES:
+        return raw
     parsed = urlsplit(raw if "://" in raw else f"https://{raw}")
     host = parsed.hostname or ""
     if not host:

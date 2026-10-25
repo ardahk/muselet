@@ -261,7 +261,8 @@ class Planner:
                  few_shot: str | None = FEWSHOT_PATH, history: str = "dsl",
                  retrieval_k: int = 0, retrieval_bank: str = "v2-tune",
                  think_budget: int = 0, think_on: str = "all",
-                 think_sampler: str = "greedy", think_seed: int = 0):
+                 think_sampler: str = "greedy", think_seed: int = 0,
+                 app_hints: bool = False):
         if history not in HISTORY_FORMATS:
             raise ValueError(f"history must be one of {HISTORY_FORMATS}")
         if retrieval_k not in (0, 1, 2):
@@ -278,11 +279,13 @@ class Planner:
         self.retrieval_k, self.retrieval_bank = retrieval_k, retrieval_bank
         self.think_budget, self.think_on = think_budget, think_on
         self.think_sampler, self.think_seed = think_sampler, think_seed
+        self.app_hints = app_hints
         self.plan_bank = None
         if retrieval_k > 0:
             from .plan_bank import PlanBank, load_bank
             self.plan_bank = PlanBank(load_bank(retrieval_bank))
         self.last_retrieval = {"ids": [], "ms": 0.0}
+        self.last_hint_ids: list[str] = []
         self._constraint = None
         self._decider = None
         if engine is not None and engine.model_path == model_path:
@@ -461,7 +464,22 @@ class Planner:
                      recent: list[str] | None = None,
                      memory: list[str] | None = None,
                      context: str | None = None) -> str:
-        return self.retrieval_block(goal, observation) + self.user_message(
+        retrieval = self.retrieval_block(goal, observation)
+        app_tips = ""
+        self.last_hint_ids = []
+        if self.app_hints:
+            from .app_hints import match_hints, render_hints
+
+            header = next((line for line in observation.splitlines()
+                           if line.strip().startswith("app:")), "")
+            app_match = re.search(r"\bapp:\s*(.*?)\s*\|", header)
+            matched = match_hints(
+                goal, app_match.group(1) if app_match else "")
+            self.last_hint_ids = [item.id for item in matched]
+            rendered = render_hints(matched)
+            if rendered:
+                app_tips = rendered + "\n"
+        return retrieval + app_tips + self.user_message(
             goal, observation, last_batch, hint, script_output, login_page,
             recent, memory, context)
 
