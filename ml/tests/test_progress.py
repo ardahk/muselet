@@ -2,7 +2,10 @@
 
 import asyncio
 
+import pytest
+
 from brain.progress import MAX_WORDS, site_name, step_phrase
+from brain.progress import _skill
 
 ELS = [
     {"ref": 12, "role": "textfield", "label": "Search"},
@@ -97,3 +100,18 @@ def test_show_step_sends_acting_bubble():
     o.server = _DeferredServer(Srv())
     asyncio.run(o._show_step({"op": "press", "ref": 40}))
     assert sent == [("acting", "Clicking Jazz Classics")]
+
+
+@pytest.mark.parametrize("browser", ["Safari", "Google Chrome", "Zen"])
+def test_opening_app_browser_wording(browser):
+    assert step_phrase({"op": "open", "name": browser}) == "Opening browser"
+    assert step_phrase({"op": "open", "app": browser}) == "Opening browser"
+    for key in ("name", "app"):
+        assert _skill("open_app", {key: browser}) == "Opening browser"
+
+
+def test_opening_app_non_browser_unchanged():
+    assert step_phrase({"op": "open", "name": "Maps"}) == "Opening Maps"
+    assert _skill("open_app", {"name": "Numbers"}) == "Opening Numbers"
+    assert step_phrase({"op": "url",
+                        "url": "https://youtube.com"}) == "Opening YouTube"

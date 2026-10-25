@@ -6,6 +6,7 @@ from __future__ import annotations
 import re
 from urllib.parse import urlsplit
 
+from .sendgate import is_browser
 from .sites import SITES
 
 MAX_WORDS = 8
@@ -29,6 +30,13 @@ _HOST_NAMES = {
 }
 _KEY_NAMES = {"cmd": "⌘", "command": "⌘", "shift": "⇧", "alt": "⌥",
               "option": "⌥", "opt": "⌥", "ctrl": "⌃", "control": "⌃"}
+
+
+def _opening_app(name: str | None) -> str:
+    """'Opening Safari/Chrome/Zen' reads wrong — it's always the browser."""
+    if name and is_browser(name):
+        return "Opening browser"
+    return f"Opening {_words(name or 'the app', 4)}"
 
 
 def _words(s: str, n: int) -> str:
@@ -101,8 +109,8 @@ def _typed(text: str, target: dict) -> str:
 
 def _skill(name: str, args: dict) -> str:
     args = args or {}
-    if name == "open_app" and args.get("name"):
-        return f"Opening {_words(args['name'], 4)}"
+    if name == "open_app" and (args.get("name") or args.get("app")):
+        return _opening_app(args.get("name") or args.get("app"))
     if name == "open_url" and args.get("url"):
         site = site_name(str(args["url"]))
         return f"Opening {site}" if site else "Opening the page"
@@ -136,7 +144,7 @@ def step_phrase(action: dict | None, elements=None) -> str | None:
         site = site_name(str(action.get("url") or ""))
         phrase = f"Opening {site}" if site else "Opening the page"
     elif op == "open":
-        phrase = f"Opening {_words(action.get('name') or 'the app', 4)}"
+        phrase = _opening_app(action.get("name") or action.get("app"))
     elif op == "script":
         phrase = ("Checking playback" if _PLAYBACK.search(
             str(action.get("code") or "")) else "Running a quick script")
