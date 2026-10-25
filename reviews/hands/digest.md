@@ -1,8 +1,9 @@
-# hands — digest (Pass 72)
+# hands — digest (Pass 73)
 
-Open: 0 P0, 4 P1, 10 P2.
+Open: 0 P0, 5 P1, 10 P2.
 
 Ranked open P0/P1:
+-1. P1 hands-38 (wip/local 422399a, ClockAX.swift:523-552): the Clock cancel rework falls back to `live.first` and presses a stale detail-pane Cancel after a fixed 80 ms. It can cancel a user's own Clock timer and still report success. Don't merge as-is.
 0. P1 hands-36 (main e425cad via #86, ClockAX.swift:546-708): the Clock wheel key fallback clicks the wheel, then types digits and up to 70 HID arrow keys without re-checking Clock is frontmost or the wheel has focus. Keys can land in the user's frontmost app. Gate it before the demo.
 1. P1 hands-34 (main dc6f2f5, Launch.swift:224-232): fix-same-tab merged unchanged. Same-tab open_url/web_search posts cmd+L, waits a fixed 80 ms, then types the URL plus Return without checking the address bar has focus. The brain uses it by default whenever a browser is frontmost.
 2. P1 hands-29 (main, ClockAX.swift): Clock start and cancel bring Clock to the front and never switch back, and there's no opt-out.
@@ -14,6 +15,11 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 73:
+- main fe2de69: serve_brain.sh now uses the local eyes-4b MLX grounder. No app/ change.
+- wip/local 422399a: Clock cancel rework (live rows = rows with a pause button, detail-pane Cancel). New P1 hands-38: the `live.first` fallback and a stale Cancel index can cancel the wrong or a user-owned timer. The wip brain changes (orchestrator/finish/cli) add no new RPC methods or fields.
+- Open findings re-checked; no other branch moved.
 
 Pass 72:
 - main e8023b8 merged #87 (blind planner, reviewed in pass 71) and #88 (blind typing). New P2 hands-37: TextTarget.blindTree counts an empty or not-yet-populated window as blind, so type_text keystrokes into it instead of failing no_text_target.
