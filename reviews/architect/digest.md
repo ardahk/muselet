@@ -1,8 +1,8 @@
-# architect digest - pass 98 (2026-10-25T13:30Z)
-Reviewed: main b00f679 (README architecture image only); wip/local 35aed2d (local main@264cc82 plus uncommitted work, not on origin/main): HandsKit AppResolver now recursively enumerates /Applications, /System/Applications and ~/Applications (finds apps in vendor subfolders, e.g. versioned Premiere), exact match before substring; `apps` RPC uses the same list; brain resolves "<App> 2026" style versioned installs only when exactly one candidate matches. Swift read only, not compiled. No cloud branch moved.
-Watch, not filed: recursive enumeration runs on every `apps` RPC and open-by-name; cost on a full /Applications is unmeasured, and the substring fallback now also sees nested helper apps.
-Tests (Linux, wip 35aed2d, --timeout=30, test_planner_think.py ignored): 88 failed, 2177 passed, 111 skipped, 2 xfailed (no new failures; 2 timeouts). main code unchanged since d09f4d8 (64 still red).
-Open: P0 0, P1 23, P2 15. No new findings. Re-checked (ran): 63, 62, 57, 58, 54, 48; 64, 65 unchanged; 55, 53, 51, 61 untouched.
+# architect digest - pass 99 (2026-10-25T13:55Z)
+Reviewed: main b00f679 (unchanged); wip/local aadf777 (local main@264cc82 plus uncommitted work): CANVAS_APPS prefix widened from "Adobe Premiere Pro" to "Adobe Premiere", so an unversioned "Adobe Premiere" process name also gets the blind planner/grounder hint (it also now covers Premiere Rush/Elements, which are canvas apps too). Looks right. No cloud branch moved.
+Carried from pass 98 (watch, not filed): the recursive app search runs on every `apps` RPC and open-by-name; its cost on a full /Applications is unmeasured.
+Tests (Linux, wip aadf777, --timeout=30, test_planner_think.py ignored): 88 failed, 2182 passed, 111 skipped, 2 xfailed; same failure set as 35aed2d. main still red on test_loading_title_repolls_until_expect_passes (64).
+Open: P0 0, P1 23, P2 15. No new findings. Re-checked (ran): 63, 62, 57, 58, 54; 64, 65, 55, 53, 51, 61, 48 untouched by this diff.
 
 ## Open P0/P1 (ranked)
 1. architect-63: wip suite red (88) and hangs; Premiere confirm-timeout safety tests among them.
