@@ -1,4 +1,4 @@
-# finance digest (Pass 74, 2026-10-25; main e2f7e5e; finance-33 P0, finance-31 and finance-34 open on main)
+# finance digest (Pass 75, 2026-10-25; main de1070d; finance-33 P0, finance-31 and finance-34 open on main)
 Open P0:
 - finance-33 (main dc6f2f5): open-ended routing (OPEN_ENDED=1 default) sends demo beat 9 'Prep me for my meeting with the Hendersons.' from advisor_prep to the planner, because the calendar hint matches 'meeting'. Also finance_review whenever the user says 'file' or 'folder'. Workaround: OPEN_ENDED=0. Fix: skip executor=brain labels in open_ended_redirect (app_hints.py:104-122).
 Open P1:
@@ -14,6 +14,7 @@ Open P1:
 Open P2: finance-32 (the new acceptance gate on cloud/test-strategy has no 'Reconcile my receipts.' case, so the OCR/receipt beat is ungated), finance-29 (W9 script gate confirms the prompt's SUMIF recipe, 'Duplicate' cell text and `set n to row count`), finance-28 (the 'all' summary drops the unmatched receipt and need-review count at the 12-word cap), finance-26 (both finance demo live cases skipped by default as 'pending'), finance-23 (advisor doc-by-path), finance-25 (4 s Numbers table poll on cold open), finance-24 (merchant prefix over-match), finance-15 (single filers / 401k-HSA-checking taxed), finance-17 (numbers written as words pass the phrasing filter).
 
 Next moves:
+- finance-33 cheapest fix (pass 75): cloud/app-knowhow adds a per-hint "redirect" flag; set "redirect": false on the calendar and finder_files rows in prompts/app_hints.jsonl when it merges.
 - Pass 72 note (wip 422399a): the new timer_control pre-route catches 'cancel that …' / 'stop that …' for 600 s after start_timer; demo beat 2 sets a timer ~78 s before the finance beat. Demo phrases don't match; keep finance follow-ups free of cancel/stop + it/that during rehearsal, or require 'timer' unless Clock is frontmost.
 - Before recording on main dc6f2f5: OPEN_ENDED=0 (finance-33) and FALLBACK_PLANNER=0 (finance-31), or exempt executor=brain skills from both paths, then run acc-demo-advisor-prep and acc-demo-finance-dupes.
 - finance-33: before merging cloud/open-ended, exempt executor=brain skills from open_ended_redirect and add the demo phrases as tests.

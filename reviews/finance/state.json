@@ -1,7 +1,7 @@
 {
   "lane": "finance",
-  "pass": 74,
-  "ts": "2026-10-25T06:23:25Z",
+  "pass": 75,
+  "ts": "2026-10-25T06:38:43Z",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
@@ -48,8 +48,8 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "e2f7e5e",
-    "wip/local": "3f8e2f8",
+    "main": "de1070d",
+    "wip/local": "52e4b94",
     "cloud/memory": "a8af560",
     "cloud/memory-eval": "c05944e",
     "devin/1792872486-data-route-handoff": "seen",
@@ -91,9 +91,12 @@
     "cloud/premiere-demo": "a1c0f04",
     "cloud/premiere-route-fix": "7769c32",
     "cloud/agentic-loop": "dc7a063",
-    "cloud/agentic-apps": "1904638"
+    "cloud/agentic-apps": "1904638",
+    "cloud/agentic-evidence": "c4703c4",
+    "cloud/app-knowhow": "fc92f6b",
+    "cloud/browser-flow": "c0421e6"
   },
   "next_id": 28,
-  "notes": "pass74: only cloud/agentic-apps moved (1904638 = merge of main e2f7e5e); finance_review/advisor_prep still kind=analysis, so they don't go through the agentic app path; the finish gate and the 'search' criterion come in via the merge (finance-34 unchanged). main e2f7e5e and wip 3f8e2f8 unchanged.",
+  "notes": "pass75: main de1070d merges agentic-apps (AGENTIC_APPS=1 default; finance_review/advisor_prep kind=analysis, so they keep the direct path) and progress_evidence (timer/cart only; no finance goal matches). finance-34 criterion unchanged. agentic-evidence c4703c4 unifies evidence() for done/auto-done on app kinds; finance not app kind. app-knowhow fc92f6b does not fix finance-33 (calendar/finder_files keep redirect). browser-flow compound fallback is gated by the brain-executor compound reject. wip 52e4b94 = main minus ml/.venv symlink. main finance/advisor/memory tests 349 passed.",
   "timestamp": "2026-10-25T05:37:35Z"
 }
