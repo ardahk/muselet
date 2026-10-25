@@ -52,7 +52,7 @@ class Catalog:
     def app_skills(self) -> frozenset:
         return frozenset(
             name for name, spec in self.skills.items()
-            if spec.get("kind") == "app")
+            if spec.get("kind") in ("app", "analysis"))
 
     def risk(self, name: str) -> str:
         s = self.skills.get(name)

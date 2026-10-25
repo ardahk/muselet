@@ -246,7 +246,9 @@ class NativeToolPlanner(Planner):
             self.model_path, self.catalog, self.engine = model_path, catalog, None
             self.tokenizer, self.app_hints = tokenizer, app_hints
             self.think_budget, self.think_seed, self.think_sampler = think_budget, think_seed, "qwen"
-            self.hidden_skills, self.plan_bank, self._decider = frozenset(hidden_skills), None, None
+            self.hidden_skills, self.plan_bank, self._decider = (
+                frozenset(set(hidden_skills) | set(catalog.app_skills())),
+                None, None)
             self.history, self.retrieval_k, self.last_retrieval = "dsl", 0, {"ids": [], "ms": 0.0}
         self.decode_fn = decode_fn
         self.system_skills = {n: s for n, s in catalog.skills.items()

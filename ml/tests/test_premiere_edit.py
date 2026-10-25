@@ -116,24 +116,26 @@ def test_both_existing_redirect_sites_dispatch_premiere_edit(tmp_path, monkeypat
     monkeypatch.setattr(draft_email, "parse_request", lambda *_args: pytest.fail(
         "Premiere redirect must precede draft_email"))
 
-    async def brain_tool(name, args, text):
+    async def agentic(name, args, text, trace):
         calls.append((name, args, text))
         return "ok"
 
-    monkeypatch.setattr(orch, "_brain_tool", brain_tool)
+    monkeypatch.setattr(orch, "_agentic_route", agentic)
     orch.engine = None
     orch.memory_enabled = False
     orch.route = lambda _text: {"kind": "answer"}
     first = asyncio.run(orch.handle_utterance(
         "cut the clip at the playhead", {"app": "Adobe Premiere Pro"}))
     assert first["outcome"] == "ok"
-    assert calls[-1][:2] == ("premiere_edit", {"op": "cut"})
+    assert calls[-1] == ("premiere_edit", {},
+                         "cut the clip at the playhead")
 
     trace = {"decisions": []}
     second = asyncio.run(orch._engine_route(
         "add a cross dissolve", trace))
     assert second == "ok"
-    assert calls[-1][:2] == ("premiere_edit", {"op": "transition"})
+    assert len(calls) == 2
+    assert calls[-1] == ("premiere_edit", {}, "add a cross dissolve")
     assert trace["decisions"] == [
         {"premiere_redirect": {"op": "transition"}}]
 
@@ -146,11 +148,11 @@ def test_draft_email_fallback_dispatches_draft_email_not_premiere(
     orch.route = lambda _text: {"kind": "answer"}
     calls = []
 
-    async def brain_tool(name, args, text):
+    async def agentic(name, args, text, trace):
         calls.append((name, args, text))
         return "ok"
 
-    monkeypatch.setattr(orch, "_brain_tool", brain_tool)
+    monkeypatch.setattr(orch, "_agentic_route", agentic)
     parse_request = draft_email.parse_request
     parse_calls = 0
 
@@ -167,11 +169,9 @@ def test_draft_email_fallback_dispatches_draft_email_not_premiere(
     result = asyncio.run(orch.handle_utterance(text, {"app": "Notes"}))
 
     assert result["outcome"] == "ok"
-    assert calls == [(
-        "draft_email",
-        {"to": "my coworkers", "about": "hello", "reply": False},
-        text,
-    )]
+    assert calls[-1] == ("draft_email",
+                         {"to": "my coworkers", "about": "hello",
+                          "reply": False}, text)
     assert parse_calls == 2
 
 

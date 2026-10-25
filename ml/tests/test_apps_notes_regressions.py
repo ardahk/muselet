@@ -82,21 +82,21 @@ def test_exact_compound_text_edit(tmp_path):
     ("Draft a plan in Apple Notes app.", "a plan"),
 ])
 def test_notes_preroute_native_rpc(text, topic):
-    class Writer:
-        def generate(self, system, user, **kwargs):
-            assert f"Topic: {topic}" in user
-            return "My day\nMood: ____\nHighlights: ____"
-
+    """compose_text -> the agentic planner with the original utterance,
+    never a coded new_note execution."""
     engine = FakeEngine()
     server = FakeServer()
     orch = Orchestrator(server, engine=engine)
-    orch.planner = Writer()
+    seen = []
+    async def planner_loop(t, trace, hint=None, finish_criterion=None):
+        seen.append((t, hint))
+        return "ok"
+    orch._planner_loop = planner_loop
     assert asyncio.run(orch.handle_utterance(text))["outcome"] == "ok"
-    assert engine.route_calls == []
-    assert server.skills() == [{"name": "new_note", "args": {
-        "title": "My day", "body": "My day\nMood: ____\nHighlights: ____"}}]
+    assert len(seen) == 1 and seen[0][0] == text
+    assert topic in seen[0][1]
+    assert not server.skills()
     assert server.confirms == []
-    assert not any(m == "act" for m, _ in server.rpcs)
 
 
 @pytest.mark.parametrize("text", ["", "open notes", "notes about X in TextEdit",
@@ -120,8 +120,14 @@ def test_notes_preroute_generation_failure(generated):
 
     server = FakeServer()
     orch = Orchestrator(server, engine=FakeEngine())
-    orch.planner = Writer()
-    assert asyncio.run(orch.handle_utterance("write a poem in notes"))["outcome"] == "failed"
+    async def planner_loop(t, trace, hint=None, finish_criterion=None):
+        if isinstance(generated, Exception):
+            raise generated
+        return "failed"
+    orch._planner_loop = planner_loop
+    expected = "error" if isinstance(generated, Exception) else "failed"
+    assert asyncio.run(orch.handle_utterance(
+        "write a poem in notes"))["outcome"] == expected
     assert server.skills() == []
     assert server.confirms == []
 

@@ -14,7 +14,7 @@
 #             Reference: (a) LoRA k=0 .857/1.000/.623; (c) LoRA + few-shot + k=1 + THINK=512
 #             .857/.833/.646; base + few-shot + k=1 + THINK=512 .786/.917/.608, mean .770 @ 2.6 s.
 #             PLANNER=base keeps the base planner selectable; PLANNER=lora selects the LoRA.
-#   retrieval = 1 BM25-retrieved solved example from the v2-tune bank (RETRIEVAL_K=0|1|2; default 1 for base and LoRA).
+#   retrieval = off by default; no task recipes or saved action sequences in the live app prompt.
 #             The earlier base-planner comparison was mean holdout .570 -> .642 for k=0 / k=1, with TTFT +44..72 ms;
 #             k=2 failed the +150 ms TTFT gate (cloud/handoff/notes/retrieval_eval.md)
 #   think   = THINK=512 (qwen sampler) is now the base-planner default only; the shipped LoRA uses THINK=0.
@@ -31,7 +31,7 @@
 #             (ship rule .85 / .02 not met by any mode)
 #   verify-done = done needs a passing expect or a model check on a fresh observation; VERIFY_DONE=off restores the old rule
 #   fallback = a recoverable skill/brain-tool failure hands the goal once to the planner with the failure as Last batch (FALLBACK_PLANNER=0 restores the error bubble); PLANNER_CONTEXT=1 adds ctx app/window/url + a screen summary (OCR when AX is thin) to the planner's first turn
-#   open-ended = APP_HINTS/OPEN_ENDED route free-form asks to the planner's open-ended path
+#   app tasks use the AI planner with optional app cheat sheets, never finance/advisor workflow engines.
 # Usage: PORT=... ROUTER=... ARGS_MODEL=... PLANNER=... FEWSHOT=... PLANNER_AUX=... TAU=... RETRIEVAL_K=... THINK=... THINK_ON=... THINK_SAMPLER=... APP_HINTS=... OPEN_ENDED=... ESCALATE=... VERIFY_DONE=... FALLBACK_PLANNER=... PLANNER_CONTEXT=... PLANNER_MODE=dsl|tools MEMORY=... MEMORY_LLM=... LONGTERM=... tools/serve_brain.sh [extra brain serve flags]
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -64,7 +64,7 @@ if [ -z "${PLANNER:-}" ]; then
 fi
 case "$PLANNER" in
   "$LORA") THINK=${THINK:-0}; FEWSHOT=${FEWSHOT:-none} ;;
-  *)        THINK=${THINK:-512}; [ "${PLANNER##*Qwen3.6-35B}" != "${PLANNER}" ] && THINK=${THINK:-1024}; FEWSHOT=${FEWSHOT:-prompts/planner_fewshot.md} ;;
+  *)        THINK=${THINK:-512}; [ "${PLANNER##*Qwen3.6-35B}" != "${PLANNER}" ] && THINK=${THINK:-1024}; FEWSHOT=${FEWSHOT:-none} ;;
 esac
 case "$ROUTER" in
   "$IT2") TAU=${TAU:-0.35}; ARGS_MODEL=${ARGS_MODEL:-$IT2} ;;
@@ -81,10 +81,10 @@ args=(--port "${PORT:-8765}" --model "$ROUTER" --tau "$TAU" --args-model "$ARGS_
       --planner-model "$PLANNER" --planner-fewshot "$FEWSHOT"
       --planner-mode "$main_mode" --planner-blind-mode "$planner_mode"
       --planner-aux-model "${PLANNER_AUX:-$BASE}"
-      --planner-retrieval-k "${RETRIEVAL_K:-1}"
+      --planner-retrieval-k "${RETRIEVAL_K:-0}"
       --planner-app-hints "$([ "${APP_HINTS:-1}" = "0" ] && echo off || echo on)"
       --open-ended-route "$([ "${OPEN_ENDED:-1}" = "0" ] && echo off || echo on)"
-      --agentic-apps "$([ "${AGENTIC_APPS:-1}" = "0" ] && echo off || echo on)"
+      --agentic-apps on
       --planner-blind "${BLIND_PLANNER:-$(
         [ -d "$HOME/.cache/huggingface/hub/models--mlx-community--Qwen3.6-35B-A3B-4bit" ] \
           && echo escalate || echo base)}"

@@ -460,7 +460,9 @@ async def run(orch, args: dict, utterance: str) -> str:
         ok = _success(result)
         failure = error or (None if ok else "Couldn't create the email draft")
     elif target == "mail":
-        from brain.advisor.scripts import q
+        def q(v):
+            return '"' + str(v).replace("\\", "\\\\").replace(
+                '"', "\\\"") + '"'
         script = (
             'tell application "Mail"\n'
             '\tmake new outgoing message with properties '

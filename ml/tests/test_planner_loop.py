@@ -14,6 +14,7 @@ from brain.memory import WorkingMemory
 from brain.orchestrator import Orchestrator
 from brain.server import BrainServer
 from brain.traces import Tracer
+from fakes import FakeServer
 from test_orchestrator import FakeHands
 
 
@@ -408,32 +409,20 @@ def test_type_enter_messages_confirms(tmp_path):
     assert [m for m in hands.messages if m.get("t") == "confirm"]
 
 
-def test_brain_executor_skill_goes_to_tools(tmp_path):
-    hands = FakeHands()
-    called = {}
-
-    async def fake_run(orch, args, utterance):
-        called.update(args=args, utterance=utterance)
-        return "ok"
-
+def test_brain_executor_skill_rejected(tmp_path, monkeypatch):
+    """App/analysis labels are intents only — an op:"skill" action is
+    refused before any RPC, no tools module executes."""
     fake_mod = types.ModuleType("brain.tools.finance_review")
+    async def fake_run(*a):
+        raise AssertionError("coded engine executed")
     fake_mod.run = fake_run
-    sys.modules["brain.tools.finance_review"] = fake_mod
-    planner = FakePlanner([['skill finance_review task="burn"']])
-    server, orch = _mk(0, planner, hands)
-
-    async def go():
-        server.port = 9913
-        await _up(server, hands, orch, 9913)
-        out = await orch._planner_loop("review burn", trace_for(orch))
-        await hands.close(); await server.close()
-        return out
-    run(go())
-    assert called["args"] == {"task": '"burn"'.strip('"')}
-    assert not [m for m in hands.rpcs
-                if m["method"] == "skill"
-                and m["params"].get("name") == "finance_review"]
-    del sys.modules["brain.tools.finance_review"]
+    monkeypatch.setitem(sys.modules, "brain.tools.finance_review", fake_mod)
+    server = FakeServer()
+    orch = Orchestrator(server, Catalog.load(), Tracer())
+    r = run(orch._exec_action(
+        {"op": "skill", "name": "finance_review", "args": {}}))
+    assert r["status"] == "failed" and "operate" in r["error"]
+    assert all(m != "skill" for m, _ in server.rpcs)
 
 
 def test_script_policy_matrix():
