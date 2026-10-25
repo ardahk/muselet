@@ -1,6 +1,6 @@
-# evals-safety digest (pass 87, 2026-10-25T09:10:22Z)
+# evals-safety digest (pass 88, 2026-10-25T09:25:53Z)
 
-evals-safety-56 (P0) still open on main 2445a1d (#110 only added 'ask gmail').
+P0 evals-safety-56 open; NEW P1 evals-safety-57: failed expects no longer end the batch when a finish criterion exists.
 
 
 -54 downgraded to P1: Spotify runtime path fixed by #101; eval check and non-Spotify play evidence still weak.

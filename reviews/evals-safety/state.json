@@ -1,9 +1,9 @@
 {
-  "pass": 87,
-  "ts": "2026-10-25T09:10:22Z",
+  "pass": 88,
+  "ts": "2026-10-25T09:25:53Z",
   "last_reviewed": {
-    "main": "2445a1d",
-    "wip/local": "6e7f50b",
+    "main": "85958b0",
+    "wip/local": "3d21638",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -95,10 +95,10 @@
     "cloud/browser-flow": "485763f",
     "cloud/docs-final": "bf9118d",
     "cloud/agentic-fixes2": "104a411",
-    "cloud/cool-tasks": "e4def97",
+    "cloud/cool-tasks": "a77104e",
     "cloud/native-tools": "6053e4e",
     "cloud/ui-progress": "a66166b"
   },
-  "next_id": 57,
-  "note": "pass 87: main 2445a1d \u2014 #110 sendgate adds 'ask gmail' (-56 still open); #111 email_open finish evidence = Reply button + sender words anywhere in observation (does not check 'latest'; runtime only, watch); #112-114 maps/shopping hints only. cool-tasks e4def97 = merge of main. wip/local hint-only delta."
+  "next_id": 58,
+  "note": "pass 88: main 85958b0 \u2014 #115 soft expects continue the batch -> evals-safety-57 P1; #116 Target cart few-shot (not in any eval set); #117 shopping goals never routed to create_reminder. -56 unchanged. cool-tasks a77104e = merge of main."
 }
