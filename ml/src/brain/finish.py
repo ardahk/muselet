@@ -386,7 +386,9 @@ def evidence(kind: str, subject: str = "", obs: dict | str | None = None,
     return not progress
 
 _LIVE_ROW = re.compile(r'button "(?:Resume|Pause)"', re.IGNORECASE)
-_CART_COUNT = re.compile(r"(\d+)\s+items?\s+in\s+cart", re.IGNORECASE)
+_CART_COUNT = re.compile(
+    r"(\d+)\s+items?\s+in\s+(?:your\s+)?cart|cart\s+contains\s+(\d+)\s+items?"
+    r"|\bcart,?\s+(\d+)\s+items?\b", re.IGNORECASE)
 
 
 def _timer_evidence(goal: str, obs_text: str) -> bool:
@@ -404,7 +406,7 @@ def _timer_evidence(goal: str, obs_text: str) -> bool:
 
 def cart_count(obs_text: str) -> int | None:
     matches = _CART_COUNT.findall(obs_text)
-    return int(matches[-1]) if matches else None
+    return int(next(g for g in matches[-1] if g)) if matches else None
 
 
 def app_finish(skill: str, args: dict) -> str | None:

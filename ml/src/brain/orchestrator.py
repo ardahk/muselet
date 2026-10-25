@@ -163,6 +163,7 @@ _DESTRUCTIVE_REQ = re.compile(
     r"\b(?:every|all|entire)\b|"
     r"\b(?:every|all)\s+files?\b", re.IGNORECASE | re.DOTALL)
 WEB_UI_ERROR = "use the page's search box: type into it and press return"
+_BROWSER_BAR_KEYS = re.compile(r"^\s*(?:cmd|command)\+(?:l|t)\s*$", re.I)
 _URL_SEARCH = re.compile(r"\?|/results\b|/s\?k=|/search\b", re.I)
 _URLISH = re.compile(
     r"^(?:https?://\S+|(?:[\w-]+\.)+[a-z]{2,}(?::\d+)?(?:/\S*)?)$", re.I)
@@ -3305,6 +3306,18 @@ function run() {
             return {"status": "failed", "error": WEB_UI_ERROR,
                     "_no_strike": True,
                     "_log": f"{dsl_line}-> failed: {WEB_UI_ERROR}"}
+        if op == "keys" and _BROWSER_BAR_KEYS.match(str(a.get("combo") or "")) \
+                and sendgate.is_browser((self._last_obs or {}).get("app")) \
+                and not re.search(r"address bar|url bar|new tab",
+                                  self._utterance or "", re.IGNORECASE):
+            # cmd+L/cmd+T leave Zen's address bar open over the page
+            err = ('use url "https://..." to open a page, then the page\'s '
+                   'own search box; never the address bar')
+            if self.tracer.current is not None:
+                self.tracer.current.setdefault("decisions", []).append(
+                    {"web_ui_guard": {"keys": a.get("combo")}})
+            return {"status": "failed", "error": err, "_no_strike": True,
+                    "_log": f"{dsl_line}-> failed: {err}"}
         if op in ("press", "type", "keys"):
             # injection + danger guard: destructive labels need a confirm
             needs = False
