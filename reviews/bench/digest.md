@@ -1,4 +1,4 @@
-# bench digest — pass 88 (2026-10-25T10:30Z, main@430e59e)
+# bench digest — pass 89 (2026-10-25T10:45Z, main@298526d)
 
 P0: 0 | open P1: 14 | open P2: 23
 
@@ -104,3 +104,9 @@ Pass 88 (no new findings): main b92677f..430e59e.
 - The 'style reply' rule (69e6fa9) makes the model compose replies for short style words ('funny', 'polite'). Sends are still confirm-gated.
 - Observation pinning of inputs (0fdba8f) and Premiere hot-text are Swift; they change observation text (bench-46).
 - bench-57, bench-58 and bench-54 are unchanged. wip/local 9f6aa0d has no diff from main. cool-tasks 2fafa9e is a merge of main; bench-56 is unchanged.
+
+Pass 89 (no new findings): main 430e59e..298526d.
+- bench-52 updated: the app's escalate toggle also picks the 35B at runtime (MUSELET_NO_ESCALATE=1 overrides it). Think tokens are now sampled with GPU top-k (8512116), so the THINK>0 planner numbers are stale.
+- 95a9103 always includes the focused text input in observations: another observation change (bench-46).
+- wip/local d409a32 has no diff from main. cool-tasks cfbec49 is a merge of main; bench-56 is unchanged.
+- bench-54, bench-57 and bench-58 are unchanged.
