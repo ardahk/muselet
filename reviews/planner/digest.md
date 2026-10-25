@@ -1,11 +1,11 @@
-# Planner review digest — pass 86 (2026-10-25T09:48Z)
+# Planner review digest — pass 87 (2026-10-25T10:02Z)
 
-Moved: main 85958b0→ca73c12 (#118/#119 destructive-request refuse gate; #120 Premiere Speed/Duration hint; #105 ui-progress and #108 native-tools merged); wip 47f809a; cool-tasks 3937e6b (merge of main).
-- planner-63 (P1, new): the refuse regex blocks 'show all files in Downloads', 'format all the amounts as currency' and 'remove all duplicates' before routing.
-- planner-61 (P2): native tools mode is on main, still opt-in, still has no expect.
-- planner-59 / planner-60 / planner-56 unchanged. The ui-progress step bubble is UI-only and skipped for deferred servers, which is fine.
+Moved: main ca73c12→b92677f (#121: MLX worker skips cancelled futures; generic_decide temperature defaults; README added); wip f1e504c (= main).
+- OK: the worker fix is correct. set_running_or_notify_cancel skips cancelled requests, so the worker thread survives.
+- planner-55 (P2): the new README repeats the docs mismatch. It says the 35B is only for web pages and blind screens, says every step has an expect check, and says destructive requests are refused without caveat.
+- planner-63 (destructive refuse regex), planner-59 (soft expects), planner-60 (search/find sendgate) and planner-56 (YouTube video not checked): unchanged.
 
-New: 1 P1. Resolved: 0. Open: 0 P0, 18 P1, 15 P2.
+New: 0. Resolved: 0. Open: 0 P0, 18 P1, 15 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
