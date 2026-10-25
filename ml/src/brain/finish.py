@@ -57,6 +57,9 @@ def criterion(goal: str) -> tuple[str, str, str] | None:
     g = goal.strip()
     if not g:
         return None
+    from . import carry
+    if (task := carry.parse(g)) is not None:
+        return (task["kind"], task.get("to", ""), carry.finish(task))
     if _TIMER.search(g):
         if re.search(r"\bpause\b", g, re.IGNORECASE):
             return ("timer", "", "the Clock timer shows Resume (countdown stopped)")
@@ -97,7 +100,8 @@ def finish_when(goal: str) -> str | None:
     return c[2] if c else None
 
 
-EVIDENCE_KINDS = ("play", "cart", "search", "directions")
+EVIDENCE_KINDS = ("play", "cart", "search", "directions", "relay",
+                  "summary_note")
 APP_KINDS = {
     "start_timer": "timer_start", "create_reminder": "reminder",
     "new_note": "note", "compose_text": "note", "create_event": "event",
@@ -219,6 +223,9 @@ def progress_kind(
         else:
             subject = ""
         return kind, subject, args
+    from . import carry
+    if (task := carry.parse(clean_goal)) is not None:
+        return task["kind"], task.get("to", ""), {}
     if "timer" in clean_goal.lower():
         if (_TIMER_PAUSE.search(clean_goal) or
                 _TIMER_RESUME.search(clean_goal) or
@@ -338,6 +345,18 @@ def evidence(kind: str, subject: str = "", obs: dict | str | None = None,
             return False
         value = _composer_value(obs, text)
         return _contains_words(value, _key_words(subject))
+    if kind == "relay":
+        from .carry import carries
+        headers = _app_headers(text)
+        if not confirmed or (headers and
+                             headers[-1].strip().casefold() != "messages"):
+            return False
+        return carries(_composer_value(obs, text), list(args.get("notes") or []))
+    if kind == "summary_note":
+        headers = _app_headers(text)
+        if not headers or headers[-1].strip().casefold() != "notes":
+            return False
+        return len(_composer_value(obs, text).split()) >= 15
     if kind == "email":
         value = _composer_value(obs, text)
         wanted = _key_words(subject)

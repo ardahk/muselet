@@ -742,6 +742,8 @@ class Orchestrator:
         self._last_skill: tuple[str, dict, dict] | None = None
         self._compound_to_planner = False
         self._compound_parts: list[str] = []
+        self._carry: dict | None = None          # carry.parse() task
+        self._task_notes: list[str] = []         # planner `note` scratch
         self.grounder_cfg: dict | None = dict(DEFAULT_GROUNDER)   # None = off
         self.grounder = None        # brain.grounder.Grounder, built on first use
         self.screens: list | None = None    # app `hello` screens (backing scale)
@@ -1047,11 +1049,14 @@ class Orchestrator:
                         text = memory_result.text
                         self._utterance = text
                     from .tools import compose_text, premiere_edit
+                    from . import carry
                     if (pargs := premiere_edit.parse_request(
                             text, self._ctx)) is not None:
                         trace["decisions"].append({"premiere_redirect": pargs})
                         outcome = await self._brain_tool(
                             "premiere_edit", pargs, text)
+                    elif (ctask := carry.parse(text)) is not None:
+                        outcome = await self._carry_route(ctask, text, trace)
                     elif (page := self._page_task_for(text)):
                         self._page_task = page
                         self._force_blind = True
@@ -1613,9 +1618,25 @@ class Orchestrator:
                 self._last_timer_at = time.time()
         return out
 
+    async def _carry_route(self, task: dict, text: str, trace: dict) -> str:
+        """Cross-app read-then-use task: one planner task, never a skill +
+        fragment compound (look up X and text it to Caleb, summarize ...)."""
+        from . import carry
+        trace["decisions"].append({"carry_task": task})
+        self._force_blind = True
+        self._carry = task
+        try:
+            return await self._planner_loop(
+                text, trace, hint=carry.hint(task),
+                finish_criterion=carry.finish(task))
+        finally:
+            self._carry = None
+
     async def _engine_route(self, text: str, trace: dict, pre=None) -> str:
         from .planner import worker
-        from . import comms
+        from . import carry, comms
+        if pre is None and (ctask := carry.parse(text)) is not None:
+            return await self._carry_route(ctask, text, trace)
         messaging = comms.is_messaging(text)
         # timer controls beat media_control: "pause it" right after
         # start_timer (or with Clock frontmost) means the timer.
@@ -3123,6 +3144,11 @@ function run() {
             self._batch_confirmed = True
             return {"status": "ok", "confirmed": True,
                     "_log": f"{dsl_line}-> confirmed"}
+        if op == "note":
+            from .carry import add_note
+            kept = add_note(self._task_notes, a.get("text", ""))
+            return {"status": "ok", "_no_strike": True,
+                    "_log": f"{dsl_line}-> noted ({len(kept)} chars)"}
         if op == "done":
             self._done_summary = a["summary"].strip('"')
             return {"status": "done", "summary": a["summary"],
@@ -3309,6 +3335,11 @@ function run() {
                 await self.server.ui("listening")
                 return {"status": "awaiting_user",
                         "_log": f"{dsl_line}-> awaiting_user"}
+            if needs and (self._carry or {}).get("kind") == "relay":
+                return {"status": "failed", "_no_strike": True,
+                        "error": "draft only: never send; emit confirm",
+                        "_log": f"{dsl_line}-> refused: draft only, emit "
+                                'confirm "<summary>" instead of sending'}
             if needs and not self._take_confirm():
                 yes = await self.server.ask_confirm(
                     await self._confirm_summary(a))
@@ -4017,6 +4048,9 @@ function run() {
                                 script_stdout or "")
         args = {"obs": obs, "script_stdout": script_stdout,
                 "url": self._last_ok_url or self._ctx.get("url")}
+        if kind in ("relay", "summary_note"):
+            args.update(confirmed=self._confirm_asked,
+                        args={"notes": list(self._task_notes)})
         ok = evidence(kind, subject, **args)
         if not ok and kind == "cart":
             ok = evidence(kind, subject, ocr=await self._window_ocr_text(),
@@ -4036,6 +4070,8 @@ function run() {
         if not progress:
             return None
         kind, subject, args = progress
+        if kind == "relay":
+            args = {**args, "notes": list(self._task_notes)}
         baseline = self._cart_baseline
         if kind == "cart" and isinstance(baseline, int):
             current = cart_count(post)
@@ -4063,7 +4099,7 @@ function run() {
                     url=self._last_ok_url or self._ctx.get("url"),
                     goal=goal, args=args, progress=True)
         if visible and (kind == "cart" or not self._evidence_base):
-            return "awaiting_user" if kind == "message" else "done"
+            return "awaiting_user" if kind in ("message", "relay") else "done"
         return None
 
     async def _planner_loop(self, text: str, trace: dict,
@@ -4084,6 +4120,8 @@ function run() {
         self._evidence_base = False
         self._confirm_asked = False
         self._auto_evidence = False
+        if not answer:
+            self._task_notes = []
         from . import dsl
         from .planner import worker
         goal = text
@@ -4274,6 +4312,9 @@ function run() {
                     "chars": len(block), "ocr": used_ocr}
                 if _accepts(planner.plan, "context"):
                     plan_kwargs["context"] = block
+            if (self._carry or self._task_notes) and \
+                    _accepts(planner.plan, "notes"):
+                plan_kwargs["notes"] = list(self._task_notes)
             turn_started = time.perf_counter()
             fut = worker().submit(
                 planner.plan, goal, plan_obs, last_batch, q, loop,

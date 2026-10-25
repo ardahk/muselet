@@ -13,6 +13,7 @@ Grammar (one action per line, max 5 per batch):
     script applescript|jxa|shell \"\"\"<code>\"\"\"
     wait <ms>
     ask|confirm|done|refuse "<text>"
+    note "<text>"         (scratch line shown in later turns' prompts)
     expect <predicate>    (attaches to the previous action)
 
 predicates: title~"<t>" | focused #<r> | value #<r>="<t>" | app "<n>" | appears "<l>" | gone #<r>
@@ -22,7 +23,8 @@ import re
 
 MAX_BATCH = 5
 OPS = {"skill", "press", "type", "keys", "scroll", "click", "open", "url",
-       "script", "wait", "ask", "confirm", "done", "refuse", "expect"}
+       "script", "wait", "ask", "confirm", "done", "refuse", "expect",
+       "note"}
 _SKILLISH = re.compile(r"^[a-z][a-z0-9]*_[a-z0-9_]*(?:\s+\w+=|$)")
 
 
@@ -262,9 +264,9 @@ def parse(text: str) -> list[dict]:
                 raise _err("wait <ms>", lineno)
             actions.append({"op": "wait", "ms": int(toks[1])})
             continue
-        if op in ("ask", "confirm", "done", "refuse"):
+        if op in ("ask", "confirm", "done", "refuse", "note"):
             key = {"ask": "question", "confirm": "summary",
-                   "done": "summary", "refuse": "reason"}[op]
+                   "done": "summary", "refuse": "reason", "note": "text"}[op]
             if len(toks) != 2:
                 raise _err(f'{op} "<text>"', lineno)
             actions.append({"op": op, key: _unquote(toks[1], lineno)})
@@ -325,9 +327,9 @@ def serialize(actions: list[dict]) -> str:
             line = f"script {a['lang']} \"\"\"{a['code']}\"\"\""
         elif op == "wait":
             line = f"wait {a['ms']}"
-        elif op in ("ask", "confirm", "done", "refuse"):
+        elif op in ("ask", "confirm", "done", "refuse", "note"):
             key = {"ask": "question", "confirm": "summary",
-                   "done": "summary", "refuse": "reason"}[op]
+                   "done": "summary", "refuse": "reason", "note": "text"}[op]
             line = f"{op} {_q(a[key])}"
         else:
             raise DSLError(f"cannot serialize op {op!r}", 0)

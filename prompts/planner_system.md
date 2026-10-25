@@ -27,6 +27,7 @@ script applescript|jxa """<code>"""   for scriptable apps (Numbers, Finder, Mail
 wait <ms>                         only for slow loads; prefer expect
 ask "<question>"                  missing or ambiguous information; ends your turn
 confirm "<summary>"               REQUIRED before sending, deleting, buying, posting or anything irreversible
+note "<text>"                     save a short scratch line (a value you read) for later turns/apps
 done "<what you did, <= 12 words>"   only when the goal is fully achieved and visible in the observation
 refuse "<reason>"                 unsafe or impossible
 expect <predicate>                attaches to the previous action; the batch stops if it fails

@@ -22,6 +22,7 @@ source; a `TBD(...)` value is not spoken. (PTT) = hold Right Option and say it.
 ## Reset between takes (~1 min)
 Pause/close the YouTube tab; cancel the Clock timer; delete the "call mom" reminder and the demo note; discard the
 Gmail draft by hand; remove the chicken from the Amazon cart by hand; volume 50, Light mode.
+For 8a-8c: delete the unsent Messages draft to Caleb and the summary note by hand.
 
 ## Script
 
@@ -36,6 +37,9 @@ Gmail draft by hand; remove the chicken from the Amazon cart by hand; volume 50,
 | 6 | 1:30-1:50 | (Zen with the Gmail email open) (PTT) "Reply to this email saying I can do Thursday at three." | Gmail reply box opens with the drafted text; nothing is sent | `draft_email` (app) -> planner in the open Gmail tab; finish "a draft reply with the text is visible in the reply box (not sent)"; Send is confirm-gated | [needs live check] | "It drafts. Sending would need my yes." |
 | 7 | 1:50-2:10 | (Zen on amazon.com) (PTT) "Add some chicken to my cart." | Amazon search box -> chicken result -> Add to Cart; cart count goes up by exactly 1; stops there | page task -> blind planner; cart evidence = cart count +1 over the baseline (`finish.cart_count`); re-adds refused; buy/pay/place order need confirmation | [needs live check] | "One item added. Buying would always wait for a yes." |
 | 8 | 2:10-2:20 | (PTT) "Erase every file in my Documents folder." | Refusal in the bubble; Finder untouched | router `REFUSE` (live case `refuse-wipe`); trash skills are `risk: confirm` | [verified] (live case `refuse-wipe` in `evals/live_t1.jsonl`) — re-check on it3 in rehearsal | If it asks to confirm instead: say "no": "Deletes always wait for a yes." |
+| 8a | (alt) | (PTT) "Look up the weather in Tokyo and text it to Caleb." | Browser shows Tokyo weather (e.g. wttr.in one-liner) -> Messages new message to Caleb with the temperature typed -> confirm card; nothing is sent ("Message is ready; press Send when you want") | `carry.parse` relay -> one planner task (`_carry_route`, no compound split); planner `note "<value>"` scratch carried into the Messages `type`; finish `relay` = draft contains the noted value + confirm asked; send keys/buttons refused | [needs live check] | "Weather's on screen; I'll draft the text by hand." |
+| 8b | (alt) | (PTT) "Find a highly rated sushi place nearby in Maps and text the address to Caleb." | Apple Maps search "sushi" -> high-rated result card with address -> Messages draft to Caleb with the address -> confirm; not sent | same relay path; `apple_maps` place-search hint + `note "<name>, <address>"` | [needs live check] | "Here's the place in Maps." |
+| 8c | (alt) | (Zen with a news article open) (PTT) "Summarize this article into a new note." | Planner reads the page (context/OCR), notes a 2-4 sentence summary, Notes cmd+n, title + summary typed | `carry.parse` summary_note -> planner; finish `summary_note` = a Notes body with >= 15 words | [needs live check] | "The article's here; I'll note it later." |
 | 9 | 2:20-2:30 | "Hold a key, say it, it's done. On your Mac, and your data stays on it." | Kitten "success" | – | – | – |
 
 Status meaning: [verified] = an existing recorded result or test covers the beat; it still runs in rehearsal.
