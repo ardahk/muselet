@@ -1,9 +1,9 @@
 {
-  "pass": 86,
-  "ts": "2026-10-25T10:00:00Z",
+  "pass": 87,
+  "ts": "2026-10-25T10:32:00Z",
   "last_reviewed": {
-    "main": "b92677f",
-    "wip/local": "f1e504c",
+    "main": "430e59e",
+    "wip/local": "9f6aa0d",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -96,8 +96,8 @@
     "cloud/docs-final": "bf9118d",
     "cloud/agentic-fixes2": "104a411",
     "cloud/ui-progress": "a66166b",
-    "cloud/cool-tasks": "3937e6b",
+    "cloud/cool-tasks": "2fafa9e",
     "cloud/native-tools": "6053e4e"
   },
-  "notes": "pass 86: main b92677f keeps the MLX worker alive when a request is cancelled (c37f6ee; Esc/cancel followed by a new request no longer hits a dead worker, which helps the 'no stuck states after cancel' criterion). It also adds a README whose line 32 repeats the stale ux-32 planner claim (status row appended). ux-34 is still unfixed (orchestrator.py unchanged). wip/local equals main."
+  "notes": "pass 87: main 430e59e: style replies such as 'reply saying something funny' are composed by the model instead of typed literally (good UX); premiere_edit takes the agentic route; observations keep the focused element and text inputs when truncated; Adobe hot-text fields can be typed into. PLANNER=35b now uses THINK=1024 / RETRIEVAL_K=0 -> ux-31 update. ux-34 (destructive regex) and ux-32 (README:32, demo_script:53) are still unfixed. wip/local equals main; cool-tasks only merges main."
 }
