@@ -1,6 +1,6 @@
-# decisions — digest (pass 76)
+# decisions — digest (pass 77)
 
-Heads: main 430e59e (35B planner defaults k=0/think 1024 unmeasured (-44); premiere agentic route; style replies; -38/-40/-41/-43 P1 live), wip 9f6aa0d (= main), cool-tasks 2fafa9e (CORRECTION: its planner_system.md `note` op changes the LoRA static prefix + op constraint; parity samples not regenerated (-42) — block merge until re-rendered + LoRA holdout rerun). Counts: 0 P0, 14 P1, 16 P2. Budget: about $142.06 MTD estimated.
+Heads: main 298526d (think sampler GPU top-k, same distribution; MUSELET_NO_ESCALATE env (-44); focused-input obs; -38/-40/-41/-43 P1 live), wip d409a32 (= main), cool-tasks cfbec49 (main merge; -42 LoRA prefix drift from `note` still unregenerated — block merge). Counts: 0 P0, 14 P1, 16 P2. Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
