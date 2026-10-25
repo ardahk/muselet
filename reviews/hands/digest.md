@@ -1,6 +1,6 @@
-# hands — digest (Pass 76)
+# hands — digest (Pass 77)
 
-Open: 0 P0, 5 P1, 10 P2.
+Open: 0 P0, 5 P1, 11 P2.
 
 Ranked open P0/P1:
 -1. P1 hands-38 (main e2f7e5e via a615f00, ClockAX.swift:523-552): the Clock cancel falls back to `live.first` and presses a stale detail-pane Cancel after a fixed 80 ms. It can cancel a user's own Clock timer and still report success. Fix before the demo.
@@ -15,6 +15,12 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 77:
+- New P2 hands-39 (main finish.py/orchestrator.py): timer auto-done treats 'no Pause/Resume visible' as cancelled and any Resume as paused. It's checked against the observation from before the batch, so 'cancel my timer' can stop after `open "Clock"`, with only the model verifier left to catch it. cloud/agentic-evidence 1918cad mostly fixes it (_evidence_base gate); its timer_start check can still match a user's own timer.
+- main 3a0860c: BLIND_PLANNER now defaults to `escalate` (35B-A3B, ~19 GB, warmed at startup) whenever that model is in the HF cache. Outside this lane, but a demo memory risk next to the router, planner and eyes-4b: check kern.memorystatus_level with all of them loaded. Untracks the .venv and models symlinks. No app/ change.
+- cloud/browser-flow 485763f: the web UI guard rejects planner-built same-site search URLs and typing queries into the address bar (brain only). Same-tab inside tasks is unchanged, so the hands-34 status record still applies.
+- cloud/app-knowhow c69dfec: prompt tips only. wip/local 83cf584 matches main for app/. Other open findings re-checked and unchanged.
 
 Pass 76:
 - main de1070d merged agentic-apps (catalog `kind`, already cleared) and f30bf1d. The only app/ change: GhostCursor no longer shows the box highlight around the target (opacity 0, pop removed). Failures still show through the chip colour and ripple. Harmless.
