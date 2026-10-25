@@ -1,6 +1,6 @@
-# training lane digest — pass 76 (main e2f7e5e)
+# training lane digest — pass 77 (main e2f7e5e, agentic-apps 1904638)
 
-Open: 1 P0, 15 P1, 18 P2. training-56 resolved on main (few-shot now uses a non-eval YouTube goal). training-55 updated: cloud/agentic-apps hides app skills from the planner prompt by default. training-54 still open.
+Open: 1 P0, 15 P1, 18 P2. No new findings; agentic-apps only merged main. training-55 (planner prompt drift incl. hidden app skills) and training-54 still open.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
