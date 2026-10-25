@@ -1,4 +1,4 @@
-# finance digest (Pass 51, 2026-10-25; main 8fb465c; memory checked against the finance demo utterances (no rewrites))
+# finance digest (Pass 52, 2026-10-25; main e9fb42d; it3 is now the default router)
 Open P0: none.
 Open P1:
 - finance-27: by default, planner retrieval now puts rule-8-violating Numbers demos (per-cell loops, `tell application "Numbers"`, cell press/type) into every Numbers planner prompt (ml/src/brain/plan_bank.py, tools/serve_brain.sh:31, evals/planner_scenarios_v2.jsonl:193,217,239).
@@ -13,4 +13,5 @@ Next moves:
 - Rehearse the finance demo cold once. Read finance_open_* ms from the traces and set the table-poll timeout from them.
 - finance-27 + finance-29 together: safety-bench28 already has the plan_bank denylist hook (UNSAFE_APPEND_IDS); adding the 3 v2 Numbers ids there is a one-line fix. Strip string literals before the Numbers branch of script_needs_confirm.
 - finance-30: put the script result and the done summary into the _verify_done state, and measure p_yes on one 'average of column C' run on the Mac.
+- it3 default: before recording, on the Mac run evals/router_check.py --router it3 filtered to the 43 finance_review/advisor_prep rows of route_v2, plus the 3 demo phrases (pitch/demo_script.md beats 8-9). Check label and task arg; no per-skill it3 number exists in the repo.
 - Receipts: limit prefix matching to known abbreviations (finance-24).
