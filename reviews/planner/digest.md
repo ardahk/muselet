@@ -1,14 +1,11 @@
-# Planner review digest — pass 83 (2026-10-25T09:05Z)
+# Planner review digest — pass 84 (2026-10-25T09:15Z)
 
-Moved: main b7b38f9→4f94e42 (#103/#104/#107/#109 demo-loop fixes); wip 52eb571 (= main); new cool-tasks 4c84adc, native-tools 6053e4e, ui-progress a66166b.
-- planner-60 (P1, new, main): enter_sends skips the confirm whenever the composer label contains search/find ('Message #job-search').
-- planner-61 (P2, new, native-tools): tool mode (opt-in) has no expect argument.
-- planner-62 (P2, new, cool-tasks): screen-derived scratch notes go above the observation with no data-only label.
-- planner-56 / planner-52 partly mitigated on main: YouTube page required; 'press a result link' message.
-- OK: ui-progress is bubble/UI only; cool-tasks relay refuses to send and ends awaiting_user; the enter_sends ref-miss fallback is safer.
-- planner-40/45/46/47/48/50/51/53/54/55/58/59 unchanged.
+Moved: main 4f94e42→2445a1d (#110-#114: Ask Gmail send exemption, email_open finish criterion, maps/shopping hints); wip 6e7f50b (hint tweak); cool-tasks e4def97 (merge of main only).
+- planner-60 (P1): still open; only 'ask gmail' was added and the bare search/find substring match is unchanged.
+- OK: email_open evidence needs a Reply/Reply all control plus every sender word in the view. Hint edits are text-only (shopping expect 'to cart'/'1 item', maps route cards).
+- planner-40/45/46/47/48/50/51/52/53/54/55/56/58/59 unchanged on main; 61 (native-tools) and 62 (cool-tasks) unchanged.
 
-New: 3 (1 P1, 2 P2). Resolved: 0. Open: 0 P0, 17 P1, 15 P2.
+New: 0. Resolved: 0. Open: 0 P0, 17 P1, 15 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
