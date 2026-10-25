@@ -1,4 +1,7 @@
-# hands — digest (Pass 61)
+# hands — digest (Pass 62)
+
+Pass 62:
+- No new findings. main 6a37d0c (HobbyLM calc_checker reads the macOS 27 Calculator display, bench only, outside lane) and wip/local 9571a9e have no app/ changes. hands-26 (orchestrator.py:2556), hands-27 (BrainClient.swift:91) and hands-28 (ClockAX.swift:409) re-checked on main: still open. hands-32 unchanged.
 
 Pass 61:
 - No new findings. main 13d0486 (HobbyLM replay captures calendar events in the runner, bench only) has no app/ changes; wip/local unchanged. hands-26 (orchestrator.py:2556), hands-27 (BrainClient.swift:91) and hands-28 (ClockAX.swift:409) re-checked on main: still open. hands-32 unchanged.
