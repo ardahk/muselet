@@ -1,14 +1,14 @@
-# Planner review digest — pass 82 (2026-10-25T08:50Z)
+# Planner review digest — pass 83 (2026-10-25T09:05Z)
 
-Moved: main 73b8031→b7b38f9 (merged agentic-fixes2 and docs-final; ab850b3 30 turns / 300 s + soft expects for blind tasks; b7b38f9 PLANNER=35b observes up to 350 AX nodes, opt-in); wip e03e2c8 (= main).
-- planner-59 (P1, new): soft expects `continue` before the loop guard, so a repeating failed action runs up to 30 turns / 300 s on the 35B.
-- planner-56 (P1) now on main: YouTube play evidence doesn't check which video.
-- planner-55 (P2) now on main: the docs still say app turns stay on the LoRA.
-- planner-31 / planner-57 now on main.
-- OK: MUSELET_OBS_NODES is env-selectable and only 350 under PLANNER=35b.
-- planner-40/45/46/47/48/50/51/52/53/54/58 unchanged.
+Moved: main b7b38f9→4f94e42 (#103/#104/#107/#109 demo-loop fixes); wip 52eb571 (= main); new cool-tasks 4c84adc, native-tools 6053e4e, ui-progress a66166b.
+- planner-60 (P1, new, main): enter_sends skips the confirm whenever the composer label contains search/find ('Message #job-search').
+- planner-61 (P2, new, native-tools): tool mode (opt-in) has no expect argument.
+- planner-62 (P2, new, cool-tasks): screen-derived scratch notes go above the observation with no data-only label.
+- planner-56 / planner-52 partly mitigated on main: YouTube page required; 'press a result link' message.
+- OK: ui-progress is bubble/UI only; cool-tasks relay refuses to send and ends awaiting_user; the enter_sends ref-miss fallback is safer.
+- planner-40/45/46/47/48/50/51/53/54/55/58/59 unchanged.
 
-New: 1 (P1). Resolved: 0. Open: 0 P0, 16 P1, 13 P2.
+New: 3 (1 P1, 2 P2). Resolved: 0. Open: 0 P0, 17 P1, 15 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
