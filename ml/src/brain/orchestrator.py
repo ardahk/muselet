@@ -3720,6 +3720,16 @@ function run() {
                 if loading:
                     return {"status": "failed", "_loading": True, "res": res,
                             "error": f"[pending: page loading] {error}"}
+                # a task with a finish criterion doesn't need hard
+                # expects — evidence verification decides done, and a
+                # model-written predicate that can't match shouldn't
+                # abort the batch the action already ran in
+                if self._progress not in (None, "unset"):
+                    trace_d = self.tracer.current if self.tracer else None
+                    if trace_d is not None:
+                        trace_d.setdefault("decisions", []).append(
+                            {"expect_soft": str(exp)[:80]})
+                    return {"status": "ok", "res": res, "expect_soft": error}
                 return {"status": "failed", "error": error, "res": res}
         return {
             "status": "ok", "res": res, "expect_ok": bool(exp),
