@@ -1,6 +1,6 @@
-# decisions — digest (pass 49)
+# decisions — digest (pass 50)
 
-Heads: main 13d0486 (hobbylm replay calendar capture; decisions-37 P0 still live), wip fd357b3 (= main). Budget: about $142.06 MTD estimated (main still says planner LoRA $0.84).
+Heads: main 6a37d0c (HobbyLM calc_checker; decisions-37 P0 still live), wip 9571a9e (= main). Budget: about $142.06 MTD estimated (main still says planner LoRA $0.84).
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
