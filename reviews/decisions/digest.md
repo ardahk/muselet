@@ -1,10 +1,10 @@
-# decisions — digest (pass 74)
+# decisions — digest (pass 75)
 
-Heads: main ca73c12 (merged native-tools + ui-progress; new -47 P2: pre-routing destructive regex refuses 4/955 route_v2 empty_trash golds + v2-shell-rm confirm; -37 P0 also covers NativeToolPlanner; -38/-40/-41/-43 P1, -46 P2 live), wip 47f809a (= main). Counts: 1 P0, 14 P1, 15 P2. Budget: about $142.06 MTD estimated.
+Heads: main b92677f (inline() temps fixed in c37f6ee, so -37 drops P0->P2 pending an inline test + Mac p_yes check; README added with route_v2-only router claim and 'stops when goal visible' (-38/-41)), wip f1e504c (= main). Counts: 0 P0, 14 P1, 16 P2. Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
-1. decisions-37 P0 LIVE on main: inline() lacks temperature attrs -> planner done-verifier always errors (incl. 35B escalate blind planner), verify silently off — ml/src/brain/generic_decide.py:177-190@e9fb42d
+1. decisions-37 now P2 (was P0): inline() temps fixed on main@b92677f (generic_decide.py:183). Still missing: an inline/__new__ unit test and a Mac check that planner.verify returns p_yes; VERIFY_P was never fitted on the 35B.
 2. decisions-40 P1 open_ended_redirect overrides correct routes (route_v1_clean 4/103, route_v2 64/955 with gold labels) LIVE on main (now 3/103, 46/955) — ml/src/brain/orchestrator.py:1502-1508@e425cad
 3. decisions-41 P1 LIVE on main: finish-evidence 'search' done accepted from the planner's own URL (_last_ok_url) and a mis-cut subject; bypasses expect + model verify — ml/src/brain/finish.py:112@e2f7e5e
 4. decisions-43 P1 LIVE on main default-on agentic apps redirect all app-kind routes to the planner: 22/103 route_v1_clean, 290/955 route_v2; route/e2e claims no longer describe the shipped path — orchestrator.py:1655@1904638
@@ -18,7 +18,7 @@ Contamination re-check this pass: 2400 freshly generated code-family items vs Je
 12. decisions-25 / -4 / -3 P1 data brief stale; noul order flip; route regression unmeasured
 
 ## Highest-leverage next moves
-- NOW: set temperature_probs/conf = 1.0 in GenericMLXDecider.inline() on main (decisions-37, P0); add a __new__-path unit test.
+- NOW: add an inline()/__new__ unit test and do a Mac run showing planner.verify p_yes != None (decisions-37); fix the play/search/cart done checks (decisions-41/-46).
 - Fix decisions-41 on main (drop _last_ok_url as search evidence, fix _subject cuts); agentic-apps is on main: run e2e AGENTIC_APPS=0 vs 1 and planner-LoRA parity/bench with hidden_skills (decisions-43, -42).
 - Pin BLIND_PLANNER and decide LoRA vs 35B for app tasks; make docs-final match the merged code and log the planner per trace (decisions-44, -45). On main: pass goal= in _finish_evidence; play/search evidence must use the observed url only, require the subject in the title, and reject loading/404 (-41); with soft expects it is the done gate.
 - Quote {{route_acc}} for it3 @ .50 (serving) and fix claims.md:13,163 / REPORT.md:12 (decisions-38).
