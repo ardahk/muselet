@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 
 _INTERNAL = {"ms", "_raw", "missing", "confirmed"}
 
@@ -22,8 +24,20 @@ def content(args: dict) -> str | None:
     return None
 
 
+_LITERAL_KEYS = ("body", "text", "message", "title")
+
+
 def _with_content(skill: str, args: dict, result: str) -> str:
-    value = content(args)
+    """'type exactly' only when the arg is the user's literal text
+    (body/text/message/title) — 'about' describes WHAT to write, the
+    model composes it in its own words."""
+    args = _clean(args)
+    value = None
+    for key in _LITERAL_KEYS:
+        v = args.get(key)
+        if v is not None and str(v).strip():
+            value = str(v).strip()
+            break
     if skill != "compose_text" and result and value:
         return f'{result}; type exactly: "{value}"'
     return result
@@ -79,6 +93,13 @@ def hint(skill: str, args: dict) -> str:
             f"{result}; body: {args.get('body', '')}; leave it as a draft, "
             "don't send".rstrip())
     if skill == "draft_email":
+        if args.get("about") and not any(
+                args.get(k) for k in _LITERAL_KEYS):
+            about = re.sub(r"^(?:is|something|a|an)\s+", "",
+                           str(args["about"]).strip(), flags=re.IGNORECASE)
+            return (f"reply to the open email; compose the reply yourself "
+                    f"in your own words ({about}), responding to what the "
+                    "email says; type it into the reply body")
         result = "the email is open in the browser/Mail; write a draft reply"
         if args.get("to"):
             result += f" to {args['to']}"
