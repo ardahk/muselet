@@ -120,6 +120,12 @@
      "args": [{"name": "client", "type": "string", "required": true}],
      "examples": ["prep me for my meeting with the Hendersons", "get the Garcia household review ready"]},
     {"name": "compose_text", "category": "input", "risk": "safe", "executor": "brain", "router": false, "description": "Write new text content (a template, list, draft or summary) about a topic into a new note or the focused text field.",
-     "args": [{"name":"topic","type":"string","required":true},{"name":"target","type":"enum","values":["note","focused"],"required":false}]}
+     "args": [{"name":"topic","type":"string","required":true},{"name":"target","type":"enum","values":["note","focused"],"required":false}]},
+    {"name": "premiere_edit", "category": "premiere", "risk": "confirm", "executor": "brain", "router": false,
+     "description": "Edit the open Premiere Pro project: import a folder of clips, cut at the playhead, add the default cross dissolve, change clip speed, add a named marker, or export the sequence to the Desktop.",
+     "args": [{"name": "op", "type": "enum", "values": ["import", "cut", "transition", "speed", "marker", "export"], "required": true},
+              {"name": "percent", "type": "int", "required": false},
+              {"name": "name", "type": "string", "required": false},
+              {"name": "folder", "type": "string", "required": false}]}
   ]
 }
