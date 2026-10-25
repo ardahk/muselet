@@ -1,6 +1,6 @@
-# brain lane digest — pass 55 (2026-10-25T01:05:00Z)
+# brain lane digest — pass 56 (2026-10-25T01:20:00Z)
 
-Open: P0 0 / P1 8 / P2 9. main e4594d9 has no lane change (bench harness wait_disconnected + live_t2 Zen URL check); wip/local fc5d595 = main in lane. New: cloud/memory-hotfix d932320 (self-contained relative/explicit-target/question utterances no longer rewritten; 'a lot' = 30-step refinement) - no issue found, suite 18F/2021P. cloud/memory-rules2 03c3cd1 (search/value/layout refinements, 'I said' corrections, undo fallback, again/correction guard checked against the prior turn) - suite 18F/2036P; new brain-45 (P2): undo fallback replays another window's layout. Same 18 MLX-stub failures everywhere; review repros 20F/52P unchanged on all three (plus pass55 repro).
+Open: P0 0 / P1 8 / P2 9. main 9be963d merged memory-hotfix (#71) and memory-rules2 (#72; carries brain-45: undo fallback replays another window's layout), docs-demo-3 (#68) and a bench proxy fix (outside lane). Suite on main: 18 failed / 2036 passed / 108 skipped (same 18 MLX-stub). Review repros 21F/52P: the +1 is the brain-45 repro. wip/local 4d22445 is a snapshot on main@517e056 (pre-#71/#72), so its memory/* differs from main only by those merges.
 
 ## Open P0/P1 (ranked)
 - brain-16 [P1] abs_level misreads times, durations, percentages and unrelated words — `ml/src/brain/orchestrator.py` (main@fb2cfd0@003d1bb)
