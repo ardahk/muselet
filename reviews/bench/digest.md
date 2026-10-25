@@ -1,6 +1,6 @@
-# bench digest — pass 75 (2026-10-25T06:30Z, main@e2f7e5e)
+# bench digest — pass 76 (2026-10-25T06:45Z, main@de1070d)
 
-P0: 0 | open P1: 13 | open P2: 16
+P0: 0 | open P1: 13 | open P2: 18
 
 Ranked open P1:
 1. bench-44 LoRA planner shipped (efd2f3f) on uncommitted numbers. Pooled .731 vs .647; most of the gain is on v2-ho, whose screens were in training.
@@ -12,7 +12,7 @@ Ranked open P1:
 7. bench-28 5 v2-holdout golds accept field-clobbering type.
 8. bench-11, -14, -15, -20, -21, -29 unchanged.
 
-Open P2: -49 (NEW: Finish-when line reaches the LoRA planner, out of its SFT distribution), -46 (now 5 unevaluated serving switches incl. BLIND_PLANNER), -47, -43, -37, -38, -39, -40, -30, -34, others. Resolved: -41, -48 (pass 74). Withdrawn: -45.
+Open P2: -50 (NEW: timer-cancel/cart finish evidence passes on absence), -51 (NEW: absolute models/.venv symlinks committed), -49 (NEW: Finish-when line reaches the LoRA planner, out of its SFT distribution), -46 (now 5 unevaluated serving switches incl. BLIND_PLANNER), -47, -43, -37, -38, -39, -40, -30, -34, others. Resolved: -41, -48 (pass 74). Withdrawn: -45.
 
 Next moves:
 1. Gate Finish-when to the base/blind planner, or A/B the LoRA with and without it (bench-49); add paraphrased held-out open-ended asks (bench-47).
@@ -40,3 +40,5 @@ Pass 73: main e8023b8..fe2de69 only makes serve_brain.sh use the local grounder 
 Pass 74: main fe2de69..e2f7e5e merges agentic-loop (31e500a, 9b2e512, dc7a063), fix-thinking (b43270d), premiere-route-fix and the timer controls (a615f00). bench-48 RESOLVED: the Spotify few-shot is now a YouTube example, and no eval case matches. bench-49 still open (Finish-when at orchestrator.py:3816-3820, now with timer criteria). The finish-criterion done gate is stricter against false done, which is good. Retrieval now skips other-app demos and filters workflows, another planner-prompt change for bench-46. Watch cloud/agentic-apps 523d2c1 (unmerged): it adds AGENTIC_APPS=1 as a serving default, which sends app-kind skills (start_timer, create_event, send_message, compose_email, play_music, premiere_*) to the planner instead of System-1 skills. That changes latency and pass semantics for HobbyLM, DeskMind, live and acceptance cases that route to those skills, and router accuracy no longer describes what executes. On merge, pin AGENTIC_APPS on competitor runs, record it in result rows, and report per-case latency for off vs on. wip/local 3f8e2f8 has no changes in my lane.
 
 Pass 75 (no new findings, no status changes): main and wip/local unchanged, all open findings stand. cloud/agentic-apps 1904638 merges main and removes timer_control (router:false, so no router-eval impact). Checked fine: planner-driven sends under AGENTIC_APPS go through a confirm. That covers a pressed Send button, enter/cmd+return when enter sends, and type+enter. The confirm summary is re-derived when it doesn't name the recipient. cmd+shift+d is in _DANGEROUS_COMBOS, and scripts go through script_needs_confirm. The agentic-apps watch from pass 74 (pin and record AGENTIC_APPS, report off vs on latency) still applies on merge.
+
+Pass 76: main e2f7e5e..de1070d merges agentic-apps (AGENTIC_APPS=1 is now a serving default, so app skills run through the planner) and f30bf1d autodone. NEW P2 bench-50 and bench-51. The AGENTIC_APPS watch now applies to main: pin and record it on competitor runs, and report off vs on latency. Router-accuracy claims describe routing, not what executes for app-kind skills. The new branches (agentic-evidence c4703c4, app-knowhow fc92f6b, browser-flow c0421e6) touch orchestrator/finish/app_hints/tests only. app-knowhow changes app_hints tips again, another planner-prompt change for bench-46. agentic-evidence unifies evidence() for done and auto-done: re-check bench-50 there on merge.
