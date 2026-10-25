@@ -1,6 +1,6 @@
-# decisions — digest (pass 85)
+# decisions — digest (pass 86)
 
-Heads: main b00f679 (unchanged; -41 evidence still ignores page-load signal and uses the planner's URL), wip aadf777 (local main@264cc82: CANVAS_APPS Premiere name only; -48 defaults unchanged), cool-tasks cfbec49 (-42 still blocks). Counts: 0 P0, 15 P1, 16 P2.
+Heads: main b00f679 (unchanged; -41 open), wip 73f8136 (local main@264cc82: control values added to observations (-42 input drift, P2), Premiere shift+3 repeat guard; -48 defaults unchanged), cool-tasks cfbec49 (-42 still blocks). Counts: 0 P0, 15 P1, 16 P2.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
