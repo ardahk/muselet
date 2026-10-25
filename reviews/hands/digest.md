@@ -1,4 +1,4 @@
-# hands — digest (Pass 97)
+# hands — digest (Pass 98)
 
 Open: 0 P0, 7 P1, 21 P2.
 
@@ -15,6 +15,12 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 98 (wip/local 73f8136 uncommitted on 264cc82; no new findings):
+- Repeated-Shift+3 guard (orchestrator.py ~4416-4446): a second back-to-back `keys shift+3` in the same Premiere window fails with guidance instead of looping. Any other action resets it. Directionally good: it fails rather than softening the expect, so it feeds fail_streak.
+- obsdiff.render_line now renders value= for slider/stepper/incrementor/picker and HotText/clipSpeed buttons when it's non-empty. That matches Swift Serializer.line (Observe.swift:306-322), so diff rebuilds stay identical to a fresh observe. Tests added.
+- ui_only planners skip the diff chain and always re-observe (fine; tools mode only).
+- The Premiere hint was rewritten; it still has no expect for the HotText typing (hands-47 open). hands-50 is still open (Numbers skills list). All other open findings unchanged.
 
 Pass 97 (wip/local aadf777 only; no new findings):
 - The CANVAS_APPS prefix is widened from "Adobe Premiere Pro" to "Adobe Premiere" (orchestrator.py:647), so app names like "Adobe Premiere 2026" or "Adobe Premiere Pro (Beta)" variants get the canvas/blind hint. It also covers Premiere Rush/Elements, which is harmless. A test is added in test_grounder_wire. Fine.
