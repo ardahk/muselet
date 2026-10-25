@@ -1,9 +1,9 @@
 {
-  "pass": 66,
-  "ts": "2026-10-25T03:19:07Z",
+  "pass": 67,
+  "ts": "2026-10-25T03:34:59Z",
   "last_reviewed": {
-    "main": "fa0f040",
-    "wip/local": "973a9b0",
+    "main": "4150ecb",
+    "wip/local": "b7b7840",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -76,8 +76,14 @@
     "cloud/memory-hotfix": "d932320",
     "cloud/memory-rules2": "03c3cd1",
     "cloud/design-polish": "bf4ae64",
-    "cloud/memory-writes": "d04e26c"
+    "cloud/memory-writes": "88ccf06",
+    "cloud/fallback": "6e40c3e",
+    "cloud/fix-apps-notes": "1ccb123",
+    "cloud/fix-email-reply": "805223b",
+    "cloud/fix-pending": "dba9094",
+    "cloud/hands-clock-verify": "a4d6463",
+    "cloud/test-strategy": "05acc70"
   },
   "next_id": 52,
-  "note": "pass 66: main fa0f040 (7235a34 bench memory isolation per brain start; #70 design). New -51. wip 973a9b0 is pre-#70 (clock hint still present), no lane delta. memory-writes narrows episode/workflow writes."
+  "note": "pass 67: main 4150ecb briefs only. fix-pending: utterance during confirm runs only if _new_command recognizes it; _run_utterance cancels the task awaiting confirm (no auto-approve). FOLLOW-UP next pass: cloud/fallback _planner_context_block (orchestrator ~3017-3044@6e40c3e) puts window title/url + 600 chars AX/OCR screen text into the planner prompt; check it is fenced as untrusted data where the block is inserted before merge."
 }
