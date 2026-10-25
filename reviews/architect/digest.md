@@ -1,7 +1,8 @@
-# architect digest - pass 59 (2026-10-25T01:24Z)
-Reviewed: main 9be963d (memory #71/#72 merged, docs-demo-3 #68, proxy stale-client displace 517e056), wip/local 4d22445. architect-38 resolved (main holdout .617/.0195, tune .97/0). New: architect-39 (P1): the proxy displacement branch is unreachable (the lock is held across _forward_pair), so a stale client still wedges cases, and their harness_timeouts drop out of the replay n (architect-32). claims.md still quotes memory .574; the holdout is now .617. Other open findings unchanged.
+# architect digest - pass 60 (2026-10-25T01:40Z)
+Reviewed: main 9be963d (unchanged), wip/local 7728b98 (brightness relative_not_level fix for HobbyLM r4 D04-D06, harness bundle-id launch detection), memory-llm-gate f6229d7 (rebased on main; 58/58 memory tests; holdout .617/.0195, same as main with LLM off). New: architect-40 (P1): the sealed r4 run 20261025T004223Z happened, and its failures were then patched with the sealed utterances added as tests verbatim. Quote the first run only. architect-39 is unchanged on main.
 
 ## Open P1 (ranked)
+00. architect-40 - Sealed r4 failures patched post-hoc; rerun = tuned-on-test - ml/src/brain/orchestrator.py
 0. architect-39 - Proxy stale-client displacement unreachable; wedged cases shrink replay n - bench/harness/proxy.py
 1. architect-37 - it3 default router; no it3 sealed overlap check; replay unpinned - tools/serve_brain.sh
 1b. architect-29 - No winning competitor number (TD tie within 1 SE, JevBench loses, HobbyLM r4 missing) - pitch/claims.md
@@ -16,7 +17,7 @@ Reviewed: main 9be963d (memory #71/#72 merged, docs-demo-3 #68, proxy stale-clie
 (P2: 35, 34, 31, 30, 20, 15, 16)
 
 ## Highest-leverage next moves
-1. HobbyLM r4 with ROUTER=it2 explicitly (it3 is now default; architect-37) on the Mac, no --exclude-kind, passes/125 with skips as fails. This is the only competitor claim within reach. ~1.5 h.
+1. HobbyLM r4: quote run 20261025T004223Z (first run; check that it used ROUTER=it2) as passes/125, with skips and harness_timeouts counted as fails. Do not quote a rerun made after the D04-D06 patch as the result (architect-40).
 2. Flip THINK=512 with the greedy sampler, not qwen (same pass rate, -0.85 s/step, deterministic for the stage). 1 line.
 3. Fit VERIFY_P now that verify is on by default. Label v2-tune final states plus live_t1 traces and target false reject <= 5%, else VERIFY_DONE=off for the demo. ~30 min.
 4. Mac decisions run (muselet-decisions-4b-mlx4, T=1) on JevBench + TD through the shim. Quote only against the SE. ~30 min.
