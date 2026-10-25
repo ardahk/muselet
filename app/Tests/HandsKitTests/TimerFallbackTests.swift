@@ -19,6 +19,8 @@ final class TimerFallbackTests: XCTestCase {
         XCTAssertEqual(r["backend"] as? String, "muselet")
         XCTAssertEqual(r["fallback_reason"] as? String, "clock_ax_unavailable")
         XCTAssertEqual(r["clock_ax_reason"] as? String, "clock_ax_unavailable")
+        XCTAssertEqual(r["verified"] as? Bool, false)
+        XCTAssertNotNil(r["clock_ax_steps"] as? [String])
         XCTAssertEqual(s.timerList().first?["backend"] as? String, "muselet")
     }
 

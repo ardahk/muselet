@@ -18,15 +18,18 @@ AX_FAILED = {"backend": "muselet", "fallback_reason": "wheel_s_stuck",
              "clock_ax_reason": "wheel_s_stuck", "seconds": 600, "timer_id": "timer-def"}
 AX_UNAVAILABLE = {"backend": "muselet", "fallback_reason": "clock_ax_unavailable",
                   "clock_ax_reason": "clock_ax_unavailable", "seconds": 600}
+AX_START_UNVERIFIED = {"backend": "muselet", "fallback_reason": "start_unverified",
+                       "clock_ax_reason": "start_unverified", "verified": False, "seconds": 600}
 
 TIMER = [{"op": "skill", "name": "start_timer", "args": {"duration": "600"}}]
 
 
 @pytest.mark.parametrize("result,want", [
-    (AX_VERIFIED, "Timer set for 10 minutes"),
+    (AX_VERIFIED, "Timer set in Clock for 10 minutes"),
     (AX_UNVERIFIED, "Timer set for 10 minutes"),
-    (AX_FAILED, "Timer set for 10 minutes"),
-    (AX_UNAVAILABLE, "Timer set for 10 minutes"),
+    (AX_FAILED, "Timer set for 10 minutes in Muselet"),
+    (AX_UNAVAILABLE, "Timer set for 10 minutes in Muselet"),
+    (AX_START_UNVERIFIED, "Timer set for 10 minutes in Muselet"),
     ({"backend": "clock_ax", "seconds": 5400}, "Timer set for 1 hour 30 minutes"),
     ({"backend": "muselet", "seconds": 90}, "Timer set for 1 minute 30 seconds"),
     ({"backend": "clock_ax", "seconds": 1}, "Timer set for 1 second"),
@@ -45,8 +48,14 @@ def _orch(tmp_path, results):
     return Orchestrator(server, Catalog.load(), Tracer(tmp_path / "traces")), server
 
 
-@pytest.mark.parametrize("result", [AX_VERIFIED, AX_UNVERIFIED, AX_FAILED, AX_UNAVAILABLE])
-def test_only_the_timer_reply_no_setup_hint(tmp_path, result):
+@pytest.mark.parametrize("result,want", [
+    (AX_VERIFIED, "Timer set in Clock for 10 minutes"),
+    (AX_UNVERIFIED, "Timer set for 10 minutes"),
+    (AX_FAILED, "Timer set for 10 minutes in Muselet"),
+    (AX_UNAVAILABLE, "Timer set for 10 minutes in Muselet"),
+    (AX_START_UNVERIFIED, "Timer set for 10 minutes in Muselet"),
+])
+def test_only_the_timer_reply_no_setup_hint(tmp_path, result, want):
     o, server = _orch(tmp_path, [result, result])
 
     async def go():
@@ -54,4 +63,4 @@ def test_only_the_timer_reply_no_setup_hint(tmp_path, result):
         await asyncio.sleep(0.02)
         return out
     assert asyncio.run(go()) == ["ok", "ok"]
-    assert server.said == ["Timer set for 10 minutes"] * 2
+    assert server.said == [want] * 2

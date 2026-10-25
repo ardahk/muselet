@@ -6,6 +6,13 @@ import XCTest
 
 private func clockCatalog() -> [String: SkillDef] { try! Catalog.load() }
 
+private enum StartEffect {
+    case running
+    case none
+    case removeStart
+    case pauseAndCancel
+}
+
 final class ClockAXFakeElement: Element {
     var attrs = ElAttrs()
     var singles: [String: Any] = [:]
@@ -57,7 +64,7 @@ private final class ClockAXFixture {
     let label: ClockAXFakeElement
 
     init(axReady: Bool = true, selected: Bool = true, settableWheels: Bool = false,
-         stuckWheel: Int? = nil, addRunningOnStart: Bool = true, withPicker: Bool = true,
+         stuckWheel: Int? = nil, startEffect: StartEffect = .running, withPicker: Bool = true,
          initialRunning: Bool = false) {
         let window = ClockAXFakeElement("AXWindow", "Clock", x: 0, y: 0, w: 400, h: 600)
         let app = ClockAXFakeElement("AXApplication")
@@ -116,10 +123,21 @@ private final class ClockAXFixture {
             return true
         }
         // Strong capture: nothing else retains the group until Start adds it.
-        start.onAction = { [weak window, runningGroup] action in
+        start.onAction = { [weak window, weak start, weak pickerCancel, runningGroup] action in
             guard action == (kAXPressAction as String) else { return false }
-            if addRunningOnStart, let window {
+            switch startEffect {
+            case .running:
+                guard let window else { return false }
                 window.attrs.children.append(runningGroup)
+            case .none:
+                break
+            case .removeStart:
+                if let window, let start {
+                    window.attrs.children.removeAll { $0 === start }
+                }
+            case .pauseAndCancel:
+                start?.attrs.title = "Pause"
+                pickerCancel?.attrs.enabled = true
             }
             return true
         }
@@ -148,7 +166,8 @@ private final class ClockAXFixture {
         skills.clockAXTimeout = 0.02
         skills.clockAXSettle = 0.02
         skills.clockAXPoll = 0.001
-        skills.clockAXStepWait = 0.001
+        skills.clockAXStepWait = 0.01
+        skills.clockAXVerify = 0.02
     }
 }
 
@@ -234,6 +253,7 @@ final class ClockAXDriverTests: XCTestCase {
         XCTAssertEqual(value["verify_signal"] as? String, "running_added")
         XCTAssertEqual(value["wheel_method"] as? String, "step")
         XCTAssertEqual(value["label_set"] as? Bool, true)
+        XCTAssertFalse((value["clock_ax_steps"] as? [String] ?? []).isEmpty)
         XCTAssertEqual(f.label.attrs.value as? String, "Tea")
         XCTAssertEqual(f.skills.timerList().first?["backend"] as? String, "clock_ax")
         XCTAssertEqual(f.apps.frontmostPid(), 500)
@@ -266,18 +286,41 @@ final class ClockAXDriverTests: XCTestCase {
         XCTAssertEqual(value["backend"] as? String, "muselet")
         XCTAssertEqual(value["fallback_reason"] as? String, "wheel_m_stuck")
         XCTAssertEqual(value["clock_ax_reason"] as? String, "wheel_m_stuck")
+        XCTAssertEqual(value["verified"] as? Bool, false)
         XCTAssertEqual(f.skills.timerList().first?["backend"] as? String, "muselet")
     }
 
-    func testNoFallbackAfterStartPressEvenWhenUnverified() {
-        let f = ClockAXFixture(addRunningOnStart: false)
+    func testUnverifiedStartRetriesOnceThenFallsBackToMuselet() {
+        let f = ClockAXFixture(startEffect: .none)
+        defer { _ = f.skills.timers.cancel(id: nil) }
+        let result = f.skills.execute(name: "start_timer", args: ["duration": 90])
+        let value = result["result"] as? [String: Any] ?? [:]
+        XCTAssertEqual(value["backend"] as? String, "muselet")
+        XCTAssertEqual(value["verified"] as? Bool, false)
+        XCTAssertEqual(value["fallback_reason"] as? String, "start_unverified")
+        XCTAssertEqual(value["clock_ax_reason"] as? String, "start_unverified")
+        XCTAssertEqual(f.start.actions, [kAXPressAction as String, kAXPressAction as String])
+        XCTAssertTrue((value["clock_ax_steps"] as? [String] ?? []).contains("start retry"))
+    }
+
+    func testStartGoneWithoutCancelEnabledIsNotVerified() {
+        let f = ClockAXFixture(startEffect: .removeStart)
+        defer { _ = f.skills.timers.cancel(id: nil) }
+        let result = f.skills.execute(name: "start_timer", args: ["duration": 90])
+        let value = result["result"] as? [String: Any] ?? [:]
+        XCTAssertEqual(value["backend"] as? String, "muselet")
+        XCTAssertEqual(value["clock_ax_reason"] as? String, "start_unverified")
+        XCTAssertEqual(f.start.actions, [kAXPressAction as String])
+    }
+
+    func testPauseAndEnabledCancelVerify() {
+        let f = ClockAXFixture(startEffect: .pauseAndCancel)
         defer { _ = f.skills.timers.cancel(id: nil) }
         let result = f.skills.execute(name: "start_timer", args: ["duration": 90])
         let value = result["result"] as? [String: Any] ?? [:]
         XCTAssertEqual(value["backend"] as? String, "clock_ax")
-        XCTAssertEqual(value["verified"] as? Bool, false)
-        XCTAssertNil(value["clock_ax_reason"])
-        XCTAssertEqual(f.start.actions, [kAXPressAction as String])
+        XCTAssertEqual(value["verified"] as? Bool, true)
+        XCTAssertEqual(value["verify_signal"] as? String, "pause_cancel")
     }
 
     func testUnavailableAXDoesNotLaunchClock() {

@@ -45,7 +45,12 @@ def _dur_words(v) -> str:
 def _timer_text(a: dict, result) -> str:
     r = result if isinstance(result, dict) else {}
     secs = r.get("seconds", a.get("duration"))
-    return f"Timer set for {_dur_words(secs)}"
+    duration = _dur_words(secs)
+    if r.get("backend") == "clock_ax" and r.get("verified") is True:
+        return f"Timer set in Clock for {duration}"
+    if r.get("backend") == "muselet" and "clock_ax_reason" in r:
+        return f"Timer set for {duration} in Muselet"
+    return f"Timer set for {duration}"
 
 
 def human(name: str) -> str:
