@@ -1,7 +1,7 @@
-# architect digest - pass 80 (2026-10-25T07:05Z)
-Reviewed: main 3a0860c (untracks the models/ml/.venv symlinks -> architect-50 resolved; adds BLIND_PLANNER=escalate and makes it the implicit default when the 35B is cached), wip/local 83cf584 (same tree as main), agentic-evidence 1918cad (goal-derived timer_start/play auto-done; label fields are not counted as countdowns), app-knowhow c69dfec (Clock label / Reminders hints) and browser-flow 485763f (web UI guard rejects hand-built same-site search URLs and address-bar queries).
-Tests (Linux): main 257 passed (a fresh worktree runs uv with no workaround); agentic-evidence 103; browser-flow 51; app-knowhow 26.
-Open: P0 0, P1 16, P2 9. New: architect-51. Resolved: architect-50. 48 and 49 re-checked: still open on 3a0860c.
+# architect digest - pass 81 (2026-10-25T07:40Z)
+Reviewed: main cf33215, which merges browser-flow, app-knowhow and agentic-evidence (all reviewed in pass 80), plus mac/obs-labels 6d8d7bb (derived labels for unlabeled controls) and #99 control-labels 37e6459 (value= on dials; digits typed into sliders/steppers with an arrow-key fallback). wip/local 11da94c is the same tree as main.
+Tests (Linux): main agentic/finish/evidence/catalog/planner/fallback/grounder/same-tab/app-hints: 347 passed. The Swift changes were reviewed by reading only (no macOS compile or run).
+Open: P0 0, P1 16, P2 10. New: architect-52 (P2). 48, 49 and 51 re-checked: still open on cf33215.
 
 ## Open P0/P1 (ranked)
 - architect-51 [P1] (new) BLIND_PLANNER defaults to 35B-A3B + THINK 512 whenever its HF cache exists: unmeasured, ~5-7 s/step vs 3 s gate, +19 GB
@@ -21,11 +21,11 @@ Open: P0 0, P1 16, P2 9. New: architect-51. Resolved: architect-50. 48 and 49 re
 - architect-13 [P1] Cloud Tinker System One backend reports as 'muselet', untagged
 - architect-8 [P1] Phase-1 LoRA likely misses Sat 12:00 PDT; no fallback router measured
 
-Watch (not filed): browser-flow's web UI guard fails `url` to a same-host search URL. Check that a legitimate site-search deep link the user dictated still works, since the guard only checks the host.
+Watch (not filed): typeIntoControl (Act.swift@cf33215) clicks the control's midpoint if AX focus fails, then posts digits and up to 70 arrow keys as global keystrokes, with no check that focus actually landed on the control. A wrong focus sends digits or arrows to whatever is focused. The loop stops after the first press that doesn't change the value, so at most one stray arrow press.
 
 ## Next moves (max 5)
-1. architect-51: pin BLIND_PLANNER to an explicit default (no cache probe), and measure escalate vs base vs LoRA on blind/agentic slices before shipping 35B there.
-2. architect-48/49: fix the timer-control match, and default AGENTIC_APPS=0 or measure on vs off; pin AGENTIC_APPS and BLIND_PLANNER in r4 run configs.
+1. architect-51: give BLIND_PLANNER a fixed default (no cache probe), and measure escalate vs base vs LoRA on the blind/agentic slices.
+2. architect-48/49: fix the timer-control match, and default AGENTIC_APPS=0 or measure on vs off; pin both settings in r4 configs.
 3. architect-42: restore the screenshot start-state, then smoke-test one calc, one screenshot and one none case on the Mac.
 4. Run HobbyLM r4 with ROUTER=it2 MEMORY=0 LONGTERM=0 and the knobs pinned, and report passes/125 with skips and timeouts counted as failures (architect-32/37/40/44).
-5. architect-45: re-score the planner holdout with the near-paraphrase items removed.
+5. architect-52: record ax_ms on a large Chrome page before and after obs-labels, and limit the sibling scan by role and count.

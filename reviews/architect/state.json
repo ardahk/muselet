@@ -1,6 +1,6 @@
 {
- "pass": 80,
- "ts": "2026-10-25T07:05:00Z",
+ "pass": 81,
+ "ts": "2026-10-25T07:40:00Z",
  "last_reviewed": {
   "cloud/advisor": "9432c30",
   "cloud/advisor-2": "0a65f75",
@@ -67,8 +67,8 @@
   "cloud/safety-planner28": "e3abc5e",
   "cloud/ui-polish": "e8bceef",
   "cloud/w9-safety": "6aa332a",
-  "main": "3a0860c",
-  "wip/local": "83cf584",
+  "main": "cf33215",
+  "wip/local": "11da94c",
   "cloud/design": "b93bb50",
   "cloud/docs-demo-3": "c615c37",
   "cloud/memory-llm-gate": "f6229d7",
