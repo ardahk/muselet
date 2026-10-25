@@ -1,9 +1,9 @@
-# hands — digest (Pass 69)
+# hands — digest (Pass 70)
 
 Open: 0 P0, 4 P1, 9 P2.
 
 Ranked open P0/P1:
-0. P1 hands-36 (wip/local c156d18, ClockAX.swift:546-708): the new Clock wheel key fallback clicks the wheel, then types digits and up to 70 HID arrow keys without re-checking Clock is frontmost or the wheel has focus. Keys can land in the user's frontmost app. Don't merge as-is.
+0. P1 hands-36 (main e425cad via #86, ClockAX.swift:546-708): the Clock wheel key fallback clicks the wheel, then types digits and up to 70 HID arrow keys without re-checking Clock is frontmost or the wheel has focus. Keys can land in the user's frontmost app. Gate it before the demo.
 1. P1 hands-34 (main dc6f2f5, Launch.swift:224-232): fix-same-tab merged unchanged. Same-tab open_url/web_search posts cmd+L, waits a fixed 80 ms, then types the URL plus Return without checking the address bar has focus. The brain uses it by default whenever a browser is frontmost.
 2. P1 hands-29 (main, ClockAX.swift): Clock start and cancel bring Clock to the front and never switch back, and there's no opt-out.
 3. P1 hands-26 (main, orchestrator.py:3051): the brain removes `expect` from `act`, so the app's built-in polling never runs.
@@ -14,6 +14,11 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 70:
+- main e425cad merged #86 (P0: screen-context gating, open-ended ask guard, Clock wheel keyboard fallback). Its app/ diff is identical to wip c156d18, so hands-36 (P1) and the hands-30 timeout update now apply to main.
+- The brain parts of #86 (open-ended ask rejection, goal-gated screen text, timer-fallback warning) were reviewed in pass 69 and match the Skills.swift result fields.
+- wip/local 80c871c is a snapshot on main@82c9810, so it no longer differs from main in app/ beyond #86. No other branch moved.
 
 Pass 69:
 - wip/local c156d18: new setClockWheelKeys fallback (click the wheel, type digits, arrow-step) when the AX set doesn't stick. New P1 hands-36: no frontmost/lock/focus gate before the HID keys. hands-30 update: the key fallback can reach about 60 s for three wheels, past the 30 s RPC timeout.
