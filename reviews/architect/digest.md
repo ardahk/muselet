@@ -1,7 +1,7 @@
-# architect digest - pass 83 (2026-10-25T08:20Z)
-Reviewed: main 3e323a9 (cef8797: agentic-app and timer-control tasks force the 35B blind planner; #101 Spotify play with an accent-insensitive gate, a gated title double-click and AppleScript player-state evidence; PLANNER=35b option). wip/local b8eeec4 is the same tree as main. agentic-fixes2 b9cd089 makes the hint state the exact text, guards asks for text already given, drops invalid expects, adds YouTube watch-url play evidence and the bare-site-title loading check.
-Tests (Linux): main agentic/evidence/finish/loop/fallback/same-tab/app-hints/planner-loop 206 passed; agentic-fixes2 206 passed on the same files (its new test_agentic_fixes2.py is not in that set). Spotify Swift/AppleScript paths were reviewed by reading only.
-Open: P0 0, P1 16, P2 10. No new IDs. architect-51 is now on main; architect-48 is still present on main and agentic-fixes2.
+# architect digest - pass 84 (2026-10-25T08:32Z)
+Reviewed: main 73b8031, a Swift-only change: Observe now tolerates duplicate refs. `Dictionary(uniqueKeysWithValues:)` trapped and crashed the app; it now keeps the first record. wip/local 51d833a is the same tree as main. agentic-fixes2 104a411 only merges main.
+Tests (Linux): agentic-fixes2, including test_agentic_fixes2: 186 passed. The Swift was reviewed by reading only.
+Open: P0 0, P1 16, P2 10. No new findings. Re-checked architect-48 (still open). The 51/49 code is unchanged since 3e323a9.
 
 ## Open P0/P1 (ranked)
 - architect-51 [P1] Main now plans every agentic-app + timer task on the 35B (5.95 s p50 on our bench, > 3 s gate; .807 < LoRA .850); switch based on qualitative live failures
@@ -21,7 +21,7 @@ Open: P0 0, P1 16, P2 10. No new IDs. architect-51 is now on main; architect-48 
 - architect-13 [P1] Cloud Tinker System One backend reports as 'muselet', untagged
 - architect-8 [P1] Phase-1 LoRA likely misses Sat 12:00 PDT; no fallback router measured
 
-Watch (not filed): agentic-fixes2 _drop_invalid_expect runs the action without its expect when the predicate doesn't parse. For consequential actions this goes against 'every consequential action carries an expect'. Send/buy still have the confirm gate, but verification for that step is lost. Consider rejecting the line (no strike) instead of dropping only the expect for risky actions.
+Watch (not filed): 73b8031 stops the crash, but duplicate refs mean two live elements map to the same ref. With first-wins, `press #N` on the second element acts on the first. Find where duplicates come from (the sibling-label / ref session code, see architect-52), or log them in the trace. Also still open: agentic-fixes2 drops an invalid expect and runs the action without it.
 
 ## Next moves (max 5)
 1. architect-51: run the live app cases on LoRA + agentic-fixes2 vs the 35B (pass count and step p50), and keep the winner. The 35B fails the 3 s gate offline.
