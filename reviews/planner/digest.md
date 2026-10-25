@@ -1,12 +1,11 @@
-# Planner review digest — pass 69 (2026-10-25T04:58Z)
+# Planner review digest — pass 70 (2026-10-25T05:12Z)
 
-Moved: wip/local 5b656ef→c156d18 only (main 82c9810 unchanged).
-- planner-46 partly mitigated on wip: screen text labelled as data, skipped for Muselet and for goals targeting another app; still above the observation, default-on, no LoRA eval.
-- planner-47 (P2, new): first-turn ask rejected for any goal containing some/any/something, including recipient asks.
-- wip also logs Clock timer fallbacks and keeps skill results <=4 KB in traces. Fine.
-- planner-40/42/45 unchanged on main.
+Moved: main 82c9810→e425cad (#86, 3678b4f: screen-context gating, open-ended ask guard, Clock wheel keyboard fallback — the same code reviewed on wip c156d18 in pass 69). wip 80c871c is a snapshot on main@82c9810 without those changes.
+- planner-46 (P1): mitigation on main; still above the observation, default-on, no LoRA eval.
+- planner-47 (P2): now on main; recipient asks are still rejected for some/any goals.
+- planner-40/42/45 unchanged. premiere-route-fix (7769c32) not on main.
 
-New: 1 P2. Resolved: 0. Open: 0 P0, 9 P1, 9 P2.
+New: 0. Resolved: 0. Open: 0 P0, 9 P1, 9 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
