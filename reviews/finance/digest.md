@@ -1,4 +1,4 @@
-# finance digest (Pass 68, 2026-10-25; main 82c9810; finance-33 P0 and finance-31 still open on main)
+# finance digest (Pass 69, 2026-10-25; main e425cad; finance-33 P0 and finance-31 still open on main)
 Open P0:
 - finance-33 (main dc6f2f5): open-ended routing (OPEN_ENDED=1 default) sends demo beat 9 'Prep me for my meeting with the Hendersons.' from advisor_prep to the planner, because the calendar hint matches 'meeting'. Also finance_review whenever the user says 'file' or 'folder'. Workaround: OPEN_ENDED=0. Fix: skip executor=brain labels in open_ended_redirect (app_hints.py:104-122).
 Open P1:
