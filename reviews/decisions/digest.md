@@ -1,6 +1,6 @@
-# decisions — digest (pass 56)
+# decisions — digest (pass 57)
 
-Heads: main 82c9810 (blind-AX for CEF apps; decisions-37 P0 still live; decisions-40 redirect still ungated, 3/103 + 46/955), wip 5b656ef (= main). Budget: about $142.06 MTD estimated.
+Heads: main 82c9810 unmoved (decisions-37 P0 still live; decisions-40 redirect still ungated, 3/103 + 46/955), wip c156d18 (ClockAX + fallback tweaks). Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)

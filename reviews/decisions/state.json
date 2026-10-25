@@ -1,6 +1,6 @@
 {
- "pass": 56,
- "ts": "2026-10-25T04:36:12Z",
+ "pass": 57,
+ "ts": "2026-10-25T04:51:27Z",
  "branches": {
   "cloud/advisor": "9432c30",
   "cloud/advisor-2": "0a65f75",
@@ -48,7 +48,7 @@
   "cloud/report-2": "3c25e78",
   "cloud/w9-safety": "6aa332a",
   "main": "82c9810",
-  "wip/local": "5b656ef",
+  "wip/local": "c156d18",
   "cloud/memory": "a8af560",
   "cloud/memory-eval": "c05944e",
   "cloud/docs-demo": "095d4ef",
