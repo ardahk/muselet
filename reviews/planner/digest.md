@@ -1,14 +1,14 @@
-# Planner review digest — pass 61 (2026-10-25T02:50Z)
+# Planner review digest — pass 62 (2026-10-25T03:06Z)
 
-Branches moved since pass 60: main 55e38f9→13d0486 (wip/local unchanged at fd357b3).
-- main 13d0486: bench/hobbylm/replay.py captures calendar events in the runner process (EventKit TCC). Harness only; no planner/DSL/prompt/catalog/HandsKit/serve change. No finding.
-- Re-checked on main 13d0486: `self_verified` still DONE evidence (planner-40, 2 hits), THINK_SAMPLER default qwen (planner-44), planner-ok memory writes unchanged (planner-45).
+Branches moved since pass 61: main 13d0486→6a37d0c, wip/local fd357b3→9571a9e (= main content).
+- main 6a37d0c: HobbyLM harness calc_checker.swift reads macOS 27 Calculator display (AXScrollArea StandardInputView). Bench-only; no planner/DSL/prompt/catalog/HandsKit/serve change. No finding.
+- Re-checked on main 6a37d0c: `self_verified` still DONE evidence (planner-40, 2 hits), THINK_SAMPLER default qwen (planner-44), planner-ok memory writes unchanged (planner-45).
 
 New: 0. Resolved: 0. Open: 0 P0, 11 P1, 8 P2.
 Lead decision: greedy think sampler; persist memory/workflows only after verified DONE.
 
 ---
-## Open findings (unchanged from pass 56, re-checked pass 61)
+## Open findings (unchanged from pass 56, re-checked pass 62)
 
 Open P0: none.
 
