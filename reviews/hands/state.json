@@ -1,5 +1,5 @@
 {
- "pass": 66,
+ "pass": 67,
  "last_reviewed": {
   "main": "eb3e945",
   "wip/local": "3f21dc6",
@@ -74,22 +74,23 @@
   "cloud/panel-hook-fix": "ef35421"
  },
  "branches": {
-  "main": "b340f24",
-  "wip/local": "94f6fe9",
+  "main": "dc6f2f5",
+  "wip/local": "6a1f942",
   "cloud/memory-hotfix": "d932320",
   "cloud/memory-rules2": "03c3cd1",
   "cloud/memory-llm-gate": "f6229d7",
   "cloud/design-polish": "bf4ae64",
   "cloud/memory-writes": "88ccf06",
   "cloud/hands-clock-verify": "a4d6463",
-  "cloud/fallback": "2ef5805",
+  "cloud/fallback": "36b421e",
   "cloud/fix-apps-notes": "1ccb123",
   "cloud/fix-email-reply": "805223b",
-  "cloud/fix-pending": "dba9094",
-  "cloud/fix-same-tab": "065e65f",
+  "cloud/fix-pending": "09dadc0",
+  "cloud/fix-same-tab": "0e38395",
   "cloud/test-strategy": "96c96d2",
-  "cloud/open-ended": "fd87f69",
-  "cloud/planner-aux": "387c3b4"
+  "cloud/open-ended": "0d687d2",
+  "cloud/planner-aux": "387c3b4",
+  "cloud/premiere-demo": "a1c0f04"
  },
- "ts": "2026-10-25T04:12:00Z"
+ "ts": "2026-10-25T04:30:00Z"
 }

@@ -1,19 +1,25 @@
-# hands — digest (Pass 66)
+# hands — digest (Pass 67)
 
-Open: 0 P0, 4 P1, 8 P2.
+Open: 0 P0, 3 P1, 9 P2.
 
 Ranked open P0/P1:
-0. P1 hands-34 (cloud/fix-same-tab 065e65f, Launch.swift:224-245): same-tab open_url/web_search posts cmd+L, waits a fixed 80 ms, then types the URL plus Return without checking the address bar has focus. It can type into, or submit, a page field. Fix before merge.
-1. P1 hands-28 (main fa0f040, Skills.swift:884): if Clock never confirms the timer started, it's still reported as set. No alarm fires, and a test (ClockAXTests:272) locks this behaviour in.
-2. P1 hands-29 (main, ClockAX.swift:319/425/554): Clock start and cancel bring Clock to the front and never switch back. Since #70 there is no setting to turn Clock timers off.
-3. P1 hands-26 (main b340f24, orchestrator.py:2641): the brain removes `expect` from `act`, so the app's built-in polling never runs. verify then checks only once.
+1. P1 hands-34 (main dc6f2f5, Launch.swift:224-232): fix-same-tab merged unchanged. Same-tab open_url/web_search posts cmd+L, waits a fixed 80 ms, then types the URL plus Return without checking the address bar has focus. The brain uses it by default whenever a browser is frontmost.
+2. P1 hands-29 (main, ClockAX.swift): Clock start and cancel bring Clock to the front and never switch back, and there's no opt-out.
+3. P1 hands-26 (main, orchestrator.py:3051): the brain removes `expect` from `act`, so the app's built-in polling never runs.
 
 Next moves (max 5):
-1. hands-28: merge cloud/hands-clock-verify (it falls back on start_unverified), but first handle hands-33: check clockAXRead() once before adding the Muselet fallback.
+1. hands-34: poll for the address-bar focus (2 stable samples, <= 0.5 s) before typing; otherwise fall back to a new tab.
 2. hands-29: record the frontmost pid before openApp and re-activate it after Start/Cancel.
-3. hands-26: send `expect` with `act` (one line), then drop the extra verify RPC when expect_ok is present.
-4. hands-27: build headless hello frames with ScreenGeometry.cgBounds (top-left).
-5. hands-31: close Premiere's Window menu (Esc / AXCancel) when the Timeline step fails, and poll before sending the shortcut.
+3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
+4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
+5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 67:
+- main dc6f2f5 merged fallback, open-ended, fix-same-tab, fix-pending, hands-clock-verify, design-polish and premiere-demo.
+- hands-28 is resolved: an unverified Clock start now falls back to Muselet's timer. hands-33 and hands-34 are now on main, unchanged.
+- New P2 hands-35 (premiere_edit.py:336-356): the Premiere import uses fixed sleeps and blind keystrokes in the Import dialog. cmd+A plus Return can import whatever folder the dialog shows, and the OCR check never fails the tool.
+- No new issues in VoiceController's confirm-forward (reviewed in pass 64), PanelView/Mascot (design-polish, pass 63) or the open-ended/fallback brain code (no app/ changes). Premiere menus are clicked through System Events, so the Window menu doesn't stay open; hands-31 is still open for the Swift skill path.
+- wip/local 6a1f942 matches main for app/.
 
 Pass 66:
 - main b340f24 merged #74 memory-writes, #75 fix-apps-notes, #76 fix-email-reply, #79 test-strategy and #82 planner-aux. None of them change app/. The brain-side launch AX wait (`_wait_launch_ax`) uses bounded polling, and the webmail reply checks the draft signature before typing; neither raises a HandsKit contract issue. Replay STICKY RPC methods match the app's method names.
