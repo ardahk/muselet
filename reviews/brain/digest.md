@@ -1,6 +1,6 @@
-# brain lane digest — pass 61 (2026-10-25T02:52:00Z)
+# brain lane digest — pass 62 (2026-10-25T03:08:00Z)
 
-Open: P0 0 / P1 8 / P2 10. main 13d0486 changes only bench/hobbylm/replay.py (calendar events are captured in the runner process); no ml/ change, and the replay still uses the default MemoryStore (brain-42). Suite on main: 18 failed / 2046 passed / 108 skipped (same 18 MLX-stub). Review repros 22F/52P (unchanged; includes brain-45 and brain-46). wip/local fd357b3 unchanged (main@55e38f9, matches main in lane).
+Open: P0 0 / P1 8 / P2 10. main 6a37d0c changes only the HobbyLM calc_checker.swift (reads the macOS 27 Calculator display); no ml/ change. Suite on main: 18 failed / 2046 passed / 108 skipped (same 18 MLX-stub). Review repros 22F/52P (unchanged; includes brain-45 and brain-46). wip/local 9571a9e is a snapshot on main@6a37d0c and matches main in lane.
 
 ## Open P0/P1 (ranked)
 - brain-16 [P1] abs_level misreads times, durations, percentages and unrelated words — `ml/src/brain/orchestrator.py` (main@fb2cfd0@003d1bb)
