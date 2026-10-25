@@ -1,9 +1,9 @@
 {
-  "pass": 93,
-  "ts": "2026-10-25T12:35:00Z",
+  "pass": 94,
+  "ts": "2026-10-25T12:50:00Z",
   "last_reviewed": {
-    "main": "2de65a9",
-    "wip/local": "7b8f421",
+    "main": "d09f4d8",
+    "wip/local": "01a929c",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -99,5 +99,5 @@
     "cloud/cool-tasks": "cfbec49",
     "cloud/native-tools": "6053e4e"
   },
-  "notes": "pass 93: only wip moved (7b8f421 on e781dc1). A grounded click \"<target>\" now resolves to an AX press when exactly one enabled control matches (good: faster, and no grounder prewarm wait, which mitigates ux-20 on those clicks). The finish check runs OCR again in ui_only mode (extra untimed latency, native-tools only). Screen context is skipped when Muselet or a chat IDE is frontmost. The Numbers sort tips are refined. No new bubble copy; no new findings. ux-31 and ux-35 are still open on wip; ux-34 and ux-32 are still open on main 2de65a9."
+  "notes": "pass 94: main d09f4d8 merges page-load (#130): after navigation, the planner polls AXLoaded every 0.1 s for up to 15 s, and `wait` returns early once the page has loaded. That is good for speed. A page that never reports loaded adds up to 15 s per navigation with only the step bubble showing (untimed). README rebranded to lowercase 'muselet'; no copy issues. wip 01a929c (264cc82): exact-label clicks prefer AX refs (as reviewed in pass 93), plus prompt-contract tests. No new findings; ux-34 is still open on main (orchestrator.py:161@d09f4d8)."
 }
