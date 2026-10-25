@@ -377,6 +377,13 @@ extension Hands {
                     _ = rec.element.setAttr(kAXFocusedAttribute, true)
                     usleep(30_000)
                 }
+                // dials (Clock wheels, steppers): focus + digits as
+                // keystrokes, then arrow-key toward the target; the new
+                // value comes back in value_after.
+                if ["slider", "stepper", "incrementor", "picker"].contains(rec.role) {
+                    out["value_after"] = try typeIntoControl(rec, text: text)
+                    break
+                }
                 // Never type into nothing: a non-text ref (button, row, ...)
                 // is fine only if it or the focus it left accepts text
                 // (spreadsheet cell, web editable) or the app is a keystroke app.
@@ -739,6 +746,46 @@ extension Hands {
         if chk.ok { return chk.via ?? "focused" }
         throw HandsError.noTextTarget(
             observed: "#\(rec.ref) \(rec.role) \"\(String(rec.label.prefix(40)))\" takes no text; " + chk.observed)
+    }
+
+    /// Type digits into a slider/stepper/picker/incrementor (Clock's timer
+    /// wheels): focus it, type the digits, re-read AXValue; if the value
+    /// didn't change, arrow-key up/down toward the target (<= 70 presses).
+    /// Returns the value read back.
+    func typeIntoControl(_ rec: ElementRecord, text: String) throws -> Any? {
+        let digits = text.filter { $0.isNumber }
+        guard !digits.isEmpty, let target = Int(digits) else {
+            throw HandsError.invalidParams("type into \(rec.role): digits only")
+        }
+        if !(rec.element.setAttr(kAXFocusedAttribute as String, true) ?? false) {
+            let f = rec.frame
+            Events.click(at: CGPoint(x: f.midX, y: f.midY), button: .left)
+        }
+        usleep(120_000)
+        func readValue() -> Double? {
+            let v = rec.element.copyAttrs().value
+            if let n = v as? NSNumber { return n.doubleValue }
+            return (v as? String).flatMap { Double($0) }
+        }
+        let before = readValue()
+        (typeKeystrokesOverride ?? Events.typeKeystrokes)(digits)
+        usleep(150_000)
+        var after = readValue()
+        if after == nil || after == before {
+            // arrow-key fallback toward the target
+            var cur = before ?? after ?? 0
+            for _ in 0..<70 {
+                let delta = Double(target) - cur
+                guard delta != 0 else { break }
+                let step = (typeKeystrokesOverride ?? Events.typeKeystrokes)
+                _ = step  // arrows via Combo
+                _ = try? Combo.post(try Combo.parse(delta > 0 ? "up" : "down"))
+                usleep(30_000)
+                if let nv = readValue(), nv != cur { cur = nv } else { break }
+            }
+            after = readValue()
+        }
+        return after
     }
 
     /// hands-8: synthesized keys/typing/clicks must go to the observed app.
