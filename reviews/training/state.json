@@ -1,6 +1,6 @@
 {
-  "pass": 78,
-  "ts": "2026-10-25T06:46:00Z",
+  "pass": 79,
+  "ts": "2026-10-25T07:00:00Z",
   "mode": "pulse",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
@@ -48,8 +48,8 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "de1070d",
-    "wip/local": "52e4b94",
+    "main": "3a0860c",
+    "wip/local": "83cf584",
     "cloud/memory": "ba3dc0a",
     "cloud/memory-eval": "c05944e",
     "cloud/memory-lt": "cc056af",
@@ -88,9 +88,9 @@
     "cloud/premiere-route-fix": "7769c32",
     "cloud/agentic-loop": "dc7a063",
     "cloud/agentic-apps": "1904638",
-    "cloud/agentic-evidence": "c4703c4",
-    "cloud/app-knowhow": "fc92f6b",
-    "cloud/browser-flow": "c0421e6"
+    "cloud/agentic-evidence": "1918cad",
+    "cloud/app-knowhow": "c69dfec",
+    "cloud/browser-flow": "485763f"
   },
   "next_id": 53,
   "notes_pass39": "main fb2cfd0: evals/live_t1.jsonl changed only precondition/check/teardown/document_apps on 6 cases; all 43 utterances unchanged, so decontam gates and it2/it3cand overlap results stand. No lane findings.",
@@ -129,5 +129,6 @@
   "notes_pass75": "main fe2de69: serve_brain uses local eyes-4b MLX grounder (no lazy HF download); outside lane. wip b43270d: grounder prewarm, blind gating, timer_control, few-shot jazz solution edit, render artifact regenerated. Router/training unchanged.",
   "notes_pass76": "main merged agentic-loop + fix-thinking + premiere-route-fix; training-56 resolved (YouTube example). agentic-apps: catalog kind + timer_control (router:false), planner hides app skills -> training-55 update. Router IDs/tau unchanged.",
   "notes_pass77": "Only cloud/agentic-apps moved (1904638 = merge of main e2f7e5e; timer_control removed from catalog, few-shot now the non-eval YouTube example, render artifact regenerated). Hidden-app-skills planner drift (training-55) still present; router skill list unchanged. main/wip unchanged; open findings re-checked, no status change.",
-  "notes_pass78": "main merged agentic-apps (training-55 on main) + autodone; new training-57 committed abs symlinks. agentic-evidence/browser-flow orchestrator-only. app-knowhow tips screened clean."
+  "notes_pass78": "main merged agentic-apps (training-55 on main) + autodone; new training-57 committed abs symlinks. agentic-evidence/browser-flow orchestrator-only. app-knowhow tips screened clean.",
+  "notes_pass79": "main: symlinks untracked (training-57 resolved); BLIND_PLANNER escalate auto-default (training-58). app-knowhow c69dfec Clock/Reminders tip edits only; agentic-evidence/browser-flow orchestrator + main merges. Router unchanged."
 }
