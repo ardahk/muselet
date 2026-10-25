@@ -7,6 +7,12 @@ public struct ElementRecord {
     public var ref: Int
     public var role: String          // short role name
     public var label: String
+    /// Adobe "hot text" numeric controls surface as AX buttons whose label
+    /// holds the widget name; clipSpeed is Premiere's Speed/Duration field.
+    /// These render their value in the observation and accept typed digits.
+    var isHotTextButton: Bool {
+        role == "button" && (label.contains("HotText") || label == "clipSpeed")
+    }
     public var value: Any?
     public var enabled: Bool
     public var selected: Bool
@@ -301,7 +307,8 @@ public enum Serializer {
         var s = "#\(e.ref) \(e.role) \"\(esc(e.label))\""
         if let v = e.value as? String, (e.role == "textfield" || e.role == "textarea" || e.role == "combobox") {
             s += " value=\"\(esc(v))\""
-        } else if ["slider", "stepper", "incrementor", "picker"].contains(e.role) {
+        } else if ["slider", "stepper", "incrementor", "picker"].contains(e.role)
+                || e.isHotTextButton {
             if let n = e.value as? NSNumber {
                 s += " value=\"\(n)\""
             } else if let v = e.value as? String, !v.isEmpty {

@@ -209,3 +209,18 @@ def test_clock_and_reminders_tips_cover_live_failures():
     for hid in ("clock", "reminders"):
         assert len(render_hints([rows[hid]])) <= 1200
     assert len(render_hints(match_hints("remind me to call mom at 5pm"))) <= 1200
+
+
+def test_premiere_hint_clip_speed_vs_duration():
+    """clipSpeed carries the Speed value; UI_HotTextNumberT is Duration."""
+    hints = match_hints('trim this clip in premiere')
+    assert [h.id for h in hints] == ["premiere"]
+    rendered = render_hints(hints)
+    assert len(rendered) <= 1200
+    assert "clipSpeed" in rendered
+    assert "UI_HotTextNumberT" in rendered
+    assert "Duration" in rendered
+    assert "fresh observation" in rendered.casefold()
+    # the stale wording that made the model type 200 into Duration
+    assert "first = Speed" not in rendered
+    assert '"200" enter' not in rendered
