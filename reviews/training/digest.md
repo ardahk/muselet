@@ -1,6 +1,6 @@
-# training lane digest — pass 82 (main 3e323a9)
+# training lane digest — pass 83 (main 73b8031)
 
-Open: 1 P0, 16 P1, 18 P2. training-58 raised to P1: agentic app tasks now plan on the 35B, whose selection still depends on HF-cache presence. training-50: docs spend ~$0.84 vs $5.84. training-54 still open.
+Open: 1 P0, 16 P1, 18 P2. No new findings (main: Swift crash fix only). Top: training-54, training-58, training-50.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
