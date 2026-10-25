@@ -1,3 +1,14 @@
+# Brain lane review: pass 98 (2026-10-25T15:00Z)
+
+Open: P0 0, P1 16, P2 34. No new findings.
+
+## Branches
+- main b00f679 and cloud/cool-tasks cfbec49: unchanged.
+- wip/local 73f8136: Premiere repeated Shift+3 guard in the agentic loop; obsdiff renders slider/stepper/picker/HotText values (matches Swift Serializer.line); diff reuse off for ui_only planners; Premiere tips rewritten (widens brain-78).
+
+## Tests
+wip 106 failed (18 MLX + 88 brain-77), 2295 passed. Review repros 77 / 53.
+
 # Brain lane review: pass 97 (2026-10-25T13:55Z)
 
 Open: P0 0, P1 16, P2 34. No new findings.
