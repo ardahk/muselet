@@ -1,8 +1,8 @@
 {
-  "pass": 59,
-  "ts": "2026-10-25T02:34:00Z",
+  "pass": 60,
+  "ts": "2026-10-25T02:49:00Z",
   "last_reviewed": {
-    "main": "55e38f9",
+    "main": "13d0486",
     "wip/local": "fd357b3",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
@@ -76,5 +76,5 @@
     "cloud/memory-hotfix": "d932320",
     "cloud/memory-rules2": "03c3cd1"
   },
-  "notes": "pass 59: main 55e38f9 is a HobbyLM harness calendar precondition fix only; wip/local fd357b3 has no lane changes. Open findings unchanged."
+  "notes": "pass 60: main 13d0486 is HobbyLM runner calendar capture only (no lane files). wip/local unchanged at fd357b3. Open findings unchanged."
 }
