@@ -1,16 +1,18 @@
-# Brain lane review: pass 81 (2026-10-25T08:35Z)
+# Brain lane review: pass 82 (2026-10-25T08:55Z)
 
-Open: P0 0, P1 13, P2 25. No new findings.
+Open: P0 0, P1 14, P2 25. New: brain-68 (P1).
 
 ## Branches
-- main 73b8031: Observe.swift duplicate-ref crash fix only (outside the lane). The lane is identical to 3e323a9.
-- wip/local 51d833a: snapshot on main; lane identical.
-- cloud/agentic-fixes2 104a411: merges main. Its lane diff against main is identical to the b9cd089 diff, so there's no new code.
+- main b7b38f9: merged agentic-fixes2 104a411 and docs-final. ab850b3 adds soft expects and a 30-turn / 300 s budget for blind tasks; b7b38f9 adds MUSELET_OBS_NODES (350 with PLANNER=35b).
+- wip/local e03e2c8: snapshot on main; lane identical.
+
+## New
+- brain-68 (P1, main): on blind/agentic tasks a failed planner expect skips the loop guard. Repro test_brain_pass82.py: a repeated failing `type` runs 30 times on main and stops after 2 on 104a411.
 
 ## Rechecked
-- brain-65 (P2): now also on agentic-fixes2. Repro fails 3/3.
-- brain-60 (P1): on fixes2, Spotify play is now subject-checked; YouTube, Pause-button and email To-field evidence aren't.
-- brain-66 and brain-67 unchanged on fixes2. All other open findings unchanged.
+- brain-66 and brain-67 now on main; brain-65 still on main.
+- brain-60 is wider on main: subject-free YouTube evidence, and auto-done is accepted with verify off.
+- All other open findings unchanged.
 
 ## Tests
-agentic-fixes2: 18 MLX-only suite failures (2477 passed). Review repros: 61 failed, 53 passed. Main is unchanged from pass 80.
+main: 18 MLX-only suite failures (2476 passed, 110 skipped). Review repros: 62 failed, 53 passed.
