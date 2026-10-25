@@ -1,9 +1,9 @@
 {
-  "pass": 51,
-  "ts": "2026-10-25T00:16:00Z",
+  "pass": 52,
+  "ts": "2026-10-25T00:31:00Z",
   "last_reviewed": {
-    "main": "8fb465c",
-    "wip/local": "fe6c209",
+    "main": "e9fb42d",
+    "wip/local": "bf98333",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -61,7 +61,7 @@
     "cloud/live-cases": "fa9c374",
     "cloud/planner-think": "3677348",
     "cloud/planner-verify": "484f5e7",
-    "cloud/brain-9": "2590811",
+    "cloud/brain-9": "327ef2c",
     "cloud/safety-bench28": "a0c456e",
     "cloud/safety-brain27": "ac43219",
     "cloud/safety-architect27": "4edcba5",
@@ -70,5 +70,5 @@
     "cloud/safety-brain38": "54ca8f6",
     "cloud/safety-planner28": "e3abc5e"
   },
-  "notes": "pass 51: main 8fb465c merged ui-polish #49, memory phase 1/2 #50/#58, architect-27 #65, think=512 default. ux-25/26/27 now live on main; ux-28 still open (line 3061); new ux-29 (silent think latency). Settings Memory panel copy OK. hands-clock/memory/wip carry the main merge."
+  "notes": "pass 52: main e9fb42d merged hands-clock #55 (Clock-over-AX; Settings copy clear, shortcut now optional) and brain-9 #61 (named browser, planner warm at startup, which removes the first-call cold start on the planner path). No new lane issues; all open findings unchanged."
 }
