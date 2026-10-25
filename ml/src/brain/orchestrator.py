@@ -1588,6 +1588,7 @@ class Orchestrator:
         trace["agentic_app"] = {"skill": name, "args": args}
         trace.setdefault("decisions", []).append(
             {"agentic_app": {"skill": name, "args": args}})
+        self._force_blind = True    # app tasks plan with the blind/agentic planner (35B by default)
         out = await self._planner_loop(
             text, trace, hint=agentic.hint(name, args),
             finish_criterion=app_finish(name, args))
@@ -1611,6 +1612,7 @@ class Orchestrator:
         tctl = self._timer_control_intent(text)
         if tctl is not None:
             trace["decisions"].append({"timer_control": tctl})
+            self._force_blind = True
             return await self._planner_loop(
                 text, trace,
                 hint="the timer is in the Clock app's Timers tab; "
