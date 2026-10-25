@@ -1,4 +1,7 @@
-# evals-safety digest — pass 57 (main@eb3e945)
+# evals-safety digest, pass 62 (main@f5b4606)
+
+1. **P0 -50** sealed HobbyLM D04-D06 utterances tuned on (a1fd57f); exclude/separate them in any later HobbyLM number.
+
 
 Open: P0 0, P1 9, P2 11.
 

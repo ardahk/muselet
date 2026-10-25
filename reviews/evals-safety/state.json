@@ -1,9 +1,9 @@
 {
-  "pass": 61,
-  "ts": "2026-10-25T01:46:08Z",
+  "pass": 62,
+  "ts": "2026-10-25T02:16:53Z",
   "last_reviewed": {
-    "main": "19d57fb",
-    "wip/local": "8a197f8",
+    "main": "f5b4606",
+    "wip/local": "c49bf0e",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -76,6 +76,6 @@
     "cloud/memory-hotfix": "d932320",
     "cloud/memory-rules2": "03c3cd1"
   },
-  "next_id": 50,
-  "note": "pass 61: main 19d57fb merges #69 (LLM rewrite _valid gate) and a1fd57f (bundle-id match, brightness delta). LLM rewrite still off by default (MEMORY_LLM=0)."
+  "next_id": 51,
+  "note": "pass 62: main f5b4606. New -50 (sealed HobbyLM D04-D06 utterances tuned on + in history). Harness forced slot release ok (case graded before release); forced_releases counter not written to results."
 }
