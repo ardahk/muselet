@@ -1,6 +1,6 @@
 {
-  "pass": 73,
-  "ts": "2026-10-25T05:28:00Z",
+  "pass": 74,
+  "ts": "2026-10-25T05:44:00Z",
   "mode": "pulse",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
@@ -48,8 +48,8 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "e425cad",
-    "wip/local": "323d274",
+    "main": "e8023b8",
+    "wip/local": "20055d1",
     "cloud/memory": "ba3dc0a",
     "cloud/memory-eval": "c05944e",
     "cloud/memory-lt": "cc056af",
@@ -85,7 +85,8 @@
     "cloud/open-ended": "0d687d2",
     "cloud/planner-aux": "387c3b4",
     "cloud/premiere-demo": "a1c0f04",
-    "cloud/premiere-route-fix": "7769c32"
+    "cloud/premiere-route-fix": "7769c32",
+    "cloud/agentic-loop": "9b2e512"
   },
   "next_id": 53,
   "notes_pass39": "main fb2cfd0: evals/live_t1.jsonl changed only precondition/check/teardown/document_apps on 6 cases; all 43 utterances unchanged, so decontam gates and it2/it3cand overlap results stand. No lane findings.",
@@ -119,5 +120,6 @@
   "notes_pass70": "main 82c9810: window-chrome-only AX treated as blind (grounder path), orchestrator only. premiere-route-fix: pre-route ordering/arg dispatch fix, orchestrator only. No router/training/eval/prompt change; training-55 unchanged. Re-checked 54/53/50/49 unchanged.",
   "notes_pass71": "main unchanged 82c9810. wip/local c156d18: ClockAX.swift + fallback orchestrator/tests only; no router/training/eval/prompt change. Open findings unchanged.",
   "notes_pass72": "main e425cad (#86): planner screen-context now gated on goal relevance (_goal_screen_relevant), open-ended ask guard, Clock wheel keyboard fallback. Gating narrows but does not remove the untrained context block for the LoRA planner (training-55 stays open; still no holdout rerun). No router/training/eval change. wip/local 80c871c is a snapshot on 82c9810 (pre-#86). 54/53/50/49 unchanged.",
-  "notes_pass73": "main unchanged e425cad. wip/local 323d274 (local c711320): BLIND_PLANNER=base default, finish_when, blind few-shot. New training-56."
+  "notes_pass73": "main unchanged e425cad. wip/local 323d274 (local c711320): BLIND_PLANNER=base default, finish_when, blind few-shot. New training-56.",
+  "notes_pass74": "main merged #87 blind planner (training-56 now on main) and #88 blind typing (HandsKit). agentic-loop: finish gate, plan_bank cross-app retrieval skip; bank still v2-tune, no holdout use seen. Router/training unchanged; 54/53/55/50/49 unchanged."
 }
