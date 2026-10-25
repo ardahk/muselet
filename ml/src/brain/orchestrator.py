@@ -942,8 +942,13 @@ class Orchestrator:
                     if memory_result and memory_result.changed:
                         text = memory_result.text
                         self._utterance = text
-                    from .tools import compose_text
-                    if (page := self._page_task_for(text)):
+                    from .tools import compose_text, premiere_edit
+                    if (pargs := premiere_edit.parse_request(
+                            text, self._ctx)) is not None:
+                        trace["decisions"].append({"premiere_redirect": pargs})
+                        outcome = await self._brain_tool(
+                            "premiere_edit", pargs, text)
+                    elif (page := self._page_task_for(text)):
                         self._page_task = page
                         trace["decisions"].append({"page_task": page})
                         outcome = await self._planner_loop(
@@ -992,11 +997,6 @@ class Orchestrator:
                         else:
                             from .tools import premiere_edit
                             pargs = premiere_edit.parse_request(text, self._ctx)
-                            if pargs is None:
-                                from .tools import draft_email
-                                dargs = None if comms.is_messaging(text) else \
-                                    draft_email.parse_request(text, {**self._ctx, **self._focus_ctx})
-                                pargs = dargs
                             if pargs is not None:
                                 trace["decisions"].append(
                                     {"premiere_redirect": pargs})
@@ -1005,7 +1005,7 @@ class Orchestrator:
                             else:
                                 from .tools import draft_email
                                 dargs = None if comms.is_messaging(text) else \
-                                    draft_email.parse_request(text, self._ctx)
+                                    draft_email.parse_request(text, {**self._ctx, **self._focus_ctx})
                                 if dargs is not None:
                                     trace["decisions"].append(
                                         {"draft_redirect": dargs})
