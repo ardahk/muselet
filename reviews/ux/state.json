@@ -1,9 +1,9 @@
 {
-  "pass": 79,
-  "ts": "2026-10-25T08:12:00Z",
+  "pass": 80,
+  "ts": "2026-10-25T08:30:00Z",
   "last_reviewed": {
-    "main": "3e323a9",
-    "wip/local": "b8eeec4",
+    "main": "73b8031",
+    "wip/local": "51d833a",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -94,7 +94,7 @@
     "cloud/app-knowhow": "c69dfec",
     "cloud/browser-flow": "485763f",
     "cloud/docs-final": "bf9118d",
-    "cloud/agentic-fixes2": "b9cd089"
+    "cloud/agentic-fixes2": "104a411"
   },
-  "notes": "pass 79: main 3e323a9 adds an opt-in PLANNER=35b (every planner task on the 35B) and Spotify play via a gated title double-click with player-state evidence; no new bubble copy. agentic-fixes2 b9cd089 has no reply-text changes. ux-29, ux-31 (P1) and ux-32 are unchanged. If PLANNER=35b is picked for the demo, ux-31 spreads to every planner task. No new findings."
+  "notes": "pass 80: main 73b8031 only changes Observe.swift so duplicate refs no longer crash the app. That fixes a crash that would have ended the demo after a permission prompt; no new reply text. Correction to pass 79: agentic-fixes2 had not been fully read then. Now read in full (b9cd089 plus a merge of main): (1) app task hints now carry the exact text to type; (2) a planner ask for content the user already gave is rejected internally and doesn't count as a failure; (3) invalid expect predicates are dropped and traced; (4) a pending task no longer resumes when the user switched apps; (5) adds YouTube watch-page and site-loading checks that count the task done. All of this is internal; it adds no reply text, and the failure strings stay inside the planner loop. It reduces wrong 'which text?' bubbles, which helps UX. Open findings unchanged: ux-31/ux-28 P1, ux-29."
 }
