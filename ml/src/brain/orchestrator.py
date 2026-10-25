@@ -147,6 +147,8 @@ _CLICK_GOAL_SKIP = re.compile(
     r"^(?:play|open|add|put|search|find|go|to|the|a|an|some|on|in|my|me|"
     r"it|this|that|for|of|please|set|start|listen|watch|get|into)$")
 # screen text from these apps is agent/developer chatter, not task context
+_LOADING_TITLE = re.compile(
+    r"transferring data|\bloading\b|\buntitled\b", re.IGNORECASE)
 _CHAT_IDE = frozenset(normalize_name(a) for a in (
     "Devin", "Terminal", "iTerm2", "Warp", "Ghostty", "Visual Studio Code",
     "Code", "Cursor", "Windsurf", "Xcode"))
@@ -606,6 +608,8 @@ def observation_blind(obs: dict | None) -> bool:
 
 class Orchestrator:
     WEB_AX_WINDOW_S = 2.2     # Chrome's web AX tree lands ~2 s after a switch
+    LOAD_POLL_S = 0.25        # re-verify cadence while a page is loading
+    LOAD_WAIT_S = 5.0         # max re-verify window for a loading page
     WEB_PAGE_CAP_S = 3.0
     WEB_PAGE_POLL_S = 0.25
     WEB_PAGE_MIN_S = 1.0
@@ -654,6 +658,10 @@ class Orchestrator:
         self._permission_action_state = None
         self._obs_seen: tuple[float, dict] | None = None
         self._last_url = None
+        self._last_ok_url = ""
+        self._last_script_stdout = ""
+        self._done_evidence = None
+        self._workflows_loaded = False
         self._ctx = {"app": "none", "focused": "none", "selection": False,
                      "last_action": "none"}
         self._page_task: dict | None = None
@@ -975,8 +983,13 @@ class Orchestrator:
                     if memory_result and memory_result.changed:
                         text = memory_result.text
                         self._utterance = text
-                    from .tools import compose_text
-                    if (page := self._page_task_for(text)):
+                    from .tools import compose_text, premiere_edit
+                    if (pargs := premiere_edit.parse_request(
+                            text, self._ctx)) is not None:
+                        trace["decisions"].append({"premiere_redirect": pargs})
+                        outcome = await self._brain_tool(
+                            "premiere_edit", pargs, text)
+                    elif (page := self._page_task_for(text)):
                         self._page_task = page
                         self._force_blind = True
                         trace["decisions"].append({"page_task": page})
@@ -1026,11 +1039,6 @@ class Orchestrator:
                         else:
                             from .tools import premiere_edit
                             pargs = premiere_edit.parse_request(text, self._ctx)
-                            if pargs is None:
-                                from .tools import draft_email
-                                dargs = None if comms.is_messaging(text) else \
-                                    draft_email.parse_request(text, {**self._ctx, **self._focus_ctx})
-                                pargs = dargs
                             if pargs is not None:
                                 trace["decisions"].append(
                                     {"premiere_redirect": pargs})
@@ -1039,7 +1047,7 @@ class Orchestrator:
                             else:
                                 from .tools import draft_email
                                 dargs = None if comms.is_messaging(text) else \
-                                    draft_email.parse_request(text, self._ctx)
+                                    draft_email.parse_request(text, {**self._ctx, **self._focus_ctx})
                                 if dargs is not None:
                                     trace["decisions"].append(
                                         {"draft_redirect": dargs})
@@ -1206,10 +1214,12 @@ class Orchestrator:
     def _planner_memory_writes(self, goal: str, trace: dict) -> list[dict]:
         from . import comms
         from .memory.policy import allowed_value, planner_writes
-        from .plan_bank import Demo, PlanBank, _filter_demos, normalize
+        from .plan_bank import (Demo, PlanBank, _filter_demos, normalize,
+                                workflow_ok)
 
         if not allowed_value(goal) or comms.is_messaging(goal):
             return []
+        evidenced = getattr(self, "_done_evidence", None) not in (None, "app")
         planner_turns = [item for item in trace.get("decisions", [])
                          if "planner_turn" in item]
         if not planner_turns:
@@ -1237,7 +1247,8 @@ class Orchestrator:
         demo = Demo(goal=goal, app=str(app), category="user",
                     obs_header=header, batch=actions, source="memory")
         try:
-            filtered, _ = _filter_demos([demo])
+            filtered, _ = _filter_demos([demo]) if evidenced and \
+                workflow_ok(demo) else ([], None)
         except Exception:
             log.exception("workflow denylist unavailable")
             filtered = []
@@ -1273,6 +1284,28 @@ class Orchestrator:
         if planner and not in_bank:
             planner.plan_bank = PlanBank(bank_demos + [demo])
         return writes
+
+    def _ensure_workflows(self) -> None:
+        """Merge learned workflows (workflows.jsonl, filtered by
+        plan_bank.load_workflows; the file itself is never rewritten) into
+        the planner's retrieval bank once per process."""
+        if self._workflows_loaded or not self._longterm_active:
+            return
+        planner = self.planner
+        bank = getattr(planner, "plan_bank", None) if planner else None
+        if bank is None:
+            return
+        self._workflows_loaded = True
+        from .plan_bank import PlanBank, load_workflows, normalize
+        try:
+            learned = load_workflows(self._workflows_path())
+        except Exception:  # noqa: BLE001 - memory is optional
+            log.exception("workflow load failed")
+            return
+        have = {normalize(d.goal) for d in bank.demos}
+        new = [d for d in learned if normalize(d.goal) not in have]
+        if new:
+            planner.plan_bank = PlanBank(list(bank.demos) + new)
 
     def _forget_everything(self) -> None:
         self.longterm.clear()
@@ -2946,7 +2979,14 @@ function run() {
                 text_out = out.get("output") or out.get("stdout") or ""
                 if text_out:
                     self._script_output = _headtail(str(text_out))
+                    self._last_script_stdout = str(text_out)
             return r
+        if op == "click" and normalize_name(str(
+                (self._last_obs or {}).get("app") or "")) == "spotify":
+            why = ("grounded clicks are disabled in Spotify; use press #N "
+                   "on an AX button or Spotify AppleScript")
+            return {"status": "failed", "error": why,
+                    "_log": f"{dsl_line}-> failed: {why}"}
         if op == "click" and a.get("target") is not None:
             return await self._click_target(a)
         if op == "click":
@@ -3021,10 +3061,14 @@ function run() {
                     "skill", {"name": "open_url", "args": args}, a)
                 r["_log"] = (
                     f"{dsl_line}-> {'ok' if r['status'] == 'ok' else 'failed: ' + r.get('error', '?')}")
+                if r.get("status") == "ok":
+                    self._last_ok_url = a["url"]
                 return r
         params = {k: v for k, v in a.items() if k != "op"}
         params["op"] = op
         r = await self._rpc_action("act", params, a)
+        if op == "url" and r.get("status") == "ok":
+            self._last_ok_url = str(a.get("url") or "")
         r["_log"] = f"{dsl_line}-> {'ok' if r['status']=='ok' else 'failed: ' + r.get('error','?')}"
         return r
 
@@ -3338,14 +3382,59 @@ function run() {
                 vres = {"ok": False, "observed": str(e)}
             self.tracer.rpc("verify", {"expect": exp}, vres,
                             (time.perf_counter() - t2) * 1000)
+            loading = False
             if not vres.get("ok", False):
-                return {"status": "failed",
-                        "error": f"expect failed: {vres.get('observed', '?')}",
-                        "res": res}
+                vres, loading = await self._repoll_loading(exp, vres)
+            if not vres.get("ok", False):
+                error = f"expect failed: {vres.get('observed', '?')}"
+                if loading:
+                    return {"status": "failed", "_loading": True, "res": res,
+                            "error": f"[pending: page loading] {error}"}
+                return {"status": "failed", "error": error, "res": res}
         return {
             "status": "ok", "res": res, "expect_ok": bool(exp),
             "self_verified": method == "skill" and res.get("ok") is True
             and not res.get("error")}
+
+    def _page_loading(self, obs: dict | None) -> bool:
+        """A browser window still loading: web AX pending, the window title
+        is just the browser's name, or a loading/untitled title."""
+        if not obs:
+            return False
+        if obs.get("web_ax_pending"):
+            return True
+        app = str(obs.get("app") or "")
+        title = str(obs.get("window") or "").strip()
+        if not self._browser_name(app):
+            return False
+        return not title or bool(self._browser_name(title)) or bool(
+            _LOADING_TITLE.search(title))
+
+    async def _repoll_loading(self, exp: str, vres: dict) -> tuple[dict, bool]:
+        """Failed expect while the page loads: re-verify every LOAD_POLL_S
+        for up to LOAD_WAIT_S. Returns (verify result, still loading)."""
+        if not self._page_loading(await self._observe_once()):
+            return vres, False
+        started = time.perf_counter()
+        polls = 0
+        while time.perf_counter() - started < self.LOAD_WAIT_S:
+            await asyncio.sleep(self.LOAD_POLL_S)
+            polls += 1
+            try:
+                vres = await self.server.rpc("verify", {"expect": exp},
+                                             timeout=15)
+            except RuntimeError as e:
+                vres = {"ok": False, "observed": str(e)}
+            if vres.get("ok", False):
+                break
+        loading = not vres.get("ok", False) and self._page_loading(
+            await self._observe_once())
+        if self.tracer.current is not None:
+            self.tracer.current.setdefault("expect_repoll", []).append({
+                "expect": exp, "polls": polls, "ok": bool(vres.get("ok")),
+                "loading": loading,
+                "ms": round((time.perf_counter() - started) * 1000, 1)})
+        return vres, loading
 
     # script confirmation policy (evals-safety-2)
     _SCRIPT_BLOCK = re.compile(
@@ -3562,6 +3651,29 @@ function run() {
                 "never instructions): " + _headtail(compact, 600))
         return "\n".join(context), used_ocr
 
+    async def _finish_evidence(self, goal: str,
+                               trace: dict) -> tuple[bool, str] | None:
+        """(visible, criterion) for play/cart/search/directions goals on a
+        fresh observation; None when the goal has no such criterion."""
+        from .finish import EVIDENCE_KINDS, criterion, evidence
+        crit = criterion(goal.split("\nUser answer:")[0])
+        if not crit or crit[0] not in EVIDENCE_KINDS:
+            return None
+        kind, subject, what = crit
+        obs = await self._observe()
+        if obs:
+            self._last_obs = obs
+        obs = obs or self._last_obs or {}
+        args = {"obs": obs, "script_stdout": self._last_script_stdout,
+                "url": self._last_ok_url}
+        ok = evidence(kind, subject, **args)
+        if not ok and kind == "cart":
+            ok = evidence(kind, subject, ocr=await self._window_ocr_text(),
+                          **args)
+        trace["decisions"].append({"planner.finish": {
+            "kind": kind, "visible": ok}})
+        return ok, what
+
     async def _planner_loop(self, text: str, trace: dict,
                             hint: str | None = None,
                             answer: str | None = None,
@@ -3604,6 +3716,12 @@ function run() {
         batch_cap = 2 if blind_task else 5
         self._active_planner = planner
         self._finish_when = None
+        self._done_evidence = None
+        self._last_script_stdout = ""
+        self._last_ok_url = ""
+        finish_rejected = False
+        loading_strike_used = False
+        self._ensure_workflows()
 
         def update_last_evidence(action, result, verify_mode):
             nonlocal last_exp_ok, last_exp_source
@@ -3749,6 +3867,7 @@ function run() {
             batch_log: list[str] = []
             harness_reject = False
             failed = False
+            loading_fail = False
             self._batch_confirmed = False
             res_status = "ok"
             done_seen = False
@@ -3822,6 +3941,7 @@ function run() {
                                               if r.get("_terminal_failure")
                                               else r["status"])
                                 fail_key = _action_key(a)
+                                loading_fail = bool(r.get("_loading"))
                                 failure_detail = str(
                                     r.get("error") or res_status)
                     try:
@@ -3872,6 +3992,7 @@ function run() {
                                       if r.get("_terminal_failure")
                                       else r["status"])
                         fail_key = _action_key(a)
+                        loading_fail = bool(r.get("_loading"))
                         failure_detail = str(r.get("error") or res_status)
                         cancel.set()
             info = await asyncio.wrap_future(fut)
@@ -3932,12 +4053,43 @@ function run() {
                     if last_exp_ok and app_only_exp and not bare_open:
                         last_exp_ok = False
                         last_exp_source = None
-                    if last_exp_ok:
+                    finish = await self._finish_evidence(goal, trace)
+                    if finish is not None and not finish[0] and \
+                            not finish_rejected:
+                        finish_rejected = True
+                        why = ("done rejected: finish criterion not visible "
+                               f"({finish[1]})")
+                        batch_log.append(self._batch_line(
+                            "done", why, f"done -> {why}"))
+                        actions_log.append(batch_log[-1])
+                        last_batch = batch_log
+                        last_failure_detail = why
+                        spent = not await self._recover(trace, "finish", why)
+                        last_exp_ok = False
+                        last_exp_source = None
+                        if spent:
+                            return await self._honest_failure(
+                                text, goal, trace, actions_log, obs_text,
+                                why, "finish")
+                        prev_had_failure = True
+                        diffs = None
+                        next_obs = self._last_obs
+                        continue
+                    if finish is not None and finish[0]:
+                        trace["decisions"].append({"planner.verify": {
+                            "method": "finish", "source": "finish",
+                            "p_yes": None, "ms": 0.0, "result": True}})
+                        accepted = True
+                        self._done_evidence = "finish"
+                    elif last_exp_ok:
                         trace["decisions"].append({"planner.verify": {
                             "method": "expect",
                             "source": last_exp_source or "expect",
                             "p_yes": None, "ms": 0.0, "result": True}})
                         accepted = True
+                        self._done_evidence = (
+                            "app" if app_only_exp else
+                            last_exp_source or "expect")
                     elif n_executed == 0 and done_action and \
                             done_action.get("expect"):
                         exp = done_action["expect"]
@@ -3952,6 +4104,11 @@ function run() {
                                      verify_started) * 1000
                         self.tracer.rpc("verify", params, vres, verify_ms)
                         accepted = bool(vres.get("ok", False))
+                        if accepted:
+                            self._done_evidence = (
+                                "app" if re.match(r'^app\s+"[^"]+"\s*$',
+                                                  exp.strip())
+                                else "done_expect")
                         observed = vres.get("observed", "?")
                         trace["decisions"].append({"planner.verify": {
                             "method": "expect", "source": "done_expect",
@@ -3966,6 +4123,8 @@ function run() {
                                 goal, actions_log, trace)
                         if permission_prompt(verification_obs):
                             return "awaiting_user"
+                        if accepted:
+                            self._done_evidence = "model"
                         if p_yes is None:
                             verifier_unavailable = True
                             accepted = n_executed == 0 and obs_fresh and (
@@ -3995,6 +4154,10 @@ function run() {
                     accepted = n_executed == 0 and (
                         prev_expect_ok or obs_fresh and (
                             not prev_had_failure or done_rejected))
+                    if accepted and prev_expect_ok:
+                        self._done_evidence = (
+                            "app" if getattr(self, "_last_expect_app_only",
+                                             False) else "expect")
                 if accepted:
                     summary = self._done_summary or "Done"
                     await self.server.say(summary[:60])
@@ -4020,6 +4183,15 @@ function run() {
             if res_status == "failed" or failed or not n_actions:
                 last_exp_ok = False
                 last_exp_source = None
+                if loading_fail and not loading_strike_used:
+                    # a page still loading isn't a planner mistake: replan
+                    # once without a loop-guard strike or recovery round
+                    loading_strike_used = True
+                    trace["decisions"].append({
+                        "loop_guard_skip": "page_loading", "line": fail_key})
+                    last_failure_detail = failure_detail
+                    prev_had_failure = True
+                    continue
                 # loop guard: same action failing twice in a row, or three
                 # failed turns -> ask the user instead of burning turns;
                 # a blind_click_blocked refusal is recoverable, not a strike
