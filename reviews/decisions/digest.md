@@ -1,6 +1,6 @@
-# decisions — digest (pass 70)
+# decisions — digest (pass 71)
 
-Heads: main b7b38f9 (merged agentic-fixes2 with the play-evidence bug and docs-final with stale tau/cost/LoRA-for-apps text; agentic expects now soft, so finish evidence is the done gate; -37 P0, -40/-41/-43/-38 P1, -42/-44/-45 P2 live), wip e03e2c8 (= main). Budget: about $142.06 MTD estimated.
+Heads: main 4f94e42 (2c0430e youtube-page guard is dead on the orchestrator path: _finish_evidence passes no goal=; -37 P0, -40/-41/-43/-38 P1, -42/-44/-45 P2 live), wip 52eb571 (= main), cool-tasks 4c84adc (relay/summary_note evidence; scratch notes are dynamic-only), native-tools 6053e4e (default dsl, opt-in), ui-progress a66166b (no decisions surface). Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
@@ -20,6 +20,6 @@ Contamination re-check this pass: 2400 freshly generated code-family items vs Je
 ## Highest-leverage next moves
 - NOW: set temperature_probs/conf = 1.0 in GenericMLXDecider.inline() on main (decisions-37, P0); add a __new__-path unit test.
 - Fix decisions-41 on main (drop _last_ok_url as search evidence, fix _subject cuts); agentic-apps is on main: run e2e AGENTIC_APPS=0 vs 1 and planner-LoRA parity/bench with hidden_skills (decisions-43, -42).
-- Pin BLIND_PLANNER and decide LoRA vs 35B for app tasks; make docs-final match the merged code and log the planner per trace (decisions-44, -45). On main: play/search evidence must use the observed url only, require the subject in the title, and reject loading/404 (-41); with soft expects it is the done gate.
+- Pin BLIND_PLANNER and decide LoRA vs 35B for app tasks; make docs-final match the merged code and log the planner per trace (decisions-44, -45). On main: pass goal= in _finish_evidence; play/search evidence must use the observed url only, require the subject in the title, and reject loading/404 (-41); with soft expects it is the done gate.
 - Quote {{route_acc}} for it3 @ .50 (serving) and fix claims.md:13,163 / REPORT.md:12 (decisions-38).
 - Bench the mlx4 export on the Mac with the same runners before quoting any number (decisions-5); results.md: label the full run below DeskMind on JevBench, TD tie on a different backend, test-selected (decisions-32).
