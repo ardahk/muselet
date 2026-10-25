@@ -1,6 +1,6 @@
-# training lane digest — pass 79 (main 3a0860c, wip/local 83cf584)
+# training lane digest — pass 80 (main cf33215)
 
-Open: 1 P0, 15 P1, 19 P2. training-57 resolved. New training-58 (P2): blind planner default switches to 35B whenever it is cached; no committed comparison. training-54 still open.
+Open: 1 P0, 15 P1, 19 P2. No new findings. training-55 updated: docs-final brief quotes planner .850 while app-hints/agentic-apps/obs-label changes are now on main. training-54 still open.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).

@@ -1,6 +1,6 @@
 {
-  "pass": 79,
-  "ts": "2026-10-25T07:00:00Z",
+  "pass": 80,
+  "ts": "2026-10-25T07:35:00Z",
   "mode": "pulse",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
@@ -48,8 +48,8 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "3a0860c",
-    "wip/local": "83cf584",
+    "main": "cf33215",
+    "wip/local": "11da94c",
     "cloud/memory": "ba3dc0a",
     "cloud/memory-eval": "c05944e",
     "cloud/memory-lt": "cc056af",
@@ -130,5 +130,6 @@
   "notes_pass76": "main merged agentic-loop + fix-thinking + premiere-route-fix; training-56 resolved (YouTube example). agentic-apps: catalog kind + timer_control (router:false), planner hides app skills -> training-55 update. Router IDs/tau unchanged.",
   "notes_pass77": "Only cloud/agentic-apps moved (1904638 = merge of main e2f7e5e; timer_control removed from catalog, few-shot now the non-eval YouTube example, render artifact regenerated). Hidden-app-skills planner drift (training-55) still present; router skill list unchanged. main/wip unchanged; open findings re-checked, no status change.",
   "notes_pass78": "main merged agentic-apps (training-55 on main) + autodone; new training-57 committed abs symlinks. agentic-evidence/browser-flow orchestrator-only. app-knowhow tips screened clean.",
-  "notes_pass79": "main: symlinks untracked (training-57 resolved); BLIND_PLANNER escalate auto-default (training-58). app-knowhow c69dfec Clock/Reminders tip edits only; agentic-evidence/browser-flow orchestrator + main merges. Router unchanged."
+  "notes_pass79": "main: symlinks untracked (training-57 resolved); BLIND_PLANNER escalate auto-default (training-58). app-knowhow c69dfec Clock/Reminders tip edits only; agentic-evidence/browser-flow orchestrator + main merges. Router unchanged.",
+  "notes_pass80": "main merged app-knowhow (tips screened pass 78/79: 0 sealed overlap), agentic-evidence, browser-flow, obs derived labels, control labels (#99), docs-final brief. Router/catalog/tau unchanged. docs brief correctly says HobbyLM has no valid comparable score and DeskMind gap is behind."
 }
