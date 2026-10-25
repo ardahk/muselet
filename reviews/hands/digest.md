@@ -1,11 +1,11 @@
-# hands — digest (Pass 77)
+# hands — digest (Pass 78)
 
-Open: 0 P0, 5 P1, 11 P2.
+Open: 0 P0, 5 P1, 13 P2.
 
 Ranked open P0/P1:
 -1. P1 hands-38 (main e2f7e5e via a615f00, ClockAX.swift:523-552): the Clock cancel falls back to `live.first` and presses a stale detail-pane Cancel after a fixed 80 ms. It can cancel a user's own Clock timer and still report success. Fix before the demo.
 0. P1 hands-36 (main e425cad via #86, ClockAX.swift:546-708): the Clock wheel key fallback clicks the wheel, then types digits and up to 70 HID arrow keys without re-checking Clock is frontmost or the wheel has focus. Keys can land in the user's frontmost app. Gate it before the demo.
-1. P1 hands-34 (main dc6f2f5, Launch.swift:224-232): fix-same-tab merged unchanged. Same-tab open_url/web_search posts cmd+L, waits a fixed 80 ms, then types the URL plus Return without checking the address bar has focus. The brain uses it by default whenever a browser is frontmost; cloud/browser-flow c0421e6 also sends every later planner `url` step in a task through it (pass 76).
+1. P1 hands-34 (main cf33215, Launch.swift:224-232; browser-flow merged, so planner url steps use it too): fix-same-tab merged unchanged. Same-tab open_url/web_search posts cmd+L, waits a fixed 80 ms, then types the URL plus Return without checking the address bar has focus. The brain uses it by default whenever a browser is frontmost; cloud/browser-flow c0421e6 also sends every later planner `url` step in a task through it (pass 76).
 2. P1 hands-29 (main, ClockAX.swift): Clock start and cancel bring Clock to the front and never switch back, and there's no opt-out.
 3. P1 hands-26 (main, orchestrator.py:3051): the brain removes `expect` from `act`, so the app's built-in polling never runs.
 
@@ -15,6 +15,13 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 78:
+- main cf33215 merged #99 control-labels, obs-labels, browser-flow, agentic-evidence and app-knowhow.
+- New P2 hands-40 (Act.swift:380-386, 751-789): `type` on any slider (including AXValueIndicator) arrow-keys toward the raw digits for up to 70 presses. There's no range check, it doesn't stop when it overshoots, and it returns ok whatever the read-back value is. A 0-1 slider given "50" is driven to max. Arrows bypass `events`, and there are no tests.
+- New P2 hands-41 (Observe.swift:106-124, 224-235, 262-285): derived labels call copyAttrs on every sibling for each unlabeled element, with no deadline check (observe latency risk), and an unlabeled icon button can take a nearby filename as its label.
+- hands-34 is now wider on main (in_task same-tab). hands-39 has narrowed: the _evidence_base gate is on main, and the timer_start and cancel evidence gaps remain.
+- wip/local 11da94c matches main for app/. Cloud branches unchanged. hands-26/36/38 re-checked: still present (orchestrator.py:3495, ClockAX.swift:534).
 
 Pass 77:
 - New P2 hands-39 (main finish.py/orchestrator.py): timer auto-done treats 'no Pause/Resume visible' as cancelled and any Resume as paused. It's checked against the observation from before the batch, so 'cancel my timer' can stop after `open "Clock"`, with only the model verifier left to catch it. cloud/agentic-evidence 1918cad mostly fixes it (_evidence_base gate); its timer_start check can still match a user's own timer.

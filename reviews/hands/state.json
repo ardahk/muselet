@@ -1,5 +1,5 @@
 {
- "pass": 77,
+ "pass": 78,
  "last_reviewed": {
   "main": "eb3e945",
   "wip/local": "3f21dc6",
@@ -74,8 +74,8 @@
   "cloud/panel-hook-fix": "ef35421"
  },
  "branches": {
-  "main": "3a0860c",
-  "wip/local": "83cf584",
+  "main": "cf33215",
+  "wip/local": "11da94c",
   "cloud/memory-hotfix": "d932320",
   "cloud/memory-rules2": "03c3cd1",
   "cloud/memory-llm-gate": "f6229d7",
@@ -98,5 +98,5 @@
   "cloud/app-knowhow": "c69dfec",
   "cloud/browser-flow": "485763f"
  },
- "ts": "2026-10-25T07:02:00Z"
+ "ts": "2026-10-25T07:40:00Z"
 }
