@@ -1,9 +1,9 @@
 {
-  "pass": 90,
-  "ts": "2026-10-25T11:33:00Z",
+  "pass": 91,
+  "ts": "2026-10-25T12:03:00Z",
   "last_reviewed": {
     "main": "2de65a9",
-    "wip/local": "4db92e8",
+    "wip/local": "a6035fb",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -99,5 +99,5 @@
     "cloud/cool-tasks": "cfbec49",
     "cloud/native-tools": "6053e4e"
   },
-  "notes": "pass 90: only wip moved (4db92e8). Web page-load signals (AXLoaded/AXElementBusy) feed a fresh observation after navigation; Premiere clipSpeed counts as a hot-text field; Numbers sort integrity guard (failure copy is the generic 'Script failed'); the step phrase says 'Opening browser' instead of the browser name; the Settings panel moves from Form to custom cards and drops the Models/35B toggle section (a static review can't judge the native look; needs a screenshot). New ux-35: Esc cancel now hides the bubble instead of showing 'Stopped.'. ux-34 and ux-32 are still unfixed on main."
+  "notes": "pass 91: only wip moved (a6035fb on a2004d9): the scripted finance/advisor engines are removed, finance_review/advisor_prep become planner app tasks, agentic-apps is hardcoded on, and few-shot/retrieval are off by default -> ux-31 update (P1). ux-35 is still present in wip (hideBubble on Esc). main 2de65a9 is unchanged; ux-34 and ux-32 are still open."
 }

@@ -1,6 +1,6 @@
-# ux digest — pass 90
+# ux digest — pass 91
 
-Heads: main 2de65a9, wip 4db92e8, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
+Heads: main 2de65a9, wip a6035fb, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
 
 Counts: 0 P0, 2 P1, 15 P2 (ux-29 reopened, now on main: blind planner thinks 512 tokens every turn) (ux-29 resolved: the LoRA planner defaults to THINK=0). New in pass 63: ux-30 (fix-pending: speech that isn't a command during a confirm gets no feedback). ux-26 resolved by design #70 (main 2de65a9); ux-25 and ux-27 still live on main.
 Open P1:
@@ -40,3 +40,6 @@ Highest-leverage next moves:
 
 ## Pass 90
 - NEW ux-35 (P2, wip): Esc cancel drops the 'Stopped.' acknowledgement. Keep a short auto-hiding 'Stopped.'.
+
+## Pass 91
+- wip removes the deterministic finance/advisor engines; those beats become 35B planner tasks, and AGENTIC_APPS can't be turned off. Rehearse with timing, and keep the old path selectable.
