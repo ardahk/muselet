@@ -20,6 +20,9 @@ struct PillView: View {
     @FocusState private var fieldFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// Fade-out when the pointer leaves the kitten + pill zone.
+    static let hideFade: TimeInterval = 0.12
+
     /// Debug hook `pill_slow`: stretch the typing open/close so the lead can screenshot it mid-way.
     static var slowMotion = false
 
@@ -41,7 +44,7 @@ struct PillView: View {
         .shadow(color: .black.opacity(0.2), radius: 7, x: 0, y: 3)
         .scaleEffect(state.shown ? 1 : (reduceMotion ? 1 : 0.85), anchor: .top)
         .opacity(state.shown ? 1 : 0)
-        .animation(spring, value: state.shown)
+        .animation(state.shown ? spring : .easeOut(duration: Self.hideFade), value: state.shown)
         .animation(spring, value: state.typing)
         .animation(spring, value: model.isRecording)
         .padding(10)            // transparent margin for the shadow
