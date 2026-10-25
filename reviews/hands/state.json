@@ -1,5 +1,5 @@
 {
-  "pass": 63,
+  "pass": 64,
   "last_reviewed": {
     "main": "eb3e945",
     "wip/local": "3f21dc6",
@@ -74,13 +74,18 @@
     "cloud/panel-hook-fix": "ef35421"
   },
   "branches": {
-    "main": "fa0f040",
-    "wip/local": "973a9b0",
+    "main": "4150ecb",
+    "wip/local": "b7b7840",
     "cloud/memory-hotfix": "d932320",
     "cloud/memory-rules2": "03c3cd1",
     "cloud/memory-llm-gate": "f6229d7",
     "cloud/design-polish": "bf4ae64",
-    "cloud/memory-writes": "d04e26c"
+    "cloud/memory-writes": "88ccf06",
+    "cloud/hands-clock-verify": "a4d6463",
+    "cloud/fallback": "6e40c3e",
+    "cloud/fix-apps-notes": "1ccb123",
+    "cloud/fix-email-reply": "805223b",
+    "cloud/fix-pending": "dba9094"
   },
-  "ts": "2026-10-25T03:24:00Z"
+  "ts": "2026-10-25T03:40:00Z"
 }

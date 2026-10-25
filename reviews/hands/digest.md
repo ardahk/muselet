@@ -1,6 +1,6 @@
-# hands — digest (Pass 63)
+# hands — digest (Pass 64)
 
-Open: 0 P0, 3 P1, 7 P2 (hands-32 superseded).
+Open: 0 P0, 3 P1, 8 P2.
 
 Ranked open P0/P1:
 1. P1 hands-28 (main fa0f040, Skills.swift:884): if Clock never confirms the timer started, it's still reported as set. No alarm fires, and a test (ClockAXTests:272) locks this behaviour in.
@@ -8,11 +8,17 @@ Ranked open P0/P1:
 3. P1 hands-26 (main, orchestrator.py:2556): the brain removes `expect` from `act`, so the app's built-in polling never runs. verify then checks only once.
 
 Next moves (max 5):
-1. hands-28: if verified==false after pressing Start, also start Muselet's own timer (or fail) instead of using a no-op callback.
+1. hands-28: merge cloud/hands-clock-verify (it falls back on start_unverified), but first handle hands-33: check clockAXRead() once before adding the Muselet fallback.
 2. hands-29: record the frontmost pid before openApp and re-activate it after Start/Cancel.
 3. hands-26: send `expect` with `act` (one line), then drop the extra verify RPC when expect_ok is present.
 4. hands-27: build headless hello frames with ScreenGeometry.cgBounds (top-left).
 5. hands-31: close Premiere's Window menu (Esc / AXCancel) when the Timeline step fails, and poll before sending the shortcut.
+
+Pass 64:
+- main 4150ecb only adds briefs (no app/ change); wip/local catches up to #70.
+- cloud/hands-clock-verify a4d6463: verifies wheels (2 stable reads), polls 2 s after Start, retries Start once, and returns start_unverified, so startTimer falls back to Muselet's timer. This fixes hands-28 on that branch. New P2 hands-33: the fallback after Start was pressed can double-fire or leave a Clock timer that cancel can't reach.
+- cloud/fix-pending dba9094: VoiceController forwards non-yes/no utterances during a confirm. server.py only runs them if confirm_interrupt sees a new command, and a cancelled ask_confirm sends confirm_cancel. Protocol matches; no issues.
+- cloud/fallback, fix-apps-notes, fix-email-reply and memory-writes have no app/ changes.
 
 Pass 63:
 - main fa0f040 merged #70 (design): native Settings panel, kitten menu-bar icon, Clock-only timers (Shortcuts backend and Settings > Timers removed), mascot clamped to visibleFrame, pill hides at once with a gap-bridge zone, one close path for Esc and X. These are the cloud/design deletions, now merged on purpose and documented in AGENTS.md:149, so hands-32 is superseded.
