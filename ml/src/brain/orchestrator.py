@@ -22,7 +22,8 @@ from pathlib import Path
 import unicodedata
 from urllib.parse import urlsplit
 
-from . import argfix, calc, dsl, obsdiff, pathfind, replies, sendgate, slots
+from . import (argfix, calc, dsl, obsdiff, pathfind, progress, replies,
+               sendgate, slots)
 from .memory import MemoryStore, Resolution, WorkingMemory, resolve
 from .memory.working import site_for_url
 from .catalog import Catalog, CatalogError
@@ -157,6 +158,10 @@ _CHAT_IDE = frozenset(normalize_name(a) for a in (
     "Code", "Cursor", "Windsurf", "Xcode"))
 
 
+_DESTRUCTIVE_REQ = re.compile(
+    r"\b(?:erase|wipe|delete|remove|destroy|format|nuke|rm\s+-[rf]+)\b.*"
+    r"\b(?:every|all|entire)\b|"
+    r"\b(?:every|all)\s+files?\b", re.IGNORECASE | re.DOTALL)
 WEB_UI_ERROR = "use the page's search box: type into it and press return"
 _URL_SEARCH = re.compile(r"\?|/results\b|/s\?k=|/search\b", re.I)
 _URLISH = re.compile(
@@ -915,6 +920,13 @@ class Orchestrator:
                 if k in ctx:
                     self._focus_ctx[k] = ctx[k]
         self._utterance = text
+        # deterministic destructive-request refusal — before any routing
+        # (erase/wipe/format/delete ALL files anywhere)
+        if _DESTRUCTIVE_REQ.search(text):
+            trace["decisions"].append({"destructive_refuse": text[:80]})
+            await self.server.say("Sorry, I can't do that")
+            await self._end_ui("confused")
+            return "failed"
         outcome = "ok"
         try:
             await self.server.ui("thinking")
@@ -4150,6 +4162,9 @@ function run() {
         finish_rejected = False
         loading_strike_used = False
         self._ensure_workflows()
+        for p in {id(x): x for x in (planner, getattr(self, "planner_blind", None))}.values():
+            if callable(getattr(p, "begin_task", None)):
+                p.begin_task(keep=bool(answer))   # native-tools history: new task unless continuing after ask
 
         def update_last_evidence(action, result, verify_mode):
             nonlocal last_exp_ok, last_exp_source
@@ -4328,6 +4343,7 @@ function run() {
             fail_key = None              # normalized action line that failed
             failure_detail = ""
             no_strike = False
+            step_shown = False
             script_buf: list[str] | None = None   # multi-line """ block
             try:
                 while True:
@@ -4428,6 +4444,9 @@ function run() {
                     try:
                         acts = dsl.parse(line)
                         pending.extend(acts)
+                        if acts and not step_shown:
+                            step_shown = True
+                            await self._show_step(acts[0])
                     except Exception as e:
                         failed = True
                         res_status = "failed"
@@ -4508,6 +4527,9 @@ function run() {
                 "base" if planner is getattr(self, "planner_blind", None)
                 else "escalate" if planner is self.planner_escalate
                 else "lora")
+            planner_turn["mode"] = getattr(planner, "mode", "dsl")
+            if info.get("native"):
+                planner_turn["native"] = info["native"]
             retrieved = getattr(planner, "last_retrieval", {})
             if retrieved.get("goals"):
                 planner_turn["retrieved"] = list(retrieved["goals"])
@@ -4984,6 +5006,15 @@ function run() {
     def _summary(self, name: str, args: dict) -> str:
         desc = (self.catalog.get(name) or {}).get("description", name)
         return desc
+
+    async def _show_step(self, action: dict) -> None:
+        """Progress bubble for the planner turn's first action."""
+        if isinstance(self.server, _DeferredServer):
+            return      # buffered bubbles would arrive late and read as replies
+        step = progress.step_phrase(
+            action, (self._last_obs or {}).get("elements"))
+        if step:
+            await self.server.ui("acting", step)
 
     async def _end_ui(self, mascot: str, bubble: str | None = None):
         """Final ui of a request carries `ms` (AGENTS.md): release-to-first-

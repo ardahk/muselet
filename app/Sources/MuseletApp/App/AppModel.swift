@@ -123,6 +123,10 @@ final class AppModel: ObservableObject {
 
     @Published var brainStatus: BrainStatus = .connecting
     @Published var mood: MascotMood = .idle
+    /// A request is in flight: set on utterance send, cleared on a terminal
+    /// mood (success/confused/idle/sleeping), a confirm or cancel. Drives the
+    /// thinking dots across thinking <-> acting flips.
+    @Published var busy = false
     @Published var bubble: BubbleContent?
     @Published var bubbleVisible = false
     @Published var latencyChip: LatencyChip?
