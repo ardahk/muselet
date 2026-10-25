@@ -1,9 +1,9 @@
 {
-  "pass": 101,
-  "ts": "2026-10-25T14:49:10Z",
+  "pass": 102,
+  "ts": "2026-10-25T15:35:16Z",
   "last_reviewed": {
-    "main": "b00f679",
-    "wip/local": "73f8136",
+    "main": "32c0ad4",
+    "wip/local": "69261f5",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -100,5 +100,5 @@
     "cloud/ui-progress": "a66166b"
   },
   "next_id": 61,
-  "note": "pass 101: main unchanged b00f679. wip/local 73f8136: Premiere repeated shift+3 blocked as failed action (execute_planner_action), obsdiff renders slider/stepper/HotText values to mirror Serializer.line (Observe.swift:306-317), no diff-chain reuse for ui_only planner. No new finding."
+  "note": "pass 102: main 32c0ad4 lands the local-main chain (de6319c..891d95c, fe3f559 docs, 32c0ad4 reconcile) previously reviewed on wip passes 94-101; -57 expect-strip and -59 engine deletion now on main; -60 repoll half fixed -> P2. wip/local 69261f5 = main content (no diff)."
 }
