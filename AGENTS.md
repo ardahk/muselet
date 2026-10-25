@@ -118,6 +118,7 @@ Brain -> app:
 - `{"t":"say","text":"..."}` (shown in the mascot's speech bubble; no audio)
 - `{"t":"confirm","id":"c1","summary":"Send the message to Mom?"}`
 - `{"t":"confirm_cancel","id":"c1"}` (the confirm timed out or the task was cancelled; the app leaves confirm mode)
+- A final utterance during an open confirm is a new command only when the brain recognises one: the brain sends `confirm_cancel` and runs it; otherwise it is ignored.
 - Memory responses are `{"t":"memory","items":[{"id":1,"type":"fact","key":"...","value":"...","created":0.0}]}`
 - `ui` may carry `"ms": 212` on the final message of a request: release-to-first-action for skills, total for
   planner/brain-tool tasks. The app shows it as a small latency chip next to the bubble for ~2 s.

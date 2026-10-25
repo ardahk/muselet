@@ -25,6 +25,7 @@ class BrainServer:
         self._utterance_task: asyncio.Task | None = None
         self.on_utterance = None      # async cb(text, final, ctx)
         self.on_partial = None        # sync cb(text, ctx) for spec route
+        self.on_confirm_interrupt = None  # async cb(text, ctx) -> bool
         self.on_hello = None          # async cb(screens)
         self.on_cancel = None         # async cb()
         self.on_config = None         # async cb(config) -> ack fields
@@ -56,6 +57,24 @@ class BrainServer:
 
     def _start_utterance(self, text: str, ctx: dict | None = None):
         """One utterance at a time: cancel any in-flight task, then start."""
+        if self._confirms and self.on_confirm_interrupt is not None:
+            async def interrupt_runner():
+                try:
+                    recognized = await self.on_confirm_interrupt(text, ctx)
+                except Exception:
+                    log.exception("confirm interrupt hook failed")
+                    recognized = False
+                if recognized:
+                    self._run_utterance(text, ctx)
+                else:
+                    log.info("utterance ignored during confirm: %r", text[:60])
+
+            asyncio.get_running_loop().create_task(interrupt_runner())
+            return
+        self._run_utterance(text, ctx)
+
+    def _run_utterance(self, text: str, ctx: dict | None = None):
+        """Cancel the current task and start an accepted utterance."""
         self.cancel_utterance()
         if self.on_utterance is None:
             return

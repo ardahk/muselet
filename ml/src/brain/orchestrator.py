@@ -5,6 +5,7 @@ Everything is traced and the app gets ui/say messages.
 """
 
 import asyncio
+import concurrent.futures
 import gc
 import inspect
 import json
@@ -207,6 +208,25 @@ _GATED_SKILLS = {"type_text", "copy_selection", "premiere_command"}
 _CONTINUE = re.compile(
     r"(?:ok(?:ay)?[,.]?\s+)?(?:continue|go on|go ahead|resume|carry on|"
     r"done|i did|i answered it|keep going)[.!]?", re.IGNORECASE)
+_CMD_VERB = re.compile(
+    r"^(?:(?:please|ok(?:ay)?|hey(?:\s+muselet)?|now|also|and|so|then|"
+    r"can you|could you|would you|will you)[,\s]+)*"
+    r"(?:set|turn|open|launch|start|stop|quit|close|mute|unmute|silence|"
+    r"search|google|look\s+up|lookup|take|make|grab|go|text|message|send|"
+    r"e-?mail|mail|call|facetime|write|create|add|new|compose|draft|reply|"
+    r"respond|remind|schedule|book|play|pause|skip|show|find|navigate|visit|"
+    r"browse|increase|decrease|raise|lower|dim|brighten|put|move|copy|rename|"
+    r"delete|trash|empty|lock|sleep|restart|enable|disable|switch|change|"
+    r"toggle|check|tell|read|summari[sz]e|translate|convert|calculate|compute|"
+    r"minimi[sz]e|maximi[sz]e|hide|zoom|bookmark|download|save|print|record|"
+    r"clear|reset)\b", re.IGNORECASE)
+_SITE_VERB = re.compile(
+    r"^(?:go to|visit|navigate to|pull up|open)\s+", re.IGNORECASE)
+_CALC_CUE = re.compile(
+    r"\b(?:calculator|calculate|compute|what(?:'s| is)|how much is|plus|minus|"
+    r"times|divided|percent of|square root)\b|[+*/×÷=]", re.IGNORECASE)
+_DEICTIC = re.compile(
+    r"\b(?:it|them)\b|\b(?:this|that|the\s+\w+)\s+one\b", re.IGNORECASE)
 
 
 def permission_prompt(obs: dict | None) -> dict | None:
@@ -481,6 +501,7 @@ class Orchestrator:
         self._first_action_ms: float | None = None
         self._batch_confirmed = False
         self._pending_task: dict | None = None
+        self._confirm_superseded: str | None = None
         self._answer_history: list[str] = []
         self._last_action_error = None
         self._comms: dict | None = None
@@ -550,17 +571,80 @@ class Orchestrator:
 
         return {"kind": "fallback"}
 
-    def _new_command_during_ask(self, text: str) -> bool:
+    async def _new_command(self, text: str,
+                           ctx: dict | None = None) -> str | None:
         value = text.strip()
         if not value or value[0] in "\"'“‘/~" or \
                 re.search(r"\.[a-z0-9]{1,8}$", value, re.IGNORECASE):
-            return False
-        if not re.match(
-                r"^(?:please\s+)?(?:set|turn|open|launch|start|mute|unmute|"
-                r"silence|search|google|look\s+up|lookup|take|make|grab|go)\b",
-                value, re.IGNORECASE):
-            return False
-        return self.route(value).get("kind") == "skill"
+            return None
+        if _CONTINUE.fullmatch(value) or slots.CANCEL.fullmatch(value) or \
+                re.fullmatch(
+                    r"(?:yes|yeah|yep|yup|sure|ok(?:ay)?|correct|right|"
+                    r"that'?s right|yes please)[.!]?", value, re.IGNORECASE):
+            return None
+
+        from . import comms
+        if comms.parse_message(value) is not None:
+            return "message"
+
+        merged_ctx = dict(self._ctx)
+        if ctx:
+            for key in ("app", "focused", "selection", "online"):
+                if key in ctx:
+                    merged_ctx[key] = ctx[key]
+        if not comms.is_messaging(value):
+            from .tools import draft_email
+            if draft_email.parse_request(value, merged_ctx) is not None:
+                return "draft_email"
+
+        parsed = calc.result(value)
+        if parsed is not None and parsed.value is not None and \
+                _CALC_CUE.search(value):
+            return "calculator"
+
+        if _SITE_VERB.match(value) and match_name(value):
+            return "site"
+
+        parts, _ = split_clauses(value)
+        if len(parts) >= 2 and _CMD_VERB.match(parts[0].strip()) and \
+                not _DEICTIC.search(parts[0]):
+            return "compound"
+
+        if _DEICTIC.search(value):
+            return None
+        if not _CMD_VERB.match(value):
+            return None
+
+        plan = self.route(value)
+        if plan.get("kind") == "skill":
+            return f'route:{plan["name"]}'
+
+        if self.engine is not None:
+            from .planner import worker
+            spec_hit = self._spec_fut is not None and \
+                _norm(value) == self._spec_norm
+            got = None
+            if spec_hit:
+                got = await asyncio.wrap_future(self._spec_fut)
+            if got is not None:
+                res, _ = got
+            else:
+                res = await worker().submit_async(
+                    self.engine.route, value, merged_ctx)
+                fut = concurrent.futures.Future()
+                fut.set_result((res, None))
+                self._spec_fut, self._spec_norm = fut, _norm(value)
+            if res.p_top >= self.tau and res.top not in ("ASK", "ANSWER"):
+                return f"router:{res.top}"
+        return None
+
+    async def confirm_interrupt(self, text: str,
+                                ctx: dict | None = None) -> bool:
+        why = await self._new_command(text, ctx)
+        if why:
+            self._confirm_superseded = why
+            return True
+        return False
 
     # ---------- utterance ----------
 
@@ -579,6 +663,10 @@ class Orchestrator:
         previous_memory_ids = list(self._last_memory_ids)
         self._last_memory_ids = []
         trace = self.tracer.begin(text)
+        if self._confirm_superseded:
+            trace["decisions"].append(
+                {"confirm_superseded": self._confirm_superseded})
+            self._confirm_superseded = None
         # utterance-frame ctx wins (app/focused/selection/online)
         if ctx:
             for k in ("app", "focused", "selection", "online"):
@@ -613,13 +701,39 @@ class Orchestrator:
                     self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
                     return {"outcome": outcome}
             from . import comms
+            if self._comms and \
+                    time.time() - self._comms["t"] >= slots.SLOT_TTL_S:
+                self._comms = None
+            if self._slot and \
+                    time.time() - self._slot["t"] >= slots.SLOT_TTL_S:
+                self._slot = None
             if not self._pending_task or \
                     time.time() - self._pending_task["t"] >= 90:
                 self._answer_history = []
             handled_pending = False
-            if self._comms and \
-                    time.time() - self._comms["t"] >= slots.SLOT_TTL_S:
-                self._comms = None
+            if self._pending_task and self._pending_task.get("reroute") and \
+                    not _CONTINUE.fullmatch(text.strip()):
+                self._pending_task = None   # a new command, not "continue"
+            now = time.time()
+            pending_kinds = []
+            if self._pending_task and now - self._pending_task["t"] < 90:
+                pending_kinds.append("pending_task")
+            if self._slot and self._slot.get("missing") and \
+                    self._arg_spec(
+                        self._slot["skill"],
+                        self._slot["missing"][0]).get("type") != "string":
+                pending_kinds.append("slot")
+            if self._comms and self._comms.get("kind") != "body":
+                pending_kinds.append("comms")
+            if pending_kinds and (why := await self._new_command(text, ctx)):
+                goal = self._pending_task.get("goal") \
+                    if self._pending_task and \
+                    now - self._pending_task["t"] < 90 else None
+                trace["decisions"].append({
+                    "pending_superseded": {
+                        "kinds": pending_kinds, "by": why, "goal": goal}})
+                self._pending_task = self._slot = self._comms = None
+                self._answer_history = []
             if self._comms:
                 outcome = await comms.answer(self, text)
                 handled_pending = True
@@ -633,19 +747,6 @@ class Orchestrator:
                 from .tools import draft_email
                 outcome = await draft_email.send_draft(self)
                 handled_pending = True
-            if self._slot and \
-                    time.time() - self._slot["t"] >= slots.SLOT_TTL_S:
-                self._slot = None
-            if self._pending_task and self._pending_task.get("reroute") and \
-                    not _CONTINUE.fullmatch(text.strip()):
-                self._pending_task = None   # a new command, not "continue"
-            if self._pending_task and \
-                    time.time() - self._pending_task["t"] < 90 and \
-                    self._new_command_during_ask(text):
-                trace["decisions"].append({
-                    "pending_ask_cancelled": self._pending_task["goal"]})
-                self._pending_task = None
-                self._answer_history = []
             if handled_pending:
                 pass
             elif self._slot:
