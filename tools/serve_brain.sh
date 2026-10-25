@@ -82,6 +82,9 @@ args=(--port "${PORT:-8765}" --model "$ROUTER" --tau "$TAU" --args-model "$ARGS_
       --verify-done "${VERIFY_DONE:-on}"
       --fallback-planner "$fallback_planner"
       --planner-context "$planner_context")
+# grounder: the local MLX copy (never a multi-GB lazy download mid-request); GROUNDER=name[=path]|none overrides
+if [ -n "${GROUNDER:-}" ]; then args+=(--grounder-model "$GROUNDER")
+elif [ -f models/grounding/eyes-4b-mlx/config.json ]; then args+=(--grounder-model eyes-4b=models/grounding/eyes-4b-mlx); fi
 if [ "${ESCALATE:-0}" = "1" ]; then args+=(--planner-escalate-model mlx-community/Qwen3.6-35B-A3B-4bit); fi
 if [ "${MEMORY:-1}" = "0" ]; then args+=(--no-memory); fi
 if [ "${MEMORY_LLM:-0}" = "0" ]; then args+=(--no-memory-llm); fi
