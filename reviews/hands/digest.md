@@ -1,8 +1,9 @@
-# hands — digest (Pass 64)
+# hands — digest (Pass 65)
 
-Open: 0 P0, 3 P1, 8 P2.
+Open: 0 P0, 4 P1, 8 P2.
 
 Ranked open P0/P1:
+0. P1 hands-34 (cloud/fix-same-tab 065e65f, Launch.swift:224-245): same-tab open_url/web_search posts cmd+L, waits a fixed 80 ms, then types the URL plus Return without checking the address bar has focus. It can type into, or submit, a page field. Fix before merge.
 1. P1 hands-28 (main fa0f040, Skills.swift:884): if Clock never confirms the timer started, it's still reported as set. No alarm fires, and a test (ClockAXTests:272) locks this behaviour in.
 2. P1 hands-29 (main, ClockAX.swift:319/425/554): Clock start and cancel bring Clock to the front and never switch back. Since #70 there is no setting to turn Clock timers off.
 3. P1 hands-26 (main, orchestrator.py:2556): the brain removes `expect` from `act`, so the app's built-in polling never runs. verify then checks only once.
@@ -13,6 +14,10 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` (one line), then drop the extra verify RPC when expect_ok is present.
 4. hands-27: build headless hello frames with ScreenGeometry.cgBounds (top-left).
 5. hands-31: close Premiere's Window menu (Esc / AXCancel) when the Timeline step fails, and poll before sending the shortcut.
+
+Pass 65:
+- New P1 hands-34 on cloud/fix-same-tab: blind address-bar typing. The brain makes same_tab the default whenever a browser is frontmost.
+- cloud/fallback 2ef5805 and cloud/test-strategy 96c96d2 have no app/ changes. main and wip/local unchanged.
 
 Pass 64:
 - main 4150ecb only adds briefs (no app/ change); wip/local catches up to #70.
