@@ -1,3 +1,18 @@
+# Brain lane review: pass 87 (2026-10-25T10:12Z)
+
+Open: P0 0, P1 16, P2 29. No new findings.
+
+## Branches
+- main b92677f: c37f6ee keeps the MLX worker alive when a queued request is cancelled (set_running_or_notify_cancel + done() guards); generic_decide initialises temperature attrs. Verified with stub: worker survives queued and running cancellation. No findings. README outside lane.
+- wip/local f1e504c: snapshot on main; lane identical.
+- cloud/cool-tasks 3937e6b: unchanged.
+
+## Rechecked
+All open findings unchanged; review repro failure set identical to pass 86.
+
+## Tests
+main 18 MLX-only suite failures, 2527 passed. Review repros: main 72 / 53.
+
 # Brain lane review: pass 86 (2026-10-25T10:10Z)
 
 Open: P0 0, P1 16, P2 29. New: brain-74 (P2).
