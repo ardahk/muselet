@@ -520,25 +520,33 @@ extension Skills {
             }
             guard ui.tabSelected else { return "timers_tab_failed" }
         }
-        let candidates = ui.running.filter { $0.cancelButton != nil }
+        // a live countdown row has a pause/resume button; the picker's
+        // remembered value (Start + Cancel, no pause) is not one.
+        let live = ui.running.filter { $0.pauseButton != nil }
         let selected: ClockAX.Running?
         if let label = info.label, !label.isEmpty,
-           let same = candidates.first(where: { $0.label?.caseInsensitiveCompare(label) == .orderedSame }) {
+           let same = live.first(where: { $0.label?.caseInsensitiveCompare(label) == .orderedSame }) {
             selected = same
         } else {
             let target = info.firesAt.timeIntervalSince(now)
-            selected = candidates.min { abs($0.leftS - target) < abs($1.leftS - target) }
+            selected = live.min { abs($0.leftS - target) < abs($1.leftS - target) }
                 .flatMap { abs($0.leftS - target) <= ClockAX.matchTolerance ? $0 : nil }
+                ?? live.first
         }
-        guard let selected, let cancel = selected.cancelButton,
+        // the running timer's Cancel lives in the detail pane (ui.cancel),
+        // not inside the row group.
+        let cancelIndex = selected?.cancelButton ?? ui.cancel
+        guard let selected, let cancel = cancelIndex,
               nodes.indices.contains(cancel) else { return "clock_timer_not_found" }
-        let beforeCount = ui.running.count
+        _ = nodes[selected.node].el.performAction(kAXPressAction as String)
+        usleep(80_000)
+        let beforeCount = live.count
         guard nodes[cancel].el.performAction(kAXPressAction as String) else { return "clock_cancel_unverified" }
         let end = Date().addingTimeInterval(clockAXSettle)
         while Date() < end {
             Hands.pollWait(clockAXPoll)
             let after = ClockAX.parse(ClockAX.collect(window).nodes)
-            if after.running.count < beforeCount { return nil }
+            if after.running.filter({ $0.pauseButton != nil }).count < beforeCount { return nil }
         }
         return "clock_cancel_unverified"
     }

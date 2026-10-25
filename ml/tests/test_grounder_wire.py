@@ -211,7 +211,7 @@ class FixedGateGrounder:
         return {"x": 0.0, "y": 0.0, "conf": 0.99, "ms": 0.1}
 
 
-def _safety_gate_orch(tmp_path, *, app="Finder", window="Window",
+def _safety_gate_orch(tmp_path, *, app="TextEdit", window="Window",
                       elements=None, ocr_text="Cancel", ocr_error=None):
     server = SafetyGateServer(
         tmp_path, ocr_text=ocr_text, ocr_error=ocr_error)
@@ -380,7 +380,7 @@ def test_brain27_unlabeled_composer_click_requires_confirm(
     assert server.acts() == []
 
 
-@pytest.mark.parametrize("app", ["Finder", "Notes"])
+@pytest.mark.parametrize("app", ["TextEdit", "Preview"])
 @pytest.mark.parametrize("ocr_text", ["", "   ", "Cancel"])
 def test_brain27_non_composer_icon_click_does_not_confirm(tmp_path, app, ocr_text):
     orch, server = _safety_gate_orch(

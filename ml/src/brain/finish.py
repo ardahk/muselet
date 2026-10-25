@@ -29,11 +29,21 @@ def _subject(goal: str, end: int) -> str:
     return rest or goal.strip()
 
 
+_TIMER = re.compile(r"\b(?:timer|countdown)\b", re.IGNORECASE)
+
+
 def finish_when(goal: str) -> str | None:
     """The observable end state for a goal, or None for generic tasks."""
     g = goal.strip()
     if not g:
         return None
+    if _TIMER.search(g):
+        if re.search(r"\bpause\b", g, re.IGNORECASE):
+            return "the Clock timer shows Resume (countdown stopped)"
+        if re.search(r"\b(?:resume|unpause|continue)\b", g, re.IGNORECASE):
+            return "the Clock timer shows Pause (counting down)"
+        if re.search(r"\b(?:cancel|stop|kill|delete)\b", g, re.IGNORECASE):
+            return "the timer is gone from Clock's Timers list"
     if _CART.search(g):
         m = re.search(r"\b(?:add|put)\b", g)
         x = _subject(g, m.end()) if m else g

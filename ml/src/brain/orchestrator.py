@@ -133,6 +133,19 @@ _SCREEN_REF = re.compile(
 # credentials, missing required facts, irreversible choices.
 _PREF_VAGUE = re.compile(
     r"\b(?:some|any|anything|a few|something|whatever|whichever)\b", re.I)
+# apps holding user libraries/data: grounded clicks are refused unless the
+# OCR hit contains the goal subject and no destructive word
+_NO_BLIND_CLICK_APPS = frozenset(normalize_name(a) for a in (
+    "Spotify", "Music", "Photos", "Mail", "Messages", "Finder",
+    "System Settings", "Notes", "Calendar", "Reminders", "Contacts"))
+_DESTRUCTIVE_WORDS = re.compile(
+    r"\b(?:remove|delete|unfollow|unsave|library|trash|discard)\b", re.I)
+_TIMER_VERB = re.compile(
+    r"\b(pause|resume|stop|cancel|kill|unpause)\b", re.I)
+_BARE_PRONOUN = re.compile(r"\b(it|that|this)\b", re.I)
+_CLICK_GOAL_SKIP = re.compile(
+    r"^(?:play|open|add|put|search|find|go|to|the|a|an|some|on|in|my|me|"
+    r"it|this|that|for|of|please|set|start|listen|watch|get|into)$")
 # screen text from these apps is agent/developer chatter, not task context
 _CHAT_IDE = frozenset(normalize_name(a) for a in (
     "Devin", "Terminal", "iTerm2", "Warp", "Ghostty", "Visual Studio Code",
@@ -566,9 +579,8 @@ CANVAS_APPS = ("Adobe Premiere Pro", "Final Cut Pro", "Figma", "Blender",
                "Chess", "Minecraft", "Steam", "Roblox", "League of Legends",
                "Hearthstone", "World of Warcraft", "Factorio", "Stardew Valley")
 BLIND_HINT = ('Accessibility tree is empty here: act by description, e.g. '
-              'click "search field", click "green Play button of the top '
-              'result"; after clicking a text field, skill type_text '
-              'text="..."')
+              'click "search field", click "Play button of the top result"; '
+              'after clicking a text field, skill type_text text="..."')
 DEFAULT_GROUNDER = {"model": "eyes-4b", "repo": None, "max_pixels": 1_000_000,
                     "zoom_frac": 0.4}
 
@@ -1427,10 +1439,40 @@ class Orchestrator:
             self._ctx["last_action"] = label
         return out
 
+    def _timer_control_intent(self, text: str) -> str | None:
+        """'pause the timer' / 'resume it' (Clock frontmost or a timer was
+        just started) -> timer_control action, else None."""
+        g = _norm(text)
+        m = _TIMER_VERB.search(g)
+        if not m:
+            return None
+        action = {"stop": "cancel", "kill": "cancel",
+                  "unpause": "resume"}.get(m.group(1), m.group(1))
+        if "timer" in g:
+            return action
+        # bare "pause it" only in a live timer context
+        if _BARE_PRONOUN.search(g):
+            clock_front = "clock" in normalize_name(
+                str(self._ctx.get("app") or ""))
+            recent = bool(getattr(self, "_last_timer_at", 0) and
+                          time.time() - self._last_timer_at < 600)
+            if clock_front or recent:
+                return action
+        return None
+
     async def _engine_route(self, text: str, trace: dict, pre=None) -> str:
         from .planner import worker
         from . import comms
         messaging = comms.is_messaging(text)
+        # timer controls beat media_control: "pause it" right after
+        # start_timer (or with Clock frontmost) means the timer.
+        tctl = self._timer_control_intent(text)
+        if tctl is not None:
+            trace["decisions"].append({"timer_control": tctl})
+            return await self._planner_loop(
+                text, trace,
+                hint="the timer is in the Clock app's Timers tab; "
+                     "use its Pause/Resume/Cancel buttons")
         if pre is None:
             from .tools import premiere_edit
             pargs = premiere_edit.parse_request(text, self._ctx)
@@ -1729,6 +1771,8 @@ class Orchestrator:
             self._ctx["last_action"] = f"{label} {parts}".strip()
             if self.engine is not None:
                 self.engine.last_action = self._ctx["last_action"]
+            if label == "start_timer":
+                self._last_timer_at = time.time()
         return out
 
     async def _app_names(self) -> list[str]:
@@ -2984,6 +3028,32 @@ function run() {
         r["_log"] = f"{dsl_line}-> {'ok' if r['status']=='ok' else 'failed: ' + r.get('error','?')}"
         return r
 
+    def _schedule_warm_grounder(self) -> None:
+        """Pre-load grounder weights in a daemon thread (never on the
+        planner worker) when the model files are local. A click arriving
+        mid-load waits up to 10 s then fails `grounder_loading`."""
+        self._grounder_ready = threading.Event()
+        cfg = getattr(self, "grounder_cfg", None) or {}
+        path = cfg.get("repo") or cfg.get("model")
+        if not cfg or not (path and Path(str(path)).exists()):
+            self._grounder_ready.set()
+            return
+        self._grounder_loading = True
+
+        def warm():
+            try:
+                g = self._get_grounder()
+                g.backend.load()
+                log.info("grounder prewarmed: %s", path)
+            except Exception as e:  # noqa: BLE001
+                log.warning("grounder prewarm failed: %r", e)
+            finally:
+                self._grounder_loading = False
+                self._grounder_ready.set()
+
+        threading.Thread(target=warm, daemon=True,
+                         name="grounder-prewarm").start()
+
     def _get_grounder(self):
         """Grounder built on first use; its weights load lazily on the MLX
         worker at the first locate (no RAM until a `click "<target>"`)."""
@@ -3016,6 +3086,11 @@ function run() {
             yes = await self.server.ask_confirm(_cap12(f'Click "{target}"?'))
             if not yes:
                 return {"status": "cancelled", "_log": f"{dsl_line}-> cancelled"}
+        if getattr(self, "_grounder_loading", False):
+            ready = await asyncio.to_thread(
+                self._grounder_ready.wait, 10.0)
+            if not ready:
+                return failed("grounder_loading")
         g = self._get_grounder()
         mp = self.grounder_cfg["max_pixels"]
         t = time.perf_counter()
@@ -3060,6 +3135,23 @@ function run() {
             return failed(f'target not found: "{target}"')
         gx, gy = to_global(pt, shot)
         gate_info = await self._grounded_click_gate(gx, gy, shot, target)
+        blk_app = normalize_name(str((self._last_obs or {}).get("app")
+                                     or self._ctx.get("app") or ""))
+        if blk_app in _NO_BLIND_CLICK_APPS:
+            hit = str(gate_info.get("hit") or "").lower()
+            tgt = self._goal_named_target(
+                self._current_goal or self._utterance or "")
+            tgt_words = set(normalize_name(tgt or "").split())
+            subject = {w for w in re.findall(r"[a-z']+",
+                       (self._current_goal or self._utterance or "").lower())
+                       if not _CLICK_GOAL_SKIP.match(w) and len(w) > 1
+                       and w not in tgt_words}
+            if not (subject and subject <= set(hit.split())
+                    and not _DESTRUCTIVE_WORDS.search(hit)):
+                why = f"blind_click_blocked: {blk_app}"
+                log.warning("%s (hit=%r)", why, gate_info.get("hit"))
+                return {"status": "failed", "error": why, "_no_strike": True,
+                        "_log": f"{dsl_line}-> failed: {why}"}
         if self.tracer.current is not None:
             decision = {
                 "grounded_click_gate": gate_info["gate"],
@@ -3407,23 +3499,37 @@ function run() {
             return True
         if normalize_name(app) in _CHAT_IDE:
             return False
-        target = None
-        site = match_name(goal)
-        if site:
-            target = site[0]
-        else:
-            try:
-                from .app_hints import match_hints
-                for hint in match_hints(goal):
-                    if not hint.generic:
-                        target = hint.id
-                        break
-            except Exception:  # noqa: BLE001 - hints optional
-                pass
+        target = self._goal_named_target(goal)
         if not target:
             return True
         front = normalize_name(app)
         return front and front in normalize_name(target)
+
+    @staticmethod
+    def _goal_named_target(goal: str) -> str | None:
+        """The app/site the goal names (site match, then app hints)."""
+        site = match_name(goal)
+        if site:
+            return site[0]
+        try:
+            from .app_hints import match_hints
+            for hint in match_hints(goal):
+                if not hint.generic:
+                    return hint.id
+        except Exception:  # noqa: BLE001 - hints optional
+            pass
+        return None
+
+    def _blind_is_target(self, goal: str, obs: dict | None) -> bool:
+        """A blind observation only counts when it is (or could be) the
+        goal's target app — a chrome-only tree in an unrelated frontmost
+        app (Devin chat at request time) must not start the
+        screenshot/grounder path."""
+        target = self._goal_named_target(goal)
+        if not target:
+            return True
+        app = normalize_name(str((obs or {}).get("app") or ""))
+        return bool(app and app in normalize_name(target))
 
     async def _planner_context_block(self, obs, goal: str = "") -> tuple[str, bool]:
         context = []
@@ -3566,7 +3672,15 @@ function run() {
             q: asyncio.Queue = asyncio.Queue()
             cancel = threading.Event()
             loop = asyncio.get_running_loop()
-            if observation_blind(self._last_obs):
+            blind_obs = observation_blind(self._last_obs)
+            untargeted = blind_obs and not self._blind_is_target(
+                goal, self._last_obs)
+            if untargeted:
+                trace["decisions"].append(
+                    {"blind_untargeted": self._last_obs.get("app"),
+                     "turn": turn})
+                blind_obs = False
+            if blind_obs:
                 blind_task = True
             if blind_task and getattr(self, "planner_blind", None) \
                     is not None and planner is not self.planner_blind:
@@ -3575,8 +3689,11 @@ function run() {
                 trace["decisions"].append(
                     {"planner.model": "base", "turn": turn})
             plan_obs = obs_text
-            if observation_blind(self._last_obs):
-                plan_obs = f"{obs_text}\n{BLIND_HINT}"
+            if untargeted:
+                plan_obs += ('\n(observed app is not the goal\'s target; '
+                             'open the target first)')
+            if blind_obs:
+                plan_obs = f"{plan_obs}\n{BLIND_HINT}"
                 trace["decisions"].append({"blind_observation": turn})
             if self._finish_when is None:
                 from .finish import finish_when
@@ -3904,8 +4021,10 @@ function run() {
                 last_exp_ok = False
                 last_exp_source = None
                 # loop guard: same action failing twice in a row, or three
-                # failed turns -> ask the user instead of burning turns
-                fail_streak += 1
+                # failed turns -> ask the user instead of burning turns;
+                # a blind_click_blocked refusal is recoverable, not a strike
+                if not failure_detail.startswith("blind_click_blocked"):
+                    fail_streak += 1
                 same = fail_key is not None and fail_key == prev_fail_key
                 recovery_reason = (
                     "no_action" if not n_actions else
