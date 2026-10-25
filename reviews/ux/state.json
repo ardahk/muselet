@@ -1,9 +1,9 @@
 {
-  "pass": 77,
-  "ts": "2026-10-25T07:33:00Z",
+  "pass": 78,
+  "ts": "2026-10-25T07:49:00Z",
   "last_reviewed": {
-    "main": "cf33215",
-    "wip/local": "11da94c",
+    "main": "cef8797",
+    "wip/local": "c86fec4",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -92,7 +92,8 @@
     "cloud/agentic-apps": "1904638",
     "cloud/agentic-evidence": "1918cad",
     "cloud/app-knowhow": "c69dfec",
-    "cloud/browser-flow": "485763f"
+    "cloud/browser-flow": "485763f",
+    "cloud/docs-final": "bf9118d"
   },
-  "notes": "pass 77: main cf33215 merged agentic-evidence, app-knowhow and browser-flow (reviewed in pass 76), plus HandsKit derived labels and slider value typing (hands lane). The only new copy is 'Message is ready; press Send when you want' (good). wip equals main for lane files. ux-29 and ux-31 are unchanged. No new findings."
+  "notes": "pass 78: main cef8797 forces agentic app tasks onto the 35B blind planner; ux-31 raised to P1 (demo beats 3-4 speed). New ux-32: the docs-final demo script still claims 4B LoRA ~0.3 s/step for app tasks."
 }
