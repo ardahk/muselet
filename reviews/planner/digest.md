@@ -1,12 +1,11 @@
-# Planner review digest — pass 72 (2026-10-25T05:46Z)
+# Planner review digest — pass 73 (2026-10-25T06:00Z)
 
-Moved: main e425cad→e8023b8 (blind planner 30122c0/c711320/c405103, blind typing keystroke fallback, blindTree size fix), wip 20055d1 (= main@8b15e29), new cloud/agentic-loop 9b2e512.
-- planner-49 RESOLVED on main c405103 (done is alone after the player-state result).
-- planner-48 (P1) now on main: page tasks/open-ended redirects still force base+qwen think 512, batch cap 2.
-- agentic-loop: finish-criterion done gate (play: Pause button or script 'playing'; search: subject words in title/URL; cart: confirmation text incl. OCR; directions), 0.25 s/5 s expect re-poll while a browser page loads, workflow hygiene. Good direction. planner-45 is mostly fixed there, but 'skill' evidence still counts as evidenced.
-- planner-40 / 42 / 46 / 47 unchanged on main.
+Moved: main e8023b8→fe2de69 (serve_brain uses the local eyes-4b MLX grounder; no lazy multi-GB download mid-request: good), wip 422399a (snapshot on local main@b43270d).
+- planner-50 (P1, new, wip): the Spotify flow is now url spotify:search + bare AppleScript `play`, which resumes the previous context. The play finish check accepts any 'playing', so 'play some jazz' can be done on the wrong track.
+- wip otherwise OK: the blind-click gate refuses grounded clicks in library apps (Spotify/Music/Photos/Mail/Finder...) unless the OCR hit has the goal subject and no destructive word, and doesn't count as a strike. _blind_is_target ignores an unrelated blind frontmost app. Timer pause/resume/cancel go to the planner with a Clock hint (finish_when timers). The grounder prewarms off-thread with a 10 s wait.
+- planner-48 (P1) unchanged on main; planner-40/45/46/47 unchanged.
 
-New: 0. Resolved: 1. Open: 0 P0, 10 P1, 9 P2.
+New: 1 P1. Resolved: 0. Open: 0 P0, 11 P1, 9 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
