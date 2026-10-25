@@ -10,7 +10,7 @@ Top: planner-45 (false-success memory persistence), planner-40 (skill ok = DONE 
 Lead decision: greedy think sampler; persist memory/workflows only after verified DONE.
 
 ---
-# planner lane — pass 56 (main 9be963d, wip 4d22445)
+## Open findings (unchanged from pass 56)
 
 Open P0: none.
 
