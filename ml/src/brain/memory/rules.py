@@ -781,6 +781,8 @@ def _refinement(text: str, turn):
             "loud": "down", "quiet": "up",
         }[too.group(1)]
         up, down = direction == "up", direction == "down"
+    big = bool(re.search(r"\b(?:way|a\s+lot|lots|much|tons?)\b", normalized))
+    step, amount = (30, "a lot") if big else (10, "a bit")
     if skill in {"change_volume", "set_volume"}:
         last_delta = turn.args.get("delta")
         sign = -1 if down else 1
@@ -790,15 +792,15 @@ def _refinement(text: str, turn):
             except (TypeError, ValueError):
                 pass
         direction = "down" if sign < 0 else "up"
-        direct = {"skill": "change_volume", "args": {"delta": 10 * sign}}
-        return _resolution(text, f"turn the volume {direction} a bit",
+        direct = {"skill": "change_volume", "args": {"delta": step * sign}}
+        return _resolution(text, f"turn the volume {direction} {amount}",
                            "refinement", direct=direct)
     if skill == "set_brightness":
         sign = -1 if down else 1
         direction = "down" if sign < 0 else "up"
         return _resolution(
-            text, f"turn brightness {direction} a bit", "refinement",
-            direct={"skill": "set_brightness", "args": {"delta": 10 * sign}})
+            text, f"turn brightness {direction} {amount}", "refinement",
+            direct={"skill": "set_brightness", "args": {"delta": step * sign}})
     return None
 
 

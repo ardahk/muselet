@@ -81,9 +81,9 @@ _REFINEMENT = re.compile(
     r"crank\s+it\s+(?:all\s+the\s+way\s+)?up|"
     r"(?:(?:and|now|ok(?:ay)?)\s+)?"
     r"(?:(?:make\s+it|turn\s+it|go|a\s+(?:little\s+|tiny\s+)?bit|"
-    r"slightly|even|much|way)\s+)*"
+    r"slightly|even|much|way|a\s+lot)\s+)*"
     r"(?:louder|quieter|softer|brighter|dimmer|darker|higher|lower|more|"
-    r"less|up|down)(?:\s+(?:a\s+(?:little\s+|tiny\s+)?bit|please|still|"
+    r"less|up|down)(?:\s+(?:a\s+(?:little\s+|tiny\s+)?bit|a\s+lot|please|still|"
     r"again|more|less))*)[.!]?$",
     re.IGNORECASE)
 _SEARCH_REFINEMENT = re.compile(
@@ -149,6 +149,20 @@ _SITE_NAMES = re.compile(
     re.IGNORECASE)
 _WEB_SEARCH = re.compile(
     r"\bsearch(?:\s+for)?\s+(?:the\s+)?(?:web|internet)\s+for\b",
+    re.IGNORECASE)
+_SELF_CONTAINED_RELATIVE = re.compile(
+    r"\b(?:louder|quieter|softer|brighter|dimmer|darker|volume|brightness)\b",
+    re.IGNORECASE)
+_EXPLICIT_TARGET = re.compile(
+    r"\b(?:in|on|with|using|via|from)\s+(?:the\s+)?(?:safari|(?:google\s+)?chrome|"
+    r"zen|firefox|arc|edge|brave|opera|browser|google|youtube|bing|"
+    r"duckduckgo|a\s+new\s+tab|new\s+tab)\b|"
+    r"\b[a-z0-9-]+\.(?:com|org|net|io|dev|edu|gov|co|tv|ai|app|me|uk)\b",
+    re.IGNORECASE)
+_QUESTION = re.compile(
+    r"^(?:(?:search(?:\s+for)?|look\s+(?:up|for)|find(?:\s+out)?|try|"
+    r"tell\s+me|check)\s+)?(?:when|what|who|whom|whose|where|why|how|which|"
+    r"is|are|was|were|does|do|did|can|could|should|will|would)\b",
     re.IGNORECASE)
 _REFINEMENT_SKILLS = {
     "change_volume", "set_volume", "set_brightness", "window_layout",
@@ -274,6 +288,8 @@ def detect(text: str, wm, ctx: dict | None, now: float,
         site = focus.get("site") or site_for_url(
             str((ctx or {}).get("url") or ""))
         if not _WEB_SEARCH.search(text) and \
+                not _EXPLICIT_TARGET.search(text) and \
+                not _QUESTION.search(text) and \
                 not _names_other_site(text, site):
             return "site_search"
     if turn is None:
@@ -293,7 +309,8 @@ def detect(text: str, wm, ctx: dict | None, now: float,
     if _REFINEMENT.fullmatch(text) or re.search(
             r"\bcrank\s+it\s+(?:all\s+the\s+way\s+)?up\b", text,
             re.IGNORECASE):
-        if turn.skill in _REFINEMENT_SKILLS:
+        if turn.skill in _REFINEMENT_SKILLS and \
+                not _SELF_CONTAINED_RELATIVE.search(text):
             return "refinement"
         if _NATIVE_IDIOM.search(text):
             return None
