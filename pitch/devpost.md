@@ -13,8 +13,8 @@ wanted an agent that **actually does the work**, **as fast as a keyboard shortcu
 ## What it does
 Hold Right Option and talk. A small mascot answers in a speech bubble, a ghost cursor flies to each target before
 it acts, and the Mac does the thing.
-- **Instant commands** ("volume 30", "dark mode", "turn off Wi-Fi"): one on-device forward pass picks the skill (52 ms p50
-  on our earlier r2 router); first action p50 193 ms in our live suite.
+- **Instant commands** ("volume 30", "dark mode", "turn off Wi-Fi"): one on-device forward pass picks the skill (60 ms p50
+  for our serving router); first action p50 193 ms in our live suite.
 - **Anything else** ("open Safari, search flights to Tokyo"): a local planner reads the macOS accessibility tree,
   streams small action batches, and starts acting before it finishes thinking. For chained tasks we choose
   intelligence over latency: a step may take a few seconds (ship gate: per-step p50 <= 3 s) if that raises the pass rate. Steps carry `expect` checks against
@@ -38,11 +38,12 @@ it acts, and the Mac does the thing.
   mascot + ghost-cursor overlay. **HandsKit** executes: native skill > AX action > keys > pixel click, with a fused
   act-and-observe RPC and `expect` predicates.
 - **Brain (Python, MLX)**: loopback WebSocket to the app. **Router**: Qwen3.5-4B with a LoRA we trained on Tinker
-  (about 38k route + 25k argument examples for iteration 2, soft labels from Qwen3.6-35B-A3B; about $136 of Tinker
-  compute in total across all training). The option list lives
+  (about 38k route + 25k argument examples for iteration 2, soft labels from Qwen3.6-35B-A3B; all training under the $150 Tinker cap,
+  TBD(console total)). The option list lives
   in a cached static prefix, so each request costs only its own tokens; we read the answer distribution after a
-  `choice#` prefill from one forward pass. **Planner** (local Qwen3.5-4B, greedy): AX text in, a 5-action DSL out, plus one BM25-retrieved solved example,
-  which lifted held-out pass rates from .643 / .667 / .400 to .714 / .750 / .462 for about 70 ms more TTFT.
+  `choice#` prefill from one forward pass. **Planner** (local Qwen3.5-4B, greedy): AX text in, a 5-action DSL out, plus one BM25-retrieved solved example, and a
+  512-token thinking budget: held-out pass rates went from .643 / .667 / .400 (neither) to .786 / .917 / .608, at
+  2.6 s per step p50.
 - **Brain tools**: whole workflows (`finance_review`, `advisor_prep`) are catalog skills the router picks in one
   pass; stdlib `Decimal` engines compute, AppleScript writes to Numbers and Notes in one call each. Tests match
   fixture truth files to the cent.
@@ -59,8 +60,8 @@ it acts, and the Mac does the thing.
   screen is locked or a user document is open.
 
 ## Accomplishments that we're proud of
-- Our trained router picks the right action for .913 of 103 clean held-out requests, vs .767 for the same base
-  model untrained.
+- Our trained router (it3) picks the right action for .945 of route_v2 and .922 of 103 clean route_v1 requests
+  (base model untrained: .767 on route_v1), with calibrated confidence (ECE .018).
 - Live on the Mac, graded by final state: 19/22 single-command tasks and 1/5 multi-step tasks (27 of 43 cases
   ran), first action p50 193 ms. TBD(live suite re-run)
 - TBD(HobbyLM r4 replay)/125 on HobbyLM's sealed live set vs their published 90/125.

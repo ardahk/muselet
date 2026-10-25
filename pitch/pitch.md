@@ -35,11 +35,11 @@ those apps, no migration, nothing uploaded.
 ## Slide 4 — Why on-device
 1. **Privacy by construction:** the brain listens on 127.0.0.1 only; models load with `local_files_only=True`;
    client portfolios and bank statements never leave the laptop (`claims.md` §2).
-2. **Speed:** no network round trip; routing is one forward pass over a cached prefix (router p50 52 ms, r2,
-   `claims.md` §1a; it2 TBD(router latency on it2)).
+2. **Speed:** no network round trip; routing is one forward pass over a cached prefix (router p50 60.4 ms, it3,
+   `claims.md` §1a).
 3. **Works offline:** the demo turns Wi-Fi off before the finance beats.
-4. **Cost:** no per-request API bill; training cost us about $136 of Tinker compute in total (console, Sat 14:30
-   PDT; `claims.md` §1).
+4. **Cost:** no per-request API bill; all training stayed under the $150 Tinker cap (total TBD(console),
+   `claims.md` §1).
 
 ## Slide 5 — Comparison (same Mac where marked; "published" = their number, their harness)
 
@@ -57,12 +57,15 @@ Spoken rule: DeskMind leads on decision benchmarks today (say so if asked). Our 
 where the cell is filled and same-Mac.
 
 ## Slide 6 — Results we can show today (each from `claims.md`)
-- Router (it2, Tinker LoRA): route accuracy .913 on 103 clean held-out requests vs .767 for the base model.
-- Planner (4B + 1 retrieved example): holdout .714 (10/14), holdout2 .750 (9/12), v2-holdout .462 (60/130).
+- Router (it3, Tinker LoRA, serving): .945 on route_v2 vs .838 for it2; .922 on 103 clean route_v1 requests (it2 .942;
+  base .767 at its own older tau). Calibration ECE .018.
+- Planner (4B thinking + 1 retrieved example): held-out .786 / .917 / .608, up from .714 / .750 / .462 without
+  thinking; step p50 2.6 s.
+- Memory: follow-ups resolved .574 of the time with .0195 false rewrites (target .85 not met yet).
 - Live suite on the Mac, graded by final state: T1 19/22, T2 1/5 (morning run, 27 of 43 ran); first action p50
   193 ms.
 - Grounding, ScreenSpot-Pro 200-sample subset: 63.5% at 1 MP with two-stage zoom.
-- Pending, fill or drop: HobbyLM r4, DeskMind diag, router it3, decisions LoRA, memory eval.
+- Pending, fill or drop: HobbyLM r4, DeskMind diag, decisions LoRA, planner LoRA, live re-run.
 
 ## Slide 7 — Close
 "Hold a key, say it, it's done. On your Mac, with Wi-Fi off."
