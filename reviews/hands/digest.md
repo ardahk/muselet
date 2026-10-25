@@ -1,4 +1,4 @@
-# hands — digest (Pass 86)
+# hands — digest (Pass 87)
 
 Open: 0 P0, 7 P1, 16 P2.
 
@@ -15,6 +15,10 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 87 (no new findings):
+- main b92677f (#121) adds the MLX worker fix. It skips futures cancelled before they start with set_running_or_notify_cancel and guards set_result/set_exception with done(). That's correct; a running future can't be cancelled, so the guard is only defensive. generic_decide gets default temperatures. Plus the README. No app/ change.
+- wip/local matches main. hands-26/34/36/38/43/44/45/46 are unchanged.
 
 Pass 86:
 - New P2 hands-46: the destructive-refuse regex (93ca931) refuses 'format the entire column', 'remove all formatting', 'delete all empty rows', 'show all files' and the empty_trash phrasings before routing.
