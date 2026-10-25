@@ -1,4 +1,4 @@
-# hands — digest (Pass 74)
+# hands — digest (Pass 75)
 
 Open: 0 P0, 5 P1, 10 P2.
 
@@ -15,6 +15,10 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 75:
+- cloud/agentic-apps 1904638 merges main (timer_control removed upstream, finish evidence gate). Against main it differs in app/ only through skills/catalog.json (`kind` keys). Swift loads the catalog with JSONSerialization as [String: Any] (Skills.swift:49), so the extra key is ignored; confirmed. No RPC changes.
+- main, wip/local and the other cloud/* are unchanged. Open findings re-checked and unchanged.
 
 Pass 74:
 - main e2f7e5e merged agentic-loop (page-load re-poll, finish gate, Spotify: no pixel clicks), fix-thinking (grounder prewarm, blind_click_blocked, timer_control), premiere-route-fix, and a615f00, whose ClockAX change is identical to wip 422399a. So hands-38 (P1) is now on main.
