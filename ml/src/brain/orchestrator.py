@@ -1589,6 +1589,13 @@ class Orchestrator:
         from . import agentic
         from .finish import app_finish
 
+        if name == "create_reminder" and re.search(
+                r"\b(cart|basket|checkout|shop|buy|amazon|target|ebay|"
+                r"walmart|bestbuy|\.com)\b", str(text or ""), re.IGNORECASE):
+            # shopping goals can never be reminders
+            trace["decisions"].append(
+                {"agentic_override": "shopping_not_reminder"})
+            return await self._planner_loop(text, trace)
         args = {
             key: value for key, value in dict(args or {}).items()
             if key not in {"ms", "_raw", "missing", "confirmed"}
@@ -3720,6 +3727,16 @@ function run() {
                 if loading:
                     return {"status": "failed", "_loading": True, "res": res,
                             "error": f"[pending: page loading] {error}"}
+                # a task with a finish criterion doesn't need hard
+                # expects — evidence verification decides done, and a
+                # model-written predicate that can't match shouldn't
+                # abort the batch the action already ran in
+                if self._progress not in (None, "unset"):
+                    trace_d = self.tracer.current if self.tracer else None
+                    if trace_d is not None:
+                        trace_d.setdefault("decisions", []).append(
+                            {"expect_soft": str(exp)[:80]})
+                    return {"status": "ok", "res": res, "expect_soft": error}
                 return {"status": "failed", "error": error, "res": res}
         return {
             "status": "ok", "res": res, "expect_ok": bool(exp),
