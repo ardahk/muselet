@@ -1,6 +1,6 @@
-# training lane digest — pass 99 (main b00f679)
+# training lane digest — pass 100 (main b00f679)
 
-Open: 1 P0, 17 P1, 19 P2. No new findings; main unchanged, wip widens the Premiere canvas-app prefix only. Top: training-54, training-59, training-50.
+Open: 1 P0, 17 P1, 19 P2. No new findings; main unchanged, wip rewrites the Premiere hint (clean) and adds value rendering + a Shift+3 repeat block. Top: training-54, training-59, training-50.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
