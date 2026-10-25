@@ -1,4 +1,10 @@
-# hands — digest (pass 51)
+# hands — digest (pass 52)
+
+Pass 52:
+- main 8fb465c merged ui-polish (#49, reviewed in pass 45), architect-27 (#65), memory phase 1/2, and BrainClient's ignore of the `memory` frame. That is fine for headless mode.
+- hands-31 is now on main, unchanged.
+- cloud/hands-clock 6ab40be was rebased onto main plus a test-fixture tweak. hands-28 is still open (ClockAX.swift:409, the unverified finish(nil)), and so is hands-29 (:318 and :424, no restore of the previous frontmost app).
+- hands-26 is still open (orchestrator.py:2456).
 
 Pass 51: main 0b83c3b and wip/local e4f4331 have no app/ changes. brain-9 and decisions only merged main's Expect scoping, which I reviewed in pass 46. memory, memory-lt, planner-verify and safety-planner28 have no app/ changes. hands-26 is still open (orchestrator.py:2101) and so is hands-27 (BrainClient.swift:91).
 
@@ -33,7 +39,7 @@ Open P0/P1, ranked:
 - P1 hands-29: Clock AX start and cancel steal focus and never restore the prior app (cloud/hands-clock app/Sources/HandsKit/ClockAX.swift:316,421)
 - P1 hands-26: the brain strips `expect` from act, so HandsKit's expect polling never runs (ml/src/brain/orchestrator.py:1896; app/Sources/HandsKit/RPC.swift:173)
 
-Open P2: hands-31 (Premiere Timeline menu left open), hands-30 (Clock wheel stepping latency), hands-27, hands-25, hands-20, hands-16, hands-10.
+Open P2: hands-31 (Premiere Timeline menu left open; now on main), hands-30 (Clock wheel stepping latency), hands-27, hands-25, hands-20, hands-16, hands-10.
 
 Highest-leverage next moves:
 1. hands-28 before merging hands-clock: an unverified start must fall back, or keep a real Muselet alarm. Otherwise users get silent missed timers.
