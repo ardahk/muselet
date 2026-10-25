@@ -117,3 +117,37 @@ def evidence(kind: str, subject: str, obs: dict | None = None,
     if kind == "directions":
         return bool(_ROUTE.search(title) or _ROUTE.search(text))
     return True
+
+_LIVE_ROW = re.compile(r'button "(?:Resume|Pause)"', re.IGNORECASE)
+_CART_COUNT = re.compile(r"(\d+)\s+items?\s+in\s+cart", re.IGNORECASE)
+
+
+def _timer_evidence(goal: str, obs_text: str) -> bool:
+    """Clock Timers tab state proves the pause/resume/cancel happened."""
+    has_resume = bool(re.search(r'button "Resume"', obs_text))
+    has_pause = bool(re.search(r'button "Pause"', obs_text))
+    if re.search(r"\bpause\b", goal, re.IGNORECASE):
+        return has_resume
+    if re.search(r"\b(?:resume|unpause|continue)\b", goal, re.IGNORECASE):
+        return has_pause
+    if re.search(r"\b(?:cancel|stop|kill|delete)\b", goal, re.IGNORECASE):
+        return not (has_resume or has_pause)
+    return False
+
+
+def cart_count(obs_text: str) -> int | None:
+    m = _CART_COUNT.search(obs_text)
+    return int(m.group(1)) if m else None
+
+
+def evidence(goal: str, obs_text: str, baseline: int | None = None) -> bool:
+    """Programmatic done-check: goal reached per the post-action obs text."""
+    g = goal.lower()
+    if "timer" in g:
+        return _timer_evidence(goal, obs_text)
+    if "cart" in g or "basket" in g:
+        cur = cart_count(obs_text)
+        if cur is None:
+            return False
+        return cur > baseline if baseline is not None else cur >= 1
+    return False
