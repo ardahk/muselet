@@ -499,8 +499,12 @@ class BenchProxy:
     async def _handle_hands(self, hands: ServerConnection) -> None:
         async with self._connection_lock:
             if self._hands is not None:
-                await hands.close(1013, "benchmark proxy handles one HandsKit client at a time")
-                return
+                # A dead-but-unclosed client wedges the slot for every later
+                # case. Displace it: bounded-close the stale connection and
+                # take over instead of rejecting the new one.
+                await _close_bounded(self._hands)
+                self._hands = None
+                self._disconnected.set()
             self._hands = hands
             self._disconnected.clear()
             brain = None
