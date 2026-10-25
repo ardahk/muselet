@@ -384,6 +384,17 @@ extension Hands {
                     out["value_after"] = try typeIntoControl(rec, text: text)
                     break
                 }
+                // Adobe "hot text" number fields (Premiere's Speed/Duration)
+                // are AX buttons: click into edit mode, replace, key presses.
+                if rec.role == "button" && rec.label.contains("HotText") {
+                    Events.click(at: CGPoint(x: rec.frame.midX, y: rec.frame.midY))
+                    usleep(200_000)
+                    Combo.post(try Combo.parse("cmd+a"))
+                    (typeKeystrokesOverride ?? Events.typeKeystrokes)(text)
+                    if params["enter"] as? Bool == true { Events.key(36) }
+                    out["target"] = "hot_text"
+                    break
+                }
                 // Never type into nothing: a non-text ref (button, row, ...)
                 // is fine only if it or the focus it left accepts text
                 // (spreadsheet cell, web editable) or the app is a keystroke app.
