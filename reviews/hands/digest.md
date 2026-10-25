@@ -1,4 +1,4 @@
-# hands — digest (Pass 96)
+# hands — digest (Pass 97)
 
 Open: 0 P0, 7 P1, 21 P2.
 
@@ -15,6 +15,10 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 97 (wip/local aadf777 only; no new findings):
+- The CANVAS_APPS prefix is widened from "Adobe Premiere Pro" to "Adobe Premiere" (orchestrator.py:647), so app names like "Adobe Premiere 2026" or "Adobe Premiere Pro (Beta)" variants get the canvas/blind hint. It also covers Premiere Rush/Elements, which is harmless. A test is added in test_grounder_wire. Fine.
+- All open findings unchanged.
 
 Pass 96 (main b00f679 README only; wip/local 35aed2d uncommitted on 264cc82; no new findings):
 - AppResolver (Act.swift:913-965) now recursively enumerates /Applications, /System/Applications and ~/Applications. It skips package contents and hidden folders, so nested vendor bundles (Adobe Premiere Pro 2026/…app) resolve. The `apps` RPC uses the same walk. Exact names win over substrings across all roots, and substring matches are path-sorted within each root. Tests cover this (Swift, not compiled here).
