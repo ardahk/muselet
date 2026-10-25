@@ -1,3 +1,15 @@
+# Brain lane review: pass 96 (2026-10-25T13:25Z)
+
+Open: P0 0, P1 16, P2 34. No new findings.
+
+## Branches
+- main b00f679: README and architecture image only.
+- wip/local 35aed2d: open-app resolution accepts a unique versioned install (e.g. Premiere Pro -> Adobe Premiere Pro 2026); ambiguity still asks.
+- cloud/cool-tasks cfbec49: unchanged.
+
+## Tests
+main 19 failed (18 MLX + brain-79), 2532 passed. wip 106 failed (18 MLX + 88 brain-77), 2273 passed. Review repros 77 / 53 on both.
+
 # Brain lane review: pass 95 (2026-10-25T13:00Z)
 
 Open: P0 0, P1 16, P2 34. New: brain-79 (P2, main).
