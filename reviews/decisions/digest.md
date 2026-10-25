@@ -1,11 +1,12 @@
-# decisions — digest (pass 59)
+# decisions — digest (pass 60)
 
-Heads: main e425cad unmoved (decisions-37 P0 still live; decisions-40 redirect still ungated, 3/103 + 46/955), wip 323d274 (planner_blind base model, finish.py). Budget: about $142.06 MTD estimated.
+Heads: main e8023b8 (#87 blind planner, #88 blind typing; decisions-37 P0 still live; decisions-40 redirect still ungated and now forces the blind base planner), wip 20055d1 = main, cloud/agentic-loop 9b2e512 (new decisions-41). Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
 1. decisions-37 P0 LIVE on main: inline() lacks temperature attrs -> planner done-verifier always errors, verify silently off — ml/src/brain/generic_decide.py:177-190@e9fb42d
 2. decisions-40 P1 open_ended_redirect overrides correct routes (route_v1_clean 4/103, route_v2 64/955 with gold labels) LIVE on main (now 3/103, 46/955) — ml/src/brain/orchestrator.py:1502-1508@e425cad
+3. decisions-41 P1 (cloud/agentic-loop) finish-evidence 'search' done accepted from the planner's own URL (_last_ok_url) and a mis-cut subject; bypasses expect + model verify — ml/src/brain/finish.py:98-104@9b2e512
 3. decisions-38 P1 route claims fixed by #68 except claims.md:200 'default tau 0.55' — pitch/claims.md
 4. decisions-32 P1 Full run fails its gate; TD +.0065 vs DeskMind is within noise, test-selected — training/decisions/HANDOFF.md:7-8,82-89
 5. decisions-5 P1 4-bit MLX export has no logit parity check vs Tinker; Tinker numbers can't be carried over — training/decisions/export.py
@@ -17,7 +18,7 @@ Contamination re-check this pass: 2400 freshly generated code-family items vs Je
 
 ## Highest-leverage next moves
 - NOW: set temperature_probs/conf = 1.0 in GenericMLXDecider.inline() on main (decisions-37, P0); add a __new__-path unit test.
+- Before merging cloud/agentic-loop: drop _last_ok_url as search evidence and fix _subject site cuts (decisions-41).
 - Quote {{route_acc}} for it3 @ .50 (serving) and fix claims.md:13,163 / REPORT.md:12 (decisions-38).
 - Bench the mlx4 export on the Mac with the same runners before quoting any number (decisions-5).
 - results.md: full run is below DeskMind on JevBench and tied on TD on a different backend; label rows test-selected (decisions-32). Keep claims.md:85-86.
-- Any data-decisions v2 merge: gate gold-rank uniformity and noul balance per family in build.py (decisions-33, -17).
