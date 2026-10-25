@@ -7,7 +7,8 @@ import time
 from typing import Callable
 
 from .detect import detect, normalize_utterance
-from .guard import allowed
+from .guard import IRREVERSIBLE, allowed
+from .matching import distance_one
 from .policy import allowed_value
 from .rewrite import llm_rewrite
 from .rules import Resolution, apply
@@ -43,9 +44,14 @@ def resolve(text: str, wm: WorkingMemory, ctx: dict, now: float,
             return Resolution("rule", text, True, "longterm")
         return Resolution("none", source_text, False, None)
     result = apply(text, reason, wm, ctx, now, catalog)
-    if result is None and llm is not None:
-        result = llm_rewrite(text, wm, ctx, now, llm,
-                             memory=longterm)
+    if result is None or (result.path == "none" and not result.changed):
+        if reason == "site_search" or IRREVERSIBLE.search(text):
+            if memory_changed:
+                return Resolution("rule", text, True, "longterm")
+            return Resolution("none", source_text, False, "llm-gated")
+        if result is None and llm is not None:
+            result = llm_rewrite(text, wm, ctx, now, llm,
+                                 memory=longterm)
     if result is None:
         if memory_changed:
             return Resolution("rule", text, True, "longterm")
@@ -64,9 +70,9 @@ def resolve(text: str, wm: WorkingMemory, ctx: dict, now: float,
             return Resolution("none", source_text, False, "guard")
     result.reason = reason
     if memory_changed and not result.changed and result.path == "none":
-        result.text = text
-        result.changed = True
-        result.path = "rule"
+        return Resolution("rule", text, True, "longterm")
+    if result.reason not in {"llm-invalid", "llm-gated"}:
+        result.reason = reason
     if not result.changed and not memory_changed:
         result.text = source_text
     return result
@@ -92,23 +98,6 @@ def apply_longterm(text: str, rows: list[dict]) -> str:
             else:
                 found.append((token, start, end))
         return found
-
-    def distance_one(left: str, right: str) -> bool:
-        if left == right:
-            return True
-        if min(len(left), len(right)) < 5 or abs(len(left) - len(right)) > 1:
-            return False
-        if len(left) > len(right):
-            left, right = right, left
-        row = list(range(len(left) + 1))
-        for index, char in enumerate(right, 1):
-            next_row = [index]
-            for offset, other in enumerate(left, 1):
-                next_row.append(min(
-                    next_row[-1] + 1, row[offset] + 1,
-                    row[offset - 1] + (char != other)))
-            row = next_row
-        return row[-1] <= 1
 
     def matches(key: list[str], phrase: list[str]) -> bool:
         if key and phrase and key[-1] == phrase[-1] and \

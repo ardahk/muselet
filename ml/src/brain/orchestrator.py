@@ -822,20 +822,27 @@ class Orchestrator:
             return Resolution("none", text, False, None)
 
         reason = result.reason
-        if (reason and result.path == "none" and self.memory_llm and
+        if (reason and reason not in {"llm-gated", "llm-invalid"} and
+                result.path == "none" and self.memory_llm and
                 self.planner is not None):
             try:
-                from .memory.rewrite import STATIC, dynamic, llm_rewrite
+                from .memory.rewrite import (
+                    STATIC, dynamic, has_context, llm_rewrite,
+                )
                 from .planner import worker
-                prompt = STATIC + dynamic(
-                    text, self.memory, focus_ctx, now, rows)
-                output = await worker().submit_async(
-                    self.planner.complete, prompt, 40)
-                result = llm_rewrite(
-                    text, self.memory, focus_ctx, now,
-                    lambda _prompt, _tokens: output, 40, memory=rows)
-                if result.reason != "guard":
-                    result.reason = reason
+                context = dynamic(text, self.memory, focus_ctx, now, rows)
+                if not has_context(context):
+                    result = Resolution("none", text, False, "llm-gated")
+                else:
+                    prompt = STATIC + context
+                    output = await worker().submit_async(
+                        self.planner.complete, prompt, 40)
+                    result = llm_rewrite(
+                        text, self.memory, focus_ctx, now,
+                        lambda _prompt, _tokens: output, 40, memory=rows)
+                    if result.reason not in {
+                            "guard", "llm-invalid", "llm-gated"}:
+                        result.reason = reason
             except Exception:
                 log.exception("working-memory LLM fallback failed")
                 result = Resolution("none", text, False, reason)
