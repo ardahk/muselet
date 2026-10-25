@@ -250,3 +250,7 @@
 {"id": "evals-safety-56", "pass": 96, "ts": "2026-10-25T12:13:49Z", "status": "open", "update": true, "branch": "main", "sha": "2de65a9", "detail": "Unchanged on main 2de65a9 and wip/local 9015e83."}
 {"id": "evals-safety-57", "pass": 96, "ts": "2026-10-25T12:13:49Z", "status": "open", "update": true, "branch": "main", "sha": "2de65a9", "detail": "Unchanged on main 2de65a9 and wip/local 9015e83."}
 {"id": "evals-safety-58", "pass": 96, "ts": "2026-10-25T12:13:49Z", "status": "open", "update": true, "branch": "main", "sha": "2de65a9", "detail": "Unchanged on main 2de65a9 and wip/local 9015e83."}
+{"id": "evals-safety-56", "pass": 97, "ts": "2026-10-25T12:29:20Z", "status": "open", "update": true, "branch": "wip/local", "sha": "7b8f421", "detail": "Unchanged on main 2de65a9 and wip/local 7b8f421."}
+{"id": "evals-safety-57", "pass": 97, "ts": "2026-10-25T12:29:20Z", "status": "open", "update": true, "branch": "wip/local", "sha": "7b8f421", "detail": "Unchanged on main 2de65a9 and wip/local 7b8f421."}
+{"id": "evals-safety-58", "pass": 97, "ts": "2026-10-25T12:29:20Z", "status": "open", "update": true, "branch": "wip/local", "sha": "7b8f421", "detail": "Unchanged on main 2de65a9 and wip/local 7b8f421."}
+{"id": "evals-safety-59", "pass": 97, "ts": "2026-10-25T12:29:20Z", "status": "open", "update": true, "branch": "wip/local", "sha": "7b8f421", "detail": "Unchanged on main 2de65a9 and wip/local 7b8f421."}

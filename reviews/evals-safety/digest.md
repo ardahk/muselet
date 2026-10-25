@@ -1,4 +1,4 @@
-# evals-safety digest (pass 96, 2026-10-25T12:13:49Z)
+# evals-safety digest (pass 97, 2026-10-25T12:29:20Z)
 
 No new findings; -56 (P0), -57, -58, -59 open.
 

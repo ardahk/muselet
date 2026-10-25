@@ -1,9 +1,9 @@
 {
-  "pass": 96,
-  "ts": "2026-10-25T12:13:49Z",
+  "pass": 97,
+  "ts": "2026-10-25T12:29:20Z",
   "last_reviewed": {
     "main": "2de65a9",
-    "wip/local": "9015e83",
+    "wip/local": "7b8f421",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -100,5 +100,5 @@
     "cloud/ui-progress": "a66166b"
   },
   "next_id": 60,
-  "note": "pass 96: main 2de65a9 unchanged. wip/local 9015e83 (local main@2900d4b): removes app workflow recipes from planner_system.md (Numbers/Premiere/browser examples); untrusted-data rule 12 kept; -59 updated."
+  "note": "pass 97: main unchanged. wip/local 7b8f421 (local main@e781dc1): grounded click resolved to exact AX ref re-enters _exec_action as press (orchestrator.py:3351-3361), so _DANGEROUS_LABEL confirm at 3406 still applies; forced OCR context via fenced _planner_context_block when AX text <200 chars. No new finding."
 }
