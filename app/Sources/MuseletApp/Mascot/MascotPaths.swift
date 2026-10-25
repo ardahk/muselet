@@ -149,6 +149,9 @@ enum MascotPaths {
         static let swayPeriod: CFTimeInterval = 4
         static let swish: CGFloat = 0.24          // acting
         static let swishPeriod: CFTimeInterval = 0.9
+        /// Furthest x right of `base` the tail centre line reaches: the rest curve's
+        /// control hull swung by the biggest wag/flick (0.3 rad clockwise) is ~22.3 pt.
+        static let maxReachX: CGFloat = 23
     }
 
     // MARK: paths

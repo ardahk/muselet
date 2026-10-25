@@ -28,13 +28,21 @@ the timer wheels. The probe requires Accessibility permission.
   `duration_out_of_range`, `clock_launch_failed`, `clock_not_frontmost`, `clock_no_window`,
   `timers_tab_missing`, `timers_tab_failed`, `picker_missing`,
   `wheel_h|m|s_unreadable|stuck|mismatch`, `start_missing`, `start_disabled`,
-  `wheels_changed`, and `start_press_failed`. The Muselet fallback result carries the reason as
-  both `fallback_reason` and `clock_ax_reason`. The brain says only the normal timer reply.
-- AX success returns a `clock_ax` record with `verified` and optional `verify_signal`,
-  `wheel_method`, and `label_set`. A timeout after pressing Start remains a `clock_ax` result
-  with `verified:false` and **never falls back**; falling back could start a duplicate timer.
-  Every timer keeps a record in Muselet's registry (and the `hands probe timers` snapshot);
-  `clock_ax` timers ring in Clock, not in Muselet.
+  `wheels_changed`, and `start_press_failed`. After Start, an unverified result uses
+  `start_unverified`. The Muselet fallback result carries the reason as both `fallback_reason`
+  and `clock_ax_reason`.
+- A Clock start is verified only by `running_added` or `pause_cancel` from a sane Timers-tab AX
+  tree within 2 seconds. If the first verification window times out, Start is retried once only
+  when the Timers UI is present and clearly unchanged: Start is enabled, picker Cancel is disabled,
+  the running count is unchanged, and no new Pause appeared. If it remains unverified, Muselet
+  starts its own timer with `verified:false` and both `fallback_reason` and `clock_ax_reason` set to
+  `start_unverified`. The result includes `clock_ax_steps` with the AX progress and verification
+  trace. A Clock start that registers after the verification window could duplicate the Muselet
+  timer. Verified Clock starts return `backend:"clock_ax"` with `verified:true`, a
+  `verify_signal`, and `clock_ax_steps`; `clock_ax` timers ring in Clock, not Muselet.
+- Replies distinguish a verified Clock start (`Timer set in Clock for 10 minutes`) from a Muselet
+  fallback (`Timer set for 10 minutes in Muselet`); other timer results use `Timer set for 10 minutes`.
+- Every timer keeps a record in Muselet's registry (and the `hands probe timers` snapshot).
 - `timers {clock_status?}` returns `{timers, backend}` and keeps every record. AX observation is
   included as `clock_ax:{status,running}` when requested or when a `clock_ax` timer is recorded;
   a successful read matches records with `clock_seen` and `clock_left_s`. AX read statuses are

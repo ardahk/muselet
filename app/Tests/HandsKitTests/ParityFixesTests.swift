@@ -598,6 +598,7 @@ final class TruthfulLaunchTests: XCTestCase {
         s.axApp = { pid in TitledApp { title(pid) } }
         s.openAppTimeout = 0.3
         s.openTimeout = 0.4
+        s.sameTabKeyDelay = 0
         s.launchPollInterval = 0.01
         s.launchReactivateInterval = 0.05
         s.viewPollInterval = 0.01
@@ -787,6 +788,82 @@ final class TruthfulLaunchTests: XCTestCase {
         let res = r["result"] as? [String: Any]
         XCTAssertEqual(res?["query"] as? String, "AT&T c++ a=b")
         XCTAssertEqual(res?["window_title"] as? String, "AT&T c++ a=b - Google Search")
+    }
+
+    func testSameTabOpenURLNavigatesCurrentFrontmostBrowser() {
+        let apps = MockApps(frontmost: 700, running: [term, zen])
+        let launcher = MockLauncher()
+        launcher.defaults["https"] = zenTarget
+        let poster = MockPoster()
+        let url = "https://en.wikipedia.org/wiki/History"
+        let s = skills(apps, launcher, poster: poster) { pid in
+            guard pid == 700 else { return nil }
+            return poster.typed.isEmpty ? "Wikipedia" : "history - Search results - Wikipedia"
+        }
+        let r = s.execute(name: "open_url", args: ["url": url, "same_tab": true])
+
+        XCTAssertEqual(r["ok"] as? Bool, true, "\(r)")
+        let result = r["result"] as? [String: Any]
+        XCTAssertTrue(launcher.opened.isEmpty)
+        XCTAssertEqual(poster.typed, [url])
+        XCTAssertEqual(poster.posted, ["cmd+l", "forwarddelete", "return"])
+        XCTAssertEqual(result?["same_tab_used"] as? Bool, true)
+        XCTAssertEqual(result?["title_changed"] as? Bool, true)
+    }
+
+    func testSameTabOpenURLFallsBackWhenBrowserIsNotFrontmost() {
+        let apps = MockApps(frontmost: 1, running: [term, zen])
+        let launcher = MockLauncher()
+        launcher.defaults["https"] = zenTarget
+        launcher.openPid = 700
+        launcher.onOpen = { _, _ in apps.frontmost = 700 }
+        let s = skills(apps, launcher) { pid in pid == 700 ? "History" : nil }
+
+        let r = s.execute(name: "open_url", args: [
+            "url": "https://en.wikipedia.org/wiki/History", "same_tab": true])
+
+        XCTAssertEqual(r["ok"] as? Bool, true, "\(r)")
+        XCTAssertEqual(launcher.opened.count, 1)
+        XCTAssertEqual((r["result"] as? [String: Any])?["same_tab_used"] as? Bool, false)
+    }
+
+    func testSameTabOpenURLFallsBackToExplicitlyRequestedBrowser() {
+        let apps = MockApps(frontmost: 700, running: [term, safari, zen])
+        let launcher = MockLauncher()
+        launcher.named["safari"] = safariTarget
+        launcher.openPid = 600
+        launcher.onOpen = { _, _ in apps.frontmost = 600 }
+        let s = skills(apps, launcher) { pid in
+            pid == 600 ? "History - Safari" : "Wikipedia"
+        }
+
+        let r = s.execute(name: "open_url", args: [
+            "url": "https://en.wikipedia.org/wiki/History",
+            "browser": "Safari", "same_tab": true])
+
+        XCTAssertEqual(r["ok"] as? Bool, true, "\(r)")
+        XCTAssertEqual(launcher.opened.count, 1)
+        XCTAssertEqual(launcher.opened.first?.app?.bundleId, "com.apple.Safari")
+        XCTAssertEqual((r["result"] as? [String: Any])?["same_tab_used"] as? Bool, false)
+    }
+
+    func testSameTabWebSearchNavigatesCurrentFrontmostBrowser() {
+        let apps = MockApps(frontmost: 700, running: [term, zen])
+        let launcher = MockLauncher()
+        launcher.defaults["https"] = zenTarget
+        let poster = MockPoster()
+        let s = skills(apps, launcher, poster: poster) { pid in
+            guard pid == 700 else { return nil }
+            return poster.typed.isEmpty ? "Wikipedia" : "history - Google Search"
+        }
+
+        let r = s.execute(name: "web_search", args: [
+            "query": "history", "same_tab": true])
+
+        XCTAssertEqual(r["ok"] as? Bool, true, "\(r)")
+        XCTAssertTrue(launcher.opened.isEmpty)
+        XCTAssertEqual(poster.typed, ["https://www.google.com/search?q=history"])
+        XCTAssertEqual((r["result"] as? [String: Any])?["same_tab_used"] as? Bool, true)
     }
 
     // open_folder (+ view) / open_file

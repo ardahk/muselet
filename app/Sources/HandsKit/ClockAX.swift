@@ -293,8 +293,15 @@ public enum ClockAX {
     }
 }
 
+private func recordClockAXStep(_ text: String, to steps: inout [String]) {
+    guard steps.count < 24 else { return }
+    steps.append(String(text.prefix(100)))
+}
+
 struct ClockAXAttempt {
     var reason: String?
+    var pressed = false
+    var steps: [String] = []
     var verified = false
     var signal: String?
     var ms: Double = 0
@@ -305,53 +312,95 @@ struct ClockAXAttempt {
 extension Skills {
     func clockAXStart(seconds: Double, label: String?) -> ClockAXAttempt {
         let started = Date()
+        var pressed = false
+        var steps: [String] = []
         func finish(_ reason: String? = nil, verified: Bool = false, signal: String? = nil,
                     method: String? = nil, labelSet: Bool? = nil) -> ClockAXAttempt {
-            ClockAXAttempt(reason: reason, verified: verified, signal: signal,
+            ClockAXAttempt(reason: reason, pressed: pressed, steps: Array(steps.prefix(24)),
+                           verified: verified, signal: signal,
                            ms: (Date().timeIntervalSince(started) * 1000).rounded(to: 2),
                            method: method, labelSet: labelSet)
         }
-        guard hooks.clockAXReady() else { return finish("clock_ax_unavailable") }
-        guard !apps.screenLocked() else { return finish("screen_locked") }
-        guard let targets = ClockAX.hms(seconds) else { return finish("duration_out_of_range") }
+        guard hooks.clockAXReady() else {
+            recordClockAXStep("AX unavailable", to: &steps)
+            return finish("clock_ax_unavailable")
+        }
+        recordClockAXStep("AX ready", to: &steps)
+        guard !apps.screenLocked() else {
+            recordClockAXStep("screen locked", to: &steps)
+            return finish("screen_locked")
+        }
+        guard let targets = ClockAX.hms(seconds) else {
+            recordClockAXStep("duration out of range", to: &steps)
+            return finish("duration_out_of_range")
+        }
+        recordClockAXStep("duration \(targets[0]):\(targets[1]):\(targets[2])", to: &steps)
         let opened: (pid: pid_t, launched: Bool)
         do {
             opened = try launcher.openApp(named: ClockAX.appName)
         } catch {
+            recordClockAXStep("Clock launch failed", to: &steps)
             return finish("clock_launch_failed")
         }
+        recordClockAXStep(opened.launched ? "Clock launched" : "Clock open", to: &steps)
         let foreground = waitForeground(pid: opened.pid, bundleId: ClockAX.bundleId,
                                         timeout: clockAXTimeout) { $0 != nil }
-        guard foreground.front else { return finish("clock_not_frontmost") }
+        guard foreground.front else {
+            recordClockAXStep("Clock not frontmost", to: &steps)
+            return finish("clock_not_frontmost")
+        }
+        recordClockAXStep("Clock frontmost", to: &steps)
         guard let window = Hands.pickWindow(app: axApp(foreground.pid))?.window else {
+            recordClockAXStep("Clock window missing", to: &steps)
             return finish("clock_no_window")
         }
         var ui = ClockAX.parse(ClockAX.collect(window).nodes)
-        guard let tab = ui.tab else { return finish("timers_tab_missing") }
+        guard let tab = ui.tab else {
+            recordClockAXStep("Timers tab missing", to: &steps)
+            return finish("timers_tab_missing")
+        }
         if !ui.tabSelected {
-            guard windowFromIndex(tab, window: window, ui: ui) else { return finish("timers_tab_failed") }
+            recordClockAXStep("Timers tab press", to: &steps)
+            guard windowFromIndex(tab, window: window, ui: ui) else {
+                recordClockAXStep("Timers tab press failed", to: &steps)
+                return finish("timers_tab_failed")
+            }
             let until = Date().addingTimeInterval(clockAXSettle)
             while Date() < until {
                 Hands.pollWait(clockAXPoll)
                 ui = ClockAX.parse(ClockAX.collect(window).nodes)
                 if ui.tabSelected, ui.start != nil, ui.wheels.count == 3 { break }
             }
-            guard ui.tabSelected else { return finish("timers_tab_failed") }
+            guard ui.tabSelected else {
+                recordClockAXStep("Timers tab failed", to: &steps)
+                return finish("timers_tab_failed")
+            }
         }
+        recordClockAXStep("Timers tab selected", to: &steps)
         let pickerEnd = Date().addingTimeInterval(clockAXSettle)
         while (ui.start == nil || ui.wheels.count != 3) && Date() < pickerEnd {
             Hands.pollWait(clockAXPoll)
             ui = ClockAX.parse(ClockAX.collect(window).nodes)
         }
-        guard ui.start != nil, ui.wheels.count == 3 else { return finish("picker_missing") }
+        guard ui.start != nil, ui.wheels.count == 3 else {
+            recordClockAXStep("picker missing", to: &steps)
+            return finish("picker_missing")
+        }
+        recordClockAXStep("picker ready", to: &steps)
         let labels = ["h", "m", "s"]
         var methods: [String] = []
         for index in 0..<3 {
             let currentNodes = ClockAX.collect(window).nodes
-            guard currentNodes.indices.contains(ui.wheels[index]) else { return finish("picker_missing") }
-            let result = setClockWheel(currentNodes[ui.wheels[index]].el, target: targets[index],
-                                       name: labels[index])
+            let currentUI = ClockAX.parse(currentNodes)
+            guard currentUI.wheels.count == 3, currentUI.wheels.indices.contains(index),
+                  currentNodes.indices.contains(currentUI.wheels[index]) else {
+                recordClockAXStep("picker changed", to: &steps)
+                return finish("picker_missing")
+            }
+            let result = setClockWheel(currentNodes[currentUI.wheels[index]].el, target: targets[index],
+                                       name: labels[index], steps: &steps)
             guard let method = result.method else {
+                recordClockAXStep(result.reason ?? "wheel \(labels[index]) mismatch", to: &steps)
                 return finish(result.reason ?? "wheel_\(labels[index])_mismatch",
                               method: summarizeWheelMethods(methods))
             }
@@ -359,55 +408,89 @@ extension Skills {
         }
         let wheelMethod = summarizeWheelMethods(methods)
         let labelSet = setClockLabel(window: window, label: label)
+        if labelSet == true {
+            recordClockAXStep("label set", to: &steps)
+        } else if labelSet == false {
+            recordClockAXStep("label failed", to: &steps)
+        }
+        Hands.pollWait(clockAXStepWait)
         let nodesBefore = ClockAX.collect(window).nodes
         let beforeUI = ClockAX.parse(nodesBefore)
+        let actualValues: [Int?] = (0..<3).map { index in
+            guard beforeUI.wheels.indices.contains(index),
+                  nodesBefore.indices.contains(beforeUI.wheels[index]) else { return nil }
+            return ClockAX.wheelValue(nodesBefore[beforeUI.wheels[index]].a.value)
+        }
+        func valueText(_ index: Int) -> String {
+            guard actualValues.indices.contains(index), let value = actualValues[index] else { return "?" }
+            return String(value)
+        }
+        recordClockAXStep("pre_start h=\(valueText(0)) m=\(valueText(1)) s=\(valueText(2))", to: &steps)
         guard let startIndex = beforeUI.start, nodesBefore.indices.contains(startIndex) else {
+            recordClockAXStep("Start missing", to: &steps)
             return finish("start_missing", method: wheelMethod, labelSet: labelSet)
         }
         guard nodesBefore[startIndex].a.enabled else {
+            recordClockAXStep("Start disabled", to: &steps)
             return finish("start_disabled", method: wheelMethod, labelSet: labelSet)
         }
         guard beforeUI.wheels.count == 3 else {
+            recordClockAXStep("wheels changed", to: &steps)
             return finish("wheels_changed", method: wheelMethod, labelSet: labelSet)
         }
         for index in 0..<3 {
-            guard let actual = ClockAX.wheelValue(nodesBefore[beforeUI.wheels[index]].a.value),
-                  actual == targets[index] else {
+            guard actualValues[index] == targets[index] else {
+                recordClockAXStep("wheels changed", to: &steps)
                 return finish("wheels_changed", method: wheelMethod, labelSet: labelSet)
             }
         }
         let beforeCount = beforeUI.running.count
-        let cancelWasEnabled = beforeUI.cancel.map { nodesBefore[$0].a.enabled } ?? false
-        let hadPause = nodesBefore.indices.contains {
-            nodesBefore[$0].a.role == "AXButton"
-                && nodesBefore[$0].names.contains { $0.range(of: #"(?i)pause|resume"#, options: .regularExpression) != nil }
-        }
+        let cancelWasEnabled = clockAXControlEnabled(beforeUI.cancel, nodes: nodesBefore)
+        let beforePauseCount = clockAXPauseCount(nodesBefore)
         guard nodesBefore[startIndex].el.performAction(kAXPressAction as String) else {
+            recordClockAXStep("start press failed", to: &steps)
             return finish("start_press_failed", method: wheelMethod, labelSet: labelSet)
         }
-        let verifyUntil = Date().addingTimeInterval(clockAXSettle)
-        while Date() < verifyUntil {
-            Hands.pollWait(clockAXPoll)
-            let after = ClockAX.collect(window).nodes
-            let next = ClockAX.parse(after)
-            if next.running.count > beforeCount {
-                return finish(nil, verified: true, signal: "running_added",
-                              method: wheelMethod, labelSet: labelSet)
-            }
-            let hasPause = after.indices.contains {
-                after[$0].a.role == "AXButton"
-                    && after[$0].names.contains { $0.range(of: #"(?i)pause|resume"#, options: .regularExpression) != nil }
-            }
-            if (!hadPause && hasPause) || (beforeUI.start != nil && next.start == nil) {
-                return finish(nil, verified: true, signal: "pause_shown",
-                              method: wheelMethod, labelSet: labelSet)
-            }
-            if !cancelWasEnabled, let cancel = next.cancel, after[cancel].a.enabled {
-                return finish(nil, verified: true, signal: "cancel_enabled",
-                              method: wheelMethod, labelSet: labelSet)
-            }
+        pressed = true
+        recordClockAXStep("start press ok", to: &steps)
+        if let signal = clockAXVerifyStart(window: window, beforeCount: beforeCount,
+                                           beforePauseCount: beforePauseCount,
+                                           cancelWasEnabled: cancelWasEnabled) {
+            recordClockAXStep("verified \(signal)", to: &steps)
+            return finish(nil, verified: true, signal: signal,
+                          method: wheelMethod, labelSet: labelSet)
         }
-        return finish(nil, method: wheelMethod, labelSet: labelSet)
+        let retryNodes = ClockAX.collect(window).nodes
+        let retryUI = ClockAX.parse(retryNodes)
+        let retryStartEnabled = retryUI.start.map {
+            retryNodes.indices.contains($0) && retryNodes[$0].a.enabled
+        } ?? false
+        let retryCancelEnabled = clockAXControlEnabled(retryUI.cancel, nodes: retryNodes)
+        let retryPauseCount = clockAXPauseCount(retryNodes)
+        let startState = retryUI.start == nil ? "missing" : (retryStartEnabled ? "enabled" : "disabled")
+        let cancelState = retryCancelEnabled ? "enabled" : "disabled"
+        recordClockAXStep("verify timeout start=\(startState) cancel=\(cancelState) running=\(retryUI.running.count)",
+                          to: &steps)
+        let unchanged = retryUI.tab != nil && retryStartEnabled && !retryCancelEnabled
+            && retryUI.running.count == beforeCount && retryPauseCount <= beforePauseCount
+        if unchanged, let retryIndex = retryUI.start, retryNodes.indices.contains(retryIndex) {
+            recordClockAXStep("start retry", to: &steps)
+            if retryNodes[retryIndex].el.performAction(kAXPressAction as String) {
+                recordClockAXStep("start retry press ok", to: &steps)
+                if let signal = clockAXVerifyStart(window: window, beforeCount: beforeCount,
+                                                   beforePauseCount: beforePauseCount,
+                                                   cancelWasEnabled: cancelWasEnabled) {
+                    recordClockAXStep("verified \(signal)", to: &steps)
+                    return finish(nil, verified: true, signal: signal,
+                                  method: wheelMethod, labelSet: labelSet)
+                }
+            } else {
+                recordClockAXStep("start retry press failed", to: &steps)
+            }
+        } else {
+            recordClockAXStep("start retry skipped", to: &steps)
+        }
+        return finish("start_unverified", method: wheelMethod, labelSet: labelSet)
     }
 
     func clockAXRead() -> (status: String, running: [ClockAX.Running]) {
@@ -460,43 +543,132 @@ extension Skills {
         return "clock_cancel_unverified"
     }
 
-    private func setClockWheel(_ wheel: Element, target: Int, name: String)
+    private func setClockWheel(_ wheel: Element, target: Int, name: String, steps: inout [String])
         -> (method: String?, reason: String?) {
-        guard let current = ClockAX.wheelValue(wheel.copyAttrs().value) else {
+        let rawValue = wheel.copyAttrs().value
+        let raw = String(describing: rawValue).prefix(40)
+        recordClockAXStep("\(name) raw=\(raw) -> \(target)", to: &steps)
+        guard let current = ClockAX.wheelValue(rawValue) else {
+            recordClockAXStep("\(name) unreadable", to: &steps)
             return (nil, "wheel_\(name)_unreadable")
         }
-        if current == target { return ("none", nil) }
+        if current == target, stableClockWheel(wheel, target: target) {
+            recordClockAXStep("\(name) \(current)->\(target) none", to: &steps)
+            return ("none", nil)
+        }
         let valueAttr = kAXValueAttribute as String
         if wheel.isSettable(valueAttr) {
             _ = wheel.setAttr(valueAttr, NSNumber(value: target))
-            let end = Date().addingTimeInterval(clockAXStepWait)
-            while Date() < end {
-                if ClockAX.wheelValue(wheel.copyAttrs().value) == target { return ("set", nil) }
-                Hands.pollWait(clockAXPoll)
+            if stableClockWheel(wheel, target: target) {
+                recordClockAXStep("\(name) set ok", to: &steps)
+                return ("set", nil)
             }
         }
-        var steps = 0
+        var stepCount = 0
         let initial = ClockAX.wheelValue(wheel.copyAttrs().value) ?? current
         let budget = min(70, abs(target - initial) + 5)
-        while steps < budget {
+        while stepCount < budget {
             guard let before = ClockAX.wheelValue(wheel.copyAttrs().value) else {
+                recordClockAXStep("\(name) unreadable", to: &steps)
                 return (nil, "wheel_\(name)_unreadable")
             }
-            if before == target { return ("step", nil) }
+            if before == target {
+                if stableClockWheel(wheel, target: target) {
+                    recordClockAXStep("\(name) \(initial)->\(target) step x\(stepCount)", to: &steps)
+                    return ("step", nil)
+                }
+                recordClockAXStep("\(name) stuck at \(before)", to: &steps)
+                return (nil, "wheel_\(name)_stuck")
+            }
             let action = before < target ? kAXIncrementAction as String : kAXDecrementAction as String
-            guard wheel.performAction(action) else { return (nil, "wheel_\(name)_stuck") }
+            guard wheel.performAction(action) else {
+                recordClockAXStep("\(name) stuck at \(before)", to: &steps)
+                return (nil, "wheel_\(name)_stuck")
+            }
             let end = Date().addingTimeInterval(clockAXStepWait)
-            var after: Int?
+            var changed = false
+            var targetReads = 0
             while Date() < end {
-                after = ClockAX.wheelValue(wheel.copyAttrs().value)
-                if after != before { break }
+                guard let after = ClockAX.wheelValue(wheel.copyAttrs().value) else {
+                    recordClockAXStep("\(name) unreadable", to: &steps)
+                    return (nil, "wheel_\(name)_unreadable")
+                }
+                if after == target {
+                    targetReads += 1
+                    if targetReads >= 2 {
+                        stepCount += 1
+                        recordClockAXStep("\(name) \(initial)->\(target) step x\(stepCount)", to: &steps)
+                        return ("step", nil)
+                    }
+                } else {
+                    targetReads = 0
+                }
+                if after != before {
+                    changed = true
+                    if after != target { break }
+                }
                 Hands.pollWait(clockAXPoll)
             }
-            guard let after, after != before else { return (nil, "wheel_\(name)_stuck") }
-            steps += 1
+            guard changed else {
+                recordClockAXStep("\(name) stuck at \(before)", to: &steps)
+                return (nil, "wheel_\(name)_stuck")
+            }
+            stepCount += 1
         }
-        return (ClockAX.wheelValue(wheel.copyAttrs().value) == target ? "step" : nil,
-                ClockAX.wheelValue(wheel.copyAttrs().value) == target ? nil : "wheel_\(name)_mismatch")
+        if stableClockWheel(wheel, target: target) {
+            recordClockAXStep("\(name) \(initial)->\(target) step x\(stepCount)", to: &steps)
+            return ("step", nil)
+        }
+        let actual = ClockAX.wheelValue(wheel.copyAttrs().value)
+        recordClockAXStep("\(name) stuck at \(actual.map { String($0) } ?? "?")", to: &steps)
+        return (nil, "wheel_\(name)_mismatch")
+    }
+
+    private func stableClockWheel(_ wheel: Element, target: Int) -> Bool {
+        let end = Date().addingTimeInterval(clockAXStepWait)
+        var consecutive = 0
+        while Date() < end {
+            if ClockAX.wheelValue(wheel.copyAttrs().value) == target {
+                consecutive += 1
+                if consecutive == 2 { return true }
+            } else {
+                consecutive = 0
+            }
+            Hands.pollWait(clockAXPoll)
+        }
+        return false
+    }
+
+    private func clockAXVerifyStart(window: Element, beforeCount: Int, beforePauseCount: Int,
+                                    cancelWasEnabled: Bool) -> String? {
+        let end = Date().addingTimeInterval(clockAXVerify)
+        while Date() < end {
+            Hands.pollWait(clockAXPoll)
+            let nodes = ClockAX.collect(window).nodes
+            let ui = ClockAX.parse(nodes)
+            guard ui.tab != nil else { continue }
+            if ui.running.count > beforeCount { return "running_added" }
+            let newPause = clockAXPauseCount(nodes) > beforePauseCount
+            let cancelEnabled = clockAXControlEnabled(ui.cancel, nodes: nodes)
+            if (newPause || ui.start == nil) && !cancelWasEnabled && cancelEnabled {
+                return "pause_cancel"
+            }
+        }
+        return nil
+    }
+
+    private func clockAXPauseCount(_ nodes: [ClockAX.Node]) -> Int {
+        nodes.filter {
+            $0.a.role == "AXButton"
+                && $0.names.contains {
+                    $0.range(of: #"(?i)pause|resume"#, options: .regularExpression) != nil
+                }
+        }.count
+    }
+
+    private func clockAXControlEnabled(_ index: Int?, nodes: [ClockAX.Node]) -> Bool {
+        guard let index, nodes.indices.contains(index) else { return false }
+        return nodes[index].a.enabled
     }
 
     private func setClockLabel(window: Element, label: String?) -> Bool? {

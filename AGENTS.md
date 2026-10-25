@@ -51,7 +51,8 @@ Hackathon deadline: Cal Hacks submission Sun Oct 25 2026, 09:00 PDT. Tinker budg
   Offline planner bench: `evals/planner_offline.py` (tune / holdout / holdout2 sets; never tune on holdouts).
 - Planner auxiliary model: base 4B handles non-DSL generation/decide calls so the LoRA only plans; +1 resident
   4B is ~2.5 GB, and `PLANNER_AUX=planner` reuses the planner. Verified done + bounded recovery (`VERIFY_DONE`);
-  working/long-term memory (`MEMORY`, `LONGTERM`; `MEMORY_LLM` rewrite off).
+  working/long-term memory (`MEMORY`, `LONGTERM`; `MEMORY_LLM` rewrite off). Serving enables recoverable-failure handoff and first-turn planner
+  context by default (`FALLBACK_PLANNER`, `PLANNER_CONTEXT`).
 - Grounder: eyes-4b, two-stage zoom, 1 MP (`click "<description>"` in the DSL), lazy-loaded; 2 MP / UI-Venus selectable.
 
 ## Repo layout
@@ -122,6 +123,7 @@ Brain -> app:
 - `{"t":"say","text":"..."}` (shown in the mascot's speech bubble; no audio)
 - `{"t":"confirm","id":"c1","summary":"Send the message to Mom?"}`
 - `{"t":"confirm_cancel","id":"c1"}` (the confirm timed out or the task was cancelled; the app leaves confirm mode)
+- A final utterance during an open confirm is a new command only when the brain recognises one: the brain sends `confirm_cancel` and runs it; otherwise it is ignored.
 - Memory responses are `{"t":"memory","items":[{"id":1,"type":"fact","key":"...","value":"...","created":0.0}]}`
 - `ui` may carry `"ms": 212` on the final message of a request: release-to-first-action for skills, total for
   planner/brain-tool tasks. The app shows it as a small latency chip next to the bubble for ~2 s.
@@ -141,6 +143,9 @@ RPC methods (HandsKit):
   Launch skills verify the result: `open_app` -> `{app, frontmost, launched}`; `open_url`/`web_search` accept
   optional `browser` (use it if installed, otherwise the default) and return
   `{browser, browser_requested?, browser_fallback?, frontmost, window_title, title_changed}`;
+  `same_tab: true` (brain-set when a browser is frontmost: memory follow-ups, go to/open <site>, page-task planner urls;
+  never for "new tab" or compounds) navigates the current tab of the frontmost target browser (cmd+L, type, Return)
+  and adds `same_tab_used`, `url_changed`, `page_url?`; otherwise opens as before (`same_tab_used:false`).
   `open_folder`/`open_file` -> `{app, frontmost, window_title, title_matches}`; failure `not_frontmost` (failures may
   carry `result`). `open_folder {view: list|icons|columns|gallery}`;
   `set_brightness {delta}` (alternative to `level`, returns `{level, previous, delta}`).
@@ -151,9 +156,9 @@ RPC methods (HandsKit):
 - `timers {clock_status?}` -> `{timers:[{id, label, total_s, left_s, minutes, fires_at, backend}], clock_ax?, backend}`;
   `timers_cancel {id?}` -> `{cancelled, timers}` (`unknown_timer: <id>`; a failed Clock AX cancel is `unsupported`
   with `clock_ax_reasons`); `timer_backend {}` -> `{clock_ax_ready, backend: "clock_ax"|"muselet"}`. `start_timer`
-  drives Clock.app over Accessibility (`clock_ax`); if that fails, Muselet's own timer silently (no Shortcuts,
-  no setting; docs/CLOCK_TIMERS.md). CLI: `hands probe timers`, `hands probe clock [--open]`, `hands probe session`
-  (screen_locked, display asleep, frontmost).
+  drives Clock.app over Accessibility (`clock_ax`); an unverified start falls back to Muselet
+  (`verified:false`, both timer reasons `start_unverified`, `clock_ax_steps`; docs/CLOCK_TIMERS.md).
+  CLI: `hands probe timers`, `hands probe clock [--open]`, `hands probe session` (screen_locked, display asleep, frontmost).
 - `screenshot {window:true, max_pixels:1000000, region?}` -> `{path, width, height, origin:[x,y], scale}` (own windows excluded)
 - `verify {expect}` -> `{ok, observed}`
 - `ocr {path? | region?:[x,y,w,h]}` -> `{text, lines:[{text, frame}], ms}` (Apple Vision, accurate, en-US; region = screen points)

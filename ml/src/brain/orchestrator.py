@@ -5,6 +5,7 @@ Everything is traced and the app gets ui/say messages.
 """
 
 import asyncio
+import concurrent.futures
 import gc
 import inspect
 import json
@@ -20,8 +21,9 @@ import unicodedata
 
 from . import argfix, calc, dsl, obsdiff, pathfind, replies, sendgate, slots
 from .memory import MemoryStore, Resolution, WorkingMemory, resolve
+from .memory.working import site_for_url
 from .catalog import Catalog, CatalogError
-from .sites import SITES, fix_url, match_name, normalize_name
+from .sites import APP_SCHEMES, SITES, fix_url, match_name, normalize_name
 from .traces import Tracer
 
 log = logging.getLogger("brain.orchestrator")
@@ -81,7 +83,26 @@ def _script_failure(error: str, res: dict | None) -> tuple[str, str]:
 _ABS_SKILL = {"change_volume": "set_volume", "change_brightness": "set_brightness"}
 _ABS_WORDS = {"max": 100, "maximum": 100, "full": 100, "half": 50,
               "min": 0, "minimum": 0}
-_CODE_ARGS = {"set_brightness": {"delta"}, "open_folder": {"view"}}
+_CODE_ARGS = {
+    "set_brightness": {"delta"}, "open_folder": {"view"},
+    "open_url": {"same_tab"}, "web_search": {"same_tab"},
+}
+_NEW_TAB = re.compile(
+    r"\b(?:new|another|separate|different)\s+"
+    r"(?:browser\s+)?(?:tab|window)\b", re.I)
+_PAGE_TASK = re.compile(
+    r"\b(?:add|put)\b.+?\b(?:to|in|into)\s+"
+    r"(?:my\s+|the\s+)?(?:[\w-]+\s+)?"
+    r"(?:cart|basket|bag|wish\s*list|watch\s*list)\b|"
+    r"^(?:please\s+)?(?:click|tap|press|select|choose|pick|open|play|watch|"
+    r"show|read)\s+(?:on\s+)?(?:the\s+)?"
+    r"(?:first|second|third|fourth|fifth|last|top|next|previous|"
+    r"\d+(?:st|nd|rd|th))\b|"
+    r"^(?:please\s+)?(?:click|tap)\s+(?:on\s+)?\S|"
+    r"^(?:please\s+)?scroll\s+(?:up|down|to)\b|"
+    r"^(?:please\s+)?(?:sort|filter)\s+"
+    r"(?:it\s+|them\s+|the\s+results\s+)?by\b|"
+    r"\bon\s+(?:this|the)\s+page\b", re.I)
 _FOLLOW = re.compile(
     r"^(?:(?:and then|and|then)\s+)?(?:open|show|reveal)\s+"
     r"(?:it|that|them|the folder|the file)$", re.IGNORECASE)
@@ -90,6 +111,102 @@ _IMPERATIVE = re.compile(
     r"start|put|add|move|delete|go|switch|mute|unmute|lock|empty|quit|hide|"
     r"copy|paste|type|write|email|text|call|schedule|remind)\b",
     re.IGNORECASE)
+
+_NO_FALLBACK = re.compile(
+    r"permission|not authori[sz]ed|not allowed|denied|\btcc\b|disconnected|"
+    r"not connected|screen_locked|screen is locked|timed? ?out|cancel|"
+    r"sign in|can't do that", re.I)
+_RECOVERABLE = re.compile(
+    r"not[_ ]found|no such|couldn'?t find|can'?t find|cannot find|"
+    r"does not exist|no match|unknown (?:app|contact|skill)|not installed|"
+    r"isn'?t installed|no application|not_frontmost|not frontmost|"
+    r"didn'?t come to the front|no_text_target|no text target|no target|"
+    r"nothing (?:focused|selected)|script failed|exit[_ ]code|non-zero|"
+    r"expect failed|verif|missing|unresolved|didn'?t catch|couldn'?t|"
+    r"can'?t read|invalid|not implemented|almost ready", re.I)
+_SCREEN_REF = re.compile(
+    r"\b(?:this|these|here|current(?:ly)?|selected|highlighted|on (?:the |my )?"
+    r"screen|in front|the open (?:one|email|page|tab|file|document|window))\b",
+    re.I)
+
+
+def fallback_recoverable(reason: str) -> bool:
+    if not reason or _NO_FALLBACK.search(reason):
+        return False
+    return bool(_RECOVERABLE.search(reason))
+
+
+def screen_text(obs) -> str:
+    if not obs:
+        return ""
+    pieces = []
+    for element in obs.get("elements") or []:
+        label = str(element.get("label") or "").strip()
+        value = str(element.get("value") or "").strip()
+        line = " ".join(x for x in (label, value) if x)
+        if line:
+            pieces.append(line)
+    if not pieces:
+        pieces = [
+            re.sub(r"#\d+\s*", "", line).strip()
+            for line in str(obs.get("text") or "").splitlines()
+            if not line.casefold().startswith("app:")
+        ]
+    lines = []
+    for line in pieces:
+        if line and (not lines or line != lines[-1]):
+            lines.append(line)
+    return "\n".join(lines)
+
+
+def _accepts(fn, name: str) -> bool:
+    try:
+        params = inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        return False
+    return name in params or any(
+        p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
+
+
+class _DeferredServer:
+    def __init__(self, server):
+        self.server = server
+        self.buffer = []
+        self.said = []
+        self.confirmed = False
+
+    async def say(self, *args, **kwargs):
+        self.buffer.append(("say", args, kwargs))
+        if args:
+            self.said.append(args[0])
+
+    async def ui(self, *args, **kwargs):
+        self.buffer.append(("ui", args, kwargs))
+        bubble = kwargs.get("bubble")
+        if bubble is None and len(args) > 1:
+            bubble = args[1]
+        if bubble:
+            self.said.append(bubble)
+
+    async def rpc(self, *args, **kwargs):
+        await self.flush()
+        return await self.server.rpc(*args, **kwargs)
+
+    async def ask_confirm(self, *args, **kwargs):
+        await self.flush()
+        self.confirmed = True
+        return await self.server.ask_confirm(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self.server, name)
+
+    async def flush(self):
+        calls, self.buffer = self.buffer, []
+        for method, args, kwargs in calls:
+            await getattr(self.server, method)(*args, **kwargs)
+
+    def drop(self):
+        self.buffer.clear()
 
 
 _ABS_ANYWHERE = {"max", "maximum", "full", "half"}
@@ -207,6 +324,25 @@ _GATED_SKILLS = {"type_text", "copy_selection", "premiere_command"}
 _CONTINUE = re.compile(
     r"(?:ok(?:ay)?[,.]?\s+)?(?:continue|go on|go ahead|resume|carry on|"
     r"done|i did|i answered it|keep going)[.!]?", re.IGNORECASE)
+_CMD_VERB = re.compile(
+    r"^(?:(?:please|ok(?:ay)?|hey(?:\s+muselet)?|now|also|and|so|then|"
+    r"can you|could you|would you|will you)[,\s]+)*"
+    r"(?:set|turn|open|launch|start|stop|quit|close|mute|unmute|silence|"
+    r"search|google|look\s+up|lookup|take|make|grab|go|text|message|send|"
+    r"e-?mail|mail|call|facetime|write|create|add|new|compose|draft|reply|"
+    r"respond|remind|schedule|book|play|pause|skip|show|find|navigate|visit|"
+    r"browse|increase|decrease|raise|lower|dim|brighten|put|move|copy|rename|"
+    r"delete|trash|empty|lock|sleep|restart|enable|disable|switch|change|"
+    r"toggle|check|tell|read|summari[sz]e|translate|convert|calculate|compute|"
+    r"minimi[sz]e|maximi[sz]e|hide|zoom|bookmark|download|save|print|record|"
+    r"clear|reset)\b", re.IGNORECASE)
+_SITE_VERB = re.compile(
+    r"^(?:go to|visit|navigate to|pull up|open)\s+", re.IGNORECASE)
+_CALC_CUE = re.compile(
+    r"\b(?:calculator|calculate|compute|what(?:'s| is)|how much is|plus|minus|"
+    r"times|divided|percent of|square root)\b|[+*/×÷=]", re.IGNORECASE)
+_DEICTIC = re.compile(
+    r"\b(?:it|them)\b|\b(?:this|that|the\s+\w+)\s+one\b", re.IGNORECASE)
 
 
 def permission_prompt(obs: dict | None) -> dict | None:
@@ -447,12 +583,14 @@ class Orchestrator:
 
     def __init__(self, server, catalog: Catalog | None = None,
                  tracer: Tracer | None = None, engine=None, tau: float = 0.55,
-                 longterm_store: MemoryStore | None = None):
+                 longterm_store: MemoryStore | None = None,
+                 open_ended_route: bool = False):
         self.server = server
         self.catalog = catalog or Catalog.load()
         self.tracer = tracer or Tracer()
         self.engine = engine
         self.tau = tau
+        self.open_ended_route = open_ended_route
         self.memory_enabled = True
         self.memory_llm = True
         self.memory = WorkingMemory(path=Path("runs/memory/working.json"))
@@ -461,6 +599,12 @@ class Orchestrator:
         self._last_memory_ids: list[int] = []
         self._focus_ctx = {}
         self._planner_ran = False
+        self.fallback_planner = False
+        self.planner_context = False
+        self._fallback_used = False
+        self._fail_reason = None
+        self._fallback_missing = None
+        self._fallback_scope = False
         self.planner = None
         self.planner_aux = None
         self.planner_escalate = None    # opt-in bigger planner (loop guard)
@@ -479,11 +623,13 @@ class Orchestrator:
         self._last_url = None
         self._ctx = {"app": "none", "focused": "none", "selection": False,
                      "last_action": "none"}
+        self._page_task: dict | None = None
         self._t_final = 0.0
         self._web_ax_t0 = None      # first web_ax_pending observe arrival
         self._first_action_ms: float | None = None
         self._batch_confirmed = False
         self._pending_task: dict | None = None
+        self._confirm_superseded: str | None = None
         self._answer_history: list[str] = []
         self._last_action_error = None
         self._comms: dict | None = None
@@ -560,17 +706,80 @@ class Orchestrator:
 
         return {"kind": "fallback"}
 
-    def _new_command_during_ask(self, text: str) -> bool:
+    async def _new_command(self, text: str,
+                           ctx: dict | None = None) -> str | None:
         value = text.strip()
         if not value or value[0] in "\"'“‘/~" or \
                 re.search(r"\.[a-z0-9]{1,8}$", value, re.IGNORECASE):
-            return False
-        if not re.match(
-                r"^(?:please\s+)?(?:set|turn|open|launch|start|mute|unmute|"
-                r"silence|search|google|look\s+up|lookup|take|make|grab|go)\b",
-                value, re.IGNORECASE):
-            return False
-        return self.route(value).get("kind") == "skill"
+            return None
+        if _CONTINUE.fullmatch(value) or slots.CANCEL.fullmatch(value) or \
+                re.fullmatch(
+                    r"(?:yes|yeah|yep|yup|sure|ok(?:ay)?|correct|right|"
+                    r"that'?s right|yes please)[.!]?", value, re.IGNORECASE):
+            return None
+
+        from . import comms
+        if comms.parse_message(value) is not None:
+            return "message"
+
+        merged_ctx = dict(self._ctx)
+        if ctx:
+            for key in ("app", "focused", "selection", "online"):
+                if key in ctx:
+                    merged_ctx[key] = ctx[key]
+        if not comms.is_messaging(value):
+            from .tools import draft_email
+            if draft_email.parse_request(value, merged_ctx) is not None:
+                return "draft_email"
+
+        parsed = calc.result(value)
+        if parsed is not None and parsed.value is not None and \
+                _CALC_CUE.search(value):
+            return "calculator"
+
+        if _SITE_VERB.match(value) and match_name(value):
+            return "site"
+
+        parts, _ = split_clauses(value)
+        if len(parts) >= 2 and _CMD_VERB.match(parts[0].strip()) and \
+                not _DEICTIC.search(parts[0]):
+            return "compound"
+
+        if _DEICTIC.search(value):
+            return None
+        if not _CMD_VERB.match(value):
+            return None
+
+        plan = self.route(value)
+        if plan.get("kind") == "skill":
+            return f'route:{plan["name"]}'
+
+        if self.engine is not None:
+            from .planner import worker
+            spec_hit = self._spec_fut is not None and \
+                _norm(value) == self._spec_norm
+            got = None
+            if spec_hit:
+                got = await asyncio.wrap_future(self._spec_fut)
+            if got is not None:
+                res, _ = got
+            else:
+                res = await worker().submit_async(
+                    self.engine.route, value, merged_ctx)
+                fut = concurrent.futures.Future()
+                fut.set_result((res, None))
+                self._spec_fut, self._spec_norm = fut, _norm(value)
+            if res.p_top >= self.tau and res.top not in ("ASK", "ANSWER"):
+                return f"router:{res.top}"
+        return None
+
+    async def confirm_interrupt(self, text: str,
+                                ctx: dict | None = None) -> bool:
+        why = await self._new_command(text, ctx)
+        if why:
+            self._confirm_superseded = why
+            return True
+        return False
 
     # ---------- utterance ----------
 
@@ -578,6 +787,7 @@ class Orchestrator:
         from .tools import draft_email
         original_text = text
         t0 = time.perf_counter()
+        self._page_task = None
         said_items = getattr(self.server, "said", None)
         said_before = len(said_items) if isinstance(said_items, list) else 0
         self._t_final = t0
@@ -586,12 +796,17 @@ class Orchestrator:
         self._ms_kind = None
         self._last_skill = None
         self._planner_ran = False
+        self._fallback_used = False
         previous_turn = self.memory.last(time.time()) if self.memory_enabled else None
         previous_memory_ids = list(self._last_memory_ids)
         self._last_memory_ids = []
         trace = self.tracer.begin(text)
         if ctx:
             trace["ctx"] = dict(ctx)     # offline replay (brain.replay)
+        if self._confirm_superseded:
+            trace["decisions"].append(
+                {"confirm_superseded": self._confirm_superseded})
+            self._confirm_superseded = None
         # utterance-frame ctx wins (app/focused/selection/online)
         if ctx:
             for k in ("app", "focused", "selection", "online"):
@@ -626,13 +841,39 @@ class Orchestrator:
                     self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
                     return {"outcome": outcome}
             from . import comms
+            if self._comms and \
+                    time.time() - self._comms["t"] >= slots.SLOT_TTL_S:
+                self._comms = None
+            if self._slot and \
+                    time.time() - self._slot["t"] >= slots.SLOT_TTL_S:
+                self._slot = None
             if not self._pending_task or \
                     time.time() - self._pending_task["t"] >= 90:
                 self._answer_history = []
             handled_pending = False
-            if self._comms and \
-                    time.time() - self._comms["t"] >= slots.SLOT_TTL_S:
-                self._comms = None
+            if self._pending_task and self._pending_task.get("reroute") and \
+                    not _CONTINUE.fullmatch(text.strip()):
+                self._pending_task = None   # a new command, not "continue"
+            now = time.time()
+            pending_kinds = []
+            if self._pending_task and now - self._pending_task["t"] < 90:
+                pending_kinds.append("pending_task")
+            if self._slot and self._slot.get("missing") and \
+                    self._arg_spec(
+                        self._slot["skill"],
+                        self._slot["missing"][0]).get("type") != "string":
+                pending_kinds.append("slot")
+            if self._comms and self._comms.get("kind") != "body":
+                pending_kinds.append("comms")
+            if pending_kinds and (why := await self._new_command(text, ctx)):
+                goal = self._pending_task.get("goal") \
+                    if self._pending_task and \
+                    now - self._pending_task["t"] < 90 else None
+                trace["decisions"].append({
+                    "pending_superseded": {
+                        "kinds": pending_kinds, "by": why, "goal": goal}})
+                self._pending_task = self._slot = self._comms = None
+                self._answer_history = []
             if self._comms:
                 outcome = await comms.answer(self, text)
                 handled_pending = True
@@ -646,19 +887,6 @@ class Orchestrator:
                 from .tools import draft_email
                 outcome = await draft_email.send_draft(self)
                 handled_pending = True
-            if self._slot and \
-                    time.time() - self._slot["t"] >= slots.SLOT_TTL_S:
-                self._slot = None
-            if self._pending_task and self._pending_task.get("reroute") and \
-                    not _CONTINUE.fullmatch(text.strip()):
-                self._pending_task = None   # a new command, not "continue"
-            if self._pending_task and \
-                    time.time() - self._pending_task["t"] < 90 and \
-                    self._new_command_during_ask(text):
-                trace["decisions"].append({
-                    "pending_ask_cancelled": self._pending_task["goal"]})
-                self._pending_task = None
-                self._answer_history = []
             if handled_pending:
                 pass
             elif self._slot:
@@ -699,8 +927,10 @@ class Orchestrator:
                     name = direct["skill"]
                     args = dict(direct.get("args") or {})
                     self._utterance = memory_result.text
-                    outcome = await self.execute_actions(
-                        [{"op": "skill", "name": name, "args": args}])
+                    outcome = await self._with_fallback(
+                        name, args, memory_result.text, trace,
+                        lambda: self.execute_actions(
+                            [{"op": "skill", "name": name, "args": args}]))
                     if outcome == "ok":
                         parts = " ".join(
                             f'{k}="{v}"' if isinstance(v, str) and " " in v
@@ -713,13 +943,24 @@ class Orchestrator:
                         text = memory_result.text
                         self._utterance = text
                     from .tools import compose_text
-                    if (msg := comms.parse_message(text)) is not None and \
+                    if (page := self._page_task_for(text)):
+                        self._page_task = page
+                        trace["decisions"].append({"page_task": page})
+                        outcome = await self._planner_loop(
+                            text, trace,
+                            hint=f"act in the current {page['app']} page "
+                                 f"({page['site']}); no new tab, no other "
+                                 "site or search engine")
+                    elif (msg := comms.parse_message(text)) is not None and \
                             msg.get("channel") in (None, "messages"):
                         trace["decisions"].append({"message_redirect": msg})
                         outcome = await comms.start(self, msg, text)
                     elif (nargs := compose_text.parse_request(text)) is not None:
                         trace["decisions"].append({"compose_redirect": nargs})
-                        outcome = await self._brain_tool("compose_text", nargs, text)
+                        outcome = await self._with_fallback(
+                            "compose_text", nargs, text, trace,
+                            lambda: self._brain_tool(
+                                "compose_text", nargs, text))
                     elif (calc_result := calc.result(text)) is not None and \
                             calc_result.value is not None and (
                             str(self._ctx.get("app", "")).casefold() == "calculator"
@@ -730,7 +971,10 @@ class Orchestrator:
                     elif not comms.is_messaging(text) and (dargs :=
                             draft_email.parse_request(
                                 text, {**self._ctx, **self._focus_ctx})) is not None:
-                        outcome = await self._brain_tool("draft_email", dargs, text)
+                        outcome = await self._with_fallback(
+                            "draft_email", dargs, text, trace,
+                            lambda: self._brain_tool(
+                                "draft_email", dargs, text))
                     elif self.engine is not None:
                         outcome = await self._engine_route(text, trace)
                     else:
@@ -746,19 +990,32 @@ class Orchestrator:
                             outcome = await self._deliver_calc(
                                 parsed, trace, calculator=False)
                         else:
-                            from .tools import draft_email
-                            dargs = None if comms.is_messaging(text) else \
-                                draft_email.parse_request(text, {**self._ctx, **self._focus_ctx})
-                            if dargs is not None:
+                            from .tools import premiere_edit
+                            pargs = premiere_edit.parse_request(text, self._ctx)
+                            if pargs is None:
+                                from .tools import draft_email
+                                dargs = None if comms.is_messaging(text) else \
+                                    draft_email.parse_request(text, {**self._ctx, **self._focus_ctx})
+                                pargs = dargs
+                            if pargs is not None:
                                 trace["decisions"].append(
-                                    {"draft_redirect": dargs})
+                                    {"premiere_redirect": pargs})
                                 outcome = await self._brain_tool(
-                                    "draft_email", dargs, text)
+                                    "premiere_edit", pargs, text)
                             else:
-                                await self._observe()
-                                await self.server.say("I can't do that yet")
-                                await self._end_ui("confused")
-                                outcome = "fallback"
+                                from .tools import draft_email
+                                dargs = None if comms.is_messaging(text) else \
+                                    draft_email.parse_request(text, self._ctx)
+                                if dargs is not None:
+                                    trace["decisions"].append(
+                                        {"draft_redirect": dargs})
+                                    outcome = await self._brain_tool(
+                                        "draft_email", dargs, text)
+                                else:
+                                    await self._observe()
+                                    await self.server.say("I can't do that yet")
+                                    await self._end_ui("confused")
+                                    outcome = "fallback"
             trace["release_to_first_action_ms"] = self._first_action_ms
             self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
             return {"outcome": outcome}
@@ -1080,6 +1337,62 @@ class Orchestrator:
 
     # ---------- engine path ----------
 
+    async def _with_fallback(self, label: str, args: dict, text: str,
+                             trace: dict, run) -> str:
+        from . import comms
+        eligible = (
+            self.fallback_planner and self.planner is not None and
+            not self._fallback_used and not self._planner_ran and
+            self._collect is None and label != "send_message" and
+            not (label in ("compose_email", "draft_email") and
+                 comms.is_messaging(text)) and
+            self._skill_risk(label, args) == "safe")
+        if not eligible:
+            return await run()
+
+        real = self.server
+        proxy = _DeferredServer(real)
+        self.server = proxy
+        self._fallback_scope = True
+        self._fail_reason = None
+        self._fallback_missing = None
+        try:
+            out = await run()
+        except BaseException:
+            self.server = real
+            await proxy.flush()
+            raise
+        finally:
+            self.server = real
+            self._fallback_scope = False
+
+        reason = (self._fallback_missing or self._fail_reason or
+                  (proxy.said[-1] if proxy.said else "") or out)
+        handoff = (
+            out in ("failed", "fallback") and not proxy.confirmed and
+            (out == "fallback" or self._fallback_missing or
+             fallback_recoverable(reason)))
+        if handoff:
+            proxy.drop()
+            return await self._fallback_to_planner(
+                label, args, text, trace, reason)
+        await proxy.flush()
+        return out
+
+    async def _fallback_to_planner(self, label, args, text, trace, reason):
+        self._fallback_used = True
+        info = {"from": label, "reason": str(reason)[:200]}
+        trace["fallback.planner"] = info
+        trace.setdefault("decisions", []).append(
+            {"fallback.planner": info})
+        log.info("planner fallback from %s: %s", label, info["reason"])
+        act = _log_act({"op": "skill", "name": label, "args": args})
+        line = self._batch_line(
+            act, f"failed: {info['reason']}",
+            f"{act} -> failed: {info['reason']}")
+        await self.server.ui("thinking")
+        return await self._planner_loop(text, trace, fallback=line)
+
     async def _brain_tool(self, label: str, args: dict, text: str) -> str:
         """executor:brain skills — local tools, never sent to HandsKit."""
         from . import tools
@@ -1096,12 +1409,20 @@ class Orchestrator:
         from .planner import worker
         from . import comms
         messaging = comms.is_messaging(text)
+        if pre is None:
+            from .tools import premiere_edit
+            pargs = premiere_edit.parse_request(text, self._ctx)
+            if pargs is not None:
+                trace["decisions"].append({"premiere_redirect": pargs})
+                return await self._brain_tool("premiere_edit", pargs, text)
         from .tools import draft_email
         dargs = None if messaging else \
             draft_email.parse_request(text, {**self._ctx, **self._focus_ctx})
         if dargs is not None:
             trace["decisions"].append({"draft_redirect": dargs})
-            return await self._brain_tool("draft_email", dargs, text)
+            return await self._with_fallback(
+                "draft_email", dargs, text, trace,
+                lambda: self._brain_tool("draft_email", dargs, text))
         # reuse a speculative route (+ARGS) when the final text matches the
         # last partial (architect-5a)
         if pre is None and self._collect is None:
@@ -1164,6 +1485,13 @@ class Orchestrator:
             await self.server.say("Sorry, I can't do that")
             await self._end_ui("confused")
             return "failed"
+        if self.open_ended_route:
+            from .app_hints import open_ended_redirect
+            redirect = open_ended_redirect(
+                label, text, self.catalog.risk(label))
+            if redirect is not None:
+                trace["open_ended"] = {"from": label, "hint": redirect.id}
+                return await self._planner_loop(text, trace)
         if label == "ANSWER":
             return await self._answer(text, trace)
         if label == "ASK":
@@ -1172,9 +1500,11 @@ class Orchestrator:
         spec = self.catalog.get(label) or {}
         if not spec.get("args"):
             if spec.get("executor") == "brain":
-                return await self._brain_tool(label, {}, text)
-            return await self.execute_actions(
-                [{"op": "skill", "name": label, "args": {}}])
+                run = lambda: self._brain_tool(label, {}, text)
+            else:
+                run = lambda: self.execute_actions(
+                    [{"op": "skill", "name": label, "args": {}}])
+            return await self._with_fallback(label, {}, text, trace, run)
         if spec_ext is not None:
             ext = spec_ext
         else:
@@ -1185,7 +1515,9 @@ class Orchestrator:
                                    "spec_args": spec_ext is not None})
         raw_args = {k: v for k, v in ext.items()
                     if k not in ("ms", "_raw", "missing")}
-        return await self._run_skill(label, raw_args, text, trace)
+        return await self._with_fallback(
+            label, raw_args, text, trace,
+            lambda: self._run_skill(label, raw_args, text, trace))
 
     def _missing(self, name: str, args: dict) -> list[str]:
         return [a["name"] for a in (self.catalog.get(name) or {}).get("args", [])
@@ -1503,6 +1835,43 @@ class Orchestrator:
                 {"browser_arg": browser})
         return args
 
+    def _same_tab_args(self, name: str, args: dict, text: str,
+                       trace: dict) -> dict:
+        if name not in ("open_url", "web_search") or \
+                "same_tab" in args or self._collect is not None or \
+                "browser_rewrite" in trace or _NEW_TAB.search(text):
+            return args
+        front = self._ctx.get("app")
+        if not sendgate.is_browser(front):
+            return args
+        if args.get("browser") and (
+                (self._browser_name(args["browser"])
+                 or normalize_name(args["browser"])) !=
+                (self._browser_name(front) or normalize_name(front))):
+            return args
+        if name == "web_search":
+            url = self._focus_ctx.get("url")
+            if url and site_for_url(url) not in {
+                    "google.com", "bing.com", "duckduckgo.com"}:
+                return args
+        out = dict(args, same_tab=True, browser=args.get("browser") or front)
+        trace.setdefault("decisions", []).append({"same_tab": front})
+        return out
+
+    def _page_task_for(self, text: str) -> dict | None:
+        front = self._ctx.get("app")
+        url = self._focus_ctx.get("url")
+        if not sendgate.is_browser(front) or \
+                not isinstance(url, str) or not url.startswith("http"):
+            return None
+        site = site_for_url(url)
+        if not site or not _PAGE_TASK.search(text) or _NEW_TAB.search(text):
+            return None
+        match = match_name(text)
+        if match and site_for_url(fix_url(match[1])) != site:
+            return None
+        return {"app": front, "site": site, "url": url}
+
     async def warm_planner(self, planner, tag: str = "planner"):
         if not callable(getattr(planner, "warm", None)):
             return
@@ -1688,6 +2057,15 @@ class Orchestrator:
                           text: str, trace: dict, question: str | None = None,
                           extra: dict | None = None) -> str:
         """ask for the first missing arg; the next final utterance fills it."""
+        if self._fallback_scope and _SCREEN_REF.search(text or "") and \
+                self._arg_spec(skill, missing[0]).get("type") in {
+                    "app", "contact", "path", "string", "url"}:
+            self._fallback_missing = \
+                f"missing {missing[0]}: the screen may show it"
+            trace.setdefault("decisions", []).append({
+                "slot_to_planner": {
+                    "skill": skill, "missing": list(missing)}})
+            return "failed"
         self._slot = {"skill": skill, "args": dict(args),
                       "missing": list(missing), "t": time.time(),
                       "utterance": text, "tries": 0}
@@ -2084,6 +2462,23 @@ function run() {
             if n == "premiere_command":
                 command = str(ar.get("command") or "unknown command")
                 return _cap12(f"Premiere: {command.replace('_', ' ')}?")
+            if n == "premiere_edit":
+                action = ar.get("op")
+                if action == "import":
+                    return _cap12(f"Premiere: import {ar.get('folder') or 'Footage'}?")
+                if action == "cut":
+                    return "Premiere: cut at playhead?"
+                if action == "transition":
+                    return "Premiere: add cross dissolve?"
+                if action == "speed":
+                    return _cap12(f"Premiere: speed to {ar.get('percent')}%?")
+                if action == "marker":
+                    name = str(ar.get("name") or "").strip()
+                    return _cap12(f"Premiere: add marker {name}?" if name
+                                  else "Premiere: add a marker?")
+                if action == "export":
+                    return "Premiere: export to Desktop?"
+                return "Premiere: edit project?"
             if n in ("send_message", "compose_email"):
                 to = str(ar.get("to") or "them")
                 verb = "Text" if n == "send_message" else "Email"
@@ -2389,6 +2784,10 @@ function run() {
                 trace if trace is not None else {"decisions": []})
             if label in ("open_url", "web_search"):
                 skill_args = self._with_browser(skill_args, goal)
+                if self._page_task:
+                    skill_args = self._same_tab_args(
+                        label, skill_args, goal,
+                        trace if trace is not None else {"decisions": []})
             a["name"], a["args"] = label, skill_args
             if label == "type_text" and not self._signin_gate(
                     a["args"].get("text"), trace=trace, goal=goal):
@@ -2534,8 +2933,19 @@ function run() {
                         "from": value, "url": url}
         if op == "url":
             a["url"] = fix_url(a.get("url") or "")
-            a = self._with_browser(a, goal)
+            if str(a["url"]).partition(":")[0].casefold() not in APP_SCHEMES:
+                a = self._with_browser(a, goal)
             self._last_url = str(a.get("url") or "")
+            if self._page_task:
+                browser = {"browser": a["browser"]} if a.get("browser") else {}
+                args = self._same_tab_args(
+                    "open_url", {"url": a["url"], **browser}, goal,
+                    self.tracer.current or {"decisions": []})
+                r = await self._rpc_action(
+                    "skill", {"name": "open_url", "args": args}, a)
+                r["_log"] = (
+                    f"{dsl_line}-> {'ok' if r['status'] == 'ok' else 'failed: ' + r.get('error', '?')}")
+                return r
         params = {k: v for k, v in a.items() if k != "op"}
         params["op"] = op
         r = await self._rpc_action("act", params, a)
@@ -2819,6 +3229,19 @@ function run() {
     _SCRIPT_APPS_READ = {
         "com.apple.numbers", "numbers", "music", "calendar", "system events"}
     _SCRIPT_APPS_LIMITED = {"finder", "safari"}
+    _SPOTIFY_SAFE = re.compile(
+        r"""^tell\s+application\s+["']spotify["']\s+to\s+"""
+        r"""(?:play|pause|playpause|next\s+track|previous\s+track|"""
+        r"""(?:get\s+)?(?:player\s+state|name\s+of\s+current\s+track|"""
+        r"""artist\s+of\s+current\s+track)|"""
+        r"""play\s+track\s+["']spotify:[^"'\r\n]+["'])$""",
+        re.IGNORECASE,
+    )
+    _MUSIC_MEDIA_SAFE = re.compile(
+        r"""^tell\s+application\s+["']music["']\s+to\s+"""
+        r"""(?:play|pause|playpause|next\s+track|previous\s+track)$""",
+        re.IGNORECASE,
+    )
     _READ_VERBS = re.compile(
         r"\b(get|count|exists|reveal|open)\b", re.IGNORECASE)
     _NUMBERS_OK = re.compile(
@@ -2841,6 +3264,12 @@ function run() {
         targets.update(t.lower() for t in re.findall(
             r'\bApplication\s*\(\s*[\'"]([^\'"]+)[\'"]',
             code, re.IGNORECASE))
+        if "spotify" in targets:
+            return not (lang == "applescript" and targets == {"spotify"} and
+                        self._SPOTIFY_SAFE.fullmatch(code))
+        if (lang == "applescript" and targets == {"music"} and
+                self._MUSIC_MEDIA_SAFE.fullmatch(code)):
+            return False
         allowed = self._SCRIPT_APPS_READ | self._SCRIPT_APPS_LIMITED
         if not targets or not targets <= allowed:
             return True
@@ -2927,9 +3356,40 @@ function run() {
             except Exception:
                 pass
 
+    async def _planner_context_block(self, obs) -> tuple[str, bool]:
+        context = []
+        app = str(self._ctx.get("app") or "").strip()
+        if app.casefold() == "none":
+            app = ""
+        window = str(self._focus_ctx.get("window_title") or "").strip()
+        url = str(self._focus_ctx.get("url") or "").strip()
+        parts = [f'{name} "{value}"'
+                 for name, value in (("app", app), ("window", window),
+                                     ("url", url)) if value]
+        if parts:
+            context.append("Context at request: " + " | ".join(parts))
+
+        screen = screen_text(obs)
+        used_ocr = False
+        if observation_blind(obs) or len(screen) < 120:
+            ocr = await self._window_ocr_text()
+            if ocr.strip():
+                screen = ocr
+                used_ocr = True
+                prefix = "Screen (OCR): "
+            else:
+                prefix = "Screen: "
+        else:
+            prefix = "Screen: "
+        if screen.strip():
+            compact = re.sub(r"\s+", " / ", screen).strip(" /")
+            context.append(prefix + _headtail(compact, 600))
+        return "\n".join(context), used_ocr
+
     async def _planner_loop(self, text: str, trace: dict,
                             hint: str | None = None,
-                            answer: str | None = None) -> str:
+                            answer: str | None = None,
+                            fallback: str | None = None) -> str:
         """System 2: observe -> plan(stream) -> execute -> replan.
         12 turns / 60 s. Returns final outcome."""
         if self.planner is None:
@@ -2947,14 +3407,14 @@ function run() {
         self._ms_kind = "total"
         t_start = time.perf_counter()
         self._script_output = None
-        last_batch: list[str] | None = None
+        last_batch: list[str] | None = [fallback] if fallback else None
         prev_had_failure = False
         done_rejected = False
         prev_expect_ok = False
         obs_text = ""
         diffs: list[str] | None = None
         next_obs = None
-        actions_log: list[str] = []
+        actions_log: list[str] = [fallback] if fallback else []
         self._recover_round = 0
         last_failure_detail = ""
         fail_streak, prev_fail_key = 0, None
@@ -3060,6 +3520,14 @@ function run() {
                         plan_kwargs["login_page"] = True
                 except (TypeError, ValueError):
                     pass
+            if turn == 0 and self.planner_context:
+                block, used_ocr = await self._planner_context_block(
+                    self._last_obs)
+                trace["planner.context"] = {
+                    "chars": len(block), "ocr": used_ocr}
+                if _accepts(planner.plan, "context"):
+                    plan_kwargs["context"] = block
+            turn_started = time.perf_counter()
             fut = worker().submit(
                 planner.plan, goal, plan_obs, last_batch, q, loop,
                 cancel, **plan_kwargs)
@@ -3195,11 +3663,16 @@ function run() {
                         failure_detail = str(r.get("error") or res_status)
                         cancel.set()
             info = await asyncio.wrap_future(fut)
-            trace["decisions"].append({
+            planner_turn = {
                 "planner_turn": turn, "lines": lines,
                 "ttft_ms": round(info["ttft_ms"], 1),
                 "decode_tok_s": round(info["decode_tok_s"], 1),
-                "tokens": info["tokens"]})
+                "tokens": info["tokens"],
+                "turn_ms": round((time.perf_counter() - turn_started) * 1000, 1)}
+            hint_ids = getattr(planner, "last_hint_ids", [])
+            if hint_ids:
+                planner_turn["app_hints"] = list(hint_ids)
+            trace["decisions"].append(planner_turn)
             if info.get("think"):
                 trace["decisions"].append({
                     "planner.think": {"turn": turn, **info["think"]}})
@@ -3591,6 +4064,7 @@ function run() {
         await self.server.ui(mascot, bubble, ms=ms)
 
     async def _fail(self, raw_error: str, friendly: str = "That didn't work"):
+        self._fail_reason = raw_error
         if self.tracer.current is not None:
             self.tracer.current.setdefault("decisions", []).append(
                 {"error": raw_error})
@@ -3650,8 +4124,9 @@ function run() {
             if op == "url":
                 a = dict(a)
                 a["url"] = fix_url(a.get("url") or "")
-                a = self._with_browser(
-                    a, self._current_goal or self._utterance or "")
+                if str(a["url"]).partition(":")[0].casefold() not in APP_SCHEMES:
+                    a = self._with_browser(
+                        a, self._current_goal or self._utterance or "")
                 self._last_url = a["url"]
             elif op == "open":
                 a = dict(a)
@@ -3753,6 +4228,9 @@ function run() {
         if name in ("open_url", "web_search"):
             args = self._with_browser(
                 args, self._current_goal or self._utterance or "")
+            args = self._same_tab_args(
+                name, args, self._current_goal or self._utterance or "",
+                trace)
         from . import comms
         if comms.is_messaging(self._utterance or "") and \
                 name in ("compose_email", "draft_email"):

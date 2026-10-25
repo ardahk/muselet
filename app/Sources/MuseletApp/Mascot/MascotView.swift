@@ -114,10 +114,14 @@ final class MascotView: NSView {
     /// Body rect (with a little slack) in view coordinates.
     /// The visible kitten (ground shadow, body, ears and their bounce headroom) in
     /// window coordinates; the bubble anchor sits inside it. Kept on screen.
+    /// The tail (incl. stroke, outline and wag overshoot) sets the right edge.
     static var kittenRect: CGRect {
-        CGRect(x: bodyBase.x - bodySize.width / 2 - 2, y: bodyBase.y - 6,
-               width: bodySize.width + 4,
-               height: MascotPaths.Body.height + MascotPaths.Ear.height + 10)
+        let left = bodyBase.x - bodySize.width / 2
+        let tail = MascotPaths.Tail.base.x + MascotPaths.Tail.maxReachX
+            + MascotPaths.Tail.width / 2 + MascotPaths.outlineWidth
+        let right = left + max(bodySize.width, tail) + 3     // + celebrate squash/stretch
+        return CGRect(x: left - 2, y: bodyBase.y - 6, width: right - left + 2,
+                      height: MascotPaths.Body.height + MascotPaths.Ear.height + 10)
     }
 
     var bodyHitRect: CGRect {

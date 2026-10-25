@@ -91,6 +91,7 @@ def test_planner_retrieval_flags_load_bank_only_when_enabled(monkeypatch, capsys
                                 "--planner-retrieval-bank", "x.jsonl"])
     opts = cli.planner_opts(args)
     assert opts["retrieval_k"] == 2 and opts["retrieval_bank"] == "x.jsonl"
+    assert opts["app_hints"] is False
     planner = cli.make_planner("fake", _fake_engine([]), opts)
     assert seen["spec"] == "x.jsonl"
     assert planner.retrieval_k == 2
@@ -104,6 +105,8 @@ def test_planner_retrieval_flags_load_bank_only_when_enabled(monkeypatch, capsys
 def test_offline_parser_runner_and_old_summary(monkeypatch):
     args = planner_offline.build_parser().parse_args(["--retrieval-k", "2"])
     assert args.retrieval_k == 2 and args.retrieval_bank == "v2-tune"
+    assert planner_offline.build_parser().parse_args(
+        ["--app-hints"]).app_hints is True
     seen = {}
 
     class FakePlanner:
@@ -117,6 +120,7 @@ def test_offline_parser_runner_and_old_summary(monkeypatch):
     monkeypatch.setattr("brain.planner.Planner", FakePlanner)
     runner = planner_offline.Runner("fake", None, retrieval_k=2, retrieval_bank="x.jsonl")
     assert seen["retrieval_k"] == 2 and seen["retrieval_bank"] == "x.jsonl"
+    assert seen["app_hints"] is False
 
     old_row = {
         "tags": ["single_step"], "pass": True, "strict_pass": True,

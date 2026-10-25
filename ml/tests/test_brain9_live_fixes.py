@@ -4,6 +4,7 @@ import asyncio
 import json
 import time
 from concurrent.futures import Future
+from types import SimpleNamespace
 
 import pytest
 
@@ -54,6 +55,35 @@ def _trace_for(orch, question):
 def _web_answer_decision(trace):
     return next(d["web_answer"] for d in trace["decisions"]
                 if "web_answer" in d)
+
+
+@pytest.mark.parametrize("enabled,expected", [
+    (True, "planner"),
+    (False, "answer"),
+])
+def test_open_ended_route_redirects_answer_when_enabled(
+        tmp_path, enabled, expected):
+    text = "add usb-c cable to my amazon cart"
+    orch, _ = _orch(tmp_path, text)
+    orch.open_ended_route = enabled
+    trace = {"decisions": []}
+    pre = SimpleNamespace(
+        probs={"ANSWER": 0.95}, p_top=0.95, ms={}, top="ANSWER")
+
+    async def planner_loop(goal, current_trace, hint=None):
+        assert goal == text
+        return "planner"
+
+    async def answer(goal, current_trace):
+        return "answer"
+
+    orch._planner_loop = planner_loop
+    orch._answer = answer
+    assert asyncio.run(orch._engine_route(text, trace, pre=pre)) == expected
+    if enabled:
+        assert trace["open_ended"] == {"from": "ANSWER", "hint": "amazon"}
+    else:
+        assert "open_ended" not in trace
 
 
 def test_hidden_browser_args_stay_out_of_catalog_prompts():
