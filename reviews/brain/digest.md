@@ -1,18 +1,17 @@
-# Brain lane review: pass 85 (2026-10-25T09:50Z)
+# Brain lane review: pass 86 (2026-10-25T10:10Z)
 
-Open: P0 0, P1 16, P2 28. New: brain-73 (P1), brain-72 (P2).
+Open: P0 0, P1 16, P2 29. New: brain-74 (P2).
 
 ## Branches
-- main 85958b0: a524768 soft expects for any task with a finish criterion; 71badc3 shopping guard on create_reminder. Shopping few-shot outside the lane.
-- wip/local 3d21638: snapshot on main; lane identical.
-- cloud/cool-tasks a77104e: merge of main through a524768.
+- main ca73c12: merged native-tools 6053e4e and ui-progress a66166b (identical to pass-83 review); 93ca931 destructive-request refuse gate.
+- wip/local 47f809a: snapshot on main; lane identical.
+- cloud/cool-tasks 3937e6b: merge of main through 85958b0; brain-72 now on it.
 
 ## New
-- brain-73 (P1, main + cool-tasks): a failed expect returns ok, so the rest of the batch runs. Repro test_brain_pass85.py: typing after a failed expect runs on 85958b0, stops on 2445a1d.
-- brain-72 (P2, main): 'remind me to buy milk' / 'shop for' / 'Target' reminders rerouted to the planner. Repro 3/3.
+- brain-74 (P2, main): the refuse gate matches delete/remove/format ... all/every and any 'all files'; 'show all files in Downloads', 'delete all completed reminders', 'remove all items from my cart' are refused. Repro test_brain_pass86.py 4/4. Refusals also skip tracer.finish.
 
 ## Rechecked
 All open findings unchanged; no prior repro changed status.
 
 ## Tests
-18 MLX-only suite failures on both (main 2476, cool-tasks 2492 passed). Review repros: main 68 / 53, cool-tasks 65 / 56.
+18 MLX-only suite failures on both (main 2527, cool-tasks 2492 passed). Review repros: main 72 / 53, cool-tasks 68 / 57.
