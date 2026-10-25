@@ -1,22 +1,16 @@
-# Brain lane review: pass 83 (2026-10-25T09:20Z)
+# Brain lane review: pass 84 (2026-10-25T09:35Z)
 
-Open: P0 0, P1 15, P2 27. New: brain-69 (P1), brain-70 (P2), brain-71 (P2).
+Open: P0 0, P1 15, P2 27. No new findings.
 
 ## Branches
-- main 4f94e42: YouTube evidence needs a YouTube page; results-open refusal says press a result; search/find fields exempt from the Enter-sends gate; focused-element fallback.
-- wip/local 52eb571: snapshot on main; lane identical.
-- cloud/cool-tasks 4c84adc (new): carry relay/summary tasks, DSL note, scratch notes.
-- cloud/native-tools 6053e4e (new): experimental native tool-call planner (default off). No finding.
-- cloud/ui-progress a66166b (new): acting progress bubbles. No finding.
-
-## New
-- brain-69 (P1, main): composer labels containing search/find ('Message #search-infra') skip the Enter-sends confirmation. Repro test_brain_pass83.py fails 2/2.
-- brain-70 (P2, cool-tasks): relay asks to confirm a send, then never sends.
-- brain-71 (P2, cool-tasks): summary-note and note-less relay auto-done evidence ignores content.
+- main 2445a1d: sendgate exempts 'Ask Gmail'; new email_open finish criterion/evidence. Shopping/maps hints outside the lane.
+- wip/local 6e7f50b: snapshot on main; lane identical.
+- cloud/cool-tasks e4def97: merge of main only; brain-69 now on it.
 
 ## Rechecked
-- brain-60 narrowed for YouTube (still subject-free); brain-63 partly mitigated (repro still fails).
-- All other open findings unchanged.
+- brain-69 still open (and wider by one phrase); repro fails 2/2 on main and cool-tasks.
+- brain-70, brain-71 unchanged on cool-tasks. All other open findings unchanged.
+- Observation: email_open evidence does not check the message is opened or latest; relational senders ('my boss') never match.
 
 ## Tests
-All four branches: 18 MLX-only suite failures. Review repros: main 64 failed / 53 passed; new branches 62 / 55.
+18 MLX-only suite failures on both branches (main 2476, cool-tasks 2492 passed). Review repros: 64 failed / 53 passed on both.
