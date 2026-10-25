@@ -137,8 +137,11 @@ struct PanelView: View {
     }
 
     static func missingPermissions(_ p: PermissionSnapshot) -> [PermissionKind] {
-        PermissionKind.allCases.filter { p[$0] != .granted }
+        PermissionKind.allCases.filter { p[$0] != .granted || debugMissing.contains($0) }
     }
+
+    /// Debug hook `perm_fake`: show these as missing (screenshots).
+    static var debugMissing: Set<PermissionKind> = []
 
     /// Automation targets that still need consent (unknown / not running / not installed stay hidden).
     static func missingAutomation(_ s: [String: Automation.Status]) -> [Automation.Target] {

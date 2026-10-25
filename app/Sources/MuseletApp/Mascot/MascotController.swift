@@ -140,6 +140,20 @@ final class MascotController {
         pill.layout()
     }
 
+    /// Debug hook `mascot_edge`: a drag far past one screen edge, through the drag clamp.
+    func debugDrag(toward edge: String) {
+        guard let vf = (panel.screen ?? NSScreen.main)?.visibleFrame else { return }
+        var p = panel.frame.origin
+        switch edge {
+        case "right": p.x = vf.maxX + 400
+        case "top": p.y = vf.maxY + 400
+        case "bottom": p.y = vf.minY - 400
+        default: p.x = vf.minX - 400
+        }
+        panel.setFrameOrigin(view.constrainOrigin?(p) ?? clamped(p))
+        dragEnded()
+    }
+
     private func dragEnded() {
         UserDefaults.standard.set(NSStringFromPoint(panel.frame.origin), forKey: Self.originKey)
         onMoved?(anchorCG())

@@ -117,7 +117,23 @@ final class DebugHooks {
             case "pill_slow":
                 PillView.slowMotion = info["on"] as? String != "false"
             case "panel":
-                Self.openPanel()
+                // state=close hides it; appearance=light|dark|system first (screenshots).
+                if let a = info["appearance"] as? String {
+                    NSApp.appearance = a == "dark" ? NSAppearance(named: .darkAqua)
+                        : a == "light" ? NSAppearance(named: .aqua) : nil
+                }
+                if info["state"] as? String == "close" { Self.closePanel() } else { Self.openPanel() }
+            case "perm_fake":
+                // Show a permission as missing in the panel (kind=microphone|...|none).
+                let kind = info["kind"] as? String ?? "none"
+                PanelView.debugMissing = Set(PermissionKind(rawValue: kind).map { [$0] } ?? [])
+                model.objectWillChange.send()
+            case "mascot_edge":
+                // Same clamp as a live drag, pushed past an edge: left|right|top|bottom.
+                mascot.debugDrag(toward: info["edge"] as? String ?? "left")
+            case "icon_png":
+                Self.writeIcon(to: info["dir"] as? String ?? NSTemporaryDirectory(),
+                               recording: info["recording"] as? String == "true")
             case "automation_status":
                 // Automation consent per target, read without prompting
                 // (targets that aren't running read not_running = unknown).
@@ -135,19 +151,84 @@ final class DebugHooks {
         }
     }
 
+    /// Opens the MenuBarExtra panel. SwiftUI keeps its window after the first close
+    /// (isVisible can stay true while it is hidden), so "open" means drawn on screen, and
+    /// a stale window is presented directly rather than toggled through the status item.
     static func openPanel() {
-        let panelIsVisible = NSApp.windows.contains {
-            $0.className.contains("MenuBarExtraWindow") && $0.isVisible
-        }
-        guard !panelIsVisible else { return }
-        guard let button = NSApp.windows
-            .filter({ $0.className.contains("NSStatusBarWindow") })
-            .compactMap({ statusBarButton(in: $0.contentView) })
-            .first else {
+        let windows = panelWindows()
+        FileLog.shared.raw("debug panel: " + (windows.isEmpty ? "no window" : windows.map(describe).joined(separator: "; ")))
+        if windows.contains(where: isOnScreen) { return }
+        guard let button = statusButton() else {
             FileLog.shared.raw("debug panel: status bar button not found")
             return
         }
+        if let w = windows.first { present(w, under: button); return }
         button.performClick(nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            let after = panelWindows()
+            if after.contains(where: isOnScreen) { FileLog.shared.raw("debug panel: opened via click"); return }
+            if let w = after.first { present(w, under: button) }
+            else { FileLog.shared.raw("debug panel: no window after click") }
+        }
+    }
+
+    static func closePanel() {
+        panelWindows().filter(isOnScreen).forEach { $0.orderOut(nil) }
+    }
+
+    private static func panelWindows() -> [NSWindow] {
+        NSApp.windows.filter { $0.className.contains("MenuBarExtraWindow") }
+    }
+
+    private static func statusButton() -> NSStatusBarButton? {
+        NSApp.windows.filter { $0.className.contains("NSStatusBarWindow") }
+            .compactMap { statusBarButton(in: $0.contentView) }.first
+    }
+
+    static func isOnScreen(_ w: NSWindow) -> Bool {
+        w.isVisible && w.alphaValue > 0.01 && w.occlusionState.contains(.visible)
+            && w.frame.width > 1 && NSScreen.screens.contains { $0.frame.intersects(w.frame) }
+    }
+
+    private static func describe(_ w: NSWindow) -> String {
+        "visible=\(w.isVisible) alpha=\(w.alphaValue) occluded=\(!w.occlusionState.contains(.visible)) "
+            + "key=\(w.isKeyWindow) frame=\(NSStringFromRect(w.frame))"
+    }
+
+    /// Top-centred under the status item (clamped to the screen), then key + front.
+    private static func present(_ w: NSWindow, under button: NSStatusBarButton) {
+        if let bw = button.window {
+            let item = bw.convertToScreen(button.convert(button.bounds, to: nil))
+            var x = item.midX - w.frame.width / 2
+            if let vf = (bw.screen ?? NSScreen.main)?.visibleFrame {
+                x = min(max(x, vf.minX + 8), vf.maxX - w.frame.width - 8)
+            }
+            w.setFrameTopLeftPoint(NSPoint(x: x, y: item.minY - 1))
+        }
+        w.alphaValue = 1
+        NSApp.activate()
+        w.makeKeyAndOrderFront(nil)
+        FileLog.shared.raw("debug panel: presented directly " + describe(w))
+    }
+
+    /// The menu-bar glyph as PNGs at @1x and @2x (`<dir>/menubar-icon@{1,2}x.png`).
+    static func writeIcon(to dir: String, recording: Bool) {
+        let pt = MenuBarIcon.pointSize
+        for scale in [1, 2] {
+            let px = Int(pt) * scale
+            guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: px, pixelsHigh: px,
+                                             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                                             isPlanar: false, colorSpaceName: .deviceRGB,
+                                             bytesPerRow: 0, bitsPerPixel: 0) else { continue }
+            rep.size = NSSize(width: pt, height: pt)
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+            MenuBarIcon.make(recording: recording).draw(in: NSRect(x: 0, y: 0, width: pt, height: pt))
+            NSGraphicsContext.restoreGraphicsState()
+            let url = URL(fileURLWithPath: dir).appendingPathComponent("menubar-icon@\(scale)x.png")
+            try? rep.representation(using: .png, properties: [:])?.write(to: url)
+            FileLog.shared.raw("debug icon: wrote \(url.path)")
+        }
     }
 
     private static func statusBarButton(in view: NSView?) -> NSStatusBarButton? {
