@@ -2746,6 +2746,9 @@ function run() {
         obs = self._last_obs or {}
         element = self._element_for_ref(
             obs.get("focused_ref") if observed_focus else ref)
+        # a stale ref misses; the typed-into field is the focused one
+        if element is None:
+            element = self._focused_element()
         role = element.get("role") if element else None
         label = element.get("label") if element else None
         if observed_focus and element is None:
