@@ -1,9 +1,9 @@
 {
-  "pass": 97,
-  "ts": "2026-10-25T14:55:00Z",
+  "pass": 98,
+  "ts": "2026-10-25T15:42:00Z",
   "last_reviewed": {
-    "main": "b00f679",
-    "wip/local": "73f8136",
+    "main": "32c0ad4",
+    "wip/local": "69261f5",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -99,5 +99,5 @@
     "cloud/cool-tasks": "cfbec49",
     "cloud/native-tools": "6053e4e"
   },
-  "notes": "pass 97: only wip moved (73f8136). A repeated Premiere Shift+3 is now blocked with a long planner-facing error (orchestrator.py:4430@73f8136). If it ends the run, it could surface as a raw failure bubble (an instance of ux-28; not traced to the final say). obsdiff now renders slider/stepper and Premiere HotText values, so the planner sees the clipSpeed value. Numbers tips add SORT/SORTBY. The diff chain is disabled in ui_only mode. No new findings. Open: ux-34/ux-32 on main b00f679; ux-31/ux-35/ux-36 on wip."
+  "notes": "pass 98: main 32c0ad4 merges all of the reviewed wip work (finance engines removed, planner prompts, AX clicks, app resolver, Premiere guard, quiet Esc) plus docs. AGENTS.md now documents the deployed override: base 4B, tools mode, THINK=1024 all turns. ux-31 updated accordingly. ux-32 resolved (README is accurate). ux-35/ux-36 now on main. ux-34 is still open. wip = main."
 }
