@@ -286,6 +286,17 @@ final class VoiceController {
             } else {
                 model.mood = .confused
                 restoreBubbleAfterVoice(hint: nil)
+                if !text.isEmpty, let brain, brain.connected {
+                    // The brain cancels the confirm and runs this only if it's a new command.
+                    let ctx = pressCtx
+                    if let ctx {
+                        ctx.whenReady(timeout: 0.2) { [weak brain] c in
+                            brain?.sendUtterance(id: id, text: text, final: true, ctx: c)
+                        }
+                    } else {
+                        brain.sendUtterance(id: id, text: text, final: true, ctx: UtteranceCtx.begin().fallback)
+                    }
+                }
             }
             return
         }
