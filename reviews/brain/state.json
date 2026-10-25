@@ -29,7 +29,7 @@
   "cloud/docs-demo": "095d4ef",
   "cloud/docs-demo-2": "fa79929",
   "cloud/docs-demo-3": "c615c37",
-  "cloud/fallback": "6e40c3e",
+  "cloud/fallback": "2ef5805",
   "cloud/finance": "529e9ff",
   "cloud/finance-2": "dfaf785",
   "cloud/finance-3": "31be399",
@@ -76,13 +76,14 @@
   "cloud/safety-brain27": "ac43219",
   "cloud/safety-brain38": "54ca8f6",
   "cloud/safety-planner28": "e3abc5e",
-  "cloud/test-strategy": "05acc70",
+  "cloud/test-strategy": "96c96d2",
   "cloud/ui-polish": "e8bceef",
   "cloud/w9-safety": "6aa332a",
   "devin/1792872486-data-route-handoff": "e6b8a71",
   "main": "4150ecb",
-  "wip/local": "b7b7840"
+  "wip/local": "b7b7840",
+  "cloud/fix-same-tab": "065e65f"
  },
- "pass": 64,
- "ts": "2026-10-25T03:46:00Z"
+ "pass": 65,
+ "ts": "2026-10-25T04:02:00Z"
 }
