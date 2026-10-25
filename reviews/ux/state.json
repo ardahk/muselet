@@ -1,9 +1,9 @@
 {
-  "pass": 61,
-  "ts": "2026-10-25T03:05:00Z",
+  "pass": 62,
+  "ts": "2026-10-25T03:22:00Z",
   "last_reviewed": {
-    "main": "6a37d0c",
-    "wip/local": "9571a9e",
+    "main": "fa0f040",
+    "wip/local": "973a9b0",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -74,7 +74,9 @@
     "cloud/memory-llm-gate": "f6229d7",
     "cloud/docs-demo-3": "c615c37",
     "cloud/memory-hotfix": "d932320",
-    "cloud/memory-rules2": "03c3cd1"
+    "cloud/memory-rules2": "03c3cd1",
+    "cloud/design-polish": "bf4ae64",
+    "cloud/memory-writes": "d04e26c"
   },
-  "notes": "pass 61: main 6a37d0c is a HobbyLM calc_checker harness fix only; wip/local 9571a9e has no lane changes. Open findings unchanged."
+  "notes": "pass 62: main fa0f040 merged design #70 (identical to cloud/design b93bb50, reviewed in pass 53); ux-26 resolved, ux-25 still open. Benchmark brains on ports other than :8765 now get a fresh memory store, so benchmark runs can't pollute the demo's memory (good). design-polish bf4ae64: compact panel, inline model caption, the clamp includes the tail, and the Settings memory list hides workflow/episode rows; no issues. memory-writes is a policy change only, with no copy."
 }

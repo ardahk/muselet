@@ -1,8 +1,8 @@
-# ux digest — pass 61
+# ux digest — pass 62
 
-Heads: main 6a37d0c, wip 9571a9e, design b93bb50, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
+Heads: main fa0f040, wip 973a9b0, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
 
-Counts: 0 P0, 1 P1, 14 P2. No new findings in passes 52-61; cloud/design resolves ux-26 once merged (ux-25 is still open there) (hands-clock #55 and brain-9 #61 copy OK). New in pass 51: ux-29. ux-25, ux-26 and ux-27 are now live on main (ui-polish #49, memory #58).
+Counts: 0 P0, 1 P1, 13 P2 (ux-26 resolved by design #70). No new findings in passes 52-61; cloud/design resolves ux-26 once merged (ux-25 is still open there) (hands-clock #55 and brain-9 #61 copy OK). New in pass 51: ux-29. ux-25, ux-26 and ux-27 are now live on main (ui-polish #49, memory #58).
 Open P1:
 - ux-28: the failure bubble shows raw "Not finished: expect failed: …" (orchestrator.py:3061, 2065)
 Open P2, ranked:
@@ -10,7 +10,6 @@ Open P2, ranked:
 - ux-14: a declined or timed-out confirm leaves the mascot thinking
 - ux-25: the poke hint says "click my mic below" before the pill appears (MascotController.swift:189)
 - ux-27: the memory recall dumps raw rows into the bubble (memory/store.py:246)
-- ux-26: the panel status says "didn't catch that" for every failure (PanelView.swift:242)
 - ux-19, ux-24, ux-17, ux-20, ux-16, ux-18, plus rechecks ux-12, ux-15, ux-22
 
 Highest-leverage next moves:
