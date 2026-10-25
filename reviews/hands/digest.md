@@ -1,4 +1,4 @@
-# hands — digest (Pass 67)
+# hands — digest (Pass 68)
 
 Open: 0 P0, 3 P1, 9 P2.
 
@@ -13,6 +13,11 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 68:
+- main 82c9810 (orchestrator.py:564-580): observation_blind now also counts an AX tree as blind when every element's label is window chrome (close/minimise/zoom/full screen). That sends CEF apps like Spotify to the screenshot and grounder path. Empty trees still count as blind (all([]) is True), and unlabeled elements don't match, so normal trees aren't affected. It is consistent with the observe contract, and app/ is unchanged.
+- cloud/premiere-route-fix 7769c32: brain routing only (the Premiere pre-route now runs first, and the fallback no longer passes draft_email args to premiere_edit). No app/ change and no protocol change.
+- wip/local 5b656ef matches main for app/. All open findings re-checked and unchanged; hands-34 and hands-35 are still on main.
 
 Pass 67:
 - main dc6f2f5 merged fallback, open-ended, fix-same-tab, fix-pending, hands-clock-verify, design-polish and premiere-demo.

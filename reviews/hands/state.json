@@ -1,5 +1,5 @@
 {
- "pass": 67,
+ "pass": 68,
  "last_reviewed": {
   "main": "eb3e945",
   "wip/local": "3f21dc6",
@@ -74,8 +74,8 @@
   "cloud/panel-hook-fix": "ef35421"
  },
  "branches": {
-  "main": "dc6f2f5",
-  "wip/local": "6a1f942",
+  "main": "82c9810",
+  "wip/local": "5b656ef",
   "cloud/memory-hotfix": "d932320",
   "cloud/memory-rules2": "03c3cd1",
   "cloud/memory-llm-gate": "f6229d7",
@@ -90,7 +90,8 @@
   "cloud/test-strategy": "96c96d2",
   "cloud/open-ended": "0d687d2",
   "cloud/planner-aux": "387c3b4",
-  "cloud/premiere-demo": "a1c0f04"
+  "cloud/premiere-demo": "a1c0f04",
+  "cloud/premiere-route-fix": "7769c32"
  },
- "ts": "2026-10-25T04:30:00Z"
+ "ts": "2026-10-25T04:42:00Z"
 }
