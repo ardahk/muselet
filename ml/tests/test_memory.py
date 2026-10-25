@@ -183,6 +183,177 @@ def test_refinement_and_correction():
     assert resolve("I meant Safari", correction, {}, 11).text == "open Safari"
 
 
+def test_eval_adapter_replays_resolved_history_for_chained_value_changes():
+    history = [
+        {
+            "utterance": "add a design review at 9 am monday",
+            "ctx": {"app": "Calendar", "t": 1},
+            "outcome": {
+                "skill": "create_event",
+                "args": {"title": "Design review", "start": "monday 09:00"},
+                "ok": True,
+            },
+        },
+        {
+            "utterance": "make it wednesday instead",
+            "ctx": {"app": "Calendar", "t": 2},
+            "outcome": {"skill": "planner", "args": {}, "ok": True},
+        },
+    ]
+    result = eval_adapter(
+        "and ten thirty not 9", {"app": "Calendar", "t": 3}, history)
+    assert result["path"] == "rule"
+    assert "design review" in result["text"]
+    assert "wednesday" in result["text"]
+    assert "10:30 am" in result["text"]
+
+
+def test_search_refinements_reuse_prior_query_and_kind():
+    search = _memory("web_search", {"query": "farmers markets near me"},
+                     resolved="search for farmers markets near me")
+    result = resolve("just for this weekend", search, {}, 11)
+    assert result.text == \
+        "search for farmers markets near me this weekend"
+
+    music = _memory("play_music", {"query": "acoustic study mix"},
+                    resolved="play acoustic study mix")
+    assert resolve("something more energetic", music, {}, 11).text == \
+        "play energetic acoustic study mix"
+
+
+def test_search_refinement_requires_search_history():
+    note = _memory("new_note", {"title": "Packing"})
+    for utterance in ("just do it", "only if it rains",
+                      "something more colorful"):
+        result = resolve(utterance, note, {}, 11)
+        assert not result.changed
+
+
+def test_same_query_substitution_is_conservative():
+    search = _memory(
+        "web_search", {"query": "top documentaries for travel"},
+        resolved="search for top documentaries for travel")
+    result = resolve("same but for audiobooks", search, {}, 11)
+    assert result.text == "search for top audiobooks for travel"
+
+    ambiguous = _memory(
+        "web_search", {"query": "books reviews for students"},
+        resolved="search for books reviews for students")
+    assert not resolve("same thing but for podcasts",
+                       ambiguous, {}, 11).changed
+
+
+def test_event_reminder_and_timer_value_refinements():
+    event = _memory(
+        "create_event", {"title": "Dentist", "start": "monday 09:00"},
+        resolved="add a dentist appointment at 9 am monday")
+    assert resolve("make it thursday instead", event, {}, 11).text == \
+        "add a dentist appointment at 9 am thursday"
+    assert resolve("and seven fifteen not 9", event, {}, 11).text == \
+        "add a dentist appointment at 7:15 am monday"
+
+    timer = _memory(
+        "start_timer", {"duration": "20m", "label": "reading"},
+        resolved="start a twenty minute timer for reading")
+    assert resolve("make it forty instead", timer, {}, 11).text == \
+        "start a 40 minute timer for reading"
+
+
+def test_value_corrections_use_args_and_accent_insensitive_matches():
+    message = _memory(
+        "send_message", {"to": "Júlia", "body": "Bring the adapter"},
+        resolved="text Júlia saying Bring the adapter")
+    result = resolve("no, Marco, not Julia", message, {}, 11)
+    assert "Marco" in result.text
+    assert "adapter" in result.text
+
+    search = _memory(
+        "web_search", {"query": "café dining"},
+        resolved="search for café dining")
+    assert resolve("no, tea, not cafe", search, {}, 11).text == \
+        "search for tea dining"
+
+    app = _memory("quit_app", {"app": "Illustrator"},
+                  resolved="quit illustr")
+    assert resolve("sorry, I meant Preview", app, {}, 11).text == \
+        "quit Preview"
+
+
+def test_other_option_uses_recent_two_item_list():
+    wm = WorkingMemory()
+    wm.record(
+        "make a note: drinks, tea and coffee", "make a note: tea and coffee",
+        "new_note", {"title": "Drinks", "body": "Tea and coffee"},
+        True, {"app": "Notes"}, t=1)
+    wm.record(
+        "remind me to buy tea", "remind me to buy tea",
+        "create_reminder", {"title": "Buy tea"}, True,
+        {"app": "Reminders"}, t=2)
+    assert resolve("no, the other one", wm, {}, 3).text == \
+        "remind me to buy coffee"
+
+    missing = _memory("find_file", {"query": "invoice", "kind": "pdf"})
+    assert not resolve("the other one", missing, {}, 11).changed
+
+
+def test_exact_the_x_one_correction_replaces_noun_modifier():
+    export = _memory(
+        "premiere_command", {"command": "export", "preset": "Mobile 720p"},
+        resolved="export this with the mobile 720p preset")
+    assert resolve("no, the cinema one", export, {}, 11).text == \
+        "export this with the cinema 720p preset"
+
+
+def test_undo_replays_earlier_same_skill_without_inverse():
+    wm = WorkingMemory()
+    wm.record("tile this window left", "tile this window left",
+              "window_layout", {"layout": "left"}, True,
+              {"app": "Pages"}, t=1)
+    wm.record("make it full screen", "make the window full screen",
+              "window_layout", {"layout": "full"}, True,
+              {"app": "Pages"}, t=2)
+    assert resolve("go back to how it was", wm, {}, 3).text == \
+        "tile this window left"
+
+
+def test_layout_refinement_rewrites_prior_direction_after_app_switch():
+    layout = _memory(
+        "window_layout", {"layout": "left"},
+        resolved="snap this to the left half", ctx={"app": "Pages"})
+    assert resolve("now this one on the right", layout,
+                   {"app": "Safari"}, 11).text == \
+        "snap this to the right half"
+
+
+def test_created_items_and_stt_item_commands_resolve_referents():
+    app = _memory("play_music", {"query": "piano"}, ctx={"app": "Music"})
+    assert resolve("hyde it", app, {"app": "Music"}, 11).text == \
+        "hide Music"
+
+    file = _memory("open_file", {"path": "~/Desktop/Draft.pdf"})
+    assert "Draft.pdf" in resolve("tras it", file, {}, 11).text
+
+    note = _memory(
+        "new_note", {"title": "Garden supplies"},
+        resolved="make a note called Garden supplies")
+    assert resolve("remind me about it tomorrow", note, {}, 11).text == \
+        "remind me about Garden supplies tomorrow"
+    assert resolve("add soil to it", note, {}, 11).text == \
+        "add soil to the Garden supplies note"
+
+
+def test_try_known_site_reuses_prior_query_but_unknown_target_does_not():
+    search = _memory(
+        "open_url",
+        {"url": "https://www.google.com/search?q=camping+stoves"},
+        resolved="open https://www.google.com/search?q=camping+stoves")
+    result = resolve("now try ebay", search, {"app": "Safari"}, 11)
+    assert "ebay.com" in result.text
+    assert "camping" in result.text
+    assert "stoves" in result.text
+    assert not resolve("now try lakeside", search, {"app": "Safari"}, 11).changed
+
+
 def test_person_selection_uses_all_turns_and_gender_hints():
     wm = WorkingMemory()
     wm.record("text Noah about the reservation",

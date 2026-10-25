@@ -53,7 +53,13 @@ def resolve(text: str, wm: WorkingMemory, ctx: dict, now: float,
     if result.reason == "guard":
         return Resolution("none", source_text, False, "guard")
     if result.changed and not allowed(text, result.text):
-        return Resolution("none", source_text, False, "guard")
+        prior = wm.last(now)
+        prior_text = (f"{str(prior.skill or '').replace('_', ' ')} "
+                      f"{prior.resolved} "
+                      f"{normalize_utterance(prior.utterance)}"
+                      if prior is not None else "")
+        if prior is None or not allowed(prior_text, result.text):
+            return Resolution("none", source_text, False, "guard")
     result.reason = reason
     if memory_changed and not result.changed and result.path == "none":
         result.text = text
@@ -202,7 +208,19 @@ def eval_adapter(utterance: str, ctx: dict, history: list[dict],
                  llm: Callable[[str, int], str] | None = None) -> dict:
     started = time.perf_counter()
     now = float((ctx or {}).get("t", time.time()))
-    wm = WorkingMemory.from_history(history, ctx or {})
+    wm = WorkingMemory()
+    for item in history:
+        history_ctx = dict(item.get("ctx") or {})
+        history_text = str(item.get("utterance") or "")
+        history_now = float(history_ctx.get("t", 0.0))
+        history_result = resolve(
+            history_text, wm, history_ctx, history_now)
+        outcome = item.get("outcome") or {}
+        wm.record(
+            history_text, history_result.text, outcome.get("skill"),
+            outcome.get("args", {}), bool(outcome.get("ok")), history_ctx,
+            said=outcome.get("said"), t=history_now,
+            result=outcome.get("result"))
     if longterm is None:
         result = resolve(utterance, wm, ctx or {}, now, llm=llm)
     else:
