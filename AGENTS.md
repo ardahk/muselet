@@ -137,6 +137,9 @@ RPC methods (HandsKit):
   Launch skills verify the result: `open_app` -> `{app, frontmost, launched}`; `open_url`/`web_search` accept
   optional `browser` (use it if installed, otherwise the default) and return
   `{browser, browser_requested?, browser_fallback?, frontmost, window_title, title_changed}`;
+  `same_tab: true` (brain-set when a browser is frontmost: memory follow-ups, go to/open <site>, page-task planner urls;
+  never for "new tab" or compounds) navigates the current tab of the frontmost target browser (cmd+L, type, Return)
+  and adds `same_tab_used`, `url_changed`, `page_url?`; otherwise opens as before (`same_tab_used:false`).
   `open_folder`/`open_file` -> `{app, frontmost, window_title, title_matches}`; failure `not_frontmost` (failures may
   carry `result`). `open_folder {view: list|icons|columns|gallery}`;
   `set_brightness {delta}` (alternative to `level`, returns `{level, previous, delta}`).
