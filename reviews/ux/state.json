@@ -1,9 +1,9 @@
 {
-  "pass": 56,
-  "ts": "2026-10-25T01:33:00Z",
+  "pass": 57,
+  "ts": "2026-10-25T01:49:00Z",
   "last_reviewed": {
-    "main": "9be963d",
-    "wip/local": "7728b98",
+    "main": "19d57fb",
+    "wip/local": "8a197f8",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -76,5 +76,5 @@
     "cloud/memory-hotfix": "d932320",
     "cloud/memory-rules2": "03c3cd1"
   },
-  "notes": "pass 56: wip/local 7728b98 sends vague 'brighten it' requests down the relative-delta path (ux-16 surface grows; updated). memory-llm-gate f6229d7 is rebased onto the memory rules with no new copy. main unchanged at 9be963d."
+  "notes": "pass 57: main 19d57fb merged memory-llm-gate #69 (reviewed in pass 53, no copy) and a1fd57f (relative brightness delta; ux-16 now live on main). wip/local 8a197f8 has only memory-rule classification changes. No new findings."
 }
