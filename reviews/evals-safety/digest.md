@@ -1,6 +1,6 @@
-# evals-safety digest (pass 89, 2026-10-25T09:41:18Z)
+# evals-safety digest (pass 90, 2026-10-25T09:56:32Z)
 
-P0 evals-safety-56 open; P1 -57 open; NEW P1 evals-safety-58: destructive-refuse regex blocks empty_trash phrasings.
+No new findings; -56 (P0), -57, -58 open on main b92677f.
 
 
 -54 downgraded to P1: Spotify runtime path fixed by #101; eval check and non-Spotify play evidence still weak.

@@ -1,9 +1,9 @@
 {
-  "pass": 89,
-  "ts": "2026-10-25T09:41:18Z",
+  "pass": 90,
+  "ts": "2026-10-25T09:56:32Z",
   "last_reviewed": {
-    "main": "ca73c12",
-    "wip/local": "47f809a",
+    "main": "b92677f",
+    "wip/local": "f1e504c",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -100,5 +100,5 @@
     "cloud/ui-progress": "a66166b"
   },
   "next_id": 59,
-  "note": "pass 89: main ca73c12 \u2014 #118 destructive refuse regex -> evals-safety-58 P1; native-tools merged (#108, PLANNER_MODE default dsl; tools mode maps each call to one DSL line through same gates); ui-progress merged (#105, UI). -56/-57 unchanged. cool-tasks 3937e6b = merge of main."
+  "note": "pass 90: main b92677f \u2014 #121 MLX worker skips cancelled futures (no grading/gating effect); README added: route_v2 .945 is the v2-catalog subset (claims.md:117) but README drops the qualifier; '~190 ms first action' needs a claims.md source. -56/-57/-58 unchanged. First fetch attempt failed with a credential prompt; retry succeeded."
 }
