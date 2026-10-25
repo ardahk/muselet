@@ -1,9 +1,9 @@
 {
-  "pass": 84,
-  "ts": "2026-10-25T09:30:00Z",
+  "pass": 85,
+  "ts": "2026-10-25T09:46:00Z",
   "last_reviewed": {
-    "main": "85958b0",
-    "wip/local": "3d21638",
+    "main": "ca73c12",
+    "wip/local": "47f809a",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -99,5 +99,5 @@
     "cloud/cool-tasks": "3937e6b",
     "cloud/native-tools": "6053e4e"
   },
-  "notes": "pass 84: main 85958b0 (demo-loop10-12) makes expects soft when a finish criterion exists (partly mitigates ux-28), adds a shopping few-shot/stock-skip hint, and adds a guard so shopping goals are never routed to create_reminder (avoids a wrong 'reminder added' reply). None adds bubble copy. wip/local equals main. cool-tasks 3937e6b only merges main. The first fetch got an HTTP 504; the retry succeeded. No new findings."
+  "notes": "pass 85: main ca73c12 merged ui-progress (step bubbles, busy dots) and native-tools (opt-in planner mode, default dsl), added a Premiere 'make clip N seconds' hint, and added a deterministic destructive-refuse gate -> new ux-34 P1: the regex refuses benign requests ('Show all files', 'Format all amounts as currency'). wip/local equals main."
 }
