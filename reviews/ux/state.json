@@ -1,9 +1,9 @@
 {
-  "pass": 50,
-  "ts": "2026-10-25T00:00:00Z",
+  "pass": 51,
+  "ts": "2026-10-25T00:16:00Z",
   "last_reviewed": {
-    "main": "0b83c3b",
-    "wip/local": "e4f4331",
+    "main": "8fb465c",
+    "wip/local": "fe6c209",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -49,7 +49,7 @@
     "cloud/planner-demos-handoff": "e5e9903",
     "cloud/planner-retrieval-handoff": "f728b79",
     "cloud/w9-safety": "6aa332a",
-    "cloud/memory": "711c0fe",
+    "cloud/memory": "a8af560",
     "cloud/memory-eval": "c05944e",
     "cloud/memory-lt": "4794e8a",
     "cloud/ui-polish": "e8bceef",
@@ -57,7 +57,7 @@
     "cloud/planner-lora": "79f0a97",
     "cloud/router-it3-serve": "b455d2c",
     "cloud/docs-demo-2": "fa79929",
-    "cloud/hands-clock": "26d4427",
+    "cloud/hands-clock": "6ab40be",
     "cloud/live-cases": "fa9c374",
     "cloud/planner-think": "3677348",
     "cloud/planner-verify": "484f5e7",
@@ -70,5 +70,5 @@
     "cloud/safety-brain38": "54ca8f6",
     "cloud/safety-planner28": "e3abc5e"
   },
-  "notes": "pass 50: main 0b83c3b merged planner-verify (#54) and planner-28 compose confirm (#66). New ux-28 (raw expect text in failure bubble). The compose confirm copy is good and resets to idle. memory-lt render unchanged (ux-27 open). Other branches only carry main merges or channel-regex routing, with no new copy."
+  "notes": "pass 51: main 8fb465c merged ui-polish #49, memory phase 1/2 #50/#58, architect-27 #65, think=512 default. ux-25/26/27 now live on main; ux-28 still open (line 3061); new ux-29 (silent think latency). Settings Memory panel copy OK. hands-clock/memory/wip carry the main merge."
 }
