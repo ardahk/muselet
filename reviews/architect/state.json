@@ -1,6 +1,6 @@
 {
- "pass": 91,
- "ts": "2026-10-25T10:40:00Z",
+ "pass": 92,
+ "ts": "2026-10-25T10:55:00Z",
  "last_reviewed": {
   "cloud/advisor": "9432c30",
   "cloud/advisor-2": "0a65f75",
@@ -67,8 +67,8 @@
   "cloud/safety-planner28": "e3abc5e",
   "cloud/ui-polish": "e8bceef",
   "cloud/w9-safety": "6aa332a",
-  "main": "430e59e",
-  "wip/local": "9f6aa0d",
+  "main": "298526d",
+  "wip/local": "d409a32",
   "cloud/design": "b93bb50",
   "cloud/docs-demo-3": "c615c37",
   "cloud/memory-llm-gate": "f6229d7",
@@ -95,7 +95,7 @@
   "cloud/browser-flow": "485763f",
   "cloud/docs-final": "bf9118d",
   "cloud/agentic-fixes2": "104a411",
-  "cloud/cool-tasks": "2fafa9e",
+  "cloud/cool-tasks": "cfbec49",
   "cloud/native-tools": "6053e4e",
   "cloud/ui-progress": "a66166b"
  }
