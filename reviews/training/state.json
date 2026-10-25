@@ -1,6 +1,6 @@
 {
-  "pass": 74,
-  "ts": "2026-10-25T05:44:00Z",
+  "pass": 75,
+  "ts": "2026-10-25T05:58:00Z",
   "mode": "pulse",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
@@ -48,8 +48,8 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "e8023b8",
-    "wip/local": "20055d1",
+    "main": "fe2de69",
+    "wip/local": "422399a",
     "cloud/memory": "ba3dc0a",
     "cloud/memory-eval": "c05944e",
     "cloud/memory-lt": "cc056af",
@@ -121,5 +121,6 @@
   "notes_pass71": "main unchanged 82c9810. wip/local c156d18: ClockAX.swift + fallback orchestrator/tests only; no router/training/eval/prompt change. Open findings unchanged.",
   "notes_pass72": "main e425cad (#86): planner screen-context now gated on goal relevance (_goal_screen_relevant), open-ended ask guard, Clock wheel keyboard fallback. Gating narrows but does not remove the untrained context block for the LoRA planner (training-55 stays open; still no holdout rerun). No router/training/eval change. wip/local 80c871c is a snapshot on 82c9810 (pre-#86). 54/53/50/49 unchanged.",
   "notes_pass73": "main unchanged e425cad. wip/local 323d274 (local c711320): BLIND_PLANNER=base default, finish_when, blind few-shot. New training-56.",
-  "notes_pass74": "main merged #87 blind planner (training-56 now on main) and #88 blind typing (HandsKit). agentic-loop: finish gate, plan_bank cross-app retrieval skip; bank still v2-tune, no holdout use seen. Router/training unchanged; 54/53/55/50/49 unchanged."
+  "notes_pass74": "main merged #87 blind planner (training-56 now on main) and #88 blind typing (HandsKit). agentic-loop: finish gate, plan_bank cross-app retrieval skip; bank still v2-tune, no holdout use seen. Router/training unchanged; 54/53/55/50/49 unchanged.",
+  "notes_pass75": "main fe2de69: serve_brain uses local eyes-4b MLX grounder (no lazy HF download); outside lane. wip b43270d: grounder prewarm, blind gating, timer_control, few-shot jazz solution edit, render artifact regenerated. Router/training unchanged."
 }

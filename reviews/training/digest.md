@@ -1,6 +1,6 @@
-# training lane digest — pass 74 (main e8023b8)
+# training lane digest — pass 75 (main fe2de69, wip/local 422399a)
 
-Open: 1 P0, 16 P1, 18 P2. training-56 (few-shot copies eval oe-spotify-jazz) merged to main via #87. training-54 still open.
+Open: 1 P0, 16 P1, 18 P2. No new findings. training-56 (oe-spotify-jazz few-shot) still on main; wip only changed its answer. training-54 still open.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
