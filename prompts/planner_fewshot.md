@@ -57,29 +57,23 @@ app: Finder | window: "Documents" | focused: none
 Reply:
 skill new_folder parent=~/Documents name="taxes"
 
-Goal: "play some jazz on Spotify"
-app: Spotify | window: "Spotify" | focused: none
-Accessibility tree is empty here: act by description.
-Finish when: jazz is playing
-Reply:
-url "spotify:search:jazz"
-script applescript """tell application "Spotify" to play"""
-
-Goal: "play some jazz on Spotify"
-app: Spotify | window: "Spotify" | focused: none
-Accessibility tree is empty here: act by description.
-Finish when: jazz is playing
+Goal: "play some jazz on YouTube"
+app: Zen | window: "jazz - YouTube" | focused: none
+#12 combobox "Search" value="jazz"
+#40 link "Jazz Classics - Relaxing Jazz Music"
+#41 link "Smooth Jazz Mix"
+Finish when: jazz is playing (a pause control is visible / player state is playing)
 Last batch:
-[ok] url "spotify:search:jazz"
-[ok] script applescript """tell application "Spotify" to play"""
+[ok] url "https://www.youtube.com/results?search_query=jazz"
 Reply:
-script applescript """tell application "Spotify" to get player state"""
+press #40
+expect appears "Pause"
 
-Goal: "play some jazz on Spotify"
-app: Spotify | window: "Spotify" | focused: none
-Accessibility tree is empty here: act by description.
-Finish when: jazz is playing
+Goal: "play some jazz on YouTube"
+app: Zen | window: "Jazz Classics - Relaxing Jazz Music - YouTube" | focused: none
+#7 button "Pause (k)"
+Finish when: jazz is playing (a pause control is visible / player state is playing)
 Last batch:
-[ok] script applescript -> playing
+[ok] press #40
 Reply:
-done "Playing jazz on Spotify"
+done "Playing jazz on YouTube"

@@ -284,6 +284,66 @@ def load_bank(spec: str = "v2-tune") -> list[Demo]:
 
 load_bank.last_dropped = {"total": 0, "id": 0, "goal": 0, "leak": 0}
 
+_REF_ACTION = re.compile(r"^\s*(?:press|type|scroll)\s+#\d+\b", re.IGNORECASE)
+
+
+def workflow_ok(demo: Demo) -> bool:
+    """A learned workflow worth retrieving: >= 2 actions, not only
+    epoch-bound `#ref` actions, and a goal of >= 3 words."""
+    actions = [line.strip() for line in demo.batch if line.strip() and
+               not re.match(r"^(?:expect|#|done\b)", line.strip())]
+    return (len(actions) >= 2 and
+            not all(_REF_ACTION.match(line) for line in actions) and
+            len(normalize(demo.goal).split()) >= 3)
+
+
+def load_workflows(path) -> list[Demo]:
+    """Learned workflows (workflows.jsonl) filtered for the plan bank.
+    Bad rows are skipped; the file is never rewritten."""
+    path = Path(path)
+    if not path.is_file():
+        return []
+    demos = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            row = json.loads(line) if line.strip() else None
+        except ValueError:
+            continue
+        if not isinstance(row, dict) or any(
+                name not in row for name in REQUIRED_FIELDS):
+            continue
+        batch = row["batch"]
+        if isinstance(batch, str):
+            batch = batch.split("\n")
+        demo = Demo(goal=str(row["goal"]), app=str(row["app"]),
+                    category=str(row["category"]),
+                    obs_header=str(row["obs_header"]),
+                    batch=[str(item) for item in batch], source="memory")
+        if workflow_ok(demo):
+            demos.append(demo)
+    return _filter_demos(demos)[0]
+
+
+_NON_APP_HINTS = {"browser", "finder_files", "rename_files"}
+
+
+def goal_targets(goal: str) -> frozenset[str]:
+    """Apps/sites a goal names: the spoken site (sites.match_name) plus
+    app-hint ids (app_hints.match_hints), minus generic/browser hints."""
+    from .app_hints import match_hints
+    from .sites import match_name
+
+    targets = set()
+    site = match_name(goal)
+    if site:
+        targets.add(site[0])
+    try:
+        targets.update(hint.id for hint in match_hints(goal, k=5)
+                       if not hint.generic and hint.id not in _NON_APP_HINTS)
+    except (OSError, ValueError):
+        pass
+    return frozenset(targets)
+
 
 class BM25:
     def __init__(self, docs: list[list[str]], k1: float = 1.5, b: float = 0.75):
@@ -314,6 +374,7 @@ class BM25:
 class PlanBank:
     def __init__(self, demos: list[Demo]):
         self.demos = demos
+        self._targets: dict[int, frozenset[str]] = {}
         docs = [tokenize(d.goal) + tokenize(d.app) + tokenize(d.obs_header) for d in demos]
         self.bm25 = BM25(docs)
 
@@ -327,6 +388,7 @@ class PlanBank:
         scores = self.bm25.scores(query)
         ranked = sorted(enumerate(scores), key=lambda item: (-item[1], item[0]))
         selected, seen = [], set()
+        wanted = goal_targets(goal)
         for index, score in ranked:
             if score <= 0:
                 continue
@@ -334,6 +396,12 @@ class PlanBank:
             normalized = normalize(demo.goal)
             if is_leak(demo.goal, goal) or normalized in seen:
                 continue
+            if wanted:
+                if index not in self._targets:
+                    self._targets[index] = goal_targets(demo.goal)
+                if self._targets[index] and \
+                        not self._targets[index] & wanted:
+                    continue          # demo for a different app/site
             selected.append(demo)
             seen.add(normalized)
             if len(selected) >= k:
