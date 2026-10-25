@@ -1,8 +1,8 @@
-# ux digest — pass 65
+# ux digest — pass 66
 
-Heads: main b340f24, wip 94f6fe9, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
+Heads: main dc6f2f5, wip 6a1f942, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
 
-Counts: 0 P0, 1 P1, 13 P2 (ux-29 resolved: the LoRA planner defaults to THINK=0). New in pass 63: ux-30 (fix-pending: speech that isn't a command during a confirm gets no feedback). ux-26 resolved by design #70 (main b340f24); ux-25 and ux-27 still live on main.
+Counts: 0 P0, 1 P1, 13 P2 (ux-29 resolved: the LoRA planner defaults to THINK=0). New in pass 63: ux-30 (fix-pending: speech that isn't a command during a confirm gets no feedback). ux-26 resolved by design #70 (main dc6f2f5); ux-25 and ux-27 still live on main.
 Open P1:
 - ux-28: the failure bubble shows raw "Not finished: expect failed: …" (orchestrator.py:3061, 2065)
 Open P2, ranked:

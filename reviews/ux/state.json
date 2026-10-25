@@ -1,9 +1,9 @@
 {
-  "pass": 65,
-  "ts": "2026-10-25T04:08:00Z",
+  "pass": 66,
+  "ts": "2026-10-25T04:24:00Z",
   "last_reviewed": {
-    "main": "b340f24",
-    "wip/local": "94f6fe9",
+    "main": "dc6f2f5",
+    "wip/local": "6a1f942",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -77,15 +77,16 @@
     "cloud/memory-rules2": "03c3cd1",
     "cloud/design-polish": "bf4ae64",
     "cloud/memory-writes": "88ccf06",
-    "cloud/fallback": "2ef5805",
+    "cloud/fallback": "36b421e",
     "cloud/fix-apps-notes": "1ccb123",
     "cloud/fix-email-reply": "805223b",
-    "cloud/fix-pending": "dba9094",
+    "cloud/fix-pending": "09dadc0",
     "cloud/hands-clock-verify": "a4d6463",
-    "cloud/fix-same-tab": "065e65f",
+    "cloud/fix-same-tab": "0e38395",
     "cloud/test-strategy": "96c96d2",
-    "cloud/open-ended": "fd87f69",
-    "cloud/planner-aux": "387c3b4"
+    "cloud/open-ended": "0d687d2",
+    "cloud/planner-aux": "387c3b4",
+    "cloud/premiere-demo": "a1c0f04"
   },
-  "notes": "pass 65: main b340f24 merged fix-apps-notes, fix-email-reply, memory-writes, test-strategy, and the LoRA planner (THINK=0 default, resolving ux-29). New copy ('Which app?', 'Which email? Open it, then ask me again') is fine. open-ended and planner-aux add no bubble copy. ux-25, ux-27 and ux-28 are still on main."
+  "notes": "pass 66: main dc6f2f5 merged fallback, open-ended, fix-same-tab, fix-pending, hands-clock-verify, design-polish, premiere-demo. Premiere copy is good: specific confirms ('Let Muselet edit <project>?', 'Premiere: export to Desktop?'), an 'Exporting\u2026' progress bubble, and actionable errors ('Select a clip first', 'Put the playhead on a cut first'). ux-25 and ux-30 are now live on main; ux-28 is still there (orchestrator.py:2642)."
 }
