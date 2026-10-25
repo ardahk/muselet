@@ -1,6 +1,6 @@
-# hands — digest (Pass 94)
+# hands — digest (Pass 95)
 
-Open: 0 P0, 7 P1, 20 P2.
+Open: 0 P0, 7 P1, 21 P2.
 
 Ranked open P0/P1:
 -1. P1 hands-38 (main e2f7e5e via a615f00, ClockAX.swift:523-552): the Clock cancel falls back to `live.first` and presses a stale detail-pane Cancel after a fixed 80 ms. It can cancel a user's own Clock timer and still report success. Fix before the demo.
@@ -15,6 +15,11 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 95 (main d09f4d8 #130 page-load; wip/local 01a929c):
+- New P2 hands-51: the firstWebArea BFS (up to 400 nodes, no deadline) runs on every observe, including non-browser apps, which always pay the full scan.
+- Page-load wait on main: `_await_page_load` waits only for AXLoaded (15 s cap). AXElementBusy only extends the failed-expect re-check loop, so the pass-91 worry (every press waits 15 s on busy YouTube) is limited to failed expects.
+- wip 264cc82: the Numbers tips add SORT/SORTBY formulas, which spill a copy into empty cells. Accurate, but it invites writing into cells for a "sort" request, which the integrity guard may block. hands-50 is still open (skills list).
 
 Pass 94 (wip/local 7b8f421 only; no new findings):
 - e781dc1 `_ax_ref_for_click`: a grounded `click "<target>"` becomes `press #ref` when exactly one enabled button/tab/row/etc. label matches. The match is exact and normalized, with no substring matching, and right/double clicks are excluded. It reads the last observation, so a stale ref fails rather than misclicking. Directionally good: it saves a grounder call. It dedupes by ref, so two elements sharing a ref (hands-43) count as one match and can press the wrong one.
