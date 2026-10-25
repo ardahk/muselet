@@ -725,19 +725,27 @@ class Orchestrator:
                             outcome = await self._deliver_calc(
                                 parsed, trace, calculator=False)
                         else:
-                            from .tools import draft_email
-                            dargs = None if comms.is_messaging(text) else \
-                                draft_email.parse_request(text, self._ctx)
-                            if dargs is not None:
+                            from .tools import premiere_edit
+                            pargs = premiere_edit.parse_request(text, self._ctx)
+                            if pargs is not None:
                                 trace["decisions"].append(
-                                    {"draft_redirect": dargs})
+                                    {"premiere_redirect": pargs})
                                 outcome = await self._brain_tool(
-                                    "draft_email", dargs, text)
+                                    "premiere_edit", pargs, text)
                             else:
-                                await self._observe()
-                                await self.server.say("I can't do that yet")
-                                await self._end_ui("confused")
-                                outcome = "fallback"
+                                from .tools import draft_email
+                                dargs = None if comms.is_messaging(text) else \
+                                    draft_email.parse_request(text, self._ctx)
+                                if dargs is not None:
+                                    trace["decisions"].append(
+                                        {"draft_redirect": dargs})
+                                    outcome = await self._brain_tool(
+                                        "draft_email", dargs, text)
+                                else:
+                                    await self._observe()
+                                    await self.server.say("I can't do that yet")
+                                    await self._end_ui("confused")
+                                    outcome = "fallback"
             trace["release_to_first_action_ms"] = self._first_action_ms
             self.tracer.stage("total", (time.perf_counter() - t0) * 1000)
             return {"outcome": outcome}
@@ -1059,6 +1067,11 @@ class Orchestrator:
         from . import comms
         messaging = comms.is_messaging(text)
         if pre is None:
+            from .tools import premiere_edit
+            pargs = premiere_edit.parse_request(text, self._ctx)
+            if pargs is not None:
+                trace["decisions"].append({"premiere_redirect": pargs})
+                return await self._brain_tool("premiere_edit", pargs, text)
             from .tools import draft_email
             dargs = None if messaging else \
                 draft_email.parse_request(text, self._ctx)
@@ -2001,6 +2014,23 @@ function run() {
             if n == "premiere_command":
                 command = str(ar.get("command") or "unknown command")
                 return _cap12(f"Premiere: {command.replace('_', ' ')}?")
+            if n == "premiere_edit":
+                action = ar.get("op")
+                if action == "import":
+                    return _cap12(f"Premiere: import {ar.get('folder') or 'Footage'}?")
+                if action == "cut":
+                    return "Premiere: cut at playhead?"
+                if action == "transition":
+                    return "Premiere: add cross dissolve?"
+                if action == "speed":
+                    return _cap12(f"Premiere: speed to {ar.get('percent')}%?")
+                if action == "marker":
+                    name = str(ar.get("name") or "").strip()
+                    return _cap12(f"Premiere: add marker {name}?" if name
+                                  else "Premiere: add a marker?")
+                if action == "export":
+                    return "Premiere: export to Desktop?"
+                return "Premiere: edit project?"
             if n in ("send_message", "compose_email"):
                 to = str(ar.get("to") or "them")
                 verb = "Text" if n == "send_message" else "Email"
