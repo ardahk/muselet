@@ -28,6 +28,8 @@ class AppHint:
     skills: frozenset[str]
     tips: tuple[str, ...]
     generic: bool = False
+    redirect: bool = True
+    target: bool = True
 
 
 def _read_hints(path: Path) -> tuple[AppHint, ...]:
@@ -38,6 +40,8 @@ def _read_hints(path: Path) -> tuple[AppHint, ...]:
             skills=frozenset(row["skills"]),
             tips=tuple(row["tips"]),
             generic=bool(row.get("generic", False)),
+            redirect=bool(row.get("redirect", True)),
+            target=bool(row.get("target", True)),
         )
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
@@ -63,21 +67,25 @@ def match_hints(
     app: str = "",
     hints: list[AppHint] | None = None,
     k: int = 2,
+    route_hint: str = "",
 ) -> list[AppHint]:
-    goal, app = goal.lower(), app.lower()
+    """Hints named by the route hint (e.g. agentic "use the Clock app..."),
+    then the goal, then the frontmost app."""
+    goal, app, route_hint = goal.lower(), app.lower(), route_hint.lower()
     rows = load_hints() if hints is None else hints
+    by_hint: list[AppHint] = []
     matched: list[AppHint] = []
     app_only: list[AppHint] = []
     for hint in rows:
         if hint.generic:
             continue
-        goal_match = any(_phrase_matches(phrase, goal) for phrase in hint.match)
-        app_match = any(phrase.lower() in app for phrase in hint.match)
-        if goal_match:
+        if any(_phrase_matches(phrase, route_hint) for phrase in hint.match):
+            by_hint.append(hint)
+        elif any(_phrase_matches(phrase, goal) for phrase in hint.match):
             matched.append(hint)
-        elif app_match:
+        elif any(_phrase_matches(phrase, app) for phrase in hint.match):
             app_only.append(hint)
-    selected = (matched + app_only)[:max(0, k)]
+    selected = (by_hint + matched + app_only)[:max(0, k)]
     if not selected:
         return selected
 
@@ -117,6 +125,6 @@ def open_ended_redirect(
         return None
     return next(
         (hint for hint in match_hints(text)
-         if not hint.generic and label not in hint.skills),
+         if not hint.generic and hint.redirect and label not in hint.skills),
         None,
     )
