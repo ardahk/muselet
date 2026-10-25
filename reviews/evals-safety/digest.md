@@ -1,4 +1,7 @@
-# evals-safety digest (pass 79, 2026-10-25T06:39:29Z)
+# evals-safety digest (pass 80, 2026-10-25T06:54:46Z)
+
+-55 resolved. -54 (P0) unchanged on main, widened on agentic-evidence (play_music auto-finish on any Pause button).
+
 
 New: -55 (P1) main commits absolute symlinks models and ml/.venv into /Users/arda/cal13.0 (.gitignore slash patterns miss symlinks).
 -54 (P0) unchanged.
