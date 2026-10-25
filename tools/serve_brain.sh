@@ -77,7 +77,9 @@ args=(--port "${PORT:-8765}" --model "$ROUTER" --tau "$TAU" --args-model "$ARGS_
       --planner-app-hints "$([ "${APP_HINTS:-1}" = "0" ] && echo off || echo on)"
       --open-ended-route "$([ "${OPEN_ENDED:-1}" = "0" ] && echo off || echo on)"
       --agentic-apps "$([ "${AGENTIC_APPS:-1}" = "0" ] && echo off || echo on)"
-      --planner-blind "${BLIND_PLANNER:-base}"
+      --planner-blind "${BLIND_PLANNER:-$(
+        [ -d "$HOME/.cache/huggingface/hub/models--mlx-community--Qwen3.6-35B-A3B-4bit" ] \
+          && echo escalate || echo base)}"
       --planner-think "$THINK" --planner-think-on "${THINK_ON:-all}"
       --planner-think-sampler "${THINK_SAMPLER:-qwen}"
       --verify-done "${VERIFY_DONE:-on}"
