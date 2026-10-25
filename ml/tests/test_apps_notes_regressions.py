@@ -112,3 +112,60 @@ def test_notes_preroute_generation_failure(generated):
     assert asyncio.run(orch.handle_utterance("write a poem in notes"))["outcome"] == "failed"
     assert server.skills() == []
     assert server.confirms == []
+
+
+@pytest.mark.parametrize("launch", ['open "Notes"', 'skill open_app app="Notes"'])
+def test_planner_waits_for_launch_ax(monkeypatch, launch):
+    from brain import orchestrator
+    from test_planner_loop import FakePlanner
+    monkeypatch.setattr(orchestrator, "LAUNCH_AX_POLL_S", 0)
+    launched = [False]
+    polls = []
+
+    def observe():
+        ready = launched[0] and len(polls) >= 2
+        if launched[0]:
+            polls.append(1)
+        return {"epoch": 1, "app": "Notes", "window_source": "main" if ready else "none",
+                "elements": [{"ref": 1, "role": "textfield"}] if ready else [],
+                "text": "READY" if ready else "BLIND"}
+
+    def action(params):
+        launched[0] = True
+        return {"ok": True, "diff_text": ""}
+
+    server = FakeServer(observe=observe, act=action,
+                        handlers={"skill": action})
+    orch = Orchestrator(server)
+    orch.planner = FakePlanner([[launch], ['ask "What next?"']])
+    asyncio.run(orch._planner_loop("open Notes", {"decisions": []}))
+    assert orch.planner.user_msgs[1]["obs"] == "READY"
+    assert len(polls) == 3
+
+
+@pytest.mark.parametrize("obs", [None, {"text": "blind", "window_source": "none", "elements": []},
+                                      {"text": "ready", "window_source": "main", "elements": [{"ref": 1}]}])
+def test_launch_poll_bounded_or_unneeded(monkeypatch, obs):
+    from brain import orchestrator
+    monkeypatch.setattr(orchestrator, "LAUNCH_AX_TIMEOUT_S", .001)
+    monkeypatch.setattr(orchestrator, "LAUNCH_AX_POLL_S", 0)
+    server = FakeServer(observe=lambda: obs)
+    orch = Orchestrator(server)
+    orch._launch_pending = True
+    assert asyncio.run(orch._wait_launch_ax(obs)) == obs
+    assert not orch._launch_pending
+    if obs is None or obs.get("elements"):
+        assert server.rpcs == []
+
+
+def test_launch_poll_rpc_error_is_bounded(monkeypatch):
+    from brain import orchestrator
+    monkeypatch.setattr(orchestrator, "LAUNCH_AX_TIMEOUT_S", .001)
+    monkeypatch.setattr(orchestrator, "LAUNCH_AX_POLL_S", 0)
+
+    def observe():
+        raise RuntimeError("AX unavailable")
+
+    orch = Orchestrator(FakeServer(observe=observe))
+    obs = {"window_source": "none", "elements": [], "text": "blind"}
+    assert asyncio.run(orch._wait_launch_ax(obs)) == obs

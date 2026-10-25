@@ -368,6 +368,8 @@ _APP_ALIASES = {"finder": "Finder", "chrome": "Google Chrome",
                 "premiere": "Adobe Premiere Pro",
                 "premiere pro": "Adobe Premiere Pro"}
 APPS_TTL_S = 60
+LAUNCH_AX_TIMEOUT_S = 2.0
+LAUNCH_AX_POLL_S = 0.1
 
 
 def app_in(text: str, names: list[str]) -> str | None:
@@ -496,6 +498,7 @@ class Orchestrator:
         self._utterance = ""
         self._diff_chain: list[str] | None = None
         self._apps: tuple[float, list[str]] | None = None   # (t, names)
+        self._launch_pending = False
         self._collect: list[str] | None = None   # compound: replies to join
         self._last_skill: tuple[str, dict, dict] | None = None
         self._compound_to_planner = False
@@ -1388,7 +1391,7 @@ class Orchestrator:
         aliases = {"vscode": "Visual Studio Code", "chrome": "Google Chrome",
                    "settings": "System Settings", "preferences": "System Settings"}
         if resolved is None:
-            targets = self._NATIVE_APP_ALIASES.get(key(name), set())
+            targets = {key(n) for n in self._NATIVE_APP_ALIASES.get(key(name), set())}
             resolved = by_key.get(key(aliases.get(key(name), "")))
             resolved = resolved or next((n for n in names if key(n) in targets), None)
         if resolved is None:
@@ -1397,6 +1400,24 @@ class Orchestrator:
             return None
         args = dict(args, app=resolved)
         return dict(params, args=args) if skill else args
+
+    def _note_launch(self, method: str, params: dict, result: dict):
+        if result.get("ok") and (
+                (method == "act" and params.get("op") == "open") or
+                (method == "skill" and params.get("name") == "open_app")):
+            self._launch_pending = True
+
+    async def _wait_launch_ax(self, obs: dict | None) -> dict | None:
+        self._launch_pending = False
+        try:
+            async with asyncio.timeout(LAUNCH_AX_TIMEOUT_S):
+                while obs and (obs.get("window_source") == "none" or
+                               not obs.get("elements")):
+                    await asyncio.sleep(LAUNCH_AX_POLL_S)
+                    obs = await self._observe_once() or obs
+        except TimeoutError:
+            pass
+        return obs
 
     _NATIVE_APP_ALIASES = {
         "zoom": {"zoom.us"},
@@ -2713,6 +2734,7 @@ function run() {
             return {"status": "failed", "error": str(e)}
         self.tracer.rpc(method, params, self._trace_res(res),
                         (time.perf_counter() - t) * 1000)
+        self._note_launch(method, params, res)
         if res.get("epoch"):
             self._last_epoch = res["epoch"]
         # act diffs chain into the next planner observation (skills and
@@ -2930,6 +2952,9 @@ function run() {
             if not verify_mode:
                 last_exp_ok = False
                 last_exp_source = None
+            if self._launch_pending:
+                diffs = None
+                next_obs = None
             if next_obs is not None:
                 obs = next_obs
                 next_obs = None
@@ -2955,6 +2980,12 @@ function run() {
                     self._last_obs = obs
                 elif not obs_text:
                     obs_text = "(no observation available)"
+            if self._launch_pending:
+                obs = await self._wait_launch_ax(self._last_obs)
+                if obs:
+                    self._last_obs = obs
+                    obs_text = str(obs.get("text") or "")
+                    obs_fresh = True
             if await self._permission_gate(
                     self._last_obs if obs_fresh else None, text):
                 return "awaiting_user"
@@ -3631,6 +3662,7 @@ function run() {
                 return await self._fail(str(e))
             self.tracer.rpc("act", params, self._trace_res(res),
                             (time.perf_counter() - t) * 1000)
+            self._note_launch("act", params, res)
             if res.get("epoch"):
                 self._last_epoch = res["epoch"]
             if not res.get("ok", False):
@@ -3780,6 +3812,7 @@ function run() {
             res = {"ok": False, "error": str(e)}
         self.tracer.rpc("skill", {"name": name, "args": args},
                         self._trace_res(res), (time.perf_counter() - t) * 1000)
+        self._note_launch("skill", {"name": name}, res)
         if res.get("error") == "not_frontmost":
             if self.tracer.current is not None:
                 self.tracer.current["decisions"].append(

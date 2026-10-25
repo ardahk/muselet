@@ -242,13 +242,13 @@ def test_app_fill_survives_apps_rpc_failure(tmp_path):
     assert _skill_rpcs(srv) == [("open_app", {"app": "Safari"})]
 
 
-def test_app_given_by_args_skips_apps_rpc(tmp_path):
+def test_app_given_by_args_resolves_with_apps_rpc(tmp_path):
     srv = FakeServer()
     eng = FakeEngine(routes={"open safari": ("open_app", 0.95)},
                      argmap={("open_app", "open safari"): {"app": "Safari"}})
     o = Orchestrator(srv, Catalog.load(), Tracer(tmp_path / "t"), engine=eng)
     run(o.handle_utterance("open safari"))
-    assert "apps" not in srv.methods()
+    assert srv.methods().count("apps") == 1
 
 
 @pytest.mark.parametrize("text,want", [
