@@ -1,6 +1,6 @@
-# brain lane digest — pass 59 (2026-10-25T02:22:00Z)
+# brain lane digest — pass 60 (2026-10-25T02:37:00Z)
 
-Open: P0 0 / P1 8 / P2 10. main f5b4606 changes only a comment (orchestrator.py:1191) and paraphrases 3 test utterances (test_brain8_live_fixes.py) to keep sealed HobbyLM text out of the repo; 69a9650 is harness-only. No behavior change in lane. Suite on main: 18 failed / 2046 passed / 108 skipped (same 18 MLX-stub). Review repros 22F/52P (unchanged; includes brain-45 and brain-46). wip/local c49bf0e is a snapshot on main@f5b4606 and matches main in lane.
+Open: P0 0 / P1 8 / P2 10. main 55e38f9 changes only bench/hobbylm/replay.py (calendar precondition errors are now recorded); no ml/ change, and the replay still uses the default MemoryStore (brain-42). Suite on main: 18 failed / 2046 passed / 108 skipped (same 18 MLX-stub). Review repros 22F/52P (unchanged; includes brain-45 and brain-46). wip/local fd357b3 is a snapshot on main@55e38f9 and matches main in lane.
 
 ## Open P0/P1 (ranked)
 - brain-16 [P1] abs_level misreads times, durations, percentages and unrelated words — `ml/src/brain/orchestrator.py` (main@fb2cfd0@003d1bb)
