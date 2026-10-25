@@ -28,8 +28,12 @@ def test_fact_preference_and_person_write_commands():
         "type": "preference", "key": "coffee", "value": "dark roast"}
     assert memory_command("my mom is Jane Kim").write == {
         "type": "person", "key": "mom", "value": "Jane Kim"}
-    assert memory_command("call Mom Jane Kim").write == {
+    assert memory_command("call my mom Jane Kim").write == {
         "type": "person", "key": "mom", "value": "Jane Kim"}
+    assert memory_command("Jane Kim is my mom").write == {
+        "type": "person", "key": "mom", "value": "Jane Kim"}
+    assert memory_command("call me Ace").write == {
+        "type": "person", "key": "user name", "value": "Ace"}
     assert memory_command("remember my pin is 4821") is None
 
 
@@ -58,3 +62,22 @@ def test_forget_commands_and_planner_writes():
     assert extract_writes(
         "send a message saying SECRET BODY", skill="send_message",
         args={"body": "SECRET BODY"}) == []
+
+
+def test_generic_commands_never_become_person_memories():
+    for text in ("show whatever is sitting on desktop",
+                 "the file is on the desktop", "call Mom Jane Kim",
+                 "what is the weather", "safari is slow",
+                 "call mom", "open whatever is in downloads"):
+        assert memory_command(text) is None, text
+        assert extract_writes(text, skill="open_app") == [], text
+
+
+def test_planner_writes_need_real_app_and_two_steps():
+    assert planner_writes("make a folder", "Finder", 1) == []
+    assert planner_writes("make a folder", "Finder", 0) == []
+    for app in ("", "none", "unknown", None):
+        assert planner_writes("make a folder", app, 3) == [], app
+    assert [row["value"] for row in planner_writes(
+        "make a folder", "Finder", 2)] == [
+            "make a folder → ok (2 steps, Finder)", "2 steps in Finder"]

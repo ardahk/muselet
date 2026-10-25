@@ -168,6 +168,43 @@ Restore your language order afterwards.
 ## 7. Cleanup
 Stop every server. Delete the `Muselet Bench` calendar if you no longer need it.
 
+### 5c. Acceptance suite (`evals/acceptance.jsonl`; gates every PR that touches `ml/src/brain/`, `prompts/`, `skills/catalog.json` or the router/planner config)
+Every demo utterance (`pitch/demo_script.md`) and every phrasing from the 2026-10-24 user session, on the
+user's real setup: Zen as the default browser, a Workspace Gmail thread open in Zen, Clock already open,
+a confirm left unanswered before the next command (`confirm_reply: "hold"`), STT spellings ("open text
+edit"). `"grade": "screen"` cases are rejected at load time if they grade on `trace_say` or lack a final
+AX / System Events / file / HandsKit-state check. Regenerate with `python3 bench/live/build_acceptance.py`.
+```sh
+# start the bench brain with its own memory (the forget-everything cases SKIP otherwise)
+MUSELET_MEMORY_DB=~/MuseletSandbox/memory.sqlite tools/serve_brain.sh &
+export MUSELET_DEMO_CONTACT="<a contact who agreed to receive test texts>"   # never sent: confirm is answered NO
+# setup: Zen default browser + one Workspace Gmail thread open in Zen (front); quit Mail, Messages, Notes, TextEdit
+uv run --project ml python bench/live/run_live.py --suite evals/acceptance.jsonl --dry-run --allow-user-ok
+uv run --project ml python bench/live/run_live.py --suite evals/acceptance.jsonl --brain-url ws://127.0.0.1:8765 \
+  --proxy-port 8790 --hands-bin "$HANDS_BIN" --allow-user-ok --run-pending --repeat 2 \
+  --out runs/bench/live/acceptance-$(date -u +%Y%m%dT%H%M%SZ)
+uv run --project ml pytest ml/tests/test_replay.py -q -rx      # offline: the 7 user failures
+```
+A timed-out turn still reads the screen (`timeout_observations` in the row): read it before calling a
+timeout "slow" rather than "wrong".
+
+## Release checklist (before telling the user a feature works)
+1. **Replay:** `uv run --project ml pytest ml/tests/test_replay.py -q` passes; the fix PR deleted the
+   case's `fails_on_main` (an XPASS fails the test until it does). Each new user report gets a replay
+   case (`python -m brain.replay --from-trace runs/traces/<day>.jsonl --ts <ts>`) before the fix.
+2. **Acceptance on the Mac:** every case touching the feature passes 2/2 on an unlocked screen, with
+   0 `harness_timeout` and 0 unexplained SKIPs (a SKIP is not a pass: fix the setup and rerun).
+3. **Screen, not reply:** the passing check reads the final state (AX, System Events, files, HandsKit
+   `timers`), e.g. Clock shows a running timer, the Zen tab count is unchanged, the note exists. A
+   reply like "Timer set" or a `trace_skill` match is never evidence.
+4. **Real setup:** run with the user's default browser (Zen), the user's mail (Workspace Gmail),
+   the target app both closed and already open, and once right after an unanswered confirm/ask.
+5. **Spoken variants:** at least one STT-style spelling of every app/contact name the feature takes
+   ("text edit", "face time", lower case, no punctuation).
+6. **Persistence:** anything stored or cleared survives quitting Settings and restarting the brain.
+7. **Report:** quote the result dir (`runs/bench/live/acceptance-<stamp>`), commit and pass counts in the
+   PR; "works" in a message to the user links that row.
+
 ## Mac results (2026-10-24, lead's run)
 
 | System | JevBench (public) | JevBench hard | Typed Decisions (400 test) |

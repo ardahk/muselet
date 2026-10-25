@@ -351,7 +351,8 @@ def test_site_and_browser_skill_rewrites():
         assert gmail["args"]["url"] == "https://mail.google.com"
         assert trace["site_switch"] == ["gmail", "mail.google.com"]
 
-        server.apps = {"running": ["Slack.app"], "installed": []}
+        server.apps = {"running": ["Slack.app"],
+                       "installed": ["Safari", "Google Chrome"]}
         orch._apps = None
         orch._utterance = "open Slack"
         await orch._run_skill("open_app", {"app": "Slack"}, "open Slack",
