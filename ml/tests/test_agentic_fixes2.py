@@ -207,3 +207,11 @@ def test_style_about_is_composed_literal_about_is_typed():
     assert content({"about": "something funny"}) is None
     literal = hint("draft_email", {"about": "I can do Thursday at three"})
     assert 'type exactly: "I can do Thursday at three"' in literal
+
+
+def test_cart_count_walmart_and_target_labels():
+    from brain.finish import cart_count
+    assert cart_count('#1 button "Cart contains 3 items Total Amount $28.69"') == 3
+    assert cart_count('#2 link "Cart, 2 items"') == 2
+    assert cart_count('#3 text "1 item in cart"') == 1
+    assert cart_count('#4 button "1 in cart, Energizer MAX"') is None
