@@ -259,6 +259,13 @@ def evidence(kind: str, subject: str = "", obs: dict | str | None = None,
         labels = [str(e.get("label") or "") for e in obs.get("elements") or []
                   if str(e.get("role") or "").lower() == "button"]
         labels += _BUTTON.findall(text)
+        # a bare "Pause" label on the wrong page (a Google results embed)
+        # is not proof the named media is playing
+        if "youtube" in goal.lower():
+            where = norm_words(str(obs.get("window") or "") + " " +
+                               str(obs.get("url") or ""))
+            if "youtube" not in where:
+                return False
         if "spotify" in goal.lower():
             st = norm_words(str(script_stdout or ""))
             return "playing" in st and (not subject or

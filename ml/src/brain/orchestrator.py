@@ -4084,6 +4084,7 @@ function run() {
         self._evidence_base = False
         self._confirm_asked = False
         self._auto_evidence = False
+        self._done_summary = None
         from . import dsl
         from .planner import worker
         goal = text
