@@ -275,6 +275,8 @@ def test_confirmed_brain_tool_failure_does_not_handoff(monkeypatch, tmp_path):
         await orch.server.say("Couldn't open a reply in Mail")
         return "failed"
 
+    # brain-tool execution is gone: draft_email delegates to the planner;
+    # the monkeypatched tool must never run
     monkeypatch.setattr(draft_email, "run", confirm_then_fail)
     planner = FakePlanner([['done "Finished"']])
     server, _, orch = _setup(tmp_path, {}, planner=planner)
@@ -282,9 +284,8 @@ def test_confirmed_brain_tool_failure_does_not_handoff(monkeypatch, tmp_path):
 
     _run(orch.handle_utterance("reply to this email"))
 
-    assert server.confirms == ["Continue?"]
-    assert planner.calls == 0
-    assert "Couldn't open a reply in Mail" in server.said
+    assert server.confirms == []
+    assert planner.calls >= 1
 
 
 @pytest.mark.parametrize(

@@ -695,7 +695,8 @@ class Orchestrator:
         self.engine = engine
         self.tau = tau
         self.open_ended_route = open_ended_route
-        self.agentic_apps = False
+        # app-kind skills always plan; the flag stays for compat only
+        self.agentic_apps = True
         self._agentic = None
         self.memory_enabled = True
         self.memory_llm = True
@@ -1579,16 +1580,11 @@ class Orchestrator:
         return await self._planner_loop(text, trace, fallback=line)
 
     async def _brain_tool(self, label: str, args: dict, text: str) -> str:
-        """executor:brain skills — local tools, never sent to HandsKit."""
-        from . import tools
+        """Legacy brain-tool callers hand the goal to the planner — coded
+        app engines are gone; never execute a tools.<name> module."""
         self._ms_kind = "total"
-        out = await tools.run(self, label, args, text)
-        if out == "fallback" and label != "draft_email":
-            await self.server.say("That workflow is almost ready")
-            await self._end_ui("confused")
-        elif out == "ok":
-            self._ctx["last_action"] = label
-        return out
+        trace = self.tracer.current or {"decisions": []}
+        return await self._agentic_route(label, args, text, trace)
 
     def _timer_control_intent(self, text: str) -> str | None:
         """'pause the timer' / 'resume it' (Clock frontmost or a timer was
@@ -1612,7 +1608,9 @@ class Orchestrator:
         return None
 
     def _agentic_app(self, name) -> bool:
-        return bool(self.agentic_apps) and self.catalog.kind(name) == "app"
+        # app/analysis intents always go to the planner — they are router
+        # labels, never callable task tools, whatever the flag says
+        return self.catalog.kind(name) in ("app", "analysis")
 
     async def _agentic_route(self, name, args, text, trace) -> str:
         from . import agentic
@@ -3182,7 +3180,7 @@ function run() {
             return {"status": "ok", "_log": f"{dsl_line}-> ok"}
         if op == "skill":
             name = a.get("name")
-            if self.agentic_apps and self.catalog.kind(name) == "app":
+            if self.catalog.kind(name) in ("app", "analysis"):
                 why = "skill disabled: operate the app's UI"
                 return {"status": "failed", "error": why,
                         "_log": f"{dsl_line}-> failed: {why}"}

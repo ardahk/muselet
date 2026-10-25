@@ -14,6 +14,15 @@ spreadsheet finance (Numbers / Google Sheets), Premiere Pro, plus 1-2 "wow" mome
 Hackathon deadline: Cal Hacks submission Sun Oct 25 2026, 09:00 PDT. Tinker budget: $150 hard cap.
 
 ## Standing decisions from the user (Sat Oct 24)
+User override (Sun Oct 25): app tasks, including finance/advisor analysis, must be
+planned and performed by the AI through generic tools using live state. App
+cheat sheets describing shortcuts, controls and API facts are allowed; whole
+prewritten finance/advisor workflow engines are not. Delete those engines
+rather than hiding them behind flags. Keep the rapid-fire OS commands, generic
+execution adapters, safety confirmations and outcome verification. Older references below to
+`executor: brain` finance/advisor tools or disabling agentic app routing are
+historical and do not authorize restoring those paths.
+
 - Before declaring any model/config "better" (router, planner, grounder, quantization), tune the tweakable knobs
   of EACH option fairly first (prompt/format, decoding, thresholds, cache use, quantization, image size/zoom, LR/epochs)
   and compare tuned vs tuned, with the numbers and settings recorded. Every knob change starts from research

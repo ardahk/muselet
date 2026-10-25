@@ -234,11 +234,18 @@ def test_compose_text_v3_targets(monkeypatch, target, skill):
 def test_compose_text_dispatches_through_tools_run(monkeypatch):
     from brain import tools
 
+    # tools.run is a compatibility shim: app intents delegate to the
+    # planner, never execute a coded new_note path
     orch = _compose_orch("Text", monkeypatch)
+    seen = []
+    async def agentic(name, args, text, trace):
+        seen.append(name); return "ok"
+    orch._agentic_route = agentic
     assert asyncio.run(tools.run(
         orch, "compose_text", {"topic": "my day", "target": "note"},
         "write about my day")) == "ok"
-    assert orch.skills_called[0][0] == "new_note"
+    assert seen == ["compose_text"]
+    assert not orch.skills_called
 
 
 @pytest.mark.parametrize("memory,pressure,reason", [

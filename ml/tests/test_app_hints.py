@@ -233,4 +233,4 @@ def test_numbers_hint_sort_goal_frontmost():
     assert any(h.id == "numbers" for h in hints)
     rendered = render_hints(hints)
     assert "Sort" in rendered
-    assert "rewriting cell" in rendered or "cell values" in rendered
+    assert "transaction values" in rendered

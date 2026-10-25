@@ -124,7 +124,7 @@ def test_agentic_message_confirmation_names_recipient_and_blocks_send(
     ("play_music", "play jazz", {"query": "jazz"}),
 ])
 @pytest.mark.parametrize("enabled", [True, False])
-def test_top_skill_routes_to_planner_only_when_enabled(
+def test_flags_cannot_disable_planner(
         tmp_path, skill, text, args, enabled):
     engine = FakeEngine(
         routes={text: (skill, 0.99)},
@@ -140,12 +140,8 @@ def test_top_skill_routes_to_planner_only_when_enabled(
     result = _run(orch._engine_route(text, {"decisions": []}))
 
     assert result == "ok"
-    if enabled:
-        assert planner.user_msgs
-        assert not server.skills()
-    else:
-        assert not planner.user_msgs
-        assert [call["name"] for call in server.skills()] == [skill]
+    assert planner.user_msgs
+    assert not server.skills()    # app intents always plan
 
 
 def test_disabled_app_skill_replans_without_strike_or_recovery(tmp_path):

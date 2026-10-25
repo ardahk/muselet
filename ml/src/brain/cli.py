@@ -78,8 +78,10 @@ def make_planner(pmodel: str, engine=None, opts: dict | None = None,
     from .planner import Planner
     catalog = Catalog.load()
     planner_opts = dict(opts or {})
-    if agentic_apps:
-        planner_opts["hidden_skills"] = catalog.app_skills()
+    # app/analysis labels are never callable planner actions
+    hidden = set(planner_opts.get("hidden_skills") or ())
+    hidden |= set(catalog.app_skills())
+    planner_opts["hidden_skills"] = frozenset(hidden)
     if mode == "tools":       # native chat-template tool calling (experiment)
         from .native_planner import NativeToolPlanner
         planner = NativeToolPlanner(
@@ -151,7 +153,8 @@ async def serve(port: int = 8765, model: str | None = None,
     blind_mode = _mode_kw(planner_blind_mode or planner_mode)
     orch = Orchestrator(server, Catalog.load(), Tracer(), engine=engine,
                         open_ended_route=open_ended_route)
-    orch.agentic_apps = agentic_apps
+    # accepted for compatibility; app/analysis intents always plan
+    orch.agentic_apps = True
     orch.planner = planner
     if planner is None:
         orch.planner_aux = None

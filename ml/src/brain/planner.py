@@ -303,6 +303,7 @@ class Planner:
         self.think_budget, self.think_on = think_budget, think_on
         self.think_sampler, self.think_seed = think_sampler, think_seed
         self.app_hints = app_hints
+        hidden_skills = set(hidden_skills) | set(catalog.app_skills())
         self.hidden_skills = frozenset(hidden_skills)
         self.plan_bank = None
         if retrieval_k > 0:
