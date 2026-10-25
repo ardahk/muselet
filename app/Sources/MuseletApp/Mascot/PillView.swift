@@ -20,8 +20,12 @@ struct PillView: View {
     @FocusState private var fieldFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// Debug hook `pill_slow`: stretch the typing open/close so the lead can screenshot it mid-way.
+    static var slowMotion = false
+
     static func typingAnimation(reduceMotion: Bool) -> Animation {
-        reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.3, dampingFraction: 0.78)
+        if slowMotion { return .easeInOut(duration: 2.0) }
+        return reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.3, dampingFraction: 0.78)
     }
 
     private var spring: Animation { Self.typingAnimation(reduceMotion: reduceMotion) }

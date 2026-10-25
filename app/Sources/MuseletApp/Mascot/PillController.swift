@@ -106,7 +106,7 @@ final class PillController {
                  onMic: { [weak self] in self?.onMic?() },
                  onKeyboard: { [weak self] in self?.beginTyping() },
                  onSubmit: { [weak self] t in self?.submit(t) },
-                 onCancel: { [weak self] in self?.endTyping() })
+                 onCancel: { [weak self] in self?.cancelTyping() })
     }
 
     func mascotHover(_ h: Bool) {
@@ -178,6 +178,14 @@ final class PillController {
         onTyped?(text, ctx)
     }
 
+    /// Esc and the X button (and the `pill_typing close` debug hook): one path. Deferred
+    /// one run-loop turn so the X button's click finishes before its view is removed.
+    func cancelTyping() {
+        DispatchQueue.main.async { [weak self] in self?.endTyping() }
+    }
+
+    /// Every close (Esc, X, submit, click elsewhere): hand key focus back to the frontmost
+    /// app first, then run the one collapse animation on the non-key panel.
     func endTyping() {
         guard state.typing else { return }
         closing += 1
@@ -187,40 +195,40 @@ final class PillController {
         let staying = PillPolicy.wantsShow(mascotSettled: dwell.settled, mascotHovering: dwell.hovering,
                                            pillShown: true, pillHover: hoverPill,
                                            recording: model.isRecording, typing: false)
+        handBackFocus()
         withAnimation(PillView.typingAnimation(
             reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         )) {
             state.typing = false
             if !staying { state.shown = false }
         } completion: { [weak self] in
-            self?.finishClose(gen, staying: staying)
+            self?.finishClose(gen)
         }
     }
 
-    private func finishClose(_ gen: Int, staying: Bool) {
+    /// Drop key status without a visible change: re-order the panel while screen updates
+    /// are frozen and it still shows the field, so the collapse starts from the same pixels.
+    private func handBackFocus() {
+        panel.acceptsKey = false
+        guard panel.isKeyWindow else { return }
+        panel.disableScreenUpdatesUntilFlush()
+        panel.orderOut(nil)
+        panel.orderFrontRegardless()
+        parent?.addChildWindow(panel, ordered: .above)
+    }
+
+    private func finishClose(_ gen: Int) {
         guard gen == closing, !state.typing else { return }
         state.text = ""
         holdFrame = false
-        panel.acceptsKey = false
-        if !staying { hideWork?.cancel() }
-        if panel.isKeyWindow {
-            if !staying || !wantsShow {
-                panel.orderOut(nil)
-            } else {
-                panel.disableScreenUpdatesUntilFlush()
-                panel.orderOut(nil)
-                panel.orderFrontRegardless()
-                parent?.addChildWindow(panel, ordered: .above)
-            }
-        } else if !state.shown {
-            panel.orderOut(nil)
-        }
         layout()
         update()
     }
 
-    /// Clicked elsewhere: close an empty field, keep a draft.
+    /// Clicked elsewhere: close an empty field, keep a draft. (Our own hand-off drops
+    /// `acceptsKey` first and is ignored here.)
     private func resignedKey() {
+        guard panel.acceptsKey else { return }
         if state.typing && state.text.trimmingCharacters(in: .whitespaces).isEmpty { endTyping() }
     }
 

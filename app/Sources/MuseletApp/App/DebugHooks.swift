@@ -108,11 +108,14 @@ final class DebugHooks {
             case "pill_hover":
                 mascot.pill.mascotHover(info["on"] as? String != "false")
             case "pill_typing":
+                // state=close: the Esc / X-button path (PillController.cancelTyping).
                 if (info["state"] as? String ?? "open") == "close" {
-                    mascot.pill.endTyping()
+                    mascot.pill.cancelTyping()
                 } else {
                     mascot.pill.beginTyping(prefill: info["text"] as? String ?? "")
                 }
+            case "pill_slow":
+                PillView.slowMotion = info["on"] as? String != "false"
             case "panel":
                 Self.openPanel()
             case "automation_status":
