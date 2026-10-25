@@ -1,7 +1,8 @@
-# architect digest - pass 57 (2026-10-25T00:52Z)
-Reviewed: main eb3e945 (design brief only), wip/local 3f21dc6, new design b93bb50, docs-demo-3 c615c37, memory-llm-gate 6864386, panel-hook-fix ef35421. No new findings. design removes the Shortcuts timer backend + SettingsView by explicit user request (brief §3) and keeps Settings › Memory in PanelView; Muselet timer fallback kept. docs-demo-3 discloses greedy t512 (.763, 1.7 s) next to qwen and the live-suite 27/43-ran skip, quotes T1/T2 separately (good), but still cites it3 overlap 0 only as "(lane brief)" (architect-37). memory-llm-gate: lexical guard on LLM rewrites, 40/40 memory tests pass on Linux, no re-measured resolution/false-rewrite yet; MEMORY_LLM stays 0. Re-checked open findings: none changed (serve_brain.sh@eb3e945:49-50 still THINK_SAMPLER qwen, VERIFY_DONE on; replay.py still unpinned).
+# architect digest - pass 58 (2026-10-25T01:08Z)
+Reviewed: main e4594d9 (harness slot-free wait, live skip_reason fix, mem-wiki-search Zen check), wip/local fc5d595, new memory-hotfix d932320, memory-rules2 03c3cd1. New: architect-38 (P1): memory rules on by default on main site-scope explicit searches/questions into Wikipedia; fix is on memory-hotfix/rules2, unmerged. rules2: 52/52 tests, holdout rewrite_acc .5745 -> .617, false_rewrite .0195 both (holdout blind to this class). Other open findings unchanged.
 
 ## Open P1 (ranked)
+0. architect-38 - Memory rules (default on) rewrite explicit searches into Wikipedia; hotfix unmerged - ml/src/brain/memory/rules.py
 1. architect-37 - it3 default router; no it3 sealed overlap check; replay unpinned - tools/serve_brain.sh
 1b. architect-29 - No winning competitor number (TD tie within 1 SE, JevBench loses, HobbyLM r4 missing) - pitch/claims.md
 2. architect-33 - Done verifier default on with unfitted 0.5 threshold (on main) - ml/src/brain/orchestrator.py
@@ -19,4 +20,4 @@ Reviewed: main eb3e945 (design brief only), wip/local 3f21dc6, new design b93bb5
 2. Flip THINK=512 with the greedy sampler, not qwen (same pass rate, -0.85 s/step, deterministic for the stage). 1 line.
 3. Fit VERIFY_P now that verify is on by default. Label v2-tune final states plus live_t1 traces and target false reject <= 5%, else VERIFY_DONE=off for the demo. ~30 min.
 4. Mac decisions run (muselet-decisions-4b-mlx4, T=1) on JevBench + TD through the shim. Quote only against the SE. ~30 min.
-5. Run a live rehearsal of the 3:00 script with think + verify on and record per-beat latency. The planner beats now cost ~2-3 s per step.
+5. Merge memory-hotfix d932320 (or rules2 03c3cd1) before the rehearsal, or serve MEMORY=0 (architect-38). Then rehearse the 3:00 script with think + verify + memory on and record per-beat latency.
