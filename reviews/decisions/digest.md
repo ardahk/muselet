@@ -1,10 +1,11 @@
-# decisions — digest (pass 53)
+# decisions — digest (pass 54)
 
-Heads: main 4150ecb / wip b7b7840 unmoved (decisions-37 P0 still live). cloud/fallback 2ef5805 widens planner fallback to app-open requests; cloud/test-strategy adds evals/acceptance.jsonl + evals/replay/user_2026-10-24.jsonl, not in decontam (decisions-24). Budget: about $142.06 MTD estimated.
+Heads: main b340f24 (LoRA planner + aux model #82; decisions-37 P0 still live via aux Planner.decide -> inline()), wip 94f6fe9 (= main). New: decisions-40 P1 on cloud/open-ended (redirect flips 4/103 route_v1_clean, 64/955 route_v2 gold routes to the planner). Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
 1. decisions-37 P0 LIVE on main: inline() lacks temperature attrs -> planner done-verifier always errors, verify silently off — ml/src/brain/generic_decide.py:177-190@e9fb42d
+2. decisions-40 P1 open_ended_redirect overrides correct routes (route_v1_clean 4/103, route_v2 64/955 with gold labels) — cloud/open-ended orchestrator.py:1131-1138@fd87f69
 2. decisions-38 P1 route claims fixed by #68 except claims.md:200 'default tau 0.55' — pitch/claims.md
 3. decisions-32 P1 Full run fails its gate; TD +.0065 vs DeskMind is within noise, test-selected — training/decisions/HANDOFF.md:7-8,82-89
 4. decisions-5 P1 4-bit MLX export has no logit parity check vs Tinker; Tinker numbers can't be carried over — training/decisions/export.py
