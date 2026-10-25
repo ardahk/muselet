@@ -118,9 +118,10 @@ private final class ClockAXFixture {
             window.attrs.children.removeAll { $0 === runningGroup }
             return true
         }
-        start.onAction = { [weak window, weak runningGroup] action in
+        // Strong capture: nothing else retains the group until Start adds it.
+        start.onAction = { [weak window, runningGroup] action in
             guard action == (kAXPressAction as String) else { return false }
-            if addRunningOnStart, let window, let runningGroup {
+            if addRunningOnStart, let window {
                 window.attrs.children.append(runningGroup)
             }
             return true
