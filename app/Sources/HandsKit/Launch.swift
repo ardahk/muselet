@@ -184,7 +184,8 @@ extension Skills {
     /// Open `url` in the requested or default browser, waiting for the same
     /// frontmost and title verification. Returns the browser actually used.
     func openInBrowser(_ url: URL, extra: [String: Any],
-                       browser: String? = nil) throws -> [String: Any] {
+                       browser: String? = nil,
+                       sameTab: Bool = false) throws -> [String: Any] {
         let requested = browser?.trimmingCharacters(in: .whitespacesAndNewlines)
         let requestedName = requested?.isEmpty == false ? requested : nil
         let requestedApp = requestedName.flatMap { launcher.app(named: $0) }
@@ -192,27 +193,61 @@ extension Skills {
         let bid = target?.bundleId ?? ""
         let running = bid.isEmpty ? nil : apps.runningApp(bundlePrefix: bid)
         let before = running.flatMap { frontWindowTitle(pid: $0.pid) }
-        let opened = try launcher.open(url, with: target)
         let name = target?.name ?? "browser"
+
+        func checkedResult(_ w: ForegroundWait, sameTabUsed: Bool = false,
+                           beforeURL: String? = nil,
+                           afterURL: String? = nil) throws -> [String: Any] {
+            var r = extra
+            r["browser"] = name
+            if let requestedName {
+                r["browser_requested"] = requestedName
+                if requestedApp == nil { r["browser_fallback"] = true }
+            }
+            r["frontmost"] = apps.name(pid: apps.frontmostPid())
+            r["window_title"] = w.title ?? ""
+            r["title_changed"] = w.done
+            r["same_tab_used"] = sameTabUsed
+            if sameTabUsed, let beforeURL, let afterURL {
+                r["url_changed"] = !afterURL.isEmpty && afterURL != beforeURL
+                if !afterURL.isEmpty { r["page_url"] = afterURL }
+            }
+            guard w.front else {
+                throw HandsError.verifyFailed(
+                    code: "not_frontmost",
+                    observed: "frontmost \"\(r["frontmost"]!)\", not \(name)",
+                    result: r)
+            }
+            return r
+        }
+
+        if sameTab, let running, apps.frontmostPid() == running.pid,
+           before != nil {
+            let beforeURL = UtteranceCtx.pageInfo(
+                app: axApp(running.pid), browser: true).url
+            if let combo = try? Combo.parse("cmd+l") { events.post(combo) }
+            Hands.pollWait(sameTabKeyDelay)
+            events.typeText(url.absoluteString)
+            if let combo = try? Combo.parse("forwarddelete") { events.post(combo) }
+            if let combo = try? Combo.parse("return") { events.post(combo) }
+            let w = waitForeground(pid: running.pid, bundleId: bid,
+                                   timeout: openTimeout) { title in
+                guard let t = title, t != before else { return false }
+                return !Self.isPlaceholderTitle(t, browser: name)
+            }
+            let afterURL = UtteranceCtx.pageInfo(
+                app: axApp(running.pid), browser: true).url
+            return try checkedResult(w, sameTabUsed: true,
+                                     beforeURL: beforeURL, afterURL: afterURL)
+        }
+
+        let opened = try launcher.open(url, with: target)
         let w = waitForeground(pid: opened > 0 ? opened : (running?.pid ?? 0), bundleId: bid,
                                timeout: openTimeout) { title in
             guard let t = title, t != before else { return false }
             return !Self.isPlaceholderTitle(t, browser: name)
         }
-        var r = extra
-        r["browser"] = name
-        if let requestedName {
-            r["browser_requested"] = requestedName
-            if requestedApp == nil { r["browser_fallback"] = true }
-        }
-        r["frontmost"] = apps.name(pid: apps.frontmostPid())
-        r["window_title"] = w.title ?? ""
-        r["title_changed"] = w.done
-        guard w.front else {
-            throw HandsError.verifyFailed(code: "not_frontmost",
-                                          observed: "frontmost \"\(r["frontmost"]!)\", not \(name)", result: r)
-        }
-        return r
+        return try checkedResult(w)
     }
 
     /// Open a folder in Finder and wait (<= `openTimeout`) for a frontmost
