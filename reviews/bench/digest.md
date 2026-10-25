@@ -1,8 +1,10 @@
-# bench digest — pass 64 (2026-10-25T03:40Z, main@4150ecb)
+# bench digest — pass 65 (2026-10-25T03:58Z, main@4150ecb)
 
-P0: 0 | open P1: 13 | open P2: 11
+P0: 0 | open P1: 14 | open P2: 12
 
 Ranked open P1:
+0. bench-42 (cloud/test-strategy) acceptance case acc-user-pending-notes-then-text drives Messages with no Messages-not-running precondition; leaves a draft to a real contact in the user's open Messages.
+0b. bench-41 calc_checker provenance mismatch blocks HobbyLM replay.
 1. bench-36 competitor runs not pinned to it2 though claims say "it2 only"; router not recorded in results.
 2. bench-23 it3 chosen on route_v2 whose gold shares judge/policy with its training labels.
 3. bench-34 think default = qwen sampler, one seed, +850 ms/step vs greedy.
@@ -14,6 +16,7 @@ Ranked open P1:
 Downgraded this pass: bench-38 (proxy wedge mitigated by force_release; forced releases not recorded, displacement branch dead) and bench-39 (r4 strings paraphrased out of tests; r4 disclosure still needed). Also P2: bench-37 memory claims stale (holdout .617/.0195).
 
 Next moves:
+0. Add the Messages-not-running precondition to acc-user-pending-notes-then-text before any acceptance run (bench-42); add a PROVENANCE.md harness-patch row for calc_checker (bench-41).
 1. Record forced_releases / slot_forced per case and in the run summary (bench-38).
 2. ROUTER=it2 on competitor runs + router id/sha/tau in result rows (bench-36).
 3. Disclose r4 D04-D06 fixed-after-observation; report r4 with and without them (bench-39).
@@ -29,3 +32,5 @@ Pass 62: NEW P1 bench-41: 6a37d0c patched vendored calc_checker.swift without up
 Pass 63 (no new findings): bench-41 still blocks replay at fa0f040 (provenance hash re-checked). 7235a34 is a good isolation change: bench brains (PORT != 8765) get a fresh MUSELET_MEMORY_DB per start, so user memory isn't touched. Watch (unverified): the store is per brain start, not per case, so long-term memories written in one HobbyLM/live case can carry into later cases in the same run. HobbyLM has no memory, so reset the store per case or report memory hits. fa0f040 design (Clock-only timers) touches no bench/eval code; re-check bench-20 timer gradability on the next r4 run. memory-writes and design-polish don't touch my lane.
 
 Pass 64 (no new findings): bench-41 still blocks replay at 4150ecb (verify_provenance re-run, same mismatch). main 4150ecb = briefs only. Watch cloud/fallback 6e40c3e: it defaults FALLBACK_PLANNER=1 and PLANNER_CONTEXT=1 in serve_brain.sh. PLANNER_CONTEXT changes the planner prompt, so the planner-think holdout numbers (.770 etc.) no longer describe serving; re-run evals/planner_offline.py holdouts with context on before merge. Fallback also adds planner retries after skill failures, so report fallback-rescued passes separately in HobbyLM/live results. Other new branches don't touch my lane.
+
+Pass 65: main/wip unchanged. NEW P1 bench-42 and P2 bench-43 on cloud/test-strategy 96c96d2 (acceptance suite). bench-42: the Messages case has no Messages-not-running guard. bench-43: one fixed memory DB is reused across runs and repeats. Reviewed fine on test-strategy: the hold-confirm proxy path (a held confirm is never answered yes; the brain cancels the in-flight task on the next utterance and sends confirm_cancel, which is tagged held), the screen-grade lint, int_equals_saved, timeout_observations (diagnostic only, never graded), and bench/tests/test_acceptance.py (5 passed locally). The lint doesn't look inside nested any/all predicates for trace_say (minor). cloud/fallback 2ef5805 now lets the planner fallback run on messaging text unless the routed skill is compose/draft_email; send_message stays excluded and the risk gate is unchanged. Still a watch item: report fallback-rescued passes separately. fix-same-tab doesn't touch my lane.
