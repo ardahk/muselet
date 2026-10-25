@@ -1,6 +1,6 @@
-# training lane digest — pass 59 (main 9be963d)
+# training lane digest — pass 60 (main 19d57fb)
 
-Open: 0 P0, 15 P1, 17 P2. No lane changes since pass 58; docs still understate planner-LoRA spend ($0.84 vs $5.84) and headline it3 route_v2 .945.
+Open: 1 P0, 15 P1, 17 P2. NEW P0 training-54 (outside lane): a1fd57f hard-codes HobbyLM sealed r4 D04/D05 wording into argfix.py; r4 scores are no longer held-out.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).

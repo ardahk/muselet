@@ -1,6 +1,6 @@
 {
-  "pass": 59,
-  "ts": "2026-10-25T01:35:00Z",
+  "pass": 60,
+  "ts": "2026-10-25T01:55:00Z",
   "mode": "pulse",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
@@ -48,8 +48,8 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "9be963d",
-    "wip/local": "7728b98",
+    "main": "19d57fb",
+    "wip/local": "8a197f8",
     "cloud/memory": "ba3dc0a",
     "cloud/memory-eval": "c05944e",
     "cloud/memory-lt": "cc056af",
@@ -92,5 +92,6 @@
   "notes_pass56": "main eb3e945 = design brief only; memory-llm-gate touches no training/eval/router files. Open findings unchanged (training-49 build.py:206, training-50 tinker_spend.py:27, training-53 no it3 evalcheck report).",
   "notes_pass57": "main: live harness + live_t2_new check tweak only; memory-hotfix/rules2 touch no training/eval/router files. Open findings unchanged.",
   "notes_pass58": "main: docs-demo-3 (#68) docs/pitch numbers; memory rules (#71,#72) touch no training/router files. training-50 and training-47 updated with doc evidence; training-49/53 unchanged.",
-  "notes_pass59": "main unchanged; wip/local 7728b98 is a snapshot on 517e056 (pre-#68), no new lane content; memory-llm-gate commits touch memory code only. Open findings unchanged."
+  "notes_pass59": "main unchanged; wip/local 7728b98 is a snapshot on 517e056 (pre-#68), no new lane content; memory-llm-gate commits touch memory code only. Open findings unchanged.",
+  "notes_pass60": "main: a1fd57f argfix tuned on HobbyLM sealed r4 D04-D06 (training-54 P0, outside lane); #69 memory LLM gate touches no router/training files. Other open findings unchanged."
 }
