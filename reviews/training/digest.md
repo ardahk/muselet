@@ -1,6 +1,6 @@
-# training lane digest — pass 90 (main 430e59e)
+# training lane digest — pass 91 (main 298526d)
 
-Open: 1 P0, 17 P1, 18 P2. No new findings. training-58 updated: PLANNER=35b now k=0/think 1024 with no committed result; REPORT:36 still says think 512/k=1. Top: training-54, training-59, training-50.
+Open: 1 P0, 17 P1, 18 P2. No new findings. training-58 updated (MUSELET_NO_ESCALATE added; blind default still cache-dependent). Top: training-54, training-59, training-50.
 
 ## Ranked open P0/P1
 1. training-50 P1 — MTD about $142-144 (planner-lora $5.84 on top of $136.22). Thresholds still conflict ($140/$142/$146/$148), and the guard lags (tools/tinker_spend.py).
