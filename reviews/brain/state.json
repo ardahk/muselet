@@ -80,8 +80,8 @@
     "cloud/ui-polish": "e8bceef",
     "cloud/w9-safety": "6aa332a",
     "devin/1792872486-data-route-handoff": "e6b8a71",
-    "main": "3e323a9",
-    "wip/local": "b8eeec4",
+    "main": "73b8031",
+    "wip/local": "51d833a",
     "cloud/fix-same-tab": "0e38395",
     "cloud/open-ended": "0d687d2",
     "cloud/planner-aux": "387c3b4",
@@ -93,10 +93,10 @@
     "cloud/app-knowhow": "c69dfec",
     "cloud/browser-flow": "485763f",
     "cloud/docs-final": "bf9118d",
-    "cloud/agentic-fixes2": "b9cd089"
+    "cloud/agentic-fixes2": "104a411"
   },
-  "pass": 80,
-  "ts": "2026-10-25T08:25:00Z",
+  "pass": 81,
+  "ts": "2026-10-25T08:35:00Z",
   "open_counts": {
     "P0": 0,
     "P1": 13,
