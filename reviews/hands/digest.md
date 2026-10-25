@@ -1,6 +1,6 @@
-# hands — digest (Pass 98)
+# hands — digest (Pass 99)
 
-Open: 0 P0, 7 P1, 21 P2.
+Open: 0 P0, 7 P1, 22 P2.
 
 Ranked open P0/P1:
 -1. P1 hands-38 (main e2f7e5e via a615f00, ClockAX.swift:523-552): the Clock cancel falls back to `live.first` and presses a stale detail-pane Cancel after a fixed 80 ms. It can cancel a user's own Clock timer and still report success. Fix before the demo.
@@ -15,6 +15,12 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 99 (main 32c0ad4 = wip/local code; merges everything reviewed in passes 92-98):
+- Code is identical to the reviewed wip (73f8136); only AGENTS.md, docs and pitch changed.
+- hands-26 status (P1): the docs show the demo Mac runs the native-tools planner, which sends no expects, so the live path has no per-action verification.
+- New P2 hands-52: that deployed config has no latency or accuracy numbers (THINK=1024 on every turn, OCR every turn, one action per turn), and the full pytest run stopped at 65% with failure markers.
+- Carried to main from wip: hands-50 (Numbers skills list), hands-44 expect stripping, hands-51 web-area BFS. The docs honestly label historic numbers and say live Premiere/finance E2E isn't validated.
 
 Pass 98 (wip/local 73f8136 uncommitted on 264cc82; no new findings):
 - Repeated-Shift+3 guard (orchestrator.py ~4416-4446): a second back-to-back `keys shift+3` in the same Premiere window fails with guidance instead of looping. Any other action resets it. Directionally good: it fails rather than softening the expect, so it feeds fail_streak.
