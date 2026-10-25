@@ -46,13 +46,6 @@ def criterion(goal: str) -> tuple[str, str, str] | None:
             return ("timer", "", "the Clock timer shows Pause (counting down)")
         if re.search(r"\b(?:cancel|stop|kill|delete)\b", g, re.IGNORECASE):
             return ("timer", "", "the timer is gone from Clock's Timers list")
-    if _TIMER.search(g):
-        if re.search(r"\bpause\b", g, re.IGNORECASE):
-            return "the Clock timer shows Resume (countdown stopped)"
-        if re.search(r"\b(?:resume|unpause|continue)\b", g, re.IGNORECASE):
-            return "the Clock timer shows Pause (counting down)"
-        if re.search(r"\b(?:cancel|stop|kill|delete)\b", g, re.IGNORECASE):
-            return "the timer is gone from Clock's Timers list"
     if _CART.search(g):
         m = re.search(r"\b(?:add|put)\b", g)
         x = _subject(g, m.end()) if m else g
