@@ -1,9 +1,9 @@
 {
- "pass": 56,
- "ts": "2026-10-25T01:25Z",
+ "pass": 57,
+ "ts": "2026-10-25T01:40Z",
  "branches": {
   "main": "9be963d",
-  "wip/local": "4d22445",
+  "wip/local": "7728b98",
   "cloud/bench": "f584cb2",
   "cloud/data-pipeline": "830ba35",
   "cloud/decisions": "ae36620",
@@ -64,7 +64,7 @@
   "cloud/safety-brain38": "54ca8f6",
   "cloud/safety-planner28": "e3abc5e",
   "cloud/docs-demo-3": "c615c37",
-  "cloud/memory-llm-gate": "6864386",
+  "cloud/memory-llm-gate": "f6229d7",
   "cloud/panel-hook-fix": "ef35421",
   "cloud/design": "b93bb50",
   "cloud/memory-hotfix": "d932320",

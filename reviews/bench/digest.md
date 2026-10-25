@@ -1,4 +1,4 @@
-# bench digest — pass 56 (2026-10-25T01:25Z, main@9be963d)
+# bench digest — pass 57 (2026-10-25T01:40Z, main@9be963d)
 
 P0: 0 | open P1: 13 | open P2: 8
 
@@ -20,3 +20,5 @@ Next moves:
 3. Memory row -> holdout .617 / .0195 @ 9be963d.
 4. THINK_SAMPLER=greedy or >=3 qwen seeds.
 5. Symmetric HobbyLM exclusions; fix 5 v2-holdout golds.
+
+Pass 57 (no new findings): wip/local 7728b98 core._running_names now prefers bundle ids (avoids 'Messages' helper false positives); _is_running matches name or bundle ids, so case-launched cleanup still works. bench-38 (proxy lock scope) not touched in wip. cloud/memory-llm-gate f6229d7 leaves rules mode unchanged: re-ran evals/memory_eval.py rules+longterm there, tune .9706/0.0, holdout .617/.0195 (same as main). LLM mode needs MLX, not run here.
