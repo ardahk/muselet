@@ -1,6 +1,6 @@
-# brain lane digest — pass 54 (2026-10-25T00:50:00Z)
+# brain lane digest — pass 55 (2026-10-25T01:05:00Z)
 
-Open: P0 0 / P1 8 / P2 8. main eb3e945 = e9fb42d in lane (design brief only); wip/local 3f21dc6 = main in lane. New: cloud/memory-llm-gate 6864386 gates the LLM memory rewrite (no Focus/Recent context, site_search or IRREVERSIBLE text -> no rewrite; output words must come from utterance/context) - reviewed, no issue found; suite 18F/2024P (same MLX-stub 18). cloud/design b93bb50 removes the Clock-shortcut hint and Shortcuts timer backend (no dangling CLOCK_HINT/_hint_task refs; hands probe uses ClockAX.backend(axReady:)); suite 18F/2010P (same 18). Review repros unchanged (20F/52P) on all three. brain-42 still applies on memory-llm-gate.
+Open: P0 0 / P1 8 / P2 9. main e4594d9 has no lane change (bench harness wait_disconnected + live_t2 Zen URL check); wip/local fc5d595 = main in lane. New: cloud/memory-hotfix d932320 (self-contained relative/explicit-target/question utterances no longer rewritten; 'a lot' = 30-step refinement) - no issue found, suite 18F/2021P. cloud/memory-rules2 03c3cd1 (search/value/layout refinements, 'I said' corrections, undo fallback, again/correction guard checked against the prior turn) - suite 18F/2036P; new brain-45 (P2): undo fallback replays another window's layout. Same 18 MLX-stub failures everywhere; review repros 20F/52P unchanged on all three (plus pass55 repro).
 
 ## Open P0/P1 (ranked)
 - brain-16 [P1] abs_level misreads times, durations, percentages and unrelated words — `ml/src/brain/orchestrator.py` (main@fb2cfd0@003d1bb)
