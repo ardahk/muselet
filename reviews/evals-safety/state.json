@@ -1,9 +1,9 @@
 {
-  "pass": 60,
-  "ts": "2026-10-25T01:30:49Z",
+  "pass": 61,
+  "ts": "2026-10-25T01:46:08Z",
   "last_reviewed": {
-    "main": "9be963d",
-    "wip/local": "7728b98",
+    "main": "19d57fb",
+    "wip/local": "8a197f8",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -77,5 +77,5 @@
     "cloud/memory-rules2": "03c3cd1"
   },
   "next_id": 50,
-  "note": "pass 60: memory-llm-gate f6229d7 adds _valid token whitelist after allowed() (mitigates -44 except words sourced from Focus/Recent context); wip 7728b98 core._running_names prefers bundle id (all DocumentApps have bundle ids; ok), brightness relative delta fix."
+  "note": "pass 61: main 19d57fb merges #69 (LLM rewrite _valid gate) and a1fd57f (bundle-id match, brightness delta). LLM rewrite still off by default (MEMORY_LLM=0)."
 }
