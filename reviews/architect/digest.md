@@ -1,7 +1,8 @@
-# architect digest - pass 65 (2026-10-25T03:10Z)
-Reviewed: main 6a37d0c (calc_checker.swift macOS 27 display fallback) and wip/local 9571a9e (no diff vs main). New: architect-43 (P1): the edit breaks the pinned provenance hash, so replay.load_tasks raises before any case and test_hobby_provenance fails. Run 004223Z had all 30 calc tasks ungradable. architect-42 still open (replay.py unchanged). Open: P0 0, P1 13, P2 8. Before the r4 rerun: fix architect-42 and architect-43, run bench/tests, then smoke-test one calc, one screenshot and one none case on the Mac.
+# architect digest - pass 66 (2026-10-25T03:28Z)
+Reviewed: main fa0f040 (design #70: Settings panel, Clock-only timers, clock hint removed; 7235a34: per-start memory DB for benchmark brains), wip/local 973a9b0 (snapshot on the pre-#70 base), design-polish bf4ae64 (Swift UI only, static review), and memory-writes d04e26c (person writes only from explicit my-X-is / X-is-my / call-me; episodes only for >=2 steps in a real app; 165 tests pass; holdout .617/.0195 unchanged). New: architect-44 (P1): working memory is not isolated per benchmark run or case. architect-42/43 still open (bench/hobbylm unchanged). Open: P0 0, P1 14, P2 8.
 
 ## Open P1 (ranked)
+00000. architect-44 - Working memory not isolated across benchmark cases - ml/src/brain/orchestrator.py
 0000. architect-43 - Calc checker patch breaks provenance; replay cannot start - bench/hobbylm/upstream/hobby/calc_checker.swift
 000. architect-42 - 13d0486 drops start-state screenshot capture; 20/125 r4 cases crash - bench/hobbylm/replay.py
 00. architect-40 - Sealed r4 failures patched post-hoc; rerun = tuned-on-test - ml/src/brain/orchestrator.py
