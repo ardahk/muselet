@@ -1,6 +1,6 @@
-# hands — digest (Pass 87)
+# hands — digest (Pass 88)
 
-Open: 0 P0, 7 P1, 16 P2.
+Open: 0 P0, 7 P1, 18 P2.
 
 Ranked open P0/P1:
 -1. P1 hands-38 (main e2f7e5e via a615f00, ClockAX.swift:523-552): the Clock cancel falls back to `live.first` and presses a stale detail-pane Cancel after a fixed 80 ms. It can cancel a user's own Clock timer and still report success. Fix before the demo.
@@ -15,6 +15,13 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 88:
+- New P2 hands-47: the Adobe hot-text type path is a blind click, cmd+a and keystrokes with no edit-mode or value check.
+- New P2 hands-48: the style regex rewrites short literal replies containing nice/kind/short as model-composed text.
+- Observe now keeps the focused element and text inputs (up to 20) past max_nodes. Refs are assigned after the cut, so this is fine. The walk is still capped at 2x max_nodes interactive nodes, so a reply box beyond that is still missing.
+- Nit: in serve_brain.sh, the `THINK=${THINK:-1024}` for a 35B --planner-model path is a no-op because THINK was set to 512 on the line before. PLANNER=35b sets 1024 earlier, so the demo path is fine.
+- Premiere edits now go to the agentic planner with no parsed args. wip/local matches main; cool-tasks 2fafa9e only merges main. The other open findings are unchanged.
 
 Pass 87 (no new findings):
 - main b92677f (#121) adds the MLX worker fix. It skips futures cancelled before they start with set_running_or_notify_cancel and guards set_result/set_exception with done(). That's correct; a running future can't be cancelled, so the guard is only defensive. generic_decide gets default temperatures. Plus the README. No app/ change.
