@@ -1,12 +1,14 @@
-# Planner review digest — pass 77 (2026-10-25T07:02Z)
+# Planner review digest — pass 78 (2026-10-25T07:40Z)
 
-Moved: main de1070d→3a0860c (BLIND_PLANNER=escalate default when 35B is cached; untracked .venv/models symlinks), wip 83cf584 (= main), agentic-evidence 1918cad and browser-flow 485763f (merges of main), app-knowhow c69dfec (tips).
-- planner-48 (P1) escalated: blind/page/open-ended/agentic tasks now default to the 35B-A3B with qwen think 512.
-- browser-flow: default browser read from the LaunchServices plist; WEB_UI_ERROR steers to the page's search box; URL/host helpers. No planner-contract issue found in the part read.
-- app-knowhow: tips only (Clock label isn't the duration; Reminders natural-language time). OK.
-- planner-40/45/46/47/50/51 unchanged on main.
+Moved: main 3a0860c→cf33215 (merged agentic-evidence, app-knowhow, browser-flow, obs-labels, control-labels #99); wip 11da94c (= main).
+- planner-52 (P1, new): Web UI guard blocks every same-host URL with '?' (youtube watch?v=, Sheets edit?gid=) and doesn't count it as a strike.
+- planner-50 (P1, worse): play goals now auto-finish on any Pause button, with no subject check.
+- planner-53 (P2, new): dial `type` reports ok without reaching the target; the focus fallback clicks a slider's centre.
+- planner-54 (P2, new): nearby-static-text labels cost AX IPC per sibling and can label icon buttons with the row text.
+- OK: timer_start auto-done now ignores editable label fields; the address-bar query guard only fires when the field already holds a URL.
+- planner-40/45/46/47/48/51 unchanged.
 
-New: 0. Resolved: 0. Open: 0 P0, 12 P1, 9 P2.
+New: 3 (1 P1, 2 P2). Resolved: 0. Open: 0 P0, 13 P1, 11 P2.
 
 ---
 ## Open findings (unchanged from pass 56, re-checked pass 64)
