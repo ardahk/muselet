@@ -514,7 +514,8 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
                                     record["event_cleanup_error"] = str(exc)
                                     record["strict_pass"] = False
                                     record["status"] = "failed"
-                        record.update(base)
+                        record.update({k: v for k, v in base.items()
+                                       if not (k == "skip_reason" and not v)})
                         record["hands_serve_timeout_flag"] = serve_timeout_flag
                         all_results.append(record)
                         _write_record(output, record)

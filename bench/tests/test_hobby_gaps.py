@@ -194,3 +194,11 @@ def test_excluded_kinds_parses_commas_and_alias():
     assert replay._excluded_kinds("calculator") == {"calc"}
     assert replay._excluded_kinds("calc, event") == {"calc", "event"}
     assert replay._exclude_reason("event") == "excluded_kind:event"
+
+
+def test_live_record_merge_keeps_case_skip_reason():
+    base = {"id": "x", "skip_reason": None, "utterance": "u"}
+    record = {"status": "skipped", "skip_reason": "user_documents_open"}
+    record.update({k: v for k, v in base.items()
+                   if not (k == "skip_reason" and not v)})
+    assert record["skip_reason"] == "user_documents_open"
