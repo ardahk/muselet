@@ -1,4 +1,6 @@
-# finance digest (Pass 80, 2026-10-25; main 73b8031; finance-33 P0, finance-31 and finance-34 open on main)
+# finance digest (Pass 81, 2026-10-25; main b7b38f9; P0 0, P1 5, P2 9)
+
+> Pass 81: finance and advisor beats are no longer in pitch/demo_script.md, so finance-33 is P1 (devpost/REPORT still claim those phrases). Redirected and fallback finance tasks now run on the 35B with a 300 s budget (finance-31/33).
 Open P0:
 - finance-33 (main dc6f2f5): open-ended routing (OPEN_ENDED=1 default) sends demo beat 9 'Prep me for my meeting with the Hendersons.' from advisor_prep to the planner, because the calendar hint matches 'meeting'. Also finance_review whenever the user says 'file' or 'folder'. Workaround: OPEN_ENDED=0. Fix: skip executor=brain labels in open_ended_redirect (app_hints.py:104-122).
 Open P1:

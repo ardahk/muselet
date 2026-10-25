@@ -1,7 +1,7 @@
 {
   "lane": "finance",
-  "pass": 80,
-  "ts": "2026-10-25T08:24:02Z",
+  "pass": 81,
+  "ts": "2026-10-25T08:39:19Z",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
@@ -48,8 +48,8 @@
     "cloud/report": "dffa733",
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
-    "main": "73b8031",
-    "wip/local": "51d833a",
+    "main": "b7b38f9",
+    "wip/local": "e03e2c8",
     "cloud/memory": "a8af560",
     "cloud/memory-eval": "c05944e",
     "devin/1792872486-data-route-handoff": "seen",
@@ -99,6 +99,6 @@
     "cloud/agentic-fixes2": "104a411"
   },
   "next_id": 28,
-  "notes": "pass80: main 73b8031 only changes HandsKit Observe.swift to tolerate duplicate refs (crash fix); agentic-fixes2 104a411 merges main. No routing/fallback/finish/finance change; finance-31/33/34 unchanged. wip = main.",
+  "notes": "pass81: main b7b38f9 merges agentic-fixes2 and docs-final, adds 30-turn/300 s blind budget with soft planner expects (ab850b3) and 350 AX nodes for PLANNER=35b. Finance/advisor beats dropped from demo_script -> finance-33 P0->P1; finance-31 impact larger; finance-34 unchanged. wip = main.",
   "timestamp": "2026-10-25T05:37:35Z"
 }
