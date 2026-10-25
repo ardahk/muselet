@@ -1543,6 +1543,14 @@ function run() {
         return (self._last_obs or {}).get("app") or self._ctx.get("app") \
             or "this app"
 
+    def _skill_risk(self, name: str, args: dict) -> str:
+        risk = self.catalog.risk(name)
+        if name == "premiere_command" and risk == "safe" and \
+                args.get("command") not in (
+                    "play_toggle", "go_to_start", "go_to_end"):
+            return "confirm"
+        return risk
+
     async def _confirm_summary(self, a: dict) -> str:
         """Short summary naming the object, preserving full trash paths."""
         op = a["op"]
@@ -1550,6 +1558,9 @@ function run() {
             return _cap12(str(a.get("summary") or "Continue?").strip('"'))
         if op == "skill":
             n, ar = a["name"], a.get("args", {})
+            if n == "premiere_command":
+                command = str(ar.get("command") or "unknown command")
+                return _cap12(f"Premiere: {command.replace('_', ' ')}?")
             if n in ("send_message", "compose_email"):
                 to = str(ar.get("to") or "them")
                 verb = "Text" if n == "send_message" else "Email"
@@ -1889,10 +1900,11 @@ function run() {
                 st_label = st if st != "ok" else "ok"
                 return {"status": st,
                         "_log": f"{dsl_line}-> {st_label}"}
-            risk = spec.get("risk")
+            risk = self._skill_risk(a["name"], a.get("args", {}))
             if risk in ("confirm", "confirm_if_unsaved"):
                 # if we can't tell the unsaved state, confirm (spec rule)
-                if not self._take_confirm():
+                confirmed = self._take_confirm()
+                if a["name"] == "premiere_command" or not confirmed:
                     yes = await self.server.ask_confirm(
                         await self._confirm_summary(a))
                     if not yes:
@@ -3232,8 +3244,8 @@ function run() {
             await self.server.ui("listening")
             return "awaiting_user"
         validated_args = dict(args)
-        spec = self.catalog.get(name) or {}
-        if spec.get("risk") == "confirm" and not args.get("confirmed"):
+        if self._skill_risk(name, args) == "confirm" and \
+                (name == "premiere_command" or not args.get("confirmed")):
             summary = await self._confirm_summary(
                 {"op": "skill", "name": name, "args": args})
             await self.server.ui("thinking", summary)

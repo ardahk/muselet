@@ -910,7 +910,32 @@ public final class Skills {
 
     // MARK: premiere
 
-    /// Activate the running Premiere Pro and send its default shortcut.
+    private func focusPremiereTimeline(_ app: Element) throws {
+        guard let bar = axElement(app.copySingleAttr("AXMenuBar")) else {
+            throw HandsError.skillFailed("Premiere: Window menu unavailable")
+        }
+        let windows = bar.copyAttrs().children.filter {
+            let a = $0.copyAttrs()
+            return a.role == "AXMenuBarItem" && a.title == "Window"
+        }
+        guard windows.count == 1, let window = windows.first,
+              window.copyAttrs().enabled, window.performAction("AXPress") else {
+            throw HandsError.skillFailed("Premiere: Window menu press failed")
+        }
+        let items = window.copyAttrs().children.filter { $0.copyAttrs().role == "AXMenu" }
+            .flatMap { $0.copyAttrs().children }.filter {
+                let a = $0.copyAttrs()
+                return a.role == "AXMenuItem" && a.title == "Timeline"
+            }
+        guard items.count == 1, let timeline = items.first,
+              timeline.copyAttrs().enabled,
+              !timeline.copyAttrs().children.contains(where: { $0.copyAttrs().role == "AXMenu" }),
+              timeline.performAction("AXPress") else {
+            throw HandsError.skillFailed("Premiere: Timeline menu press failed")
+        }
+    }
+
+    /// Activate Premiere Pro, focus Timeline, then send its default shortcut.
     private func premiereCommand(_ command: String, preset: String?) throws -> [String: Any] {
         guard let keys = Self.premiereKeys[command] else {
             throw HandsError.invalidParams("premiere_command: unknown command \(command)")
@@ -922,6 +947,11 @@ public final class Skills {
         // A heavy app: allow up to 1 s to come forward; never send the
         // keystroke to another app.
         guard apps.ensureFrontmost(pid: app.pid, timeout: 1.0) else {
+            throw HandsError.focusChanged(expected: app.name,
+                                          frontmost: apps.name(pid: apps.frontmostPid()))
+        }
+        try focusPremiereTimeline(axApp(app.pid))
+        guard apps.frontmostPid() == app.pid else {
             throw HandsError.focusChanged(expected: app.name,
                                           frontmost: apps.name(pid: apps.frontmostPid()))
         }
