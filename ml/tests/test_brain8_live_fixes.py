@@ -433,6 +433,11 @@ def _web_orch(tmp_path, page=PAGE, answer=None, observe=None, handlers=None):
               {("web_search", text): {
                   "query": "when the golden gate bridge opened"}},
               planner=planner)
+    o.WEB_AX_WINDOW_S = 0.01
+    o.WEB_PAGE_CAP_S = 0.04
+    o.WEB_PAGE_POLL_S = 0.001
+    o.WEB_PAGE_MIN_S = 0.005
+    o.WEB_RICH_CHARS = 200
     return o, server, planner, text
 
 

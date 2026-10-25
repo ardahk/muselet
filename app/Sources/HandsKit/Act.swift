@@ -433,9 +433,27 @@ extension Hands {
                 guard let s = params["url"] as? String, let u = URL(string: s) else {
                     throw HandsError.invalidParams("url needs url")
                 }
-                let handler = NSWorkspace.shared.urlForApplication(toOpen: u)
-                    .flatMap { Bundle(url: $0)?.bundleIdentifier }
-                NSWorkspace.shared.open(u)
+                let requested = (params["browser"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let appURL = requested.flatMap { name -> URL? in
+                    guard !name.isEmpty,
+                          let path = SkillTargets.liveAppPath(name) else {
+                        return nil
+                    }
+                    return URL(fileURLWithPath: path)
+                }
+                let handler: String?
+                if let appURL {
+                    let config = NSWorkspace.OpenConfiguration()
+                    config.activates = true
+                    handler = Bundle(url: appURL)?.bundleIdentifier
+                    NSWorkspace.shared.open(
+                        [u], withApplicationAt: appURL, configuration: config)
+                } else {
+                    handler = NSWorkspace.shared.urlForApplication(toOpen: u)
+                        .flatMap { Bundle(url: $0)?.bundleIdentifier }
+                    NSWorkspace.shared.open(u)
+                }
                 if let bid = handler,
                    let app = apps.runningApp(bundlePrefix: bid) ?? waitRunning(bundleId: bid, timeout: 2.0) {
                     _ = waitFrontmost(pid: app.pid, timeout: 1.5)

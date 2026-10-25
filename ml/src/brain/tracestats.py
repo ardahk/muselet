@@ -30,6 +30,8 @@ def load(path: str | Path, since: str | None = None) -> list[dict]:
                 r = json.loads(ln)
             except json.JSONDecodeError:
                 continue
+            if "event" in r:
+                continue
             if t0 and r.get("ts"):
                 ts = datetime.fromisoformat(r["ts"])
                 if (ts.tzinfo is None) != (t0.tzinfo is None):

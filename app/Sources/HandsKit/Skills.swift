@@ -267,8 +267,9 @@ public enum PathAlias {
 ///
 /// Launches report truthfully: `open_app` waits <= 1.5 s for the app to be
 /// frontmost (`{app, frontmost, launched}`); `open_url` / `web_search` wait
-/// <= 3 s for the default browser frontmost with a changed window title
-/// (`{browser, frontmost, window_title, title_changed}`); `open_folder` /
+/// <= 3 s for the requested (or default) browser frontmost with a changed
+/// window title (`{browser, browser_requested?, browser_fallback?, frontmost,
+/// window_title, title_changed}`); `open_folder` /
 /// `open_file` wait <= 3 s for Finder / the file's app frontmost with the
 /// window title read back (`{app, frontmost, window_title, title_matches}`).
 /// Never frontmost -> ok=false, error `not_frontmost`, `observed`, and the
@@ -564,14 +565,16 @@ public final class Skills {
             guard let u = URL(string: s) else {
                 throw HandsError.invalidParams("bad url")
             }
-            return try openInBrowser(u, extra: ["url": s])
+            return try openInBrowser(
+                u, extra: ["url": s], browser: a["browser"] as? String)
         case "web_search":
             let q = try strArg(a, "query")
             // Strict: "AT&T", "c++", "a=b" stay part of the query value.
             guard let u = URL(string: "https://www.google.com/search?q=\(pctStrict(q))") else {
                 throw HandsError.invalidParams("bad query")
             }
-            return try openInBrowser(u, extra: ["query": q])
+            return try openInBrowser(
+                u, extra: ["query": q], browser: a["browser"] as? String)
 
         // ---- files ----
         case "open_folder":

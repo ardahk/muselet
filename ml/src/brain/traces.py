@@ -40,6 +40,12 @@ class Tracer:
         if self.current is not None:
             self.current["stages"][name] = round(ms, 2)
 
+    def event(self, kind: str, info: dict):
+        row = {"ts": datetime.now().isoformat(timespec="milliseconds"),
+               "event": kind, **info}
+        with self._file().open("a") as f:
+            f.write(json.dumps(row, default=str) + "\n")
+
     def finish(self, outcome: str):
         if self.current is None:
             return
