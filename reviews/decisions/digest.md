@@ -1,6 +1,6 @@
-# decisions — digest (pass 68)
+# decisions — digest (pass 69)
 
-Heads: main 3e323a9 (app tasks -> 35B blind planner via cef8797; -37 P0, -40/-41/-43 P1, -42/-44/-45 P2 live), wip b8eeec4 (= main), agentic-fixes2 b9cd089 (play evidence accepts any youtube watch url incl. planner's own/ctx url, no subject or loading check: -41 worse), docs-final bf9118d stale on app-task planner. Budget: about $142.06 MTD estimated.
+Heads: main 73b8031 (Swift-only Observe fix; -37 P0, -40/-41/-43 P1, -42/-44/-45 P2 live), wip 51d833a (= main), agentic-fixes2 104a411 (main merge only; play evidence still accepts any youtube watch url: -41 blocks it), docs-final bf9118d stale on app-task planner. Budget: about $142.06 MTD estimated.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
