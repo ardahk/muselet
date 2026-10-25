@@ -1,4 +1,7 @@
-# evals-safety digest (pass 83, 2026-10-25T08:09:15Z)
+# evals-safety digest (pass 84, 2026-10-25T08:24:26Z)
+
+No change in open findings.
+
 
 -54 downgraded to P1: Spotify runtime path fixed by #101; eval check and non-Spotify play evidence still weak.
 

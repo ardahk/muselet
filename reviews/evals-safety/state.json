@@ -1,9 +1,9 @@
 {
-  "pass": 83,
-  "ts": "2026-10-25T08:09:15Z",
+  "pass": 84,
+  "ts": "2026-10-25T08:24:26Z",
   "last_reviewed": {
-    "main": "3e323a9",
-    "wip/local": "b8eeec4",
+    "main": "73b8031",
+    "wip/local": "51d833a",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -94,8 +94,8 @@
     "cloud/app-knowhow": "c69dfec",
     "cloud/browser-flow": "485763f",
     "cloud/docs-final": "bf9118d",
-    "cloud/agentic-fixes2": "b9cd089"
+    "cloud/agentic-fixes2": "104a411"
   },
   "next_id": 56,
-  "note": "pass 83: main 3e323a9 (#101 spotify play gate, PLANNER=35b option). -54 downgraded to P1. agentic-fixes2 b9cd089 stat-only (orchestrator/finish, tests); review next pass."
+  "note": "pass 84: main 73b8031 Swift Observe duplicate-ref crash fix only. agentic-fixes2 104a411: pending-task state helper, content-ask rejection only when the goal already carries the text value, async auto_done with evidence(); no confirm/send gating change. No new finding."
 }
