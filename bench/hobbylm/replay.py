@@ -13,6 +13,7 @@ import os
 import re
 import shlex
 import socket
+import tempfile
 import statistics
 import subprocess
 import sys
@@ -378,8 +379,18 @@ store.requestFullAccessToEvents { ok, _ in access.set(ok); semaphore.signal() }
 if semaphore.wait(timeout: .now() + 30) == .timedOut || !access.get() { exit(2) }
 let env = ProcessInfo.processInfo.environment
 let parser = ISO8601DateFormatter()
-guard let start = parser.date(from: env["MUSELET_EVENT_START"] ?? ""),
-      let end = parser.date(from: env["MUSELET_EVENT_END"] ?? "") else { exit(3) }
+let local = DateFormatter()
+local.locale = Locale(identifier: "en_US_POSIX")
+local.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
+local.timeZone = TimeZone.current
+func parseDate(_ s: String) -> Date? {
+    if let d = parser.date(from: s) { return d }
+    if let d = local.date(from: s) { return d }
+    local.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+    return local.date(from: s)
+}
+guard let start = parseDate(env["MUSELET_EVENT_START"] ?? ""),
+      let end = parseDate(env["MUSELET_EVENT_END"] ?? "") else { exit(3) }
 let title = env["MUSELET_EVENT_CALENDAR"] ?? ""
 let calendars = store.calendars(for: .event).filter {
     $0.title == title && $0.source.sourceType == .local
@@ -402,16 +413,27 @@ let events = store.events(matching: predicate).map { event -> [String: Any] in
 let data = try JSONSerialization.data(withJSONObject: events)
 print(String(data: data, encoding: .utf8)!)
 '''
-    result = subprocess.run(
-        ["swift", "-e", script],
-        env={
-            **os.environ,
-            "MUSELET_EVENT_CALENDAR": calendar,
-            "MUSELET_EVENT_START": start.isoformat(),
-            "MUSELET_EVENT_END": end.isoformat(),
-        },
-        capture_output=True, text=True, timeout=60,
-    )
+    # File-based swift invocation (not `swift -e`): the script uses `$0`, and
+    # when this runs inside the harness's shell-script RPC the shell expands
+    # `$0` before swift sees it, producing a silent nonzero exit.
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".swift", delete=False
+    ) as tmp:
+        tmp.write(script)
+        script_path = tmp.name
+    try:
+        result = subprocess.run(
+            ["swift", script_path],
+            env={
+                **os.environ,
+                "MUSELET_EVENT_CALENDAR": calendar,
+                "MUSELET_EVENT_START": start.isoformat(),
+                "MUSELET_EVENT_END": end.isoformat(),
+            },
+            capture_output=True, text=True, timeout=60,
+        )
+    finally:
+        Path(script_path).unlink(missing_ok=True)
     if result.returncode:
         raise RuntimeError(f"EventKit calendar snapshot failed: {result.stderr.strip()}")
     return json.loads(result.stdout)
@@ -1305,7 +1327,10 @@ async def _run_muselet_cases(args, tasks, run_root, helper, *, event_allowed=Non
                     "frames": result.get("frames", []),
                     "first_action_method": first_action.get("method"),
                     **session,
-                    **{key: result[key] for key in ("skip_reason", "error")
+                    **{key: result[key]
+                       for key in ("skip_reason", "error",
+                                   "precondition_error",
+                                   "precondition_observations")
                        if result.get(key)},
                     **({"calc_setup": "calculator_open_cleared"}
                        if task["kind"] == "calc" else {}),
