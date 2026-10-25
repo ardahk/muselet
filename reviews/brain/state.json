@@ -80,10 +80,12 @@
   "cloud/ui-polish": "e8bceef",
   "cloud/w9-safety": "6aa332a",
   "devin/1792872486-data-route-handoff": "e6b8a71",
-  "main": "4150ecb",
-  "wip/local": "b7b7840",
-  "cloud/fix-same-tab": "065e65f"
+  "main": "b340f24",
+  "wip/local": "94f6fe9",
+  "cloud/fix-same-tab": "065e65f",
+  "cloud/open-ended": "fd87f69",
+  "cloud/planner-aux": "387c3b4"
  },
- "pass": 65,
- "ts": "2026-10-25T04:02:00Z"
+ "pass": 66,
+ "ts": "2026-10-25T04:18:00Z"
 }
