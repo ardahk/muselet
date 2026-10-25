@@ -1,6 +1,6 @@
-# hands — digest (Pass 82)
+# hands — digest (Pass 83)
 
-Open: 0 P0, 6 P1, 15 P2.
+Open: 0 P0, 6 P1, 16 P2.
 
 Ranked open P0/P1:
 -1. P1 hands-38 (main e2f7e5e via a615f00, ClockAX.swift:523-552): the Clock cancel falls back to `live.first` and presses a stale detail-pane Cancel after a fixed 80 ms. It can cancel a user's own Clock timer and still report success. Fix before the demo.
@@ -15,6 +15,13 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 83:
+- main 4f94e42 (#103/#104/#107/#109): YouTube play evidence now requires youtube in window/url; the web_ui_guard message was changed. New P2 hands-45: a search/find label skips the Enter-send confirm even in composer apps, and enter_sends falls back to the focused element when the ref is stale. No app/ change.
+- cloud/ui-progress a66166b (uncompiled Swift): the busy flag keeps the dots up until a terminal mood, with a 360 s safety net, and is cleared on disconnect, confirm and decline. No contract issue. Static only; not built.
+- cloud/cool-tasks 4c84adc: the `note` op is brain-only (never sent to the app). Relay tasks refuse send actions ("draft only"). OK for the hands lane.
+- cloud/native-tools 6053e4e: tool calls are converted to DSL via to_dsl, so the app contract is unchanged. Tool calls carry no expect, which widens the hands-26 gap for PLANNER_MODE=tools (default dsl).
+- wip/local matches main. hands-43/44 are still on main.
 
 Pass 82:
 - main b7b38f9 merged agentic-fixes2 (hands-42 is now on main) and docs-final. ab850b3: blind/agentic tasks get 30 turns / 300 s, and planner expects there are soft. New P2 hands-44: soft expect failures `continue` before both loop guards, so a repeated side-effectful action whose expect fails is never stopped. b7b38f9: PLANNER=35b sends max_nodes 350; the app takes it as-is (RPC.swift:85), which is fine. No app/ change. hands-43 is still on main.
