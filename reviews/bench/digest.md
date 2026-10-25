@@ -1,6 +1,6 @@
-# bench digest — pass 72 (2026-10-25T05:45Z, main@e8023b8)
+# bench digest — pass 73 (2026-10-25T06:00Z, main@fe2de69)
 
-P0: 0 | open P1: 14 | open P2: 15
+P0: 0 | open P1: 14 | open P2: 16
 
 Ranked open P1:
 1. bench-48 (NEW) the serving few-shot (prompts/planner_fewshot.md:60-85) has the exact oe-spotify-jazz utterance with the full solution, the case's own player-state check and done. The Spotify open-ended result is train-on-test.
@@ -13,7 +13,7 @@ Ranked open P1:
 8. bench-28 5 v2-holdout golds accept field-clobbering type.
 9. bench-11, -14, -15, -20, -21, -29 unchanged.
 
-Open P2: -46 (now 5 unevaluated serving switches incl. BLIND_PLANNER), -47, -43, -37, -38, -39, -40, -30, -34, others. Resolved earlier: -41. Withdrawn: -45.
+Open P2: -49 (NEW: Finish-when line reaches the LoRA planner, out of its SFT distribution), -46 (now 5 unevaluated serving switches incl. BLIND_PLANNER), -47, -43, -37, -38, -39, -40, -30, -34, others. Resolved earlier: -41. Withdrawn: -45.
 
 Next moves:
 1. Reword the Spotify few-shot goal (different app/genre) or retire oe-spotify-jazz for a paraphrased held-out case (bench-48/-47).
@@ -35,3 +35,5 @@ Pass 70: main e425cad merges the wip change watched in pass 69 (PR #86). NEW P2 
 Pass 71 (no new findings, no status changes): main unchanged, all open findings stand. Watch wip/local 323d274 (on local c711320, unmerged): it adds BLIND_PLANNER=base as a serving default, so the base planner takes blind/open-ended/fallback tasks with batch cap 2 and finish_when. It also adds blind examples to prompts/planner_fewshot.md. That changes the PLANNER=base reference prompt behind the .786/.917/.608 row, and adds a fifth unevaluated serving switch (bench-46). Before merging, re-run the base planner holdouts on the new few-shot and record BLIND_PLANNER in bench result rows. Also, the new few-shot examples use the exact open-ended eval utterance "play some jazz on Spotify" (oe-spotify-jazz) twice, including a worked done. If this merges, that case is a train-on-test result; extend bench-47 and drop it from or reword it in the open-ended suite.
 
 Pass 72: main e425cad..e8023b8 merges PR #87 (blind planner) and #88 (blind typing, Swift only). NEW P1 bench-48 (see above). bench-46 updated with BLIND_PLANNER. cloud/agentic-loop 9b2e512 (unmerged) adds a finish-criterion done gate, a page-load re-poll that won't count against the loop guard, workflow filtering and a cross-app retrieval skip. The done gate is stricter (good against false done). Retrieval changes alter planner prompts again, so re-run holdouts on merge. Its tests use user-trace utterances, not eval cases. wip/local 20055d1 has no changes in my lane.
+
+Pass 73: main e8023b8..fe2de69 only makes serve_brain.sh use the local grounder copy models/grounding/eyes-4b-mlx when present, instead of a lazy HF download of deskmind/eyes-4b@mlx-4bit. Not verified: the local folder is gitignored and has no recorded revision, and the grounding README downloads to a different path (models/eyes-4b-mlx). Record the source revision so grounder bench numbers map to the served weights. NEW P2 bench-49 (Finish-when reaches the LoRA planner). bench-48 still open. Watch wip/local 422399a (on local b43270d, unmerged): the Spotify few-shot still uses the exact oe-spotify-jazz goal and now solves it with `tell application "Spotify" to play`, so bench-48 is unchanged. It also adds timer Finish-when criteria and regenerates training/artifacts/planner_lora_render_samples.jsonl (the token parity reference). Confirm the regenerated render still matches the SFT training render, not just the new serving prompt.
