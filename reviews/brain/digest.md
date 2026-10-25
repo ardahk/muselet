@@ -1,3 +1,14 @@
+# Brain lane review: pass 97 (2026-10-25T13:55Z)
+
+Open: P0 0, P1 16, P2 34. No new findings.
+
+## Branches
+- main b00f679 and cloud/cool-tasks cfbec49: unchanged.
+- wip/local aadf777: canvas-app prefix widened to "Adobe Premiere", so any Premiere variant is treated as blind (blind hint, OCR context).
+
+## Tests
+wip 106 failed (18 MLX + 88 brain-77), 2278 passed. Review repros 77 / 53.
+
 # Brain lane review: pass 96 (2026-10-25T13:25Z)
 
 Open: P0 0, P1 16, P2 34. No new findings.
