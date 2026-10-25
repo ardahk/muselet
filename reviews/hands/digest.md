@@ -1,4 +1,4 @@
-# hands — digest (Pass 93)
+# hands — digest (Pass 94)
 
 Open: 0 P0, 7 P1, 20 P2.
 
@@ -15,6 +15,11 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 94 (wip/local 7b8f421 only; no new findings):
+- e781dc1 `_ax_ref_for_click`: a grounded `click "<target>"` becomes `press #ref` when exactly one enabled button/tab/row/etc. label matches. The match is exact and normalized, with no substring matching, and right/double clicks are excluded. It reads the last observation, so a stale ref fails rather than misclicking. Directionally good: it saves a grounder call. It dedupes by ref, so two elements sharing a ref (hands-43) count as one match and can press the wrong one.
+- `_verify_done` for ui_only planners now forces screenshot+OCR (tools mode only, off by default). The privacy gate now also skips chat-IDE windows and Muselet as the push-to-talk app (good).
+- The Numbers hint tips were rewritten (Organize > Sort rules), but its skills list still names finance_review/advisor_prep (hands-50 still open).
 
 Pass 93 (wip/local 9015e83 only):
 - 2900d4b rewrites planner_system rules 1/8/9/10/14/16 to be generic, removes the Safari cmd+L and Numbers SUM examples, and adds a prompt-contract test. hands-50 is partly fixed; the numbers hint's skills list still names hidden skills.
