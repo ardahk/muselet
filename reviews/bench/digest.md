@@ -1,36 +1,24 @@
-# bench digest — pass 65 (2026-10-25T03:58Z, main@4150ecb)
+# bench digest — pass 66 (2026-10-25T04:15Z, main@b340f24)
 
-P0: 0 | open P1: 14 | open P2: 12
+P0: 0 | open P1: 13 | open P2: 13
 
 Ranked open P1:
-0. bench-42 (cloud/test-strategy) acceptance case acc-user-pending-notes-then-text drives Messages with no Messages-not-running precondition; leaves a draft to a real contact in the user's open Messages.
-0b. bench-41 calc_checker provenance mismatch blocks HobbyLM replay.
-1. bench-36 competitor runs not pinned to it2 though claims say "it2 only"; router not recorded in results.
-2. bench-23 it3 chosen on route_v2 whose gold shares judge/policy with its training labels.
-3. bench-34 think default = qwen sampler, one seed, +850 ms/step vs greedy.
-4. bench-31 planner-LoRA trained with ~21 demos on v2-holdout screens; no holdout eval.
-5. bench-16 HobbyLM --exclude-kind calc is Muselet-only (30/125).
-6. bench-28 5 v2-holdout golds accept field-clobbering type.
-7. bench-11, -14, -15, -20, -21, -29 unchanged.
+1. bench-44 LoRA planner shipped (efd2f3f) on uncommitted numbers. Gain is on v2-ho, whose screens were in training. Pooled .731 vs .647, not 'mean .850'.
+2. bench-42 acceptance case acc-user-pending-notes-then-text (now on main) drives Messages with no Messages-not-running guard.
+3. bench-36 competitor runs not pinned to it2 though claims say "it2 only"; router not recorded in results.
+4. bench-23 it3 chosen on route_v2, whose gold shares judges and policy with its training labels.
+5. bench-31 planner-LoRA demos on v2-holdout screens; clean 105-row subset never scored (now the serving planner).
+6. bench-16 HobbyLM --exclude-kind calc is Muselet-only; calc now gradable for both (bench-41 resolved).
+7. bench-28 5 v2-holdout golds accept field-clobbering type.
+8. bench-11, -14, -15, -20, -21, -29 unchanged.
 
-Downgraded this pass: bench-38 (proxy wedge mitigated by force_release; forced releases not recorded, displacement branch dead) and bench-39 (r4 strings paraphrased out of tests; r4 disclosure still needed). Also P2: bench-37 memory claims stale (holdout .617/.0195).
+Resolved this pass: bench-41 (provenance ok at b340f24). Downgraded: bench-34 to P2 (serving planner is LoRA THINK=0). New P2: bench-45 (cloud/open-ended Slack status / Amazon cart without user_ok or restore). Other P2: -37, -38, -39, -40, -43, -30, ...
 
 Next moves:
-0. Add the Messages-not-running precondition to acc-user-pending-notes-then-text before any acceptance run (bench-42); add a PROVENANCE.md harness-patch row for calc_checker (bench-41).
-1. Record forced_releases / slot_forced per case and in the run summary (bench-38).
-2. ROUTER=it2 on competitor runs + router id/sha/tau in result rows (bench-36).
-3. Disclose r4 D04-D06 fixed-after-observation; report r4 with and without them (bench-39).
-4. Symmetric HobbyLM exclusions (bench-16).
-5. THINK_SAMPLER=greedy or >=3 qwen seeds (bench-34).
+1. Add the Messages-not-running precondition to acc-user-pending-notes-then-text (bench-42).
+2. Commit the planner-LoRA eval JSONs, quote the pooled pass, and score LoRA vs base on the 105 clean v2-ho rows (bench-44/-31).
+3. ROUTER=it2 on competitor runs + router id/sha/tau (and now planner id) in result rows (bench-36).
+4. Rebuild calc_checker and grade calc for both systems; drop --exclude-kind calc (bench-16).
+5. Record forced_releases per case; disclose r4 D04-D06 fixed after observation (bench-38/-39).
 
-Pass 60: new P2 bench-40 (unverified, needs Mac) HobbyLM EventKit date parse in 55e38f9 likely still exits 3 on aware+microsecond isoformat; event tasks would skip for Muselet only. Check: on the Mac, look for 'EventKit calendar snapshot failed' in the r4 event-kind records. Reviewed fine: wip/local fd357b3 moves the end-state calendar read into the runner process (EventKit access), reusing the start-state window.
-
-Pass 61 (no new findings): main 13d0486 = the wip fd357b3 change reviewed in pass 60 (end-state calendar read in the runner process, start window reused); fine. bench-40 still open: the Swift parseDate in _read_calendar_events is unchanged and the runner still passes aware+microsecond isoformat strings.
-
-Pass 62: NEW P1 bench-41: 6a37d0c patched vendored calc_checker.swift without updating PROVENANCE.md; verify_provenance raises, so replay.py won't start. Fix: add a harness-patch row with both hashes, rebuild calc_checker, then grade calc for both systems and drop --exclude-kind calc (closes bench-16's calc part).
-
-Pass 63 (no new findings): bench-41 still blocks replay at fa0f040 (provenance hash re-checked). 7235a34 is a good isolation change: bench brains (PORT != 8765) get a fresh MUSELET_MEMORY_DB per start, so user memory isn't touched. Watch (unverified): the store is per brain start, not per case, so long-term memories written in one HobbyLM/live case can carry into later cases in the same run. HobbyLM has no memory, so reset the store per case or report memory hits. fa0f040 design (Clock-only timers) touches no bench/eval code; re-check bench-20 timer gradability on the next r4 run. memory-writes and design-polish don't touch my lane.
-
-Pass 64 (no new findings): bench-41 still blocks replay at 4150ecb (verify_provenance re-run, same mismatch). main 4150ecb = briefs only. Watch cloud/fallback 6e40c3e: it defaults FALLBACK_PLANNER=1 and PLANNER_CONTEXT=1 in serve_brain.sh. PLANNER_CONTEXT changes the planner prompt, so the planner-think holdout numbers (.770 etc.) no longer describe serving; re-run evals/planner_offline.py holdouts with context on before merge. Fallback also adds planner retries after skill failures, so report fallback-rescued passes separately in HobbyLM/live results. Other new branches don't touch my lane.
-
-Pass 65: main/wip unchanged. NEW P1 bench-42 and P2 bench-43 on cloud/test-strategy 96c96d2 (acceptance suite). bench-42: the Messages case has no Messages-not-running guard. bench-43: one fixed memory DB is reused across runs and repeats. Reviewed fine on test-strategy: the hold-confirm proxy path (a held confirm is never answered yes; the brain cancels the in-flight task on the next utterance and sends confirm_cancel, which is tagged held), the screen-grade lint, int_equals_saved, timeout_observations (diagnostic only, never graded), and bench/tests/test_acceptance.py (5 passed locally). The lint doesn't look inside nested any/all predicates for trace_say (minor). cloud/fallback 2ef5805 now lets the planner fallback run on messaging text unless the routed skill is compose/draft_email; send_message stays excluded and the risk gate is unchanged. Still a watch item: report fallback-rescued passes separately. fix-same-tab doesn't touch my lane.
+Pass 66 notes: main 4150ecb..b340f24 merges test-strategy (bench-42/-43 carried), fix-email-reply, fix-apps-notes, memory-writes, planner-aux/LoRA ship. PLANNER is now another unpinned default for competitor runs: pin PLANNER alongside ROUTER and record both. cloud/open-ended adds APP_HINTS=1 and OPEN_ENDED=1 serving defaults, which change the planner prompt. Re-run planner holdouts with app hints on before merging (same issue as fallback PLANNER_CONTEXT). The planner_offline --app-hints flag exists for that.
