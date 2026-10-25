@@ -1,9 +1,9 @@
 {
-  "pass": 54,
-  "ts": "2026-10-25T01:02:00Z",
+  "pass": 55,
+  "ts": "2026-10-25T01:18:00Z",
   "last_reviewed": {
-    "main": "e4594d9",
-    "wip/local": "fc5d595",
+    "main": "9be963d",
+    "wip/local": "4d22445",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -76,5 +76,5 @@
     "cloud/memory-hotfix": "d932320",
     "cloud/memory-rules2": "03c3cd1"
   },
-  "notes": "pass 54: main e4594d9 is harness/live-case only (no lane files). memory-hotfix and memory-rules2 change only detect/rules classification labels; no new user-facing copy. All open findings unchanged."
+  "notes": "pass 55: main 9be963d merged memory rules #71/#72 (classification labels only, no new copy), docs-demo-3 #68 (docs), and a proxy stale-connection displacement (hands lane; should reduce stuck 'busy' after a dead client). wip/local has no lane changes. Open findings unchanged."
 }
