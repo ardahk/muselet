@@ -1,11 +1,10 @@
-# Planner review digest — pass 76 (2026-10-25T06:47Z)
+# Planner review digest — pass 77 (2026-10-25T07:02Z)
 
-Moved: main e2f7e5e→de1070d (agentic-apps merged; auto-done progress_evidence for timer/cart; loading text markers), wip 52e4b94 (= main, minus a .venv link), new agentic-evidence c4703c4, app-knowhow fc92f6b, browser-flow c0421e6.
-- planner-51 (P1) now on main: AGENTIC_APPS defaults on.
-- Auto-done on main uses programmatic evidence (Clock countdown / cart count went up over the baseline) and cancels the remaining actions. That is consistent with 'DONE verified by the harness'. OK.
-- agentic-evidence: one evidence() for done and auto-done, with app kinds (timer_start/reminder/note/event/message/email/play) matched by key words in the observation. The play kind still has no subject check (planner-50).
-- app-knowhow (tips only) and browser-flow (same tab inside planner tasks, default browser, compound fallback) were checked at the stat/commit level only this pass; to be traced in depth next pass.
-- planner-40/45/46/47/48/50 unchanged on main.
+Moved: main de1070d→3a0860c (BLIND_PLANNER=escalate default when 35B is cached; untracked .venv/models symlinks), wip 83cf584 (= main), agentic-evidence 1918cad and browser-flow 485763f (merges of main), app-knowhow c69dfec (tips).
+- planner-48 (P1) escalated: blind/page/open-ended/agentic tasks now default to the 35B-A3B with qwen think 512.
+- browser-flow: default browser read from the LaunchServices plist; WEB_UI_ERROR steers to the page's search box; URL/host helpers. No planner-contract issue found in the part read.
+- app-knowhow: tips only (Clock label isn't the duration; Reminders natural-language time). OK.
+- planner-40/45/46/47/50/51 unchanged on main.
 
 New: 0. Resolved: 0. Open: 0 P0, 12 P1, 9 P2.
 
