@@ -1,4 +1,4 @@
-# bench digest — pass 96 (2026-10-25T13:16Z, main@b00f679)
+# bench digest — pass 97 (2026-10-25T13:46Z, main@b00f679)
 
 P0: 0 | open P1: 15 | open P2: 25
 
@@ -145,3 +145,5 @@ Pass 95 (no new findings): main 2de65a9..d09f4d8; wip/local 7b8f421..01a929c.
 - wip/local 264cc82 prefers AX refs for named clicks and changes hints again (bench-60).
 
 Pass 96 (no new findings, no status changes): main d09f4d8..b00f679 only adds an architecture image to the README. README claims are unchanged (bench-54/58). wip/local 01a929c..35aed2d: the HandsKit app resolver now looks inside subfolders of the app directories, with a Notes regression test. A reliability fix with no bench impact.
+
+Pass 97 (no new findings, no status changes): main is unchanged. wip/local 35aed2d..aadf777 widens CANVAS_APPS from "Adobe Premiere Pro" to "Adobe Premiere" (ml/src/brain/orchestrator.py:647@aadf777), with tests. An app named exactly "Adobe Premiere" now counts as blind: the planner gets BLIND_HINT, and the brain takes the blind-planner path. Earlier Premiere planner runs on an install with that app name went through the non-blind path, so they aren't comparable. Record the observed Premiere app name and BLIND_PLANNER in Premiere result rows (bench-52/bench-55/bench-60). Read from the code; not run on a Mac.
