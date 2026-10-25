@@ -1502,13 +1502,10 @@ class Orchestrator:
         tctl = self._timer_control_intent(text)
         if tctl is not None:
             trace["decisions"].append({"timer_control": tctl})
-            out = await self._run_skill(
-                "timer_control", {"action": tctl}, text, trace)
-            if out == "ok":
-                word = {"pause": "paused", "resume": "resumed",
-                        "cancel": "cancelled"}[tctl]
-                await self.server.say(f"Timer {word}")
-            return out
+            return await self._planner_loop(
+                text, trace,
+                hint="the timer is in the Clock app's Timers tab; "
+                     "use its Pause/Resume/Cancel buttons")
         if pre is None:
             from .tools import premiere_edit
             pargs = premiere_edit.parse_request(text, self._ctx)

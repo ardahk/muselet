@@ -643,13 +643,6 @@ public final class Skills {
             return startTimer(seconds: secs, label: label)
 
         // ---- premiere ----
-        case "timer_control":
-            let action = try strArg(a, "action")
-            guard ["pause", "resume", "cancel"].contains(action) else {
-                throw HandsError.invalidParams("timer_control: action must be pause|resume|cancel")
-            }
-            return timerControl(action: action)
-
         case "premiere_command":
             return try premiereCommand(try strArg(a, "command"), preset: a["preset"] as? String)
         case "create_event":
@@ -924,58 +917,6 @@ public final class Skills {
         }
         if let label { r["label"] = label }
         return r
-    }
-
-    /// Remaining seconds of Muselet timers paused via `timer_control`.
-    private var pausedTimers: [String: (seconds: Double, label: String?)] = [:]
-
-    /// `timer_control {action: pause|resume|cancel}`: drive Clock's Timers
-    /// tab over AX and verify, falling back to Muselet's internal timers
-    /// (pause = cancel + remember remaining, resume = re-create).
-    private func timerControl(action: String, now: Date = Date()) -> [String: Any] {
-        var out: [String: Any] = ["action": action]
-        // Clock timers take precedence: the newest clock_ax-registered one.
-        let clockTimer = timers.list().filter { $0.backend == "clock_ax" }
-            .max { $0.firesAt < $1.firesAt }
-        if let reason = clockAXControl(action, info: clockTimer, now: now) {
-            out["clock_ax_reason"] = reason
-        } else if clockTimer != nil {
-            out["backend"] = "clock_ax"
-            out["verified"] = true
-            if action == "cancel", let clockTimer {
-                _ = timers.cancel(id: clockTimer.id)
-            }
-            return out
-        }
-        // Muselet backend: deadlines can't truly pause; freeze the remainder.
-        let museletTimers = timers.list().filter { $0.backend != "clock_ax" }
-        switch action {
-        case "cancel":
-            let gone = cancelTimers(id: nil, now: now)
-            pausedTimers.removeAll()
-            out["backend"] = "muselet"
-            out["cancelled"] = gone.count
-            out["verified"] = true
-        case "pause":
-            for t in museletTimers {
-                pausedTimers[t.id] = (t.firesAt.timeIntervalSince(now), t.label)
-            }
-            _ = cancelTimers(id: nil, now: now)
-            out["backend"] = "muselet"
-            out["paused"] = pausedTimers.count
-            out["verified"] = !pausedTimers.isEmpty || museletTimers.isEmpty
-        default:  // resume
-            var n = 0
-            for (id, paused) in pausedTimers {
-                _ = timers.start(seconds: max(1, paused.seconds), label: paused.label) { _ in }
-                pausedTimers.removeValue(forKey: id)
-                n += 1
-            }
-            out["backend"] = "muselet"
-            out["resumed"] = n
-            out["verified"] = true
-        }
-        return out
     }
 
     /// `set_brightness delta`: current + delta, clamped to 0...100.
