@@ -1,4 +1,4 @@
-# hands — digest (Pass 83)
+# hands — digest (Pass 84)
 
 Open: 0 P0, 6 P1, 16 P2.
 
@@ -15,6 +15,10 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 84 (no new findings; open counts unchanged):
+- main 2445a1d (#110-#114): brain hints only (shopping, maps), finish email_open criterion, and sendgate 'Ask Gmail'. The hands-45 regex widened (status record). No app/ change.
+- cloud/cool-tasks e4def97 and wip/local 6e7f50b (one hint line) are main merges or hint-only changes. hands-26/34/36/38/39/40/41/42/43/44 re-checked: unchanged.
 
 Pass 83:
 - main 4f94e42 (#103/#104/#107/#109): YouTube play evidence now requires youtube in window/url; the web_ui_guard message was changed. New P2 hands-45: a search/find label skips the Enter-send confirm even in composer apps, and enter_sends falls back to the focused element when the ref is stale. No app/ change.
