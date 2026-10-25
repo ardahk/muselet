@@ -1,4 +1,4 @@
-# training lane digest — pass 56 (main eb3e945)
+# training lane digest — pass 57 (main e4594d9)
 
 Open: 0 P0, 15 P1, 17 P2. No lane changes since pass 55; training-53 (it3 default without committed sealed-set overlap report) remains the top new item.
 
