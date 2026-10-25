@@ -1,4 +1,7 @@
-# evals-safety digest (pass 76, 2026-10-25T05:53:16Z)
+# evals-safety digest (pass 77, 2026-10-25T06:08:57Z)
+
+-54 (P0) now on main: Spotify hint resumes paused track; oe-spotify-jazz passes on wrong music. Few-shot leak half fixed.
+
 
 -54 escalated to P0 on wip/local: Spotify recipe `tell Spotify to play` resumes the paused track and passes oe-spotify-jazz's playing-only check.
 

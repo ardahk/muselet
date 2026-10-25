@@ -1,9 +1,9 @@
 {
-  "pass": 76,
-  "ts": "2026-10-25T05:53:16Z",
+  "pass": 77,
+  "ts": "2026-10-25T06:08:57Z",
   "last_reviewed": {
-    "main": "fe2de69",
-    "wip/local": "422399a",
+    "main": "e2f7e5e",
+    "wip/local": "3f8e2f8",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -88,8 +88,9 @@
     "cloud/planner-aux": "387c3b4",
     "cloud/premiere-demo": "a1c0f04",
     "cloud/premiere-route-fix": "7769c32",
-    "cloud/agentic-loop": "9b2e512"
+    "cloud/agentic-loop": "dc7a063",
+    "cloud/agentic-apps": "523d2c1"
   },
   "next_id": 55,
-  "note": "pass 76: main fe2de69 serve_brain uses local eyes-4b MLX grounder if present (no lazy download). wip/local 422399a: Spotify demos/hints switched to `tell Spotify to play` -> -54 escalated to P0 (resumes old track, passes oe-spotify-jazz check)."
+  "note": "pass 77: main e2f7e5e merges agentic-loop (finish gate, workflows), fix-thinking, premiere-route-fix. -54 leak half fixed, wrong-result half on main. agentic-apps 523d2c1 (AGENTIC_APPS=1 default): send press/enter still caught by general _DANGEROUS_LABEL/_enter_sends guard; new code only adds recipient to confirm summary. No new finding."
 }
