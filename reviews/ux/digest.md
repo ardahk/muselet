@@ -1,4 +1,4 @@
-# ux digest — pass 73
+# ux digest — pass 74
 
 Heads: main e2f7e5e, wip 3f8e2f8, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
 
@@ -18,4 +18,4 @@ Highest-leverage next moves:
 4. ux-14: ui('idle') after "Okay, cancelled", and reset the mood in onConfirmCancel (~0.25 h)
 5. ux-24: lead decision on the script gate
 
-- ux-31 (P2, cloud/agentic-apps 523d2c1): agentic-apps defaults on, so all 12 app skills (timer, message, email, notes, music, Premiere) run through the multi-turn planner with only 'thinking'. Lead decision: default off, or only after the native skill fails.
+- ux-31 (P2, cloud/agentic-apps 1904638): agentic-apps defaults on, so all 12 app skills (timer, message, email, notes, music, Premiere) run through the multi-turn planner with only 'thinking'. Lead decision: default off, or only after the native skill fails.
