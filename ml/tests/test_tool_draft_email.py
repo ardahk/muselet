@@ -269,13 +269,29 @@ def test_send_draft_unreadable_headers_never_sends(tmp_path):
     ("reply saying I'll be there", "I'll be there"),
     ("reply that I'll be there", "I'll be there"),
     ("respond to this", None), ("answer this email", None),
-    ("answer it", None)])
+    ("answer it", None), ("please answer him", None),
+    ("answer that message", None), ("answer the email", None),
+    ("respond to the email", None), ("respond to her", None),
+    ("reply to that email", None), ("reply to that message", None),
+    ("reply to that thread", None), ("reply to that one", None),
+    ("reply to that", None),
+    ("reply to that email that I'll be there", "I'll be there")])
 def test_reply_parsing(text, about):
     for ctx in ({"app": "Zen", "url": "https://mail.google.com/mail/u/0/"},
                 {"app": "Mail"}):
         assert draft_email.parse_request(text, ctx) == {
             "to": None, "about": about, "reply": True}
     assert draft_email.parse_request("answer it", {"app": "Zen"}) is None
+
+
+@pytest.mark.parametrize("text", [
+    "what's the answer to 5 times 7", "answer the phone",
+    "what's the answer to this email question", "respond to the phone",
+    "how should I respond to this", "what does respond mean",
+    "answer 5 times 7"])
+def test_non_email_answer_and_respond(text):
+    assert draft_email.parse_request(text, {
+        "app": "Zen", "url": "https://mail.google.com/mail/u/0/"}) is None
 
 
 @pytest.mark.parametrize("host,suffix", [
