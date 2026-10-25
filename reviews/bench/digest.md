@@ -1,4 +1,4 @@
-# bench digest — pass 76 (2026-10-25T06:45Z, main@de1070d)
+# bench digest — pass 77 (2026-10-25T07:00Z, main@3a0860c)
 
 P0: 0 | open P1: 13 | open P2: 18
 
@@ -12,7 +12,7 @@ Ranked open P1:
 7. bench-28 5 v2-holdout golds accept field-clobbering type.
 8. bench-11, -14, -15, -20, -21, -29 unchanged.
 
-Open P2: -50 (NEW: timer-cancel/cart finish evidence passes on absence), -51 (NEW: absolute models/.venv symlinks committed), -49 (NEW: Finish-when line reaches the LoRA planner, out of its SFT distribution), -46 (now 5 unevaluated serving switches incl. BLIND_PLANNER), -47, -43, -37, -38, -39, -40, -30, -34, others. Resolved: -41, -48 (pass 74). Withdrawn: -45.
+Open P2: -50 (NEW: timer-cancel/cart finish evidence passes on absence), -52 (NEW: cache-dependent 35B blind/agentic planner default), -49 (NEW: Finish-when line reaches the LoRA planner, out of its SFT distribution), -46 (now 5 unevaluated serving switches incl. BLIND_PLANNER), -47, -43, -37, -38, -39, -40, -30, -34, others. Resolved: -41, -48 (pass 74), -51 (pass 77). Withdrawn: -45.
 
 Next moves:
 1. Gate Finish-when to the base/blind planner, or A/B the LoRA with and without it (bench-49); add paraphrased held-out open-ended asks (bench-47).
@@ -42,3 +42,5 @@ Pass 74: main fe2de69..e2f7e5e merges agentic-loop (31e500a, 9b2e512, dc7a063), 
 Pass 75 (no new findings, no status changes): main and wip/local unchanged, all open findings stand. cloud/agentic-apps 1904638 merges main and removes timer_control (router:false, so no router-eval impact). Checked fine: planner-driven sends under AGENTIC_APPS go through a confirm. That covers a pressed Send button, enter/cmd+return when enter sends, and type+enter. The confirm summary is re-derived when it doesn't name the recipient. cmd+shift+d is in _DANGEROUS_COMBOS, and scripts go through script_needs_confirm. The agentic-apps watch from pass 74 (pin and record AGENTIC_APPS, report off vs on latency) still applies on merge.
 
 Pass 76: main e2f7e5e..de1070d merges agentic-apps (AGENTIC_APPS=1 is now a serving default, so app skills run through the planner) and f30bf1d autodone. NEW P2 bench-50 and bench-51. The AGENTIC_APPS watch now applies to main: pin and record it on competitor runs, and report off vs on latency. Router-accuracy claims describe routing, not what executes for app-kind skills. The new branches (agentic-evidence c4703c4, app-knowhow fc92f6b, browser-flow c0421e6) touch orchestrator/finish/app_hints/tests only. app-knowhow changes app_hints tips again, another planner-prompt change for bench-46. agentic-evidence unifies evidence() for done and auto-done: re-check bench-50 there on merge.
+
+Pass 77: main de1070d..3a0860c. bench-51 RESOLVED (symlinks untracked). NEW P2 bench-52: BLIND_PLANNER becomes escalate (35B-A3B, think 512) whenever the 35B is in the HF cache, so the served planner for blind/agentic/app tasks is machine-dependent, unmeasured and unrecorded. bench-50 still open, and the same rule is on agentic-evidence 1918cad. app-knowhow c69dfec changes only app_hints tips (bench-46). browser-flow 485763f is merged-main plus orchestrator same-tab work. wip/local = main.
