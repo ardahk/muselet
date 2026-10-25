@@ -66,6 +66,7 @@ def planner_opts(args) -> dict:
         opts["think_budget"] = args.planner_think
         opts["think_on"] = args.planner_think_on
         opts["think_sampler"] = args.planner_think_sampler
+    opts["app_hints"] = args.planner_app_hints == "on"
     if opts["constrain"] is None:      # Planner's PLANNER_CONSTRAIN_DEFAULT
         del opts["constrain"]
     return opts
@@ -106,7 +107,8 @@ async def serve(port: int = 8765, model: str | None = None,
                 memory_enabled: bool = True,
                 memory_llm: bool = True,
                 longterm_enabled: bool = True,
-                verify_done: bool = True):
+                verify_done: bool = True,
+                open_ended_route: bool = False):
     server = BrainServer(port=port)
     await server.start()
     engine = None
@@ -119,7 +121,8 @@ async def serve(port: int = 8765, model: str | None = None,
     pmodel = _resolve_model(planner_model)
     if pmodel:
         planner = make_planner(pmodel, engine, planner_kw)
-    orch = Orchestrator(server, Catalog.load(), Tracer(), engine=engine)
+    orch = Orchestrator(server, Catalog.load(), Tracer(), engine=engine,
+                        open_ended_route=open_ended_route)
     orch.planner = planner
     orch.memory_enabled = memory_enabled
     orch.memory_llm = memory_llm
@@ -335,6 +338,7 @@ def build_parser(argv=None):
                    help="planner model; default: cached Qwen3.5-4B-4bit")
     s.add_argument("--verify-done", choices=("on", "off"), default="on",
                    help="verify planner done (expect or model check) + bounded recovery; off = old behaviour")
+    s.add_argument("--open-ended-route", choices=("on", "off"), default="off")
     s.add_argument("--planner-constrain", action=argparse.BooleanOptionalAction,
                    default=None, help="line-start DSL op constraint "
                    "(default: planner.PLANNER_CONSTRAIN_DEFAULT)")
@@ -354,6 +358,7 @@ def build_parser(argv=None):
                    help="think-token budget before the action batch; 0 = off")
     s.add_argument("--planner-think-on", choices=("all", "retry"), default="all")
     s.add_argument("--planner-think-sampler", choices=("greedy", "qwen"), default="greedy")
+    s.add_argument("--planner-app-hints", choices=("on", "off"), default="off")
     s.add_argument("--grounder-model", default="eyes-4b", metavar="NAME[=PATH]|none",
                    help="grounder adapter for `click \"<target>\"` (brain.grounder.ADAPTERS, e.g. "
                         "eyes-4b, ui-venus-1.5-8b; name=path for local weights); loaded on first use")
@@ -398,7 +403,8 @@ def run_cmd(args, ap):
         asyncio.run(serve(
             args.port, m, args.planner_model, planner_opts(args),
             args_model=am, escalate_model=em, grounder=grounder_cfg(args),
-            verify_done=args.verify_done == "on", **memory_kw))
+            verify_done=args.verify_done == "on",
+            open_ended_route=args.open_ended_route == "on", **memory_kw))
     elif args.cmd == "eval-route":
         eval_route(args.model, args.cases, args.out,
                    tau=getattr(args, "tau", 0.55), args_model=args.args_model)

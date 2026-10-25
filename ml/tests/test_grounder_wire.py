@@ -626,7 +626,7 @@ def test_cli_serve_passes_grounder(monkeypatch):
 
     async def fake_serve(port, model, pmodel, pkw, args_model=None,
                          escalate_model=None, grounder=None,
-                         verify_done=True):
+                         verify_done=True, open_ended_route=False):
         seen["g"] = grounder
 
     monkeypatch.setattr(cli, "serve", fake_serve)

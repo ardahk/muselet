@@ -243,7 +243,8 @@ def test_cli_and_offline_flags_old_summary_and_escalation_inheritance(monkeypatc
         "--planner-think-sampler", "qwen"])
     assert cli.planner_opts(args) == {
         "done_alone": True, "few_shot": "prompts/planner_fewshot.md",
-        "history": "dsl", "think_budget": 512, "think_on": "retry",
+        "history": "dsl", "app_hints": False,
+        "think_budget": 512, "think_on": "retry",
         "think_sampler": "qwen"}
 
     offline = planner_offline.build_parser().parse_args(

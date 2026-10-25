@@ -24,7 +24,7 @@
 #             (evals/memory_eval.py): rules+lt resolution .574, false-rewrite .0195; +LLM .670 but false-rewrite .078
 #             (ship rule .85 / .02 not met by any mode)
 #   verify-done = done needs a passing expect or a model check on a fresh observation; VERIFY_DONE=off restores the old rule
-# Usage: PORT=... ROUTER=... ARGS_MODEL=... PLANNER=... TAU=... RETRIEVAL_K=... THINK=... THINK_ON=... THINK_SAMPLER=... ESCALATE=... VERIFY_DONE=... MEMORY=... MEMORY_LLM=... LONGTERM=... tools/serve_brain.sh [extra brain serve flags]
+# Usage: PORT=... ROUTER=... ARGS_MODEL=... PLANNER=... TAU=... RETRIEVAL_K=... THINK=... THINK_ON=... THINK_SAMPLER=... APP_HINTS=... OPEN_ENDED=... ESCALATE=... VERIFY_DONE=... MEMORY=... MEMORY_LLM=... LONGTERM=... tools/serve_brain.sh [extra brain serve flags]
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 # Brains on any port but the app's :8765 (benchmarks) get a fresh memory store per start, so test utterances never
@@ -51,6 +51,8 @@ case "$ROUTER" in
 esac
 args=(--port "${PORT:-8765}" --model "$ROUTER" --tau "$TAU" --args-model "$ARGS_MODEL"
       --planner-model "${PLANNER:-$BASE}" --planner-retrieval-k "${RETRIEVAL_K:-1}"
+      --planner-app-hints "${APP_HINTS:-1}"
+      --open-ended-route "${OPEN_ENDED:-1}"
       --planner-think "${THINK:-512}" --planner-think-on "${THINK_ON:-all}"
       --planner-think-sampler "${THINK_SAMPLER:-qwen}"
       --verify-done "${VERIFY_DONE:-on}")

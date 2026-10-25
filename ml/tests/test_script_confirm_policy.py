@@ -227,3 +227,42 @@ def test_script_side_effect_bypasses_need_confirm(lang, code):
 def test_script_read_only_and_numbers_exemption(lang, code):
     orch = Orchestrator.__new__(Orchestrator)
     assert not orch.script_needs_confirm(lang, code)
+
+
+@pytest.mark.parametrize("code", [
+    'tell application "Spotify" to play',
+    'tell application "Spotify" to pause',
+    'tell application "Spotify" to playpause',
+    'tell application "Spotify" to next track',
+    'tell application "Spotify" to previous track',
+    'tell application "Spotify" to get player state',
+    'tell application "Spotify" to get name of current track',
+    'tell application "Spotify" to get artist of current track',
+    'tell application "Spotify" to play track "spotify:track:abc"',
+    'tell application "Music" to play',
+    'tell application "Music" to previous track',
+])
+def test_spotify_and_music_media_scripts_do_not_need_confirm(code):
+    orch = Orchestrator.__new__(Orchestrator)
+    assert not orch.script_needs_confirm("applescript", code)
+
+
+@pytest.mark.parametrize("code", [
+    'tell application "Spotify" to set sound volume to 100',
+    'tell application "Spotify" to do shell script "rm x"',
+    'tell application "Spotify" to get album of current track',
+    'tell application "Spotify" to play; tell application "Finder" to get name',
+    'tell application "Music" to set sound volume to 100',
+])
+def test_spotify_and_music_scripts_outside_allowlist_need_confirm(code):
+    orch = Orchestrator.__new__(Orchestrator)
+    assert orch.script_needs_confirm("applescript", code)
+
+
+@pytest.mark.parametrize("code", [
+    'tell application "Spotify" to play',
+    'tell application "Music" to play',
+])
+def test_media_script_allowlist_is_applescript_only(code):
+    orch = Orchestrator.__new__(Orchestrator)
+    assert orch.script_needs_confirm("jxa", code)

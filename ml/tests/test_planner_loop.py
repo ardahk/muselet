@@ -120,6 +120,7 @@ def test_done_alone_after_clean_batch(tmp_path):
 def test_planner_loop_passes_recent_memory(tmp_path):
     hands = FakeHands()
     planner = FakePlanner([["press #1"], ['done "finished"']])
+    planner.last_hint_ids = ["spotify"]
     server, orch = _mk(0, planner, hands)
     orch.memory = WorkingMemory()
     orch.memory.record(
@@ -131,12 +132,18 @@ def test_planner_loop_passes_recent_memory(tmp_path):
     async def go():
         server.port = 9907
         await _up(server, hands, orch, 9907)
-        out = await orch._planner_loop("do it", trace_for(orch))
+        trace = trace_for(orch)
+        out = await orch._planner_loop("do it", trace)
         await hands.close()
         await server.close()
-        return out
+        return out, trace
 
-    assert run(go()) == "ok"
+    out, trace = run(go())
+    assert out == "ok"
+    assert any(decision.get("app_hints") == ["spotify"]
+               for decision in trace["decisions"])
+    assert isinstance(next(d["turn_ms"] for d in trace["decisions"]
+                           if "planner_turn" in d), (int, float))
     assert planner.user_msgs[0]["recent"] == orch.memory.recent_lines(5)
 
 
