@@ -1594,6 +1594,13 @@ class Orchestrator:
         from . import agentic
         from .finish import app_finish
 
+        if name == "create_reminder" and re.search(
+                r"\b(cart|basket|checkout|shop|buy|amazon|target|ebay|"
+                r"walmart|bestbuy|\.com)\b", str(text or ""), re.IGNORECASE):
+            # shopping goals can never be reminders
+            trace["decisions"].append(
+                {"agentic_override": "shopping_not_reminder"})
+            return await self._planner_loop(text, trace)
         args = {
             key: value for key, value in dict(args or {}).items()
             if key not in {"ms", "_raw", "missing", "confirmed"}

@@ -86,3 +86,16 @@ Last batch:
 [ok] url "spotify:search:boyle%20iyi"
 Reply:
 click "Böyle İyi song title in the search results" double
+
+Goal: "add a phone charger to my cart on target.com"
+app: Zen | window: "phone charger : Target" | focused: none
+#72 link "cart 0 items"
+#80 button "Add Anker USB-C 20W Wall Charger to cart"
+#81 button "Add Charging Cable 6ft - Out of stock to cart"
+#83 button "Choose options for iPhone Lightning Cable"
+Finish when: the page confirms phone charger was added to the cart (e.g. 'Added to Cart' or the cart count went up)
+Last batch:
+[ok] type #12 "phone charger" enter
+Reply:
+press #80
+expect appears "to cart"
