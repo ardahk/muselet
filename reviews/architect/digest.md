@@ -1,7 +1,8 @@
-# architect digest - pass 64 (2026-10-25T02:55Z)
-Reviewed: main 13d0486 (calendar capture moved to the runner; same diff as wip/local fd357b3, which is unchanged). New: architect-42 (P1): the move also deleted start-state screenshot capture, so the 20/125 r4 screenshot+none cases KeyError at the final snapshot. Fix before any r4 rerun. Open: P0 0, P1 12, P2 8.
+# architect digest - pass 65 (2026-10-25T03:10Z)
+Reviewed: main 6a37d0c (calc_checker.swift macOS 27 display fallback) and wip/local 9571a9e (no diff vs main). New: architect-43 (P1): the edit breaks the pinned provenance hash, so replay.load_tasks raises before any case and test_hobby_provenance fails. Run 004223Z had all 30 calc tasks ungradable. architect-42 still open (replay.py unchanged). Open: P0 0, P1 13, P2 8. Before the r4 rerun: fix architect-42 and architect-43, run bench/tests, then smoke-test one calc, one screenshot and one none case on the Mac.
 
 ## Open P1 (ranked)
+0000. architect-43 - Calc checker patch breaks provenance; replay cannot start - bench/hobbylm/upstream/hobby/calc_checker.swift
 000. architect-42 - 13d0486 drops start-state screenshot capture; 20/125 r4 cases crash - bench/hobbylm/replay.py
 00. architect-40 - Sealed r4 failures patched post-hoc; rerun = tuned-on-test - ml/src/brain/orchestrator.py
 1. architect-37 - it3 default router; no it3 sealed overlap check; replay unpinned - tools/serve_brain.sh
