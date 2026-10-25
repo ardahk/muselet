@@ -262,7 +262,8 @@ def test_serve_aux_shares_or_constructs_separate_model(
 
     made = []
 
-    def make_planner(path, engine, opts=None, tag="planner"):
+    def make_planner(path, engine, opts=None, tag="planner",
+                     agentic_apps=False):
         planner = _TextModel()
         made.append((path, opts, tag, planner))
         return planner

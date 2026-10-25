@@ -76,6 +76,7 @@ args=(--port "${PORT:-8765}" --model "$ROUTER" --tau "$TAU" --args-model "$ARGS_
       --planner-retrieval-k "${RETRIEVAL_K:-1}"
       --planner-app-hints "$([ "${APP_HINTS:-1}" = "0" ] && echo off || echo on)"
       --open-ended-route "$([ "${OPEN_ENDED:-1}" = "0" ] && echo off || echo on)"
+      --agentic-apps "$([ "${AGENTIC_APPS:-1}" = "0" ] && echo off || echo on)"
       --planner-blind "${BLIND_PLANNER:-base}"
       --planner-think "$THINK" --planner-think-on "${THINK_ON:-all}"
       --planner-think-sampler "${THINK_SAMPLER:-qwen}"

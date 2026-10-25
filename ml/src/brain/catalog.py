@@ -45,6 +45,15 @@ class Catalog:
     def get(self, name: str) -> dict | None:
         return self.skills.get(name)
 
+    def kind(self, name: str) -> str | None:
+        spec = self.skills.get(name)
+        return spec.get("kind") if spec else None
+
+    def app_skills(self) -> frozenset:
+        return frozenset(
+            name for name, spec in self.skills.items()
+            if spec.get("kind") == "app")
+
     def risk(self, name: str) -> str:
         s = self.skills.get(name)
         return s["risk"] if s else "safe"
