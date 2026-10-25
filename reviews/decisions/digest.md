@@ -1,6 +1,6 @@
-# decisions — digest (pass 46)
+# decisions — digest (pass 47)
 
-Heads: main 19d57fb (memory gate + brightness; decisions-37 P0 still live), wip 8a197f8 (pitch/docs == main). Budget: about $142.06 MTD estimated (main still says planner LoRA $0.84).
+Heads: main f5b4606 (harness + paraphrased brightness tests; decisions-37 P0 still live), wip c49bf0e (replay.py only). Budget: about $142.06 MTD estimated (main still says planner LoRA $0.84).
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
