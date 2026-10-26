@@ -1,27 +1,21 @@
-# Planner review digest — pass 99
+# Planner review digest — pass 100
 
-Heads: main 32c0ad4 (merged everything from wip: engine deletion, page-load loop, AX click refs, app resolver, Premiere focus guard, docs), wip/local 69261f5 (= main content).
-Open: 0 P0, 23 P1, 13 P2. New: planner-68 (P1). Resolved: planner-67, planner-55. Promoted P2->P1: planner-61, planner-46 (both now on the deployed path).
+Heads: main 32c0ad4 (unchanged), wip/local 0b155b2 (+ Phase 2 long-horizon suite LH-v1: bench/fixtures seed + graders, evals/lh_v1.jsonl + builder, lab notebook, research notes).
+Open: 0 P0, 25 P1, 13 P2. New: planner-69, planner-70 (both P1). Resolved: none.
 
 ## New
-- planner-68 (P1): the demo runs a hand-written override (base 4B, native tools, THINK=1024 on every turn, one action per turn) that has no accuracy or latency numbers. The nearest measured config (base 4B, think 512, batched) was 2.6 s/step p50 with a .770 holdout mean. The override exists only as a command in AGENTS.md, so benchmarks run through serve_brain.sh measure a different config.
+- planner-69 (P1, wip): the LH-v1 wiki graders fail correct sentence answers ("The Varn Spire is taller than the Oskel Tower"; "14 March 1742"), so strict pass@1 is biased by answer style. That skews the H1-H7 planner comparisons. The bank regex also matches 130.15. No fixture server is committed yet.
+- planner-70 (P1, main): tools mode decodes with a hardcoded THINK_BUDGET=1024, so THINK has no effect. The non-blind planner loop is capped at 12 turns / 60 s, which binds at one action per turn (Premiere and finance demo goals).
 
-## Promoted
-- planner-61 (P1): no expect on any native tool, so demo actions carry no expect.
-- planner-46 (P1): OCR on every tools-mode turn (latency + raw screen text in the prompt).
+## Reviewed, no issue
+- LH-v1 safety: each case has the runner preconditions (Safari/TextEdit not running, fixture up). The sandbox is created by the runner and it refuses to reuse an existing one. Teardown is scoped to the case, and send/checkout cases require a confirm. Training wiki quizzes (t1-t5) share no entities with the eval quizzes (q1/q2). The YouTube check requires a watch URL plus "jazz".
 
-## Resolved
-- planner-67: main's load repoll now observes separately and stops when loaded.
-- planner-55: docs now separate historical named-config numbers from the deployed build.
-
-## Still open on main
-- planner-66 (P1): finance numbers aren't read back from the sheet (engines now deleted on main).
-- planner-64 (P1): Premiere end state / export file not checked by the harness.
-- planner-59 (P1): soft expects stripped and don't stop batches or count toward the loop guard.
-- planner-63 (P1): destructive-refusal regex unchanged.
-- planner-60 (P1): sendgate search/find label exemption unchanged.
-- planner-58 (P1): provisional refs per root unchanged.
+## Still open (top)
+- planner-68: deployed tools config unmeasured; not a named profile in serve_brain.sh.
+- planner-66 / planner-64: no finance read-back or Premiere end-state check.
+- planner-61 / planner-46: no expect on native tools; OCR every turn.
+- planner-59, 58, 60, 63, 56: unchanged.
 
 ## Decisions for lead
-1. Measure the deployed tools config against LoRA DSL (pass rate + step p50) before the demo; try THINK 512/256; put the profile in serve_brain.sh.
-2. Add an optional expect to native tools, and read-back checks for finance and Premiere.
+1. Fix the wiki graders and bump the LH-v1 version before any Phase 2 result is recorded.
+2. Plumb THINK into tools mode and scale the turn/time cap before running H1/H2.
