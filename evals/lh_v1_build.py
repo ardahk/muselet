@@ -59,24 +59,33 @@ def milestones(case_id, names):
     return [{"name": n, "shell": f"curl -sf {FIX}/api/milestone/{case_id}/{n}", "equals": "PASS"} for n in names]
 
 
+# Checks must never launch an app: on macOS 27 an AppleScript `if application "X" is running then tell
+# application "X" ... documents ...` LAUNCHES X when it is not running (verified 2026-10-25: TextEdit started and
+# restored a user iCloud document). So the running test is a separate one-line osascript in the shell, and the
+# script that talks to the app is only compiled when the app is already running.
+def running(app_id: str) -> str:
+    return f"[ \"$(osascript -e 'application id \"{app_id}\" is running')\" = \"true\" ]"
+
+
 TEXTEDIT_APPLESCRIPT = "\n".join([
-    'if application "TextEdit" is running then',
-    '  tell application "TextEdit"',
-    '    set out to ""',
-    "    repeat with d in documents",
-    "      set out to out & (text of d) & linefeed",
-    "    end repeat",
-    "    return out",
-    "  end tell",
-    "end if",
-    'return ""'])
+    'tell application id "com.apple.TextEdit"',
+    '  set out to ""',
+    "  repeat with d in documents",
+    "    set out to out & (text of d) & linefeed",
+    "  end repeat",
+    "  return out",
+    "end tell"])
 
 
-def _dump_then_py(applescript: str, py: str, *args: str) -> str:
-    """Shell: AppleScript output -> temp file -> python verifier (argv[1] = file) printing PASS/FAIL."""
+def _dump_then_py(scripts, py: str, *args: str) -> str:
+    """Shell: output of each (app_id, AppleScript) whose app is RUNNING -> temp file -> python verifier
+    (argv[1] = file) printing PASS/FAIL."""
     extra = "".join(f" {a}" for a in args)
-    return (f"d=$(mktemp)\nosascript > \"$d\" <<'OSA'\n{applescript}\nOSA\n"
-            f"python3 - \"$d\"{extra} <<'PY'\n{py}PY\nrm -f \"$d\"")
+    parts = ["d=$(mktemp)"]
+    for app_id, applescript in scripts:
+        parts.append(f"if {running(app_id)}; then osascript >> \"$d\" <<'OSA'\n{applescript}\nOSA\nfi")
+    parts.append(f"python3 - \"$d\"{extra} <<'PY'\n{py}PY\nrm -f \"$d\"")
+    return "\n".join(parts)
 
 
 def textedit_contains(*needles):
@@ -85,12 +94,12 @@ def textedit_contains(*needles):
           f"needles={list(needles)!r}\n"
           "ok=all(re.search(n, t) for n in needles)\n"
           "print('PASS' if ok else 'FAIL text=' + ' '.join(t.split())[:300])\n")
-    return {"shell": _dump_then_py(TEXTEDIT_APPLESCRIPT, py), "equals": "PASS"}
+    return {"shell": _dump_then_py([("com.apple.TextEdit", TEXTEDIT_APPLESCRIPT)], py), "equals": "PASS"}
 
 
 TEXTEDIT_HAS_DOC = {"name": "textedit_doc_exists", "shell": (
-    "osascript -e 'if application \"TextEdit\" is running then tell application \"TextEdit\" to return "
-    "(count of documents) > 0' -e 'return false'"), "equals": "true"}
+    f"if {running('com.apple.TextEdit')}; then osascript -e 'tell application id \"com.apple.TextEdit\" to return "
+    "(count of documents) > 0'; else echo false; fi"), "equals": "true"}
 
 
 def web_case(cid, category, start, utterance, names, *, confirm=True, require_confirm=False, timeout=420,
@@ -253,31 +262,32 @@ CASES.append({
     "confirm_reply": True, "expect_outcome": "ok",
 })
 
-_NUMBERS_DUMP = "\n".join([
-    'set out to ""',
-    *[line for app_id in ("com.apple.iWork.Numbers", "com.apple.Numbers") for line in (
-        f'if application id "{app_id}" is running then',
-        f'  tell application id "{app_id}"',
-        "    repeat with d in documents",
-        "      repeat with s in sheets of d",
-        "        repeat with t in tables of s",
-        "          repeat with c in cells of t",
-        "            set v to value of c",
-        "            if v is not missing value then",
-        '              set f to ""',
-        "              try",
-        "                set f to formula of c",
-        "              end try",
-        '              if f is missing value then set f to ""',
-        '              set out to out & (name of c) & "|" & (v as text) & "|" & f & linefeed',
-        "            end if",
-        "          end repeat",
+def _numbers_dump(app_id):
+    return "\n".join([
+        'set out to ""',
+        f'tell application id "{app_id}"',
+        "  repeat with d in documents",
+        "    repeat with s in sheets of d",
+        "      repeat with t in tables of s",
+        "        repeat with c in cells of t",
+        "          set v to value of c",
+        "          if v is not missing value then",
+        '            set f to ""',
+        "            try",
+        "              set f to formula of c",
+        "            end try",
+        '            if f is missing value then set f to ""',
+        '            set out to out & (name of c) & "|" & (v as text) & "|" & f & linefeed',
+        "          end if",
         "        end repeat",
         "      end repeat",
         "    end repeat",
-        "  end tell",
-        "end if")],
-    "return out"])
+        "  end repeat",
+        "end tell",
+        "return out"])
+
+
+NUMBERS_IDS = ("com.apple.iWork.Numbers", "com.apple.Numbers")
 _NUMBERS_PY = (
     "import sys,re\n"
     "rows=[l.split('|',2) for l in open(sys.argv[1]).read().splitlines() if l.count('|')>=2]\n"
@@ -298,7 +308,8 @@ _NUMBERS_PY = (
 
 
 def numbers_check(part):
-    return {"shell": _dump_then_py(_NUMBERS_DUMP, _NUMBERS_PY, part), "equals": "PASS"}
+    return {"shell": _dump_then_py([(a, _numbers_dump(a)) for a in NUMBERS_IDS], _NUMBERS_PY, part),
+            "equals": "PASS"}
 
 
 CASES.append({
@@ -320,9 +331,8 @@ CASES.append({
 
 # ---------- online (real websites; reported separately, skipped by --offline) ----------
 
-SAFARI_FRONT = ("osascript -e 'if application \"Safari\" is running then tell application \"Safari\" to return "
-                "(URL of front document) & \" | \" & (name of front document)' -e 'return \"\"' | "
-                "tr '[:upper:]' '[:lower:]'")
+SAFARI_FRONT = (f"if {running('com.apple.Safari')}; then osascript -e 'tell application id \"com.apple.Safari\" "
+                "to return (URL of front document) & \" | \" & (name of front document)' | tr '[:upper:]' '[:lower:]'; fi")
 PLAYING_JXA = (
     "const se = Application('System Events');\n"
     "let out = 'no';\n"

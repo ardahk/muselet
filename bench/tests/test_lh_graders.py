@@ -101,3 +101,36 @@ def test_seed_fixed_facts():
     assert [sum(t["desc"].startswith("STARBUCKS") for t in p) for p in pages] == [2, 1, 2]
     jon = [m for m in SEED["emails"] if m["from_name"] == "Jon Snow"]
     assert max(jon, key=lambda m: m["date"])["id"] == "m11"
+
+
+TRAIN = [
+    ("tr-mart-04", st({"milk-whole-half": 1}), True),
+    ("tr-mart-04", st({"milk-oat": 1}), False),
+    ("tr-mart-02", st({"banana": 2, "banana-organic": 2}), True),
+    ("tr-mart-02", st({"banana": 4, "bagels": 1}), False),
+    ("tr-mart-12", st(orders=[order({"mouse-wireless": 1}, "Maria Lopez", "400 Oak Ave", "Portland", "97205")]),
+     True),
+    ("tr-mart-12", st(orders=[order({"mouse-wireless": 1}, "Maria Lopez", "40 Oak Avenue", "Portland", "97205")]),
+     False),
+    ("tr-mart-12", st(orders=[order({"mouse-wireless": 1}, "Maria Lopez", "400 Oak Avenue", "Portland", "97205")]),
+     True),
+    ("tr-mail-01", st(sent=[mail("arya@winterfell.example", "Re: Sword lessons?", "Yes, Saturday at 10 works!",
+                                 "m6")]), True),
+    ("tr-mail-01", st(sent=[mail("arya@winterfell.example", "Re: Sword lessons?", "Yes, Saturday at 100.", "m6")]),
+     False),
+    ("tr-mail-05", st(sent=[{**mail("sam@example.com", "Fwd: Your order has shipped", "..."), "forward_of": "m5"}]),
+     True),
+    ("tr-wiki-04", st(answers=[{"quiz": "t4", "answer": "Nine"}]), True),
+    ("tr-wiki-05", st(answers=[{"quiz": "t5", "answer": "The Brask Lighthouse"}]), True),
+    ("tr-wiki-05", st(answers=[{"quiz": "t5", "answer": "Halden Observatory dome"}]), False),
+]
+
+
+@pytest.mark.parametrize("case,state,want", TRAIN)
+def test_train_grader(case, state, want):
+    assert passed(case, state) is want
+
+
+def test_train_ids_disjoint_from_eval():
+    from bench.fixtures.train_tasks import TRAIN_TASKS
+    assert not {t["id"] for t in TRAIN_TASKS} & {k for k in GRADERS if k.startswith("lh-")}

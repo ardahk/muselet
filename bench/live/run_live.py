@@ -50,7 +50,7 @@ def _load_suite(path: Path) -> list[dict[str, Any]]:
             error = _turns_error(case)
             if error:
                 raise ValueError(f"{path}:{line_number}: {case_id}: {error}")
-        error = _screen_grade_error(case)
+        error = _fields_error(case) or _screen_grade_error(case)
         if error:
             raise ValueError(f"{path}:{line_number}: {case_id}: {error}")
         cases.append(case)
@@ -58,6 +58,22 @@ def _load_suite(path: Path) -> list[dict[str, Any]]:
 
 
 SCREEN_SOURCES = ("applescript", "jxa", "shell", "rpc")
+
+
+def _fields_error(case: dict[str, Any]) -> str | None:
+    """Shape checks for optional LH fields (name-tagged milestones, confirm gate)."""
+    milestones = case.get("milestones")
+    if milestones is not None and (
+        not isinstance(milestones, list)
+        or any(
+            not isinstance(item, dict) or not str(item.get("name", "")).strip()
+            for item in milestones
+        )
+    ):
+        return "milestones must be a list of predicates each carrying a non-empty \"name\""
+    if "require_confirm" in case and not isinstance(case.get("require_confirm"), bool):
+        return "require_confirm must be a boolean"
+    return None
 
 
 def _screen_grade_error(case: dict[str, Any]) -> str | None:
@@ -167,8 +183,11 @@ def _step_order(case: dict[str, Any], *, report_only: bool = False) -> list[str]
         steps.extend((*_turn_steps(case), "poll-checks", "final-checks"))
     else:
         steps.extend(("utterance", "poll-checks", "final-checks"))
+    if case.get("milestones"):
+        steps.append("milestones")
     if case.get("forbid"):
         steps.append("forbid")
+    steps.append("evidence-shot")
     if case.get("teardown"):
         steps.append("teardown")
     if case.get("restore"):
@@ -266,10 +285,32 @@ def _shell_rooted_case(case: dict[str, Any]) -> dict[str, Any]:
     return rooted
 
 
+def _screenshot_hook(shots_dir: Path, shot_name: str):
+    """Evidence artifact: one screen capture per executed case, taken after the
+    final checks and before teardown (run_case's `before_teardown` hook)."""
+
+    def hook(_runtime: Any, result: dict[str, Any]) -> None:
+        shots_dir.mkdir(parents=True, exist_ok=True)
+        path = shots_dir / f"{shot_name}.png"
+        proc = subprocess.run(
+            ["screencapture", "-x", str(path)],
+            check=False, capture_output=True, text=True, timeout=15,
+        )
+        if proc.returncode != 0 or not path.is_file():
+            raise RuntimeError(
+                f"screencapture failed rc={proc.returncode}: {proc.stderr.strip()}"
+            )
+        result["evidence_screenshot"] = str(path)
+
+    return hook
+
+
 def _prepare_run_spec(
     case: dict[str, Any],
     *,
     event_check: Callable[[Any, dict[str, Any]], Any] | None = None,
+    shots_dir: Path | None = None,
+    shot_name: str | None = None,
 ) -> dict[str, Any]:
     run_spec = case
     if event_check is not None:
@@ -279,6 +320,10 @@ def _prepare_run_spec(
         run_spec["check"] = [event_check]
     run_spec = _shell_rooted_case(run_spec)
     run_spec["pre_setup_guard"] = _fixture_plan_guard(run_spec)
+    if shots_dir is not None:
+        run_spec["before_teardown"] = _screenshot_hook(
+            shots_dir, shot_name or str(case.get("id", "case"))
+        )
     return run_spec
 
 
@@ -502,7 +547,12 @@ async def _run_live(cases: list[dict[str, Any]], args: argparse.Namespace) -> in
                                 }
 
                             event_check = grade_bench_event
-                        run_spec = _prepare_run_spec(case, event_check=event_check)
+                        run_spec = _prepare_run_spec(
+                            case,
+                            event_check=event_check,
+                            shots_dir=out_dir / "shots",
+                            shot_name=f"{case['id']}-r{repeat}",
+                        )
                         try:
                             record = await run_case(
                                 run_spec,
