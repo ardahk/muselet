@@ -1,9 +1,9 @@
 {
-  "pass": 103,
-  "ts": "2026-10-26T03:41:01Z",
+  "pass": 104,
+  "ts": "2026-10-26T03:55:42Z",
   "last_reviewed": {
     "main": "32c0ad4",
-    "wip/local": "0b155b2",
+    "wip/local": "d714345",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -100,5 +100,5 @@
     "cloud/ui-progress": "a66166b"
   },
   "next_id": 63,
-  "note": "pass 103: main unchanged. wip/local 0b155b2 adds LH-v1 long-horizon suite (18 cases), fixture seed/graders, Phase-2 research + pre-registered H1-H8. Verified: Starbucks total 30.15 (5 rows, pages 1x2/2x1/3x2), cheapest whole bean = beans-breakfast by price and per oz, latest Jon Snow mail m11, Ines Calder born 1742, Varn 401 m > Oskel 1270 ft, lh-yt-jazz checks watch URL + 'jazz' in URL/title. New -61 (server missing), -62 (taller grader)."
+  "note": "pass 104: wip/local d714345 (local main 2f96add): fixture server landed (-61 resolved), lh-bench runner milestones/require_confirm/setup_failed skips (-25 widened), train_tasks disjoint from eval entities (grep for eval ids/entities in train_tasks.py: none). -62 open."
 }
