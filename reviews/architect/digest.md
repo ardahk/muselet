@@ -1,9 +1,7 @@
-# architect digest - pass 102 (2026-10-26T03:55Z)
-Reviewed: main 32c0ad4 (unchanged); wip/local 0b155b2 (on main@32c0ad4): Phase-2 long-horizon benchmark LH-v1 (18 live cases: fixture mart/forms/webmail/wiki/bank sites, TextEdit/Finder/Numbers native cases, 2 online), seed data, graders, grader tests, pre-registered hypotheses H1-H8 in docs/phase2/LAB_NOTEBOOK.md. No ml/ or app/ changes. Graders are final-state, preconditions/setup check a clean Safari/TextEdit/Numbers/Finder, and hypotheses are written before results — good protocol. bench/tests/test_lh_graders.py 33 passed; evals/lh_v1_build.py regenerates lh_v1.jsonl byte-identically.
-New P1 architect-66: two native-case teardowns rm -f files in ~/Documents, ~/Desktop, ~/Downloads (and iCloud TextEdit) chosen by common file name + mtime newer than case start; reproduced deletion of a user todo.txt and a pre-existing invoice-0423.pdf with a temp HOME.
-Note: H5 (frontier claude planner) is diagnostic-only per the notebook; it must not be reported as an on-device result.
-Tests: ml/ unchanged since pass 101 (main 32c0ad4: 88 failed, 2199 passed).
-Open: P0 0, P1 24, P2 14. Re-checks from pass 101 stand (code unchanged).
+# architect digest - pass 103 (2026-10-26T04:05Z)
+Reviewed: main 32c0ad4 (unchanged); wip/local d714345 (local main 2f96add, not on origin/main): LH-v1 fixture server (stdlib, binds 127.0.0.1:8777), runner fields (named milestones, require_confirm, evidence screenshot before teardown, setup_failed skips), 32 training tasks (mart/mail/wiki only; different products, threads and quiz pages; forms, bank and native families held out), and checks that no longer launch an app (`if application is running then tell` launched TextEdit on macOS 27). Looks right. No cloud branch moved.
+Tests (Linux): bench/tests 1 failed, 329 passed — the failure (declined confirm-no-send ends 'ok') is pre-existing at 0b155b2 and comes from main's brain; filed under 63. Build scripts regenerate lh_v1.jsonl/lh_train.jsonl byte-identically. ml/ unchanged (88 failed at pass 101).
+Open: P0 0, P1 24, P2 14. No new findings. 66 re-run: still deletes user files. 63 updated.
 
 ## Open P0/P1 (ranked)
 1. architect-63: wip suite red (88) and hangs; Premiere confirm-timeout safety tests among them.
