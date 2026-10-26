@@ -1,4 +1,4 @@
-# ux digest — pass 98
+# ux digest — pass 99
 
 Heads: main 2de65a9, wip 73f8136, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
 
@@ -64,3 +64,6 @@ Highest-leverage next moves:
 
 ## Pass 98
 - main merged wip. The deployed planner is base 4B in tools mode: 1024 thinking tokens and an OCR every turn, one action per turn (ux-31). Time it. ux-32 resolved. ux-34 is still the top fix.
+
+## Pass 99
+- wip adds only the long-horizon bench and fixtures; nothing user-facing. No change.
