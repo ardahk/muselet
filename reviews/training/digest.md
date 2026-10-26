@@ -1,6 +1,6 @@
-# training lane digest — pass 102 (main 32c0ad4)
+# training lane digest — pass 103 (main 32c0ad4)
 
-Open: 1 P0, 19 P1, 19 P2. New: training-62 (P2, LH-v1 tune=test, jazz case covered by few-shot). Top: training-54, training-61, training-59.
+Open: 1 P0, 19 P1, 19 P2. No new findings; training-62 updated (lh_train shares site and flow with 11/18 LH-v1 cases). Top: training-54, training-61, training-59.
 
 ## Ranked open P0/P1
 1. training-54 P0 — argfix.py wording copied from HobbyLM sealed r4 (D04-D06 not held out). Outside the training lane.
