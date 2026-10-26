@@ -1,9 +1,9 @@
 {
-  "pass": 102,
-  "ts": "2026-10-25T15:35:16Z",
+  "pass": 103,
+  "ts": "2026-10-26T03:41:01Z",
   "last_reviewed": {
     "main": "32c0ad4",
-    "wip/local": "69261f5",
+    "wip/local": "0b155b2",
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
     "cloud/bench": "f584cb2",
@@ -99,6 +99,6 @@
     "cloud/native-tools": "6053e4e",
     "cloud/ui-progress": "a66166b"
   },
-  "next_id": 61,
-  "note": "pass 102: main 32c0ad4 lands the local-main chain (de6319c..891d95c, fe3f559 docs, 32c0ad4 reconcile) previously reviewed on wip passes 94-101; -57 expect-strip and -59 engine deletion now on main; -60 repoll half fixed -> P2. wip/local 69261f5 = main content (no diff)."
+  "next_id": 63,
+  "note": "pass 103: main unchanged. wip/local 0b155b2 adds LH-v1 long-horizon suite (18 cases), fixture seed/graders, Phase-2 research + pre-registered H1-H8. Verified: Starbucks total 30.15 (5 rows, pages 1x2/2x1/3x2), cheapest whole bean = beans-breakfast by price and per oz, latest Jon Snow mail m11, Ines Calder born 1742, Varn 401 m > Oskel 1270 ft, lh-yt-jazz checks watch URL + 'jazz' in URL/title. New -61 (server missing), -62 (taller grader)."
 }
