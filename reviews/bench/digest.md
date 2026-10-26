@@ -1,6 +1,6 @@
-# bench digest — pass 99 (2026-10-25T15:40Z, main@32c0ad4)
+# bench digest — pass 100 (2026-10-26T03:45Z, main@32c0ad4)
 
-P0: 0 | open P1: 15 | open P2: 27
+P0: 0 | open P1: 16 | open P2: 28
 
 Ranked open P1:
 1. bench-44 LoRA planner shipped (efd2f3f) on uncommitted numbers. Pooled .731 vs .647; most of the gain is on v2-ho, whose screens were in training.
@@ -169,3 +169,16 @@ Next moves (pass 99):
 3. Competitor runs: ROUTER=it2, with the router/planner/env recorded per row (bench-36).
 4. Fix the stale finance rows/hint (bench-61); put route_v1_clean .922 next to .945 (bench-58).
 5. Fix bench-42 before the next acceptance run.
+
+Pass 100: main is unchanged. wip/local 0b155b2 adds Phase 2 LH-v1 (18 live long-horizon cases, fixture server, graders, lab notebook with pre-registered H1-H8). The design is good: final-state grading, reset per case, Safari/TextEdit/Numbers-not-running preconditions, fictional wiki facts.
+- NEW bench-64 (P1): run_live.py ignores require_confirm, forbid and milestones. With confirm_reply=True, checkout and mail cases pass without ever asking to confirm.
+- NEW bench-65 (P2): the Starbucks total regex is unanchored; wiki-taller rejects a correct sentence answer.
+- bench-62 evidence: THINK_BUDGET=1024 is hardcoded in tools mode, and the notebook reports a 12-turn/60 s cap.
+- H5 (frontier planner) is a paid-API control. Keep its rows out of any Muselet/on-device table.
+
+Next moves (pass 100):
+1. Make run_live enforce require_confirm/forbid/milestones before any LH-v1 run (bench-64).
+2. Fix the two graders and add tests (bench-65).
+3. Measure the deployed planner on LH-v1 + holdouts, and record THINK_BUDGET and the caps per row (bench-62).
+4. Finish and triage the full pytest run (bench-63).
+5. Competitor runs: ROUTER=it2 recorded per row (bench-36); fix bench-42 before the next acceptance run.
