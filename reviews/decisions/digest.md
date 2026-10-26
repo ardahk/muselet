@@ -1,6 +1,6 @@
-# decisions — digest (pass 87)
+# decisions — digest (pass 88)
 
-Heads: main 32c0ad4 (= wip 69261f5; finance-engine deletion, planner prompt rewrite and deployed-override docs landed under a recorded user override). New P1 decisions-49: full suite incomplete with untriaged failures (REPORT). -48 down to P2 (deployed base-4B tools config unmeasured); -43 superseded by user override; -41 still open. cool-tasks cfbec49 (-42 blocks). Counts: 0 P0, 14 P1, 17 P2.
+Heads: main 32c0ad4 (unchanged), wip 0b155b2 (phase 2: LH-v1 18-case live suite + fixture graders + pre-registered H1-H8). New P2 decisions-50: lh_v1 and its fixture entities are not in any decontam gate before the H7 LoRA, and n=32 runs (±17 pts) can't resolve the 5-15 pt decision rules without paired analysis. -48 updated: THINK is a no-op in tools mode (THINK_BUDGET hardcoded) and the 12-turn/60 s cap binds. cool-tasks cfbec49 (-42 blocks). Counts: 0 P0, 14 P1, 18 P2.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
