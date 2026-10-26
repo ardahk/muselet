@@ -1,6 +1,6 @@
-# hands — digest (Pass 100)
+# hands — digest (Pass 101)
 
-Open: 0 P0, 8 P1, 23 P2.
+Open: 0 P0, 8 P1, 24 P2.
 
 Ranked open P0/P1:
 -1. P1 hands-38 (main e2f7e5e via a615f00, ClockAX.swift:523-552): the Clock cancel falls back to `live.first` and presses a stale detail-pane Cancel after a fixed 80 ms. It can cancel a user's own Clock timer and still report success. Fix before the demo.
@@ -15,6 +15,11 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 101 (wip/local d714345: LH-v1 committed — 21f0832 runner, 73f18de fixture server, 2f96add suite + train tasks):
+- hands-53 still present (build.py:213, 260).
+- New P2 hands-55: the training tasks reuse the mart/mail/wiki eval templates on the same site, so only forms/bank/native measure transfer.
+- Good: the fixture server binds 127.0.0.1 and is stdlib-only. The runner now skips with setup_failed:* instead of running on a bad setup, and adds milestones, require_confirm and evidence shots.
 
 Pass 100 (wip/local 0b155b2: LH-v1 long-horizon suite + fixture sites, phase-2 notebook; no app/brain code):
 - New P1 hands-53: two LH-v1 teardowns delete common file names (groceries.*, todo.txt, manual.pdf, …) from the user's real Documents/Desktop/Downloads by mtime.
