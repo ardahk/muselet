@@ -1,3 +1,14 @@
+# Brain lane review: pass 101 (2026-10-26T04:05Z)
+
+Open: P0 0, P1 16, P2 33. No new findings.
+
+## Branches
+- main 32c0ad4 and cloud/cool-tasks cfbec49: unchanged.
+- wip/local d714345: LH-v1 fixture server, runner fields, graders and 32 training-only tasks (bench/, evals/ only); brain lane identical to main. Training wiki tasks share the eval wiki utterance template but use different quiz pages.
+
+## Tests
+wip 106 failed (18 MLX + 88 brain-77), 2295 passed; LH bench tests 86 passed. Review repros 77 / 53.
+
 # Brain lane review: pass 100 (2026-10-26T03:50Z)
 
 Open: P0 0, P1 16, P2 33. No new findings.
