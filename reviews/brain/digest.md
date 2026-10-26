@@ -1,3 +1,14 @@
+# Brain lane review: pass 100 (2026-10-26T03:50Z)
+
+Open: P0 0, P1 16, P2 33. No new findings.
+
+## Branches
+- main 32c0ad4 and cloud/cool-tasks cfbec49: unchanged.
+- wip/local 0b155b2: adds LH-v1 long-horizon bench fixtures, graders, 18 eval cases and phase-2 docs only; brain lane identical to main.
+
+## Tests
+wip 106 failed (18 MLX + 88 brain-77), 2295 passed; bench/tests/test_lh_graders.py 33 passed. Review repros 77 / 53.
+
 # Brain lane review: pass 99 (2026-10-25T15:45Z)
 
 Open: P0 0, P1 16, P2 33. No new findings; brain-79 resolved.
