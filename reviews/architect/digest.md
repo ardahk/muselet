@@ -1,7 +1,9 @@
-# architect digest - pass 101 (2026-10-25T15:50Z)
-Reviewed: main 32c0ad4 — local main pushed (de6319c..32c0ad4: finance/advisor engine deletion, planner prompt/defaults, AX-ref clicks, Numbers/Premiere fixes, recursive app discovery, docs reconcile). wip/local 69261f5 has the same tree as main. Docs now separate script defaults from a deployed override (base 4B native-tools planner, THINK=1024, RETRIEVAL_K=0, FEWSHOT=none, escalation off) and caveat historical numbers. No cloud branch moved.
-Tests (Linux, main 32c0ad4, --timeout=30, test_planner_think.py ignored): 88 failed, 2199 passed, 111 skipped, 2 xfailed — the red wip suite is now on main.
-Open: P0 0, P1 23, P2 14. No new findings. Resolved: 64 (LOAD_POLL_S used; AGENTS.md still says .25 s, code is 0.1). Updated: 63 (now on main), 61 (deployed config unmeasured), 45 (README route_v2 .945). Re-checked (ran): 62, 57, 58, 54.
+# architect digest - pass 102 (2026-10-26T03:55Z)
+Reviewed: main 32c0ad4 (unchanged); wip/local 0b155b2 (on main@32c0ad4): Phase-2 long-horizon benchmark LH-v1 (18 live cases: fixture mart/forms/webmail/wiki/bank sites, TextEdit/Finder/Numbers native cases, 2 online), seed data, graders, grader tests, pre-registered hypotheses H1-H8 in docs/phase2/LAB_NOTEBOOK.md. No ml/ or app/ changes. Graders are final-state, preconditions/setup check a clean Safari/TextEdit/Numbers/Finder, and hypotheses are written before results — good protocol. bench/tests/test_lh_graders.py 33 passed; evals/lh_v1_build.py regenerates lh_v1.jsonl byte-identically.
+New P1 architect-66: two native-case teardowns rm -f files in ~/Documents, ~/Desktop, ~/Downloads (and iCloud TextEdit) chosen by common file name + mtime newer than case start; reproduced deletion of a user todo.txt and a pre-existing invoice-0423.pdf with a temp HOME.
+Note: H5 (frontier claude planner) is diagnostic-only per the notebook; it must not be reported as an on-device result.
+Tests: ml/ unchanged since pass 101 (main 32c0ad4: 88 failed, 2199 passed).
+Open: P0 0, P1 24, P2 14. Re-checks from pass 101 stand (code unchanged).
 
 ## Open P0/P1 (ranked)
 1. architect-63: wip suite red (88) and hangs; Premiere confirm-timeout safety tests among them.
