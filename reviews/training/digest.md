@@ -1,6 +1,6 @@
-# training lane digest — pass 101 (main 32c0ad4)
+# training lane digest — pass 102 (main 32c0ad4)
 
-Open: 1 P0, 19 P1, 18 P2. New: training-61 (P1). training-55 raised to P1 (merged). Top: training-54, training-61, training-59.
+Open: 1 P0, 19 P1, 19 P2. New: training-62 (P2, LH-v1 tune=test, jazz case covered by few-shot). Top: training-54, training-61, training-59.
 
 ## Ranked open P0/P1
 1. training-54 P0 — argfix.py wording copied from HobbyLM sealed r4 (D04-D06 not held out). Outside the training lane.
@@ -18,4 +18,4 @@ Open: 1 P0, 19 P1, 18 P2. New: training-61 (P1). training-55 raised to P1 (merge
 2. Run sealed competitor sets with ROUTER=it2, or commit the it3 overlap report.
 3. Exempt Trash and scoped deletes from the pre-router refusal.
 4. Correct $0.84 to $5.84 in REPORT and claims; set HARD_WARN to $148.
-5. Report HobbyLM r4 without D04-D06.
+5. Split LH-v1 into tune/holdout before adopting H1-H4; add lh_v1 to evalcheck before H7 data.
