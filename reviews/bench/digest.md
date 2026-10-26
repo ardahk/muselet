@@ -1,6 +1,6 @@
-# bench digest — pass 100 (2026-10-26T03:45Z, main@32c0ad4)
+# bench digest — pass 101 (2026-10-26T03:58Z, main@32c0ad4)
 
-P0: 0 | open P1: 16 | open P2: 28
+P0: 0 | open P1: 15 | open P2: 29
 
 Ranked open P1:
 1. bench-44 LoRA planner shipped (efd2f3f) on uncommitted numbers. Pooled .731 vs .647; most of the gain is on v2-ho, whose screens were in training.
@@ -182,3 +182,15 @@ Next moves (pass 100):
 3. Measure the deployed planner on LH-v1 + holdouts, and record THINK_BUDGET and the caps per row (bench-62).
 4. Finish and triage the full pytest run (bench-63).
 5. Competitor runs: ROUTER=it2 recorded per row (bench-36); fix bench-42 before the next acceptance run.
+
+Pass 101: main is unchanged. wip/local d714345 adds the LH runner fields (21f0832), the fixture server (73f18de), and lh_train tasks (2f96add).
+- bench-64 RESOLVED: milestones and the require_confirm gate are now enforced. Correction: forbid was already enforced in harness/core.py.
+- bench-65 is unchanged (wiki_taller graders.py:123-129; unanchored Starbucks regex).
+- NEW bench-66 (P2): training tasks share the eval site, catalog and inbox, and some copy eval templates (tr-mart-13 vs lh-mart-checkout; coffee-filters; identical wiki utterances). Report LH-trained models as in-domain vs held-out (forms/bank/native).
+
+Next moves (pass 101):
+1. Fix the two graders (bench-65) before the first LH-v1 baseline.
+2. Measure the deployed planner on LH-v1 + holdouts, recording THINK_BUDGET and the caps (bench-62).
+3. Split in-domain vs held-out in every LH table; re-template tr-mart-13 (bench-66).
+4. Finish and triage the full pytest run (bench-63).
+5. Competitor runs: ROUTER=it2 recorded per row (bench-36); fix bench-42.
