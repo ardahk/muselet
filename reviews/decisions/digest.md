@@ -1,6 +1,6 @@
-# decisions — digest (pass 88)
+# decisions — digest (pass 89)
 
-Heads: main 32c0ad4 (unchanged), wip 0b155b2 (phase 2: LH-v1 18-case live suite + fixture graders + pre-registered H1-H8). New P2 decisions-50: lh_v1 and its fixture entities are not in any decontam gate before the H7 LoRA, and n=32 runs (±17 pts) can't resolve the 5-15 pt decision rules without paired analysis. -48 updated: THINK is a no-op in tools mode (THINK_BUDGET hardcoded) and the 12-turn/60 s cap binds. cool-tasks cfbec49 (-42 blocks). Counts: 0 P0, 14 P1, 18 P2.
+Heads: main 32c0ad4 (unchanged), wip d714345 (local main@2f96add: LH fixture server, runner false_done/require_confirm, 32 H7 train tasks). decisions-50 sharpened: train tasks share the eval seed mailbox/catalog, and seed m7 holds the lh-mail-offsite answer that train tr-mail-04/-09 trajectories will observe. -41: the harness now counts false_done (core.py:1169). cool-tasks cfbec49 (-42 blocks). Counts: 0 P0, 14 P1, 18 P2.
 Contamination re-check this pass: 2400 freshly generated code-family items vs JevBench public (231, pinned 609a664) + TD test (pinned 80cb93a): 0 word-13-gram hits. Authored rows / HF v1 data not re-checkable (private, HTTP 401).
 
 ## Open P0/P1 (ranked)
