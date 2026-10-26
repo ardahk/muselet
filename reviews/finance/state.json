@@ -1,7 +1,7 @@
 {
   "lane": "finance",
-  "pass": 99,
-  "ts": "2026-10-26T03:39:38Z",
+  "pass": 100,
+  "ts": "2026-10-26T03:54:56Z",
   "last_reviewed": {
     "cloud/advisor": "9432c30",
     "cloud/advisor-2": "0a65f75",
@@ -49,7 +49,7 @@
     "cloud/report-2": "3c25e78",
     "cloud/w9-safety": "6aa332a",
     "main": "32c0ad4",
-    "wip/local": "0b155b2",
+    "wip/local": "d714345",
     "cloud/memory": "a8af560",
     "cloud/memory-eval": "c05944e",
     "devin/1792872486-data-route-handoff": "seen",
@@ -102,6 +102,6 @@
     "cloud/ui-progress": "a66166b"
   },
   "next_id": 38,
-  "notes": "pass99: main 32c0ad4 unchanged. wip 0b155b2 adds lh_v1 long-horizon suite incl. lh-numbers-budget (grader ok). finance-37 P0 still open (devpost/REPORT/claims stale).",
+  "notes": "pass100: main 32c0ad4 unchanged. wip d714345 LH runner/fixture server/train tasks; Numbers grader per-bundle-id gating OK. finance-37 P0 still open.",
   "timestamp": "2026-10-25T05:37:35Z"
 }

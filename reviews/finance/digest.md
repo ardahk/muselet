@@ -1,4 +1,6 @@
-# finance digest (Pass 99, 2026-10-26; main 32c0ad4; wip 0b155b2; P0 1, P1 2, P2 4)
+# finance digest (Pass 100, 2026-10-26; main 32c0ad4; wip d714345; P0 1, P1 2, P2 4)
+
+Pass 100: no change to finance-37 (P0). wip d714345 adds LH runner, web fixture server, lh_train tasks; Numbers grader now gates each bundle ID in shell (sound). Still no receipts case (finance-32).
 
 > Pass 99: no change to finance-37 (devpost/REPORT/claims still stale on main and wip). wip 0b155b2 adds lh-numbers-budget (SUM grader via both Numbers bundle IDs; fine) but no receipts case (finance-32).
 > Pass 98: engine removal (a2004d9) is on main 32c0ad4 under a user override recorded in AGENTS.md; finance-36 accepted. NEW P0 finance-37: pitch/devpost.md:28-33,52-54, docs/REPORT.md:295-296 and pitch/claims.md:190-193,221 still claim deterministic Decimal engines / 'model never does arithmetic' and cite deleted files; README.md:16 and REPORT.md:11 already say AI-planned. Fix before 16:00Z submission. Closed as moot: 15, 17, 23, 24, 25, 28, 31, 33. Fixed: 27. Still open and now the only guard on finance results: 34 (finish criteria), 30 (verified-done context), 32 (no receipts acceptance case).
