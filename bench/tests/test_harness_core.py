@@ -143,7 +143,8 @@ def test_restore_set_and_teardown_run_when_setup_fails(tmp_path):
         result = await run_case(
             case, runtime, values={}, trace_path=tmp_path / "traces.jsonl"
         )
-        assert result["status"] == "failed"
+        assert result["status"] == "skipped"
+        assert result["skip_reason"] == "setup_failed:0"
         script_codes = [call[2] for call in runtime.calls if call[0] == "script"]
         assert script_codes == ["get value", "broken setup", "cleanup", "set value ok"]
         assert not any(call[0] == "utterance" for call in runtime.calls)

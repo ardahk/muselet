@@ -311,6 +311,7 @@ def test_new_suite_loads_and_dry_run_lists_turns(capsys):
     assert "Notes" in rows["notes-template"]["document_apps"]
     assert _step_order({"utterance": "x"}) == [
         "session: hands probe session (skip if locked/asleep)", "utterance", "poll-checks", "final-checks",
+        "evidence-shot",
     ]
 
 

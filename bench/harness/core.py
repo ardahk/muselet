@@ -418,6 +418,43 @@ def _agent_reported_ms(trace: dict[str, Any] | None, capture: dict[str, Any]) ->
     return reported
 
 
+def _count_brain_actions(capture: dict[str, Any] | None) -> int:
+    """Act/skill RPCs the brain sent during the case.
+
+    Observation RPCs (observe/screenshot/ocr/verify) are other methods and never
+    counted; `act` op `ocr` is excluded like the first-action clock; harness
+    scripts (`bench-*` ids) never come from the brain anyway but are excluded.
+    """
+    count = 0
+    for item in (capture or {}).get("frames", []):
+        if not isinstance(item, dict) or item.get("direction") != "brain_to_hands":
+            continue
+        frame = item.get("frame")
+        if not isinstance(frame, dict) or frame.get("t") != "rpc":
+            continue
+        if str(frame.get("id", "")).startswith("bench-"):
+            continue
+        method = frame.get("method")
+        if method not in ("act", "skill"):
+            continue
+        params = frame.get("params")
+        if method == "act" and str(
+            (params if isinstance(params, dict) else {}).get("op", "")
+        ).casefold() == "ocr":
+            continue
+        count += 1
+    return count
+
+
+def _planner_turn_count(trace: dict[str, Any] | None) -> int | None:
+    if not isinstance(trace, dict):
+        return None
+    return sum(
+        1 for item in trace.get("decisions", [])
+        if isinstance(item, dict) and "planner_turn" in item
+    )
+
+
 def _planner_actions(trace: dict[str, Any] | None) -> list[dict[str, Any]]:
     actions = []
     for decision in (trace or {}).get("decisions", []):
@@ -898,8 +935,9 @@ async def run_case(
         return result
 
     setup_error = None
+    setup_skip_reason: str | None = None
     setup_timeout: HarnessTimeout | None = None
-    for item in case.get("restore", []):
+    for index, item in enumerate(case.get("restore", [])):
         try:
             observed = await runtime.run_script("applescript", str(item["get"]))
             value = _output_text(observed)
@@ -911,12 +949,14 @@ async def run_case(
         except Exception as exc:
             result["restore_observations"].append({"get": item.get("get"), "error": str(exc)})
             setup_error = setup_error or f"restore-get failed: {exc}"
-    for step in case.get("setup", []):
+            setup_skip_reason = setup_skip_reason or f"setup_failed:restore_get:{index}"
+    for index, step in enumerate(case.get("setup", [])):
         if setup_timeout:
             break
         lang = next((key for key in _SCRIPT_LANGS if key in step), None)
         if lang is None:
             setup_error = setup_error or f"unsupported setup step: {step!r}"
+            setup_skip_reason = setup_skip_reason or f"setup_failed:{index}"
             continue
         try:
             script_result = await runtime.run_script(lang, str(step[lang]))
@@ -927,6 +967,7 @@ async def run_case(
         except Exception as exc:
             result["setup_observations"].append({"step": step, "error": str(exc)})
             setup_error = setup_error or f"setup failed: {exc}"
+            setup_skip_reason = setup_skip_reason or f"setup_failed:{index}"
 
     if document_apps:
         try:
@@ -949,6 +990,7 @@ async def run_case(
                 setup_timeout = exc
             else:
                 setup_error = f"before-utterance setup failed: {exc}"
+                setup_skip_reason = setup_skip_reason or "setup_failed:before_utterance"
 
     trace: dict[str, Any] | None = None
     try:
@@ -1049,6 +1091,32 @@ async def run_case(
             })
             forbids = await evaluate_predicates(case.get("forbid", []), runtime, check_context)
             result["forbid_observations"] = forbids
+            milestone_predicates = case.get("milestones") or []
+            if milestone_predicates:
+                milestone_rows = await evaluate_predicates(
+                    milestone_predicates, runtime, check_context
+                )
+                result["milestones"] = [
+                    {
+                        "name": (
+                            str(item["name"])
+                            if isinstance(item, dict) and item.get("name") is not None
+                            else None
+                        ),
+                        "passed": bool(observation.get("passed")),
+                        "actual": observation.get("actual"),
+                        **(
+                            {"error": observation["error"]}
+                            if observation.get("error")
+                            else {}
+                        ),
+                    }
+                    for item, observation in zip(milestone_predicates, milestone_rows)
+                ]
+                result["milestone_frac"] = (
+                    sum(row["passed"] for row in result["milestones"])
+                    / len(result["milestones"])
+                )
             outcome_ok = outcome_matches(case.get("expect_outcome"), trace, capture)
             if (
                 verified_latency is None
@@ -1068,6 +1136,10 @@ async def run_case(
                 and not capture.get("confirm_asked_unexpectedly", False)
                 and not capture.get("safety_blocked", False)
                 and result.get("turns_ok", True)
+                and (
+                    not case.get("require_confirm")
+                    or int(capture.get("confirm_count", 0) or 0) >= 1
+                )
             )
             result.update({
                 "status": "passed" if strict_pass else "failed",
@@ -1086,6 +1158,9 @@ async def run_case(
                 ),
                 "first_action_latency_s": first_action_latency,
                 "verified_latency_s": verified_latency,
+                "n_actions": _count_brain_actions(capture),
+                "planner_turns": _planner_turn_count(trace),
+                "require_confirm": bool(case.get("require_confirm")),
                 "confirm_count": capture.get("confirm_count", 0),
                 "confirm_cancelled": capture.get("confirm_cancelled", False),
                 "confirm_asked_unexpectedly": capture.get("confirm_asked_unexpectedly", False),
@@ -1095,7 +1170,8 @@ async def run_case(
             })
         else:
             result["setup_error"] = setup_error
-            result["status"] = "failed"
+            result["status"] = "skipped"
+            result["skip_reason"] = setup_skip_reason or "setup_failed"
             result["strict_pass"] = False
             await runtime.prepare_for_cleanup()
     except HarnessTimeout as exc:
@@ -1117,6 +1193,19 @@ async def run_case(
         def note_timeout(exc: HarnessTimeout) -> None:
             nonlocal timeout_slot_held
             timeout_slot_held = _mark_harness_timeout(result, exc)
+
+        before_teardown = case.get("before_teardown")
+        if callable(before_teardown):
+            try:
+                hook_result = before_teardown(runtime, result)
+                if inspect.isawaitable(hook_result):
+                    await hook_result
+            except HarnessTimeout as exc:
+                note_timeout(exc)
+                if timeout_slot_held:
+                    return await abort_held_slot()
+            except Exception as exc:
+                result["evidence_error"] = str(exc)
 
         document_pre_teardown: dict[str, dict] | None = None
         if document_apps:
@@ -1407,7 +1496,32 @@ def _report_math_section(records: list[dict[str, Any]], repeats: int = 1) -> dic
             }),
         },
         "latency_by_kind": latency_by_kind,
+        "milestone_frac_mean": _mean(
+            float(row["milestone_frac"]) for row in executed
+            if row.get("milestone_frac") is not None
+        ),
+        "medians": {
+            "latency_s": _percentile(
+                [
+                    float(row["utterance_latency_s"]) for row in executed
+                    if row.get("utterance_latency_s") is not None
+                ],
+                0.5,
+            ),
+            "n_actions": _percentile(
+                [
+                    float(row["n_actions"]) for row in executed
+                    if row.get("n_actions") is not None
+                ],
+                0.5,
+            ),
+        },
     }
+
+
+def _mean(values) -> float | None:
+    values = list(values)
+    return sum(values) / len(values) if values else None
 
 
 def report_math(records: list[dict[str, Any]], repeats: int = 1) -> dict[str, Any]:
