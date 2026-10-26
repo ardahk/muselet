@@ -1,6 +1,6 @@
-# hands — digest (Pass 99)
+# hands — digest (Pass 100)
 
-Open: 0 P0, 7 P1, 22 P2.
+Open: 0 P0, 8 P1, 23 P2.
 
 Ranked open P0/P1:
 -1. P1 hands-38 (main e2f7e5e via a615f00, ClockAX.swift:523-552): the Clock cancel falls back to `live.first` and presses a stale detail-pane Cancel after a fixed 80 ms. It can cancel a user's own Clock timer and still report success. Fix before the demo.
@@ -15,6 +15,12 @@ Next moves (max 5):
 3. hands-26: send `expect` with `act` and drop the extra verify when expect_ok is present.
 4. hands-35: wait for the Go-to-folder sheet before typing in the Premiere import, and fail when OCR finds no footage name.
 5. hands-33: when ax.pressed, call clockAXRead() once before starting the Muselet fallback.
+
+Pass 100 (wip/local 0b155b2: LH-v1 long-horizon suite + fixture sites, phase-2 notebook; no app/brain code):
+- New P1 hands-53: two LH-v1 teardowns delete common file names (groceries.*, todo.txt, manual.pdf, …) from the user's real Documents/Desktop/Downloads by mtime.
+- New P2 hands-54: 'not running' preconditions don't block restored user windows/tabs on relaunch.
+- Otherwise the suite design is good: local fixture sites with reset, case-owned sandbox, graders with milestones, Safari/TextEdit/Numbers 'not running' preconditions.
+- The notebook confirms hands-52 concerns: the deployed tools planner has a hardcoded 1024 think budget, 1 action/turn, 12 turns/60 s cap, and users cancelled the Premiere task ~25x.
 
 Pass 99 (main 32c0ad4 = wip/local code; merges everything reviewed in passes 92-98):
 - Code is identical to the reviewed wip (73f8136); only AGENTS.md, docs and pitch changed.
