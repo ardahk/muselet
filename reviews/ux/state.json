@@ -1,9 +1,9 @@
 {
-  "pass": 99,
-  "ts": "2026-10-26T03:45:00Z",
+  "pass": 100,
+  "ts": "2026-10-26T04:00:00Z",
   "last_reviewed": {
     "main": "32c0ad4",
-    "wip/local": "0b155b2",
+    "wip/local": "d714345",
     "cloud/data-pipeline": "830ba35",
     "cloud/fixtures-docs": "4bf2291",
     "cloud/finance": "529e9ff",
@@ -99,5 +99,5 @@
     "cloud/cool-tasks": "cfbec49",
     "cloud/native-tools": "6053e4e"
   },
-  "notes": "pass 99: only wip moved (0b155b2). It adds a long-horizon bench (evals/lh_v1, bench/fixtures seed and graders, phase-2 notes); nothing user-facing, so it is out of the UX lane. No new findings. Open on main 32c0ad4: ux-34, ux-31, ux-28 (P1), ux-35, ux-36 and others (P2)."
+  "notes": "pass 100: only wip moved (d714345 on 2f96add). It adds the LH-v1 bench runner, a local web fixture server, graders and training tasks; nothing user-facing, so it is out of the UX lane. No new findings. Open on main 32c0ad4: ux-34, ux-31, ux-28 (P1), ux-35, ux-36 and others (P2)."
 }

@@ -1,4 +1,4 @@
-# ux digest — pass 99
+# ux digest — pass 100
 
 Heads: main 2de65a9, wip 73f8136, design-polish bf4ae64, hands-clock 6ab40be, memory a8af560, memory-lt 4794e8a.
 
@@ -67,3 +67,6 @@ Highest-leverage next moves:
 
 ## Pass 99
 - wip adds only the long-horizon bench and fixtures; nothing user-facing. No change.
+
+## Pass 100
+- wip adds only bench/eval infrastructure. No change.
